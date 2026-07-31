@@ -24,12 +24,37 @@
       },
       "package": "family.forever.app"
     },
-    "plugins": ["expo-router", "expo-secure-store"],
+    "plugins": [
+      "expo-router",
+      "expo-secure-store",
+      "expo-asset",
+      "expo-font",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Forever cần ảnh để lưu vào thư viện ký ức gia đình."
+        }
+      ],
+      [
+        "expo-av",
+        {
+          "microphonePermission": "Forever cần micro để ghi voice note Time-Capsule."
+        }
+      ],
+      "expo-web-browser"
+    ],
     "experiments": {
       "typedRoutes": true
     },
     "extra": {
-      "apiUrl": "http://localhost:8000"
+      "apiUrl": "http://localhost:8001",
+      "authDev": true,
+      "firebaseApiKey": "",
+      "firebaseAuthDomain": "",
+      "firebaseProjectId": "",
+      "firebaseAppId": "",
+      "firebaseMessagingSenderId": "",
+      "googleWebClientId": ""
     }
   }
 }

@@ -7,8 +7,9 @@ from fastapi.responses import JSONResponse
 
 from .config import get_settings
 from .db import Base, SessionLocal, engine
-from .routers import auth, messages, spaces, threads
-from .seed import seed_if_empty
+from .routers import auth, interviews, memories, messages, spaces, stewardship, threads
+from .schema_patch import ensure_schema
+from .seed import seed_if_empty, seed_interview_prompts
 
 settings = get_settings()
 Path(settings.upload_dir).mkdir(parents=True, exist_ok=True)
@@ -42,12 +43,15 @@ async def validation_exception_handler(_request: Request, exc: RequestValidation
 @app.on_event("startup")
 def on_startup() -> None:
     Base.metadata.create_all(bind=engine)
-    if settings.seed_demo:
-        db = SessionLocal()
-        try:
+    ensure_schema()
+    db = SessionLocal()
+    try:
+        if settings.seed_demo:
             seed_if_empty(db)
-        finally:
-            db.close()
+        else:
+            seed_interview_prompts(db)
+    finally:
+        db.close()
 
 
 @app.get("/health")
@@ -57,5 +61,8 @@ def health():
 
 app.include_router(auth.router)
 app.include_router(spaces.router)
+app.include_router(stewardship.router)
 app.include_router(threads.router)
 app.include_router(messages.router)
+app.include_router(memories.router)
+app.include_router(interviews.router)

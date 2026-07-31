@@ -7,5 +7,5 @@ python3 -m venv .venv
 .venv/bin/pip install -r requirements.txt
 cp .env.example .env
 # start Postgres: docker compose up -d db  (from repo root)
-.venv/bin/uvicorn app.main:app --reload --port 8000
+.venv/bin/uvicorn app.main:app --reload --host 0.0.0.0 --port 8001
 ```

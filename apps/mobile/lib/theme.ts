@@ -10,6 +10,7 @@ export const colors = {
   line: "rgba(28, 36, 31, 0.12)",
   bubbleMine: "#2d4a3e",
   bubbleTheirs: "#ffffff",
+  bubbleAgent: "#eef4f0",
   danger: "#8b3a3a",
 };
 

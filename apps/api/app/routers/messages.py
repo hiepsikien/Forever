@@ -12,6 +12,7 @@ from ..access import require_membership
 from ..auth import get_current_user
 from ..db import get_db
 from ..models import Message, Thread, User
+from ..services.agent import maybe_reply, sender_display_name, sender_handle
 
 router = APIRouter(prefix="/api/threads", tags=["messages"])
 
@@ -20,13 +21,19 @@ class SendMessageBody(BaseModel):
     body: str = Field(min_length=1, max_length=8000)
 
 
-def _message_payload(message: Message, sender_name: str | None) -> dict:
+def _message_payload(
+    message: Message,
+    *,
+    sender_name: str | None,
+    handle: str | None,
+) -> dict:
     return {
         "id": message.id,
         "thread_id": message.thread_id,
         "sender_user_id": message.sender_user_id,
         "sender_kind": message.sender_kind,
         "sender_name": sender_name,
+        "sender_handle": handle,
         "body": message.body,
         "created_at": message.created_at.isoformat(),
     }
@@ -54,18 +61,23 @@ def list_messages(
     messages.reverse()
 
     user_ids = {m.sender_user_id for m in messages if m.sender_user_id}
-    names = {}
+    profiles: dict[str, User] = {}
     if user_ids:
         for row in db.query(User).filter(User.id.in_(user_ids)).all():
-            names[row.id] = row.name
+            profiles[row.id] = row
 
     return {
         "messages": [
             _message_payload(
                 m,
-                names.get(m.sender_user_id)
-                if m.sender_kind == "user"
-                else "Ký ức",
+                sender_name=sender_display_name(
+                    m.sender_kind,
+                    profiles[m.sender_user_id].name if m.sender_user_id in profiles else None,
+                ),
+                handle=sender_handle(
+                    m.sender_kind,
+                    profiles[m.sender_user_id].handle if m.sender_user_id in profiles else None,
+                ),
             )
             for m in messages
         ]
@@ -99,4 +111,11 @@ def send_message(
     db.add(message)
     db.commit()
     db.refresh(message)
-    return _message_payload(message, user.name)
+
+    maybe_reply(db, thread=thread, user_message=message)
+
+    return _message_payload(
+        message,
+        sender_name=user.name,
+        handle=user.handle,
+    )

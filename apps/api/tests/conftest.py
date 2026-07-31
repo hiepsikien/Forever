@@ -2,6 +2,8 @@ import os
 
 os.environ["AUTH_DEV_MODE"] = "true"
 os.environ["SEED_DEMO"] = "false"
+os.environ["AGENT_ENABLED"] = "true"
+os.environ["GEMINI_API_KEY"] = ""
 os.environ["DATABASE_URL"] = "sqlite+pysqlite:///:memory:"
 
 import pytest

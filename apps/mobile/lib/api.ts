@@ -8,13 +8,21 @@ function resolveBaseUrl(): string {
   const fromEnv = process.env.EXPO_PUBLIC_API_URL?.trim();
   if (fromEnv) return fromEnv;
 
+  // Prefer Expo packager LAN host so a physical phone can reach the API.
+  const hostUri =
+    Constants.expoConfig?.hostUri ||
+    Constants.expoGoConfig?.debuggerHost ||
+    // Legacy Expo Go / manifest fields
+    (Constants as { manifest?: { debuggerHost?: string } }).manifest?.debuggerHost;
+  const host = hostUri?.split(":")[0]?.trim();
+  if (host && host !== "localhost" && host !== "127.0.0.1") {
+    return `http://${host}:8001`;
+  }
+
   const extra = Constants.expoConfig?.extra as { apiUrl?: string } | undefined;
   if (extra?.apiUrl) return extra.apiUrl;
 
-  const host = Constants.expoConfig?.hostUri?.split(":")[0];
-  if (host) return `http://${host}:8000`;
-
-  return "http://localhost:8000";
+  return "http://localhost:8001";
 }
 
 export async function getStoredToken(): Promise<string | null> {

@@ -6,11 +6,15 @@ const workspaceRoot = path.resolve(projectRoot, "../..");
 
 const config = getDefaultConfig(projectRoot);
 
+// Watch monorepo packages (e.g. @forever/api-client) for Fast Refresh.
 config.watchFolders = [workspaceRoot];
+
+// Prefer the app's node_modules, then the repo root.
+// Keep hierarchical lookup ON so nested deps (e.g. react-native →
+// @react-native/virtualized-lists) still resolve.
 config.resolver.nodeModulesPaths = [
   path.resolve(projectRoot, "node_modules"),
   path.resolve(workspaceRoot, "node_modules"),
 ];
-config.resolver.disableHierarchicalLookup = true;
 
 module.exports = config;

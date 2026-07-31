@@ -116,6 +116,7 @@ def get_space(
             {
                 "id": member.id,
                 "name": member.name,
+                "handle": member.handle,
                 "email": member.email,
                 "role": m.role,
             }

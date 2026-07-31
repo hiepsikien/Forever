@@ -16,6 +16,11 @@ class Settings(BaseSettings):
     auth_dev_mode: bool = True
     auth_dev_secret: str = "forever-dev-secret-change-me"
 
+    agent_enabled: bool = True
+    gemini_api_key: str = ""
+    gemini_model: str = "gemini-3.5-flash"
+    gemini_api_base: str = "https://generativelanguage.googleapis.com/v1beta"
+
     @property
     def cors_origin_list(self) -> list[str]:
         return [origin.strip() for origin in self.cors_origins.split(",") if origin.strip()]

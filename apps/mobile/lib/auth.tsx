@@ -11,12 +11,14 @@ import React, {
 } from "react";
 
 import { createMobileApi, getStoredToken, setStoredToken } from "./api";
+import { firebaseSignOut, isFirebaseConfigured } from "./firebase";
 
 type AuthContextValue = {
   user: SessionUser | null;
   api: ForeverApi;
   loading: boolean;
-  signIn: (email: string, password: string, name?: string) => Promise<void>;
+  signInDev: (email: string, password: string, name?: string) => Promise<void>;
+  signInWithIdToken: (idToken: string) => Promise<void>;
   signOut: () => Promise<void>;
   refresh: () => Promise<void>;
 };
@@ -61,14 +63,26 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const signIn = async (email: string, password: string, name?: string) => {
+  const signInDev = async (email: string, password: string, name?: string) => {
     const res = await api.login(email, password, name);
     await setStoredToken(res.token);
     setToken(res.token);
     setUser(res.user);
   };
 
+  const signInWithIdToken = async (idToken: string) => {
+    await setStoredToken(idToken);
+    setToken(idToken);
+    const session = await createMobileApi(async () => idToken).establishSession();
+    setUser(session.user);
+  };
+
   const signOut = async () => {
+    try {
+      if (isFirebaseConfigured()) await firebaseSignOut();
+    } catch {
+      // ignore
+    }
     await setStoredToken(null);
     setToken(null);
     setUser(null);
@@ -78,7 +92,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     user,
     api,
     loading,
-    signIn,
+    signInDev,
+    signInWithIdToken,
     signOut,
     refresh,
   };

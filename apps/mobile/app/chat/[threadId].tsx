@@ -4,6 +4,7 @@ import { useLocalSearchParams } from "expo-router";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
+  Alert,
   FlatList,
   KeyboardAvoidingView,
   Platform,
@@ -17,6 +18,17 @@ import {
 import { useAuth } from "@/lib/auth";
 import { colors } from "@/lib/theme";
 
+function uniqueById(items: ChatMessage[]): ChatMessage[] {
+  const seen = new Set<string>();
+  const out: ChatMessage[] = [];
+  for (const item of items) {
+    if (seen.has(item.id)) continue;
+    seen.add(item.id);
+    out.push(item);
+  }
+  return out;
+}
+
 export default function ChatScreen() {
   const { threadId } = useLocalSearchParams<{ threadId: string }>();
   const { api, user } = useAuth();
@@ -25,7 +37,9 @@ export default function ChatScreen() {
   const [text, setText] = useState("");
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
+  const [spaceId, setSpaceId] = useState<string | null>(null);
   const listRef = useRef<FlatList<ChatMessage>>(null);
+  const sendingRef = useRef(false);
 
   const load = useCallback(async () => {
     if (!threadId) return;
@@ -35,7 +49,8 @@ export default function ChatScreen() {
         api.listMessages(threadId, { limit: 100 }),
       ]);
       navigation.setOptions({ title: thread.title });
-      setMessages(res.messages);
+      setSpaceId(thread.space_id);
+      setMessages(uniqueById(res.messages));
     } finally {
       setLoading(false);
     }
@@ -48,9 +63,10 @@ export default function ChatScreen() {
   useEffect(() => {
     if (!threadId) return;
     const timer = setInterval(async () => {
+      if (sendingRef.current) return;
       try {
         const res = await api.listMessages(threadId, { limit: 100 });
-        setMessages(res.messages);
+        setMessages(uniqueById(res.messages));
       } catch {
         // ignore poll errors
       }
@@ -62,16 +78,37 @@ export default function ChatScreen() {
     const body = text.trim();
     if (!body || !threadId || sending) return;
     setSending(true);
+    sendingRef.current = true;
     setText("");
     try {
-      const msg = await api.sendMessage(threadId, body);
-      setMessages((prev) => [...prev, msg]);
+      await api.sendMessage(threadId, body);
+      const res = await api.listMessages(threadId, { limit: 100 });
+      setMessages(uniqueById(res.messages));
       requestAnimationFrame(() => listRef.current?.scrollToEnd({ animated: true }));
     } catch {
       setText(body);
     } finally {
+      sendingRef.current = false;
       setSending(false);
     }
+  };
+
+  const saveToLibrary = (item: ChatMessage) => {
+    if (!spaceId || item.sender_kind === "agent") return;
+    Alert.alert("Lưu vào thư viện?", item.body.slice(0, 120), [
+      { text: "Huỷ", style: "cancel" },
+      {
+        text: "Lưu",
+        onPress: async () => {
+          try {
+            await api.memoryFromMessage(spaceId, item.id, "Từ Phòng khách");
+            Alert.alert("Đã lưu", "Tin nhắn đã vào Thư viện ký ức.");
+          } catch (e) {
+            Alert.alert("Lỗi", e instanceof Error ? e.message : "Không lưu được.");
+          }
+        },
+      },
+    ]);
   };
 
   if (loading) {
@@ -96,18 +133,46 @@ export default function ChatScreen() {
         onContentSizeChange={() => listRef.current?.scrollToEnd({ animated: false })}
         renderItem={({ item }) => {
           const mine = item.sender_user_id === user?.id;
+          const isAgent = item.sender_kind === "agent";
+          const isHeritage = item.sender_kind === "heritage";
           return (
-            <View style={[styles.row, mine ? styles.rowMine : styles.rowTheirs]}>
+            <Pressable
+              onLongPress={() => saveToLibrary(item)}
+              delayLongPress={350}
+              style={[styles.row, mine ? styles.rowMine : styles.rowTheirs]}
+            >
               {!mine ? (
-                <Text style={styles.sender}>{item.sender_name ?? "Thành viên"}</Text>
+                <Text
+                  style={[
+                    styles.sender,
+                    isAgent && styles.senderAgent,
+                    isHeritage && styles.senderHeritage,
+                  ]}
+                >
+                  {item.sender_name ?? (isAgent ? "Người giữ nhà" : "Thành viên")}
+                  {item.sender_handle ? (
+                    <Text style={styles.handle}> @{item.sender_handle}</Text>
+                  ) : isAgent ? (
+                    <Text style={styles.handle}> @giunhà</Text>
+                  ) : null}
+                </Text>
               ) : null}
-              <View style={[styles.bubble, mine ? styles.bubbleMine : styles.bubbleTheirs]}>
+              <View
+                style={[
+                  styles.bubble,
+                  mine && styles.bubbleMine,
+                  !mine && !isAgent && !isHeritage && styles.bubbleTheirs,
+                  isAgent && styles.bubbleAgent,
+                  isHeritage && styles.bubbleHeritage,
+                ]}
+              >
                 <Text style={[styles.body, mine && styles.bodyMine]}>{item.body}</Text>
               </View>
-            </View>
+            </Pressable>
           );
         }}
       />
+      <Text style={styles.hint}>Giữ tin nhắn để lưu vào thư viện</Text>
       <View style={styles.composer}>
         <TextInput
           value={text}
@@ -147,6 +212,19 @@ const styles = StyleSheet.create({
     marginBottom: 4,
     marginLeft: 4,
   },
+  handle: {
+    fontSize: 12,
+    color: colors.brandSoft,
+    fontWeight: "500",
+  },
+  senderAgent: {
+    color: colors.brandSoft,
+    fontWeight: "600",
+  },
+  senderHeritage: {
+    color: colors.accent,
+    fontWeight: "600",
+  },
   bubble: {
     borderRadius: 18,
     paddingHorizontal: 14,
@@ -158,8 +236,25 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.line,
   },
+  bubbleAgent: {
+    backgroundColor: colors.bubbleAgent,
+    borderWidth: 1,
+    borderColor: "rgba(45, 74, 62, 0.22)",
+    borderStyle: "dashed",
+  },
+  bubbleHeritage: {
+    backgroundColor: "#f7f1e6",
+    borderWidth: 1,
+    borderColor: "rgba(196, 165, 116, 0.45)",
+  },
   body: { fontSize: 16, lineHeight: 22, color: colors.ink },
   bodyMine: { color: "#f4efe6" },
+  hint: {
+    textAlign: "center",
+    fontSize: 12,
+    color: colors.inkSoft,
+    paddingBottom: 6,
+  },
   composer: {
     flexDirection: "row",
     alignItems: "flex-end",

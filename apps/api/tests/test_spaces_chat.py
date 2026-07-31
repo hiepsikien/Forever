@@ -33,7 +33,11 @@ def test_create_space_and_chat(client):
 
     msgs = client.get(f"/api/threads/{thread_id}/messages", headers=headers)
     assert msgs.status_code == 200
-    assert len(msgs.json()["messages"]) == 1
+    bodies = msgs.json()["messages"]
+    assert len(bodies) == 2
+    assert bodies[0]["body"] == "Xin chào cả nhà"
+    assert bodies[1]["sender_kind"] == "agent"
+    assert bodies[1]["sender_name"] == "Người giữ nhà"
 
     invite = client.post(f"/api/spaces/{space['id']}/invites", headers=headers)
     assert invite.status_code == 200
@@ -57,4 +61,4 @@ def test_create_space_and_chat(client):
     assert mother_msg.status_code == 200
 
     msgs = client.get(f"/api/threads/{thread_id}/messages", headers=headers)
-    assert len(msgs.json()["messages"]) == 2
+    assert len(msgs.json()["messages"]) == 4
