@@ -3,7 +3,8 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile
+from fastapi.responses import FileResponse
 from nanoid import generate
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
@@ -13,8 +14,10 @@ from ..auth import get_current_user
 from ..db import get_db
 from ..models import Message, Thread, User
 from ..services.agent import maybe_reply, sender_display_name, sender_handle
+from ..services.storage import absolute_media_path, save_upload
 
 router = APIRouter(prefix="/api/threads", tags=["messages"])
+media_router = APIRouter(prefix="/api/messages", tags=["messages"])
 
 
 class SendMessageBody(BaseModel):
@@ -27,6 +30,7 @@ def _message_payload(
     sender_name: str | None,
     handle: str | None,
 ) -> dict:
+    kind = getattr(message, "kind", None) or "text"
     return {
         "id": message.id,
         "thread_id": message.thread_id,
@@ -34,9 +38,20 @@ def _message_payload(
         "sender_kind": message.sender_kind,
         "sender_name": sender_name,
         "sender_handle": handle,
+        "kind": kind,
         "body": message.body,
+        "has_media": bool(getattr(message, "media_path", None)),
+        "media_mime": getattr(message, "media_mime", None),
         "created_at": message.created_at.isoformat(),
     }
+
+
+def preview_body(message: Message) -> str:
+    kind = getattr(message, "kind", None) or "text"
+    text = (message.body or "").strip()
+    if kind == "voice":
+        return text or "[Giọng nói]"
+    return text
 
 
 @router.get("/{thread_id}/messages")
@@ -105,7 +120,10 @@ def send_message(
         thread_id=thread_id,
         sender_user_id=user.id,
         sender_kind="user",
+        kind="text",
         body=text,
+        media_path=None,
+        media_mime=None,
         created_at=datetime.now(timezone.utc),
     )
     db.add(message)
@@ -118,4 +136,69 @@ def send_message(
         message,
         sender_name=user.name,
         handle=user.handle,
+    )
+
+
+@router.post("/{thread_id}/messages/voice")
+async def send_voice_message(
+    thread_id: str,
+    user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[Session, Depends(get_db)],
+    file: UploadFile = File(...),
+    body: str = Form(default=""),
+):
+    thread = db.query(Thread).filter(Thread.id == thread_id).one_or_none()
+    if not thread:
+        raise HTTPException(status_code=404, detail="Thread not found.")
+    require_membership(db, space_id=thread.space_id, user=user)
+
+    relative, mime = save_upload(thread.space_id, file)
+    if not mime.startswith("audio/"):
+        raise HTTPException(status_code=400, detail="Voice message must be an audio file.")
+
+    caption = (body or "").strip()[:8000]
+    message = Message(
+        id=generate(),
+        thread_id=thread_id,
+        sender_user_id=user.id,
+        sender_kind="user",
+        kind="voice",
+        body=caption,
+        media_path=relative,
+        media_mime=mime,
+        created_at=datetime.now(timezone.utc),
+    )
+    db.add(message)
+    db.commit()
+    db.refresh(message)
+
+    maybe_reply(db, thread=thread, user_message=message)
+
+    return _message_payload(
+        message,
+        sender_name=user.name,
+        handle=user.handle,
+    )
+
+
+@media_router.get("/{message_id}/media")
+def get_message_media(
+    message_id: str,
+    user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[Session, Depends(get_db)],
+):
+    message = db.query(Message).filter(Message.id == message_id).one_or_none()
+    if not message or not message.media_path:
+        raise HTTPException(status_code=404, detail="Media not found.")
+    thread = db.query(Thread).filter(Thread.id == message.thread_id).one_or_none()
+    if not thread:
+        raise HTTPException(status_code=404, detail="Thread not found.")
+    require_membership(db, space_id=thread.space_id, user=user)
+    path = absolute_media_path(message.media_path)
+    if not path.exists():
+        raise HTTPException(status_code=404, detail="Media file missing.")
+    return FileResponse(
+        path,
+        media_type=message.media_mime or "application/octet-stream",
+        filename=path.name,
     )

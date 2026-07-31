@@ -14,7 +14,7 @@ from ..access import require_membership
 from ..auth import get_current_user
 from ..db import get_db
 from ..models import MemoryItem, Message, Thread, User
-from ..services.storage import absolute_media_path, save_upload
+from ..services.storage import absolute_media_path, copy_media, save_upload
 
 router = APIRouter(tags=["memories"])
 
@@ -182,15 +182,33 @@ def memory_from_message(
         raise HTTPException(status_code=400, detail="Message is not in this space.")
 
     now = datetime.now(timezone.utc)
+    msg_kind = getattr(message, "kind", None) or "text"
+    media_path = None
+    media_mime = None
+    if msg_kind == "voice":
+        if not message.media_path:
+            raise HTTPException(status_code=400, detail="Voice message has no media.")
+        media_path = copy_media(space_id, message.media_path)
+        media_mime = message.media_mime
+        kind = "voice"
+        title = (body.title or "").strip() or "Giọng nói từ Phòng khách"
+        note_body = (message.body or "").strip() or "Voice note từ chat"
+    else:
+        kind = "note"
+        title = (body.title or "").strip() or "Từ Phòng khách"
+        note_body = message.body
+        if not (note_body or "").strip():
+            raise HTTPException(status_code=400, detail="Message has no text to save.")
+
     item = MemoryItem(
         id=generate(),
         space_id=space_id,
         created_by=user.id,
-        kind="note",
-        title=(body.title or "").strip() or "Từ Phòng khách",
-        body=message.body,
-        media_path=None,
-        media_mime=None,
+        kind=kind,
+        title=title,
+        body=note_body,
+        media_path=media_path,
+        media_mime=media_mime,
         source_message_id=message.id,
         tags="from-chat",
         occurred_at=message.created_at or now,

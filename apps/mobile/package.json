@@ -5,20 +5,24 @@
   "main": "expo-router/entry",
   "scripts": {
     "start": "expo start",
-    "android": "expo start --android",
-    "ios": "expo start --ios",
+    "android": "expo run:android",
+    "ios": "expo run:ios",
     "web": "expo start --web",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "android:keystore": "bash scripts/ensure-keystore.sh",
+    "android:apk": "bash scripts/build-apk.sh"
   },
   "dependencies": {
     "@expo/metro-runtime": "~6.1.2",
     "@forever/api-client": "file:../../packages/api-client",
     "@react-native-async-storage/async-storage": "2.2.0",
+    "@react-native-google-signin/google-signin": "^16.1.4",
     "@react-native/virtualized-lists": "^0.81.5",
     "expo": "~54.0.0",
     "expo-asset": "~12.0.13",
+    "expo-audio": "~1.1.1",
     "expo-auth-session": "~7.0.11",
-    "expo-av": "~16.0.8",
+    "expo-build-properties": "~1.0.10",
     "expo-constants": "~18.0.13",
     "expo-crypto": "~15.0.9",
     "expo-file-system": "~19.0.23",

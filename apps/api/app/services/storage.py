@@ -85,3 +85,16 @@ def absolute_media_path(relative: str) -> Path:
     if not str(path).startswith(str(root)):
         raise HTTPException(status_code=400, detail="Invalid media path.")
     return path
+
+
+def copy_media(space_id: str, relative: str) -> str:
+    """Copy an existing media file into a new path under space_id/. Returns new relative path."""
+    src = absolute_media_path(relative)
+    if not src.exists():
+        raise HTTPException(status_code=404, detail="Media file missing.")
+    ext = src.suffix or ".bin"
+    new_relative = f"{space_id}/{generate()}{ext}"
+    dest = Path(get_settings().upload_dir) / new_relative
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    dest.write_bytes(src.read_bytes())
+    return new_relative.replace("\\", "/")

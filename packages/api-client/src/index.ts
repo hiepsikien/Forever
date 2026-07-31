@@ -55,6 +55,7 @@ export interface ThreadSummary {
   title: string;
   created_at: string;
   last_message?: {
+    kind?: "text" | "voice" | string;
     body: string;
     created_at: string;
     sender_kind: string;
@@ -68,7 +69,10 @@ export interface ChatMessage {
   sender_kind: "user" | "agent" | "heritage" | string;
   sender_name?: string | null;
   sender_handle?: string | null;
+  kind?: "text" | "voice" | string;
   body: string;
+  has_media?: boolean;
+  media_mime?: string | null;
   created_at: string;
 }
 
@@ -115,8 +119,10 @@ export class ApiError extends Error {
 }
 
 export interface ApiClientOptions {
-  baseUrl: string;
+  baseUrl: string | (() => string);
   getToken: () => Promise<string | null> | string | null;
+  /** Default 15000. Set 0 to disable. */
+  timeoutMs?: number;
 }
 
 async function parseBody(res: Response): Promise<unknown> {
@@ -129,14 +135,31 @@ async function parseBody(res: Response): Promise<unknown> {
   }
 }
 
-export function createApiClient({ baseUrl, getToken }: ApiClientOptions) {
-  const root = baseUrl.replace(/\/$/, "");
+function isTimeoutError(e: unknown): boolean {
+  if (!e || typeof e !== "object") return false;
+  const name = String((e as { name?: unknown }).name || "");
+  return (
+    name === "TimeoutError" ||
+    name === "AbortError" ||
+    name.includes("Timeout") ||
+    name.includes("Abort")
+  );
+}
+
+export function createApiClient({
+  baseUrl,
+  getToken,
+  timeoutMs = 15_000,
+}: ApiClientOptions) {
+  const resolveRoot = () =>
+    (typeof baseUrl === "function" ? baseUrl() : baseUrl).replace(/\/$/, "");
 
   async function request<T>(
     path: string,
     init: RequestInit = {},
     opts?: { json?: boolean },
   ): Promise<T> {
+    const root = resolveRoot();
     const token = await getToken();
     const headers = new Headers(init.headers);
     const useJson = opts?.json !== false;
@@ -145,14 +168,35 @@ export function createApiClient({ baseUrl, getToken }: ApiClientOptions) {
     }
     if (token) headers.set("Authorization", `Bearer ${token}`);
 
-    const res = await fetch(`${root}${path}`, { ...init, headers });
-    const body = await parseBody(res);
-    if (!res.ok) throw new ApiError(res.status, body);
-    return body as T;
+    const signal =
+      init.signal ??
+      (timeoutMs > 0 && typeof AbortSignal !== "undefined" && "timeout" in AbortSignal
+        ? AbortSignal.timeout(timeoutMs)
+        : undefined);
+
+    try {
+      const res = await fetch(`${root}${path}`, {
+        ...init,
+        headers,
+        ...(signal ? { signal } : {}),
+      });
+      const body = await parseBody(res);
+      if (!res.ok) throw new ApiError(res.status, body);
+      return body as T;
+    } catch (e) {
+      if (isTimeoutError(e)) {
+        throw new Error(
+          `Không kết nối được API (${root}). Kiểm tra máy và điện thoại cùng mạng, API đang chạy --host 0.0.0.0.`,
+        );
+      }
+      throw e;
+    }
   }
 
   return {
-    baseUrl: root,
+    get baseUrl() {
+      return resolveRoot();
+    },
     health: () => request<{ ok: boolean }>("/health"),
     login: (email: string, password: string, name?: string) =>
       request<{ user: SessionUser; token: string }>("/api/auth/dev-login", {
@@ -227,6 +271,30 @@ export function createApiClient({ baseUrl, getToken }: ApiClientOptions) {
         method: "POST",
         body: JSON.stringify({ body }),
       }),
+    sendVoiceMessage: async (
+      threadId: string,
+      payload: {
+        uri: string;
+        name: string;
+        mimeType: string;
+        body?: string;
+      },
+    ) => {
+      const form = new FormData();
+      if (payload.body) form.append("body", payload.body);
+      form.append("file", {
+        uri: payload.uri,
+        name: payload.name,
+        type: payload.mimeType,
+      } as unknown as Blob);
+      return request<ChatMessage>(
+        `/api/threads/${threadId}/messages/voice`,
+        { method: "POST", body: form as unknown as BodyInit },
+        { json: false },
+      );
+    },
+    messageMediaUrl: (messageId: string) =>
+      `${resolveRoot()}/api/messages/${messageId}/media`,
     listMemories: (spaceId: string) =>
       request<{ memories: MemoryItem[] }>(`/api/spaces/${spaceId}/memories`),
     createNoteMemory: (
@@ -270,7 +338,8 @@ export function createApiClient({ baseUrl, getToken }: ApiClientOptions) {
         method: "POST",
         body: JSON.stringify({ message_id: messageId, title }),
       }),
-    memoryMediaUrl: (memoryId: string) => `${root}/api/memories/${memoryId}/media`,
+    memoryMediaUrl: (memoryId: string) =>
+      `${resolveRoot()}/api/memories/${memoryId}/media`,
     listInterviewPrompts: (spaceId: string) =>
       request<{ prompts: InterviewPrompt[] }>(
         `/api/spaces/${spaceId}/interview/prompts`,

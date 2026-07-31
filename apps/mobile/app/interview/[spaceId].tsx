@@ -1,7 +1,11 @@
 import { InterviewPrompt } from "@forever/api-client";
-import { Audio } from "expo-av";
+import {
+  RecordingPresets,
+  requestRecordingPermissionsAsync,
+  useAudioRecorder,
+} from "expo-audio";
 import { useLocalSearchParams, useNavigation, useRouter } from "expo-router";
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -13,6 +17,7 @@ import {
   View,
 } from "react-native";
 
+import { preparePlaybackMode, prepareRecordingMode } from "@/lib/audio";
 import { useAuth } from "@/lib/auth";
 import { colors, fonts } from "@/lib/theme";
 
@@ -21,13 +26,13 @@ export default function InterviewScreen() {
   const { api } = useAuth();
   const navigation = useNavigation();
   const router = useRouter();
+  const recorder = useAudioRecorder(RecordingPresets.HIGH_QUALITY);
   const [prompts, setPrompts] = useState<InterviewPrompt[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [answer, setAnswer] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [recording, setRecording] = useState(false);
-  const recordingRef = useRef<Audio.Recording | null>(null);
 
   useLayoutEffect(() => {
     navigation.setOptions({ title: "Time-Capsule" });
@@ -74,34 +79,30 @@ export default function InterviewScreen() {
 
   const startRecording = async (promptId: string) => {
     try {
-      const perm = await Audio.requestPermissionsAsync();
+      const perm = await requestRecordingPermissionsAsync();
       if (!perm.granted) {
         Alert.alert("Cần quyền", "Cho phép micro để ghi voice note.");
         return;
       }
-      await Audio.setAudioModeAsync({
-        allowsRecordingIOS: true,
-        playsInSilentModeIOS: true,
-      });
-      const rec = new Audio.Recording();
-      await rec.prepareToRecordAsync(Audio.RecordingOptionsPresets.HIGH_QUALITY);
-      await rec.startAsync();
-      recordingRef.current = rec;
+      await prepareRecordingMode();
+      await recorder.prepareToRecordAsync();
+      recorder.record();
       setActiveId(promptId);
       setRecording(true);
     } catch (e) {
+      setRecording(false);
       Alert.alert("Lỗi", e instanceof Error ? e.message : "Không ghi âm được.");
     }
   };
 
   const stopAndSubmitVoice = async (prompt: InterviewPrompt) => {
-    if (!spaceId || !recordingRef.current || submitting) return;
+    if (!spaceId || submitting) return;
     setSubmitting(true);
     try {
-      await recordingRef.current.stopAndUnloadAsync();
-      const uri = recordingRef.current.getURI();
-      recordingRef.current = null;
+      await recorder.stop();
       setRecording(false);
+      await preparePlaybackMode();
+      const uri = recorder.uri;
       if (!uri) throw new Error("Không có file ghi âm.");
 
       await api.answerInterviewVoice(spaceId, prompt.id, {
@@ -124,7 +125,6 @@ export default function InterviewScreen() {
       Alert.alert("Lỗi", e instanceof Error ? e.message : "Không gửi voice được.");
     } finally {
       setSubmitting(false);
-      await Audio.setAudioModeAsync({ allowsRecordingIOS: false });
     }
   };
 

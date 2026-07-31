@@ -12,6 +12,7 @@ import React, {
 
 import { createMobileApi, getStoredToken, setStoredToken } from "./api";
 import { firebaseSignOut, isFirebaseConfigured } from "./firebase";
+import { nativeGoogleSignOut } from "./googleSignIn";
 
 type AuthContextValue = {
   user: SessionUser | null;
@@ -78,6 +79,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const signOut = async () => {
+    await nativeGoogleSignOut();
     try {
       if (isFirebaseConfigured()) await firebaseSignOut();
     } catch {

@@ -73,7 +73,10 @@ class Message(Base):
     thread_id: Mapped[str] = mapped_column(ForeignKey("threads.id"), index=True)
     sender_user_id: Mapped[str | None] = mapped_column(ForeignKey("users.id"), nullable=True)
     sender_kind: Mapped[str] = mapped_column(String(32), default="user")  # user | agent | heritage
-    body: Mapped[str] = mapped_column(Text)
+    kind: Mapped[str] = mapped_column(String(32), default="text")  # text | voice
+    body: Mapped[str] = mapped_column(Text, default="")
+    media_path: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    media_mime: Mapped[str | None] = mapped_column(String(120), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
 
     thread: Mapped[Thread] = relationship(back_populates="messages")

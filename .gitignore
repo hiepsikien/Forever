@@ -23,6 +23,14 @@ build/
 .expo/
 apps/mobile/dist/
 apps/mobile/.expo/
+apps/mobile/android/
+apps/mobile/ios/
+apps/mobile/credentials/
+
+# Android local signing material (never commit)
+*.keystore
+*.jks
+keystore.properties
 
 # misc
 .DS_Store

@@ -1,3 +1,4 @@
+import * as AuthSession from "expo-auth-session";
 import * as Google from "expo-auth-session/providers/google";
 import * as WebBrowser from "expo-web-browser";
 import { useEffect, useState } from "react";
@@ -12,12 +13,18 @@ import {
 } from "react-native";
 
 import { useAuth } from "@/lib/auth";
+import { resolveBaseUrl } from "@/lib/api";
 import {
   googleWebClientId,
   isAuthDevEnabled,
   isFirebaseConfigured,
   signInWithGoogleIdToken,
 } from "@/lib/firebase";
+import {
+  canUseNativeGoogleSignIn,
+  formatGoogleSignInError,
+  signInWithNativeGoogle,
+} from "@/lib/googleSignIn";
 import { colors, fonts } from "@/lib/theme";
 
 WebBrowser.maybeCompleteAuthSession();
@@ -32,19 +39,28 @@ export default function LoginScreen() {
   const firebaseOn = isFirebaseConfigured();
   const devOn = isAuthDevEnabled();
   const webClientId = googleWebClientId();
+  const useNativeGoogle = canUseNativeGoogleSignIn();
+  const redirectUri = AuthSession.makeRedirectUri();
+  const resolveHint = resolveBaseUrl();
 
+  // Expo Go: only the Web client ID. Passing it as ios/androidClientId causes Google Error 400.
   const [request, response, promptGoogle] = Google.useIdTokenAuthRequest(
-    webClientId
-      ? {
-          clientId: webClientId,
-          iosClientId: webClientId,
-          androidClientId: webClientId,
-        }
+    !useNativeGoogle && webClientId
+      ? { clientId: webClientId, redirectUri }
       : { clientId: "placeholder.apps.googleusercontent.com" },
   );
 
   useEffect(() => {
+    if (useNativeGoogle) return;
     (async () => {
+      if (response?.type === "error") {
+        setError(
+          response.error?.message ||
+            response.params?.error_description ||
+            "Google trả lỗi (thường do redirect URI chưa khai báo).",
+        );
+        return;
+      }
       if (response?.type !== "success") return;
       const idToken = response.params.id_token;
       if (!idToken) {
@@ -63,7 +79,7 @@ export default function LoginScreen() {
         setBusy(false);
       }
     })();
-  }, [response, signInWithIdToken]);
+  }, [response, signInWithIdToken, useNativeGoogle]);
 
   const onDevSubmit = async () => {
     setBusy(true);
@@ -83,6 +99,19 @@ export default function LoginScreen() {
       return;
     }
     setError(null);
+    if (useNativeGoogle) {
+      setBusy(true);
+      try {
+        const cred = await signInWithNativeGoogle();
+        const token = await cred.user.getIdToken();
+        await signInWithIdToken(token);
+      } catch (e) {
+        setError(formatGoogleSignInError(e));
+      } finally {
+        setBusy(false);
+      }
+      return;
+    }
     await promptGoogle();
   };
 
@@ -90,9 +119,11 @@ export default function LoginScreen() {
     setError(
       phone.trim().length < 8
         ? "Nhập số E.164 (vd. +8490…)."
-        : "SMS Phone Auth cần Expo Dev Client + Firebase Phone provider. Tạm dùng Google hoặc Dev login cho Phase 1.",
+        : "SMS Phone Auth cần cấu hình thêm. Tạm dùng Google hoặc Dev login.",
     );
   };
+
+  const googleDisabled = busy || (!useNativeGoogle && !request);
 
   return (
     <KeyboardAvoidingView
@@ -111,7 +142,7 @@ export default function LoginScreen() {
           <>
             <Pressable
               onPress={onGoogle}
-              disabled={busy || !request}
+              disabled={googleDisabled}
               style={({ pressed }) => [
                 styles.secondaryCta,
                 (pressed || busy) && { opacity: 0.85 },
@@ -176,7 +207,7 @@ export default function LoginScreen() {
               <Text style={styles.ctaText}>{busy ? "Đang vào…" : "Vào nhà (dev)"}</Text>
             </Pressable>
             <Text style={styles.hint}>
-              Demo: me@forever.family / forever123 · Identity Forever độc lập với Google.
+              Demo: me@forever.family / forever123 · API: {resolveHint}
             </Text>
           </>
         ) : null}

@@ -9,6 +9,7 @@ from ..access import require_membership
 from ..auth import get_current_user
 from ..db import get_db
 from ..models import Message, Thread, User
+from .messages import preview_body
 
 router = APIRouter(prefix="/api", tags=["threads"])
 
@@ -43,7 +44,8 @@ def list_threads(
                 "created_at": thread.created_at.isoformat(),
                 "last_message": (
                     {
-                        "body": last.body,
+                        "kind": getattr(last, "kind", None) or "text",
+                        "body": preview_body(last),
                         "created_at": last.created_at.isoformat(),
                         "sender_kind": last.sender_kind,
                     }

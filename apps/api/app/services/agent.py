@@ -193,6 +193,8 @@ def maybe_reply(
         return None
     if thread.kind != "family":
         return None
+    if getattr(user_message, "kind", "text") == "voice":
+        return None
 
     body = generate_agent_reply(
         db, thread=thread, user_message=user_message, settings=settings
@@ -202,7 +204,10 @@ def maybe_reply(
         thread_id=thread.id,
         sender_user_id=None,
         sender_kind="agent",
+        kind="text",
         body=body,
+        media_path=None,
+        media_mime=None,
         created_at=datetime.now(timezone.utc),
     )
     db.add(agent_message)

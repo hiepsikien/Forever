@@ -2,17 +2,42 @@ import * as FileSystem from "expo-file-system/legacy";
 
 import { getStoredToken } from "./api";
 
+const EXT_BY_MIME: Record<string, string> = {
+  "audio/mpeg": ".mp3",
+  "audio/mp4": ".m4a",
+  "audio/m4a": ".m4a",
+  "audio/x-m4a": ".m4a",
+  "audio/aac": ".aac",
+  "audio/wav": ".wav",
+  "audio/x-wav": ".wav",
+  "audio/webm": ".webm",
+  "audio/3gpp": ".3gp",
+  "image/jpeg": ".jpg",
+  "image/png": ".png",
+  "image/webp": ".webp",
+  "image/heic": ".heic",
+  "image/heif": ".heif",
+};
+
+function extensionForMime(mime?: string | null): string {
+  if (!mime) return ".m4a";
+  return EXT_BY_MIME[mime.toLowerCase()] ?? ".bin";
+}
+
 /** Download authenticated media to a local cache file and return its URI. */
 export async function fetchAuthedMediaUri(
   remoteUrl: string,
-  memoryId: string,
+  cacheKey: string,
+  mimeType?: string | null,
 ): Promise<string> {
   const token = await getStoredToken();
   const dir = FileSystem.cacheDirectory;
   if (!dir) {
     throw new Error("Cache directory unavailable.");
   }
-  const target = `${dir}forever-media-${memoryId}`;
+  // iOS AVPlayer needs a real extension (-11828 without one).
+  const ext = extensionForMime(mimeType);
+  const target = `${dir}forever-media-${cacheKey}${ext}`;
   const result = await FileSystem.downloadAsync(remoteUrl, target, {
     headers: token ? { Authorization: `Bearer ${token}` } : undefined,
   });

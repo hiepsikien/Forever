@@ -72,6 +72,39 @@ npx expo start
 
 Set `EXPO_PUBLIC_API_URL` to your machine LAN IP when testing on a physical device.
 
+## Android family APK (local build — no EAS quota)
+
+Sideloadable release APK via Gradle on this Mac. Does **not** use EAS cloud builds.
+
+### One-time: Google Sign-In for Android
+
+1. Create/open the Firebase Android app with package `com.nguyendinhanh.forever` (same string as iOS bundle ID).
+2. Run `npm run android:keystore` in `apps/mobile` and paste the printed **SHA-1** into Firebase → Project settings → Android app.
+3. Enable **Authentication → Google**.
+4. Copy the **Web client ID** (`….apps.googleusercontent.com`) into `apps/mobile/.env` as `EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID`.
+5. Set `EXPO_PUBLIC_API_URL` to a URL family phones can reach (LAN IP on same Wi‑Fi, or a public HTTPS host). `localhost` will not work on their devices.
+
+### Build
+
+```bash
+cd apps/mobile
+cp .env.example .env   # then fill Google Web client ID + API URL
+npm install
+npm run android:apk
+```
+
+APK output: `apps/mobile/dist/forever-0.1.0.apk`
+
+Install on a phone:
+
+```bash
+adb install -r dist/forever-0.1.0.apk
+```
+
+Or share the APK file (Drive / Zalo). Recipients: Settings → allow install from that source.
+
+Toolchain (already used for local builds): JDK 17 + Android command-line tools (`brew install openjdk@17` and `brew install --cask android-commandlinetools`).
+
 ## Phased delivery
 
 1. **Phase 0** — Collect family memories & identity worksheet  

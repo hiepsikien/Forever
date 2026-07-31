@@ -1,5 +1,4 @@
 import { MemoryItem } from "@forever/api-client";
-import { Audio } from "expo-av";
 import * as ImagePicker from "expo-image-picker";
 import { useLocalSearchParams, useNavigation } from "expo-router";
 import { useCallback, useEffect, useLayoutEffect, useState } from "react";
@@ -16,6 +15,7 @@ import {
   View,
 } from "react-native";
 
+import { playLocalAudio, stopActivePlayback } from "@/lib/audio";
 import { useAuth } from "@/lib/auth";
 import { fetchAuthedMediaUri } from "@/lib/media";
 import { colors, fonts } from "@/lib/theme";
@@ -69,7 +69,11 @@ export default function LibraryScreen() {
       for (const item of memories) {
         if (item.kind !== "photo" || !item.has_media) continue;
         try {
-          const uri = await fetchAuthedMediaUri(api.memoryMediaUrl(item.id), item.id);
+          const uri = await fetchAuthedMediaUri(
+            api.memoryMediaUrl(item.id),
+            item.id,
+            item.media_mime ?? "image/jpeg",
+          );
           if (!cancelled) {
             setPhotoUris((prev) => (prev[item.id] ? prev : { ...prev, [item.id]: uri }));
           }
@@ -135,18 +139,18 @@ export default function LibraryScreen() {
   const playVoice = async (item: MemoryItem) => {
     if (!item.has_media) return;
     try {
-      await Audio.setAudioModeAsync({ playsInSilentModeIOS: true });
-      const uri = await fetchAuthedMediaUri(api.memoryMediaUrl(item.id), item.id);
-      const { sound } = await Audio.Sound.createAsync({ uri });
+      if (playingId === item.id) {
+        await stopActivePlayback();
+        setPlayingId(null);
+        return;
+      }
+      const uri = await fetchAuthedMediaUri(
+        api.memoryMediaUrl(item.id),
+        item.id,
+        item.media_mime ?? "audio/mp4",
+      );
       setPlayingId(item.id);
-      sound.setOnPlaybackStatusUpdate((status) => {
-        if (!status.isLoaded) return;
-        if (status.didJustFinish) {
-          setPlayingId(null);
-          sound.unloadAsync();
-        }
-      });
-      await sound.playAsync();
+      await playLocalAudio(uri, () => setPlayingId(null));
     } catch (e) {
       setPlayingId(null);
       Alert.alert("Lỗi", e instanceof Error ? e.message : "Không phát được.");

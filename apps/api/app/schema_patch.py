@@ -30,6 +30,21 @@ def ensure_schema() -> None:
         "phone",
         "ALTER TABLE users ADD COLUMN phone VARCHAR(32)",
     )
+    _add_column_if_missing(
+        "messages",
+        "kind",
+        "ALTER TABLE messages ADD COLUMN kind VARCHAR(32) DEFAULT 'text'",
+    )
+    _add_column_if_missing(
+        "messages",
+        "media_path",
+        "ALTER TABLE messages ADD COLUMN media_path VARCHAR(512)",
+    )
+    _add_column_if_missing(
+        "messages",
+        "media_mime",
+        "ALTER TABLE messages ADD COLUMN media_mime VARCHAR(120)",
+    )
     try:
         with engine.begin() as conn:
             conn.execute(
