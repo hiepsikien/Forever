@@ -1,0 +1,55 @@
+# dependencies
+node_modules/
+.pnp
+.pnp.*
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/versions
+
+# testing
+coverage/
+.pytest_cache/
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+apps/api/.venv/
+
+# build
+dist/
+build/
+.expo/
+apps/mobile/dist/
+apps/mobile/.expo/
+
+# misc
+.DS_Store
+*.pem
+tmp/
+
+# debug
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# env
+.env
+.env.*
+!.env.example
+!.env*.example
+
+# Firebase Admin credentials
+apps/api/firebase-service-account.json
+*service-account*.json
+*firebase-adminsdk*.json
+
+# app data
+/data
+/uploads
+apps/api/uploads
+
+# typescript
+*.tsbuildinfo

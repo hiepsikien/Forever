@@ -1,0 +1,13 @@
+{
+  "name": "forever",
+  "private": true,
+  "version": "0.1.0",
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "api:test": "cd apps/api && .venv/bin/pytest -q",
+    "dev:api": "cd apps/api && .venv/bin/uvicorn app.main:app --reload --port 8000",
+    "dev:mobile": "npm --prefix apps/mobile start"
+  }
+}
