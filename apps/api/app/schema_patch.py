@@ -45,6 +45,51 @@ def ensure_schema() -> None:
         "media_mime",
         "ALTER TABLE messages ADD COLUMN media_mime VARCHAR(120)",
     )
+    _add_column_if_missing(
+        "voice_samples",
+        "duration_ms",
+        "ALTER TABLE voice_samples ADD COLUMN duration_ms INTEGER",
+    )
+    _add_column_if_missing(
+        "voice_samples",
+        "file_size_bytes",
+        "ALTER TABLE voice_samples ADD COLUMN file_size_bytes INTEGER DEFAULT 0",
+    )
+    _add_column_if_missing(
+        "voice_samples",
+        "quality_score",
+        "ALTER TABLE voice_samples ADD COLUMN quality_score INTEGER",
+    )
+    _add_column_if_missing(
+        "voice_samples",
+        "quality_label",
+        "ALTER TABLE voice_samples ADD COLUMN quality_label VARCHAR(32) DEFAULT ''",
+    )
+    _add_column_if_missing(
+        "voice_samples",
+        "quality_tip",
+        "ALTER TABLE voice_samples ADD COLUMN quality_tip TEXT DEFAULT ''",
+    )
+    _add_column_if_missing(
+        "voice_samples",
+        "note",
+        "ALTER TABLE voice_samples ADD COLUMN note TEXT DEFAULT ''",
+    )
+    _add_column_if_missing(
+        "voice_renders",
+        "model_id",
+        "ALTER TABLE voice_renders ADD COLUMN model_id VARCHAR(64) DEFAULT ''",
+    )
+    _add_column_if_missing(
+        "voice_renders",
+        "provider_voice_id",
+        "ALTER TABLE voice_renders ADD COLUMN provider_voice_id VARCHAR(120) DEFAULT ''",
+    )
+    _add_column_if_missing(
+        "voice_renders",
+        "provider_voice_name",
+        "ALTER TABLE voice_renders ADD COLUMN provider_voice_name VARCHAR(200) DEFAULT ''",
+    )
     try:
         with engine.begin() as conn:
             conn.execute(

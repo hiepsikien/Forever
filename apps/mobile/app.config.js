@@ -25,13 +25,18 @@ module.exports = ({ config }) => {
     },
     android: {
       package: "com.nguyendinhanh.forever",
-      versionCode: 1,
+      versionCode: 2,
       adaptiveIcon: {
         foregroundImage: "./assets/adaptive-icon.png",
         backgroundColor: "#2d4a3e",
       },
       permissions: ["INTERNET", "RECORD_AUDIO", "READ_MEDIA_IMAGES", "CAMERA"],
       allowBackup: false,
+      softwareKeyboardLayoutMode: "resize",
+    },
+    androidNavigationBar: {
+      backgroundColor: "#f4efe6",
+      barStyle: "dark-content",
     },
     plugins: [
       "expo-router",

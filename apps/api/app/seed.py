@@ -77,8 +77,8 @@ def seed_if_empty(db: Session) -> None:
     space = FamilySpace(
         id=generate(),
         name="Nhà mình",
-        created_by=child.id,
-        steward_user_id=child.id,
+        created_by=mother.id,
+        steward_user_id=mother.id,
         created_at=now,
     )
     db.add(space)
@@ -89,14 +89,14 @@ def seed_if_empty(db: Session) -> None:
             Membership(
                 id=generate(),
                 space_id=space.id,
-                user_id=child.id,
+                user_id=mother.id,
                 role="owner",
                 joined_at=now,
             ),
             Membership(
                 id=generate(),
                 space_id=space.id,
-                user_id=mother.id,
+                user_id=child.id,
                 role="member",
                 joined_at=now,
             ),
@@ -117,9 +117,9 @@ def seed_if_empty(db: Session) -> None:
         Message(
             id=generate(),
             thread_id=thread.id,
-            sender_user_id=child.id,
+            sender_user_id=mother.id,
             sender_kind="user",
-            body="Con tạo không gian này cho cả nhà mình. Mẹ vào nhắn con nhé.",
+            body="Mẹ tạo không gian này cho cả nhà mình. Con vào nhắn mẹ nhé.",
             created_at=now,
         )
     )

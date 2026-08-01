@@ -111,7 +111,7 @@ Toolchain (already used for local builds): JDK 17 + Android command-line tools (
 2. **Phase 1** — Family chat (living members) ← *current scaffold*  
 3. **Phase 2** — Shared memory library  
 4. **Phase 3** — Heritage AI (text + RAG)  
-5. **Phase 4** — Voice DNA  
+5. **Phase 4** — Voice DNA (self + heritage; ElevenLabs key in Space Settings)  
 6. **Phase 5** — Stewardship, export, encryption roadmap  
 
 ## Stack

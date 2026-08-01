@@ -46,3 +46,29 @@ export async function fetchAuthedMediaUri(
   }
   return result.uri;
 }
+
+/** Write binary audio (e.g. TTS) to cache and return a playable file URI. */
+export async function writeCacheAudio(
+  bytes: Uint8Array,
+  cacheKey: string,
+  mimeType = "audio/mpeg",
+): Promise<string> {
+  const dir = FileSystem.cacheDirectory;
+  if (!dir) {
+    throw new Error("Cache directory unavailable.");
+  }
+  const ext = extensionForMime(mimeType);
+  const target = `${dir}forever-tts-${cacheKey}${ext}`;
+  let binary = "";
+  const chunk = 0x8000;
+  for (let i = 0; i < bytes.length; i += chunk) {
+    binary += String.fromCharCode(...bytes.subarray(i, i + chunk));
+  }
+  if (typeof btoa !== "function") {
+    throw new Error("Base64 encode unavailable on this runtime.");
+  }
+  await FileSystem.writeAsStringAsync(target, btoa(binary), {
+    encoding: FileSystem.EncodingType.Base64,
+  });
+  return target;
+}

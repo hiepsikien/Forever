@@ -98,3 +98,18 @@ def copy_media(space_id: str, relative: str) -> str:
     dest.parent.mkdir(parents=True, exist_ok=True)
     dest.write_bytes(src.read_bytes())
     return new_relative.replace("\\", "/")
+
+
+def save_bytes(space_id: str, data: bytes, *, ext: str = ".mp3") -> str:
+    """Write raw bytes under upload_dir/space_id/. Returns relative path."""
+    if not data:
+        raise HTTPException(status_code=400, detail="Empty file.")
+    if len(data) > MAX_UPLOAD_BYTES:
+        raise HTTPException(status_code=400, detail="File too large (max 25MB).")
+    if not ext.startswith("."):
+        ext = f".{ext}"
+    relative = f"{space_id}/{generate()}{ext}"
+    dest = Path(get_settings().upload_dir) / relative
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    dest.write_bytes(data)
+    return relative.replace("\\", "/")

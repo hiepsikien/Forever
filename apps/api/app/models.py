@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, Text, UniqueConstraint
+from sqlalchemy import Boolean, DateTime, Float, ForeignKey, Integer, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .db import Base
@@ -37,6 +37,11 @@ class FamilySpace(Base):
     invites: Mapped[list[Invite]] = relationship(back_populates="space")
     memories: Mapped[list[MemoryItem]] = relationship(back_populates="space")
     successions: Mapped[list[StewardSuccession]] = relationship(back_populates="space")
+    identities: Mapped[list[IdentityProfile]] = relationship(back_populates="space")
+    voice_profiles: Mapped[list[VoiceProfile]] = relationship(back_populates="space")
+    settings: Mapped[SpaceSettings | None] = relationship(
+        back_populates="space", uselist=False
+    )
 
 
 class Membership(Base):
@@ -160,3 +165,131 @@ class StewardSuccession(Base):
     activated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     space: Mapped[FamilySpace] = relationship(back_populates="successions")
+
+
+class SpaceSettings(Base):
+    """Per-space configuration (API keys, preferences)."""
+
+    __tablename__ = "space_settings"
+
+    space_id: Mapped[str] = mapped_column(
+        ForeignKey("family_spaces.id"), primary_key=True
+    )
+    elevenlabs_api_key: Mapped[str | None] = mapped_column(String(256), nullable=True)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    updated_by: Mapped[str | None] = mapped_column(ForeignKey("users.id"), nullable=True)
+
+    space: Mapped[FamilySpace] = relationship(back_populates="settings")
+
+
+class IdentityProfile(Base):
+    """Person in the family vault — living member mirror or remembered heritage subject."""
+
+    __tablename__ = "identity_profiles"
+
+    id: Mapped[str] = mapped_column(String(32), primary_key=True)
+    space_id: Mapped[str] = mapped_column(ForeignKey("family_spaces.id"), index=True)
+    display_name: Mapped[str] = mapped_column(String(120))
+    relation_label: Mapped[str] = mapped_column(String(80), default="")
+    # living | remembered
+    status: Mapped[str] = mapped_column(String(32), default="remembered", index=True)
+    linked_user_id: Mapped[str | None] = mapped_column(
+        ForeignKey("users.id"), nullable=True, index=True
+    )
+    heritage_thread_id: Mapped[str | None] = mapped_column(
+        ForeignKey("threads.id"), nullable=True
+    )
+    created_by: Mapped[str] = mapped_column(ForeignKey("users.id"))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+    space: Mapped[FamilySpace] = relationship(back_populates="identities")
+    voice_profiles: Mapped[list[VoiceProfile]] = relationship(
+        back_populates="identity_profile"
+    )
+
+
+class VoiceProfile(Base):
+    """Voice DNA — Instant Voice Clone binding for self or heritage identity."""
+
+    __tablename__ = "voice_profiles"
+
+    id: Mapped[str] = mapped_column(String(32), primary_key=True)
+    space_id: Mapped[str] = mapped_column(ForeignKey("family_spaces.id"), index=True)
+    # self | person | heritage
+    subject_kind: Mapped[str] = mapped_column(String(32), index=True)
+    subject_user_id: Mapped[str | None] = mapped_column(
+        ForeignKey("users.id"), nullable=True, index=True
+    )
+    identity_profile_id: Mapped[str | None] = mapped_column(
+        ForeignKey("identity_profiles.id"), nullable=True, index=True
+    )
+    provider: Mapped[str] = mapped_column(String(32), default="elevenlabs")
+    provider_voice_id: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    # draft | ready | failed | paused
+    status: Mapped[str] = mapped_column(String(32), default="draft", index=True)
+    consent_text: Mapped[str] = mapped_column(Text, default="")
+    consent_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    consented_by_user_id: Mapped[str | None] = mapped_column(
+        ForeignKey("users.id"), nullable=True
+    )
+    error_message: Mapped[str] = mapped_column(Text, default="")
+    display_name: Mapped[str] = mapped_column(String(160), default="")
+    created_by: Mapped[str] = mapped_column(ForeignKey("users.id"))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+    space: Mapped[FamilySpace] = relationship(back_populates="voice_profiles")
+    identity_profile: Mapped[IdentityProfile | None] = relationship(
+        back_populates="voice_profiles"
+    )
+    samples: Mapped[list[VoiceSample]] = relationship(back_populates="voice_profile")
+    renders: Mapped[list[VoiceRender]] = relationship(back_populates="voice_profile")
+
+
+class VoiceSample(Base):
+    __tablename__ = "voice_samples"
+
+    id: Mapped[str] = mapped_column(String(32), primary_key=True)
+    voice_profile_id: Mapped[str] = mapped_column(
+        ForeignKey("voice_profiles.id"), index=True
+    )
+    media_path: Mapped[str] = mapped_column(String(512))
+    media_mime: Mapped[str] = mapped_column(String(120))
+    # record | upload | memory
+    source: Mapped[str] = mapped_column(String(32), default="upload")
+    note: Mapped[str] = mapped_column(Text, default="")
+    duration_ms: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    file_size_bytes: Mapped[int] = mapped_column(Integer, default=0)
+    quality_score: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    quality_label: Mapped[str] = mapped_column(String(32), default="")
+    quality_tip: Mapped[str] = mapped_column(Text, default="")
+    created_by: Mapped[str] = mapped_column(ForeignKey("users.id"))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+    voice_profile: Mapped[VoiceProfile] = relationship(back_populates="samples")
+
+
+class VoiceRender(Base):
+    """Saved TTS output from a Voice DNA profile (text → audio history)."""
+
+    __tablename__ = "voice_renders"
+
+    id: Mapped[str] = mapped_column(String(32), primary_key=True)
+    voice_profile_id: Mapped[str] = mapped_column(
+        ForeignKey("voice_profiles.id"), index=True
+    )
+    space_id: Mapped[str] = mapped_column(ForeignKey("family_spaces.id"), index=True)
+    text: Mapped[str] = mapped_column(Text)
+    media_path: Mapped[str] = mapped_column(String(512))
+    media_mime: Mapped[str] = mapped_column(String(120), default="audio/mpeg")
+    model_id: Mapped[str] = mapped_column(String(64), default="")
+    provider_voice_id: Mapped[str] = mapped_column(String(120), default="")
+    provider_voice_name: Mapped[str] = mapped_column(String(200), default="")
+    stability: Mapped[float | None] = mapped_column(Float, nullable=True)
+    similarity_boost: Mapped[float | None] = mapped_column(Float, nullable=True)
+    created_by: Mapped[str] = mapped_column(ForeignKey("users.id"))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+    voice_profile: Mapped[VoiceProfile] = relationship(back_populates="renders")

@@ -21,6 +21,19 @@ class Settings(BaseSettings):
     gemini_model: str = "gemini-3.5-flash"
     gemini_api_base: str = "https://generativelanguage.googleapis.com/v1beta"
 
+    # Shared ElevenLabs key (primary for now). Space Cài đặt can override later.
+    elevenlabs_api_key: str = ""
+    # eleven_v3: best quality + Vietnamese (70+ langs). multilingual_v2 does NOT list VI.
+    elevenlabs_tts_model: str = "eleven_v3"
+    elevenlabs_language_code: str = "vi"
+    elevenlabs_api_base: str = "https://api.elevenlabs.io/v1"
+    # TTS defaults tuned for Instant Voice Clone similarity (Vietnamese lab).
+    elevenlabs_stability: float = 0.45
+    elevenlabs_similarity_boost: float = 0.85
+    elevenlabs_style: float = 0.0
+    elevenlabs_speaker_boost: bool = True
+    elevenlabs_remove_noise: bool = True
+
     @property
     def cors_origin_list(self) -> list[str]:
         return [origin.strip() for origin in self.cors_origins.split(",") if origin.strip()]

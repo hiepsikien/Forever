@@ -20,6 +20,7 @@ import {
   TextInput,
   View,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import {
   playLocalAudio,
@@ -50,6 +51,7 @@ export default function ChatScreen() {
   const { threadId } = useLocalSearchParams<{ threadId: string }>();
   const { api, user } = useAuth();
   const navigation = useNavigation();
+  const insets = useSafeAreaInsets();
   const recorder = useAudioRecorder(RecordingPresets.HIGH_QUALITY);
   const recorderState = useAudioRecorderState(recorder);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -61,6 +63,7 @@ export default function ChatScreen() {
   const [spaceId, setSpaceId] = useState<string | null>(null);
   const listRef = useRef<FlatList<ChatMessage>>(null);
   const sendingRef = useRef(false);
+  const recordingRef = useRef(false);
 
   const load = useCallback(async () => {
     if (!threadId) return;
@@ -96,10 +99,17 @@ export default function ChatScreen() {
   }, [api, threadId]);
 
   useEffect(() => {
+    recordingRef.current = recording;
+  }, [recording]);
+
+  useEffect(() => {
     return () => {
       void stopActivePlayback();
-      if (recorder.isRecording) {
+      if (!recordingRef.current) return;
+      try {
         void recorder.stop().catch(() => undefined);
+      } catch {
+        // native recorder may already be released on unmount
       }
     };
   }, [recorder]);
@@ -314,7 +324,12 @@ export default function ChatScreen() {
           ? "Đang ghi… nhấn Dừng & gửi, hoặc Huỷ"
           : "Giữ tin nhắn để lưu vào thư viện"}
       </Text>
-      <View style={styles.composer}>
+      <View
+        style={[
+          styles.composer,
+          { paddingBottom: Math.max(insets.bottom, 12) },
+        ]}
+      >
         {recording ? (
           <>
             <Pressable
@@ -436,7 +451,8 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "flex-end",
     gap: 8,
-    padding: 12,
+    paddingHorizontal: 12,
+    paddingTop: 12,
     borderTopWidth: 1,
     borderTopColor: colors.line,
     backgroundColor: colors.bg,

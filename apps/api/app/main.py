@@ -8,6 +8,8 @@ from fastapi.responses import JSONResponse
 from .config import get_settings
 from .db import Base, SessionLocal, engine
 from .routers import auth, interviews, memories, messages, spaces, stewardship, threads
+from .routers import settings as settings_router
+from .routers import voice_dna
 from .schema_patch import ensure_schema
 from .seed import seed_if_empty, seed_interview_prompts
 
@@ -62,8 +64,10 @@ def health():
 app.include_router(auth.router)
 app.include_router(spaces.router)
 app.include_router(stewardship.router)
+app.include_router(settings_router.router)
 app.include_router(threads.router)
 app.include_router(messages.router)
 app.include_router(messages.media_router)
 app.include_router(memories.router)
 app.include_router(interviews.router)
+app.include_router(voice_dna.router)

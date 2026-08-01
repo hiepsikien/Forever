@@ -133,8 +133,9 @@ Done: ≥2 người chat ổn trên điện thoại thật.
 - Context Key từ chat đời sống  
 
 ### Phase 4 — Voice DNA
-- Audio clean → Instant Voice Clone (ElevenLabs / open-source)  
-- TTS optional, **không auto-play**  
+- Audio clean → Instant Voice Clone (ElevenLabs); API key trong **Cài đặt không gian**
+- Hai luồng: giọng sống (self) + giọng ký ức (steward/owner + Identity Profile)
+- TTS optional, **không auto-play**
 - Voice DNA thường vài chục MB–<1GB (raw + model)  
 
 ### Phase 5 — Micro-rituals & Bridge soft features
@@ -159,7 +160,7 @@ Trước mắt: export archive ZIP/JSON + steward chỉ định trong app + encr
 - `messages` (sender_kind: user|heritage)  
 - `invites`  
 
-Sắp tới: `memory_items`, `identity_profiles`, `interview_prompts`, `interview_answers`.
+Sắp tới: `memory_items`, `identity_profiles`, `interview_prompts`, `interview_answers`, `voice_profiles`, `space_settings`.
 
 ## 9. Success (món quà gửi mẹ)
 

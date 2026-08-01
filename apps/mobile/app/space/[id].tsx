@@ -139,6 +139,20 @@ export default function SpaceScreen() {
           <Text style={styles.hubTitle}>Time-Capsule</Text>
           <Text style={styles.hubSub}>Một câu hỏi cội nguồn — trả lời khi tiện</Text>
         </Pressable>
+        <Pressable
+          style={styles.hubBtn}
+          onPress={() => id && router.push(`/voice/${id}`)}
+        >
+          <Text style={styles.hubTitle}>Voice DNA</Text>
+          <Text style={styles.hubSub}>Giọng của bạn hoặc ký ức người thân</Text>
+        </Pressable>
+        <Pressable
+          style={styles.hubBtn}
+          onPress={() => id && router.push(`/settings/${id}`)}
+        >
+          <Text style={styles.hubTitle}>Cài đặt</Text>
+          <Text style={styles.hubSub}>ElevenLabs API key và tùy chọn không gian</Text>
+        </Pressable>
       </View>
 
       <Text style={styles.section}>Trường tồn · Steward</Text>

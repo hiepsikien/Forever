@@ -1,0 +1,169 @@
+import { ElevenLabsVoice } from "@forever/api-client";
+import { useNavigation } from "@react-navigation/native";
+import { useLocalSearchParams } from "expo-router";
+import { useCallback, useEffect, useLayoutEffect, useState } from "react";
+import {
+  ActivityIndicator,
+  Alert,
+  FlatList,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
+
+import { useAuth } from "@/lib/auth";
+import { colors, fonts } from "@/lib/theme";
+
+function sortKey(v: ElevenLabsVoice): number {
+  if (typeof v.created_at_unix === "number" && v.created_at_unix > 0) {
+    return v.created_at_unix;
+  }
+  const m = v.name.match(/(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})/);
+  if (!m) return 0;
+  const [, y, mo, d, h, mi] = m;
+  return Math.floor(Date.UTC(+y, +mo - 1, +d, +h, +mi) / 1000);
+}
+
+function formatWhen(v: ElevenLabsVoice): string {
+  const ts = sortKey(v);
+  if (!ts) return v.category || "cloned";
+  return new Date(ts * 1000).toLocaleString("vi-VN", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+export default function VoiceClonesScreen() {
+  const { spaceId, voiceId } = useLocalSearchParams<{
+    spaceId: string;
+    voiceId?: string;
+  }>();
+  const { api } = useAuth();
+  const navigation = useNavigation();
+  const [voices, setVoices] = useState<ElevenLabsVoice[]>([]);
+  const [activeProviderId, setActiveProviderId] = useState<string | null>(null);
+  const [profileName, setProfileName] = useState("");
+  const [loading, setLoading] = useState(true);
+
+  useLayoutEffect(() => {
+    navigation.setOptions({ title: "Lịch sử clone" });
+  }, [navigation]);
+
+  const load = useCallback(async () => {
+    if (!spaceId) return;
+    setLoading(true);
+    try {
+      let providerId: string | null = null;
+      let name = "";
+      if (voiceId) {
+        const profile = await api.getVoice(voiceId);
+        providerId = profile.provider_voice_id ?? null;
+        name = profile.display_name;
+        setActiveProviderId(providerId);
+        setProfileName(name);
+      }
+      const res = await api.listElevenLabsVoices(spaceId, {
+        clonedOnly: true,
+        voiceId: voiceId || undefined,
+      });
+      const sorted = [...res.voices].sort((a, b) => sortKey(b) - sortKey(a));
+      setVoices(sorted);
+    } catch (e) {
+      Alert.alert("Lỗi", e instanceof Error ? e.message : "Không tải Voice DNA.");
+    } finally {
+      setLoading(false);
+    }
+  }, [api, spaceId, voiceId]);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  if (loading) {
+    return (
+      <View style={styles.center}>
+        <ActivityIndicator color={colors.brand} />
+      </View>
+    );
+  }
+
+  return (
+    <FlatList
+      style={styles.root}
+      contentContainerStyle={styles.content}
+      data={voices}
+      keyExtractor={(item) => item.voice_id}
+      ListHeaderComponent={
+        <View style={styles.header}>
+          <Text style={styles.title}>Lịch sử clone</Text>
+          <Text style={styles.sub}>
+            {profileName
+              ? `Các bản Instant Clone của ${profileName} — mới nhất trước.`
+              : "Các bản Instant Clone trên ElevenLabs — mới nhất trước."}
+          </Text>
+          <Pressable onPress={() => void load()}>
+            <Text style={styles.refresh}>Làm mới</Text>
+          </Pressable>
+        </View>
+      }
+      ListEmptyComponent={
+        <Text style={styles.empty}>
+          Chưa có bản clone. Quay lại hub và bấm Clone Voice DNA.
+        </Text>
+      }
+      renderItem={({ item }) => {
+        const active = activeProviderId === item.voice_id;
+        return (
+          <View style={[styles.card, active && styles.cardActive]}>
+            <Text style={styles.name}>{item.name}</Text>
+            <Text style={styles.meta}>
+              {formatWhen(item)}
+              {active ? " · đang gắn" : ""}
+            </Text>
+            <Text style={styles.id} numberOfLines={1}>
+              {item.voice_id}
+            </Text>
+          </View>
+        );
+      }}
+    />
+  );
+}
+
+const styles = StyleSheet.create({
+  root: { flex: 1, backgroundColor: colors.bg },
+  content: { padding: 20, paddingBottom: 40 },
+  center: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: colors.bg,
+  },
+  header: { gap: 6, marginBottom: 12 },
+  title: { fontFamily: fonts.display, fontSize: 24, color: colors.ink },
+  sub: { fontSize: 14, lineHeight: 20, color: colors.inkSoft },
+  refresh: {
+    color: colors.brand,
+    fontWeight: "700",
+    fontSize: 13,
+    marginTop: 4,
+  },
+  empty: { fontSize: 14, color: colors.inkSoft, marginTop: 16 },
+  card: {
+    backgroundColor: colors.card,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: colors.line,
+    padding: 14,
+    gap: 4,
+    marginBottom: 8,
+  },
+  cardActive: { borderColor: colors.brand, backgroundColor: "#F7F3EE" },
+  name: { fontSize: 15, fontWeight: "700", color: colors.ink },
+  meta: { fontSize: 12, color: colors.inkSoft },
+  id: { fontSize: 11, color: colors.inkSoft, marginTop: 2 },
+});
