@@ -17,6 +17,7 @@ import {
   Pressable,
   ScrollView,
   StyleSheet,
+  Switch,
   Text,
   TextInput,
   View,
@@ -39,6 +40,64 @@ type PickerOption = {
 };
 
 type OpenPicker = "voice" | "model" | "profile" | null;
+
+const TTS_STEP = 0.05;
+
+const PRESET_VALUES = {
+  similar: { stability: 0.4, similarityBoost: 0.9, speakerBoost: true },
+  stable: { stability: 0.7, similarityBoost: 0.7, speakerBoost: true },
+} as const;
+
+function clampTts(value: number): number {
+  return Math.round(Math.max(0, Math.min(1, value)) * 100) / 100;
+}
+
+function formatTts(value: number): string {
+  return value.toFixed(2);
+}
+
+function TtsStepper({
+  label,
+  hint,
+  value,
+  onChange,
+}: {
+  label: string;
+  hint: string;
+  value: number;
+  onChange: (next: number) => void;
+}) {
+  const dec = () => onChange(clampTts(value - TTS_STEP));
+  const inc = () => onChange(clampTts(value + TTS_STEP));
+
+  return (
+    <View style={styles.advancedRow}>
+      <View style={styles.advancedCopy}>
+        <Text style={styles.advancedLabel}>{label}</Text>
+        <Text style={styles.advancedHint}>{hint}</Text>
+      </View>
+      <View style={styles.stepper}>
+        <Pressable
+          style={[styles.stepBtn, value <= 0 && styles.stepBtnDisabled]}
+          onPress={dec}
+          disabled={value <= 0}
+          hitSlop={6}
+        >
+          <Text style={styles.stepBtnText}>−</Text>
+        </Pressable>
+        <Text style={styles.stepValue}>{formatTts(value)}</Text>
+        <Pressable
+          style={[styles.stepBtn, value >= 1 && styles.stepBtnDisabled]}
+          onPress={inc}
+          disabled={value >= 1}
+          hitSlop={6}
+        >
+          <Text style={styles.stepBtnText}>+</Text>
+        </Pressable>
+      </View>
+    </View>
+  );
+}
 
 function elVoiceSortKey(v: ElevenLabsVoice): number {
   if (typeof v.created_at_unix === "number" && v.created_at_unix > 0) {
@@ -130,7 +189,15 @@ export default function VoiceSpeakScreen() {
   const [loading, setLoading] = useState(true);
   const [text, setText] = useState("Con nhớ bố lắm.");
   const [modelId, setModelId] = useState<VoiceTtsModelId>("eleven_v3");
-  const [preset, setPreset] = useState<"similar" | "stable">("similar");
+  const [preset, setPreset] = useState<"similar" | "stable" | null>("similar");
+  const [advancedOpen, setAdvancedOpen] = useState(false);
+  const [stability, setStability] = useState(PRESET_VALUES.similar.stability);
+  const [similarityBoost, setSimilarityBoost] = useState(
+    PRESET_VALUES.similar.similarityBoost,
+  );
+  const [speakerBoost, setSpeakerBoost] = useState(
+    PRESET_VALUES.similar.speakerBoost,
+  );
   const [busy, setBusy] = useState(false);
   const [previewing, setPreviewing] = useState(false);
   const [paused, setPaused] = useState(false);
@@ -208,14 +275,32 @@ export default function VoiceSpeakScreen() {
     void load();
   }, [load]);
 
-  const ttsOpts = {
-    model_id: modelId,
-    provider_voice_id: selectedElVoiceId || undefined,
-    provider_voice_name: selectedElVoice?.name,
-    ...(preset === "similar"
-      ? { stability: 0.4, similarity_boost: 0.9, use_speaker_boost: true }
-      : { stability: 0.7, similarity_boost: 0.7, use_speaker_boost: true }),
+  const applyPreset = (next: "similar" | "stable") => {
+    const values = PRESET_VALUES[next];
+    setPreset(next);
+    setStability(values.stability);
+    setSimilarityBoost(values.similarityBoost);
+    setSpeakerBoost(values.speakerBoost);
   };
+
+  const ttsOpts = useMemo(
+    () => ({
+      model_id: modelId,
+      provider_voice_id: selectedElVoiceId || undefined,
+      provider_voice_name: selectedElVoice?.name,
+      stability,
+      similarity_boost: similarityBoost,
+      use_speaker_boost: speakerBoost,
+    }),
+    [
+      modelId,
+      selectedElVoiceId,
+      selectedElVoice?.name,
+      stability,
+      similarityBoost,
+      speakerBoost,
+    ],
+  );
 
   const selectProfile = (id: string) => {
     if (id === selectedProfileId) return;
@@ -429,7 +514,7 @@ export default function VoiceSpeakScreen() {
           <View style={styles.presetRow}>
             <Pressable
               style={[styles.chip, preset === "similar" && styles.chipActive]}
-              onPress={() => setPreset("similar")}
+              onPress={() => applyPreset("similar")}
             >
               <Text
                 style={[
@@ -442,7 +527,7 @@ export default function VoiceSpeakScreen() {
             </Pressable>
             <Pressable
               style={[styles.chip, preset === "stable" && styles.chipActive]}
-              onPress={() => setPreset("stable")}
+              onPress={() => applyPreset("stable")}
             >
               <Text
                 style={[
@@ -453,7 +538,61 @@ export default function VoiceSpeakScreen() {
                 Ổn định
               </Text>
             </Pressable>
+            {preset === null ? (
+              <View style={styles.customChip}>
+                <Text style={styles.customChipText}>Tùy chỉnh</Text>
+              </View>
+            ) : null}
           </View>
+
+          <Pressable
+            style={styles.advancedToggle}
+            onPress={() => setAdvancedOpen((v) => !v)}
+            hitSlop={4}
+          >
+            <Text style={styles.advancedToggleText}>Nâng cao</Text>
+            <Text style={styles.advancedChevron}>{advancedOpen ? "▴" : "▾"}</Text>
+          </Pressable>
+
+          {advancedOpen ? (
+            <View style={styles.advancedPanel}>
+              <TtsStepper
+                label="Stability"
+                hint="Thấp = biểu cảm · Cao = đều, ổn định"
+                value={stability}
+                onChange={(next) => {
+                  setPreset(null);
+                  setStability(next);
+                }}
+              />
+              <TtsStepper
+                label="Similarity"
+                hint="Cao = giống bản clone hơn"
+                value={similarityBoost}
+                onChange={(next) => {
+                  setPreset(null);
+                  setSimilarityBoost(next);
+                }}
+              />
+              <View style={styles.advancedRow}>
+                <View style={styles.advancedCopy}>
+                  <Text style={styles.advancedLabel}>Speaker Boost</Text>
+                  <Text style={styles.advancedHint}>
+                    Tăng độ rõ và giống giọng gốc
+                  </Text>
+                </View>
+                <Switch
+                  value={speakerBoost}
+                  onValueChange={(next) => {
+                    setPreset(null);
+                    setSpeakerBoost(next);
+                  }}
+                  trackColor={{ false: colors.line, true: colors.brandSoft }}
+                  thumbColor={speakerBoost ? colors.brand : "#f4f3f4"}
+                />
+              </View>
+            </View>
+          ) : null}
         </View>
 
         <Text style={styles.section}>Nội dung</Text>
@@ -640,7 +779,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#fff",
     fontFamily: fonts.display,
   },
-  presetRow: { flexDirection: "row", gap: 8 },
+  presetRow: { flexDirection: "row", flexWrap: "wrap", gap: 8, alignItems: "center" },
   chip: {
     paddingHorizontal: 12,
     paddingVertical: 8,
@@ -652,6 +791,74 @@ const styles = StyleSheet.create({
   chipActive: { backgroundColor: colors.brand, borderColor: colors.brand },
   chipText: { fontSize: 13, fontWeight: "600", color: colors.inkSoft },
   chipTextActive: { color: "#fff" },
+  customChip: {
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: colors.line,
+    backgroundColor: "#f7f3ee",
+  },
+  customChipText: { fontSize: 12, fontWeight: "600", color: colors.inkSoft },
+  advancedToggle: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingTop: 4,
+    borderTopWidth: 1,
+    borderTopColor: colors.line,
+    marginTop: 2,
+  },
+  advancedToggleText: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: colors.ink,
+  },
+  advancedChevron: {
+    fontSize: 14,
+    color: colors.inkSoft,
+    fontWeight: "700",
+  },
+  advancedPanel: { gap: 12, paddingTop: 4 },
+  advancedRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 12,
+  },
+  advancedCopy: { flex: 1, gap: 2 },
+  advancedLabel: { fontSize: 14, fontWeight: "700", color: colors.ink },
+  advancedHint: { fontSize: 12, lineHeight: 16, color: colors.inkSoft },
+  stepper: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  stepBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: colors.line,
+    backgroundColor: "#fff",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  stepBtnDisabled: { opacity: 0.35 },
+  stepBtnText: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: colors.brand,
+    lineHeight: 20,
+  },
+  stepValue: {
+    minWidth: 44,
+    textAlign: "center",
+    fontSize: 15,
+    fontWeight: "700",
+    color: colors.ink,
+    fontVariant: ["tabular-nums"],
+  },
   btn: {
     backgroundColor: colors.brand,
     borderRadius: 10,

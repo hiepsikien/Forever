@@ -39,5 +39,5 @@ def require_steward_or_owner(db: Session, *, space_id: str, user: User) -> Famil
         return space
     raise HTTPException(
         status_code=403,
-        detail="Steward or owner permission required.",
+        detail="Chỉ Owner hoặc Steward mới thực hiện được thao tác này.",
     )

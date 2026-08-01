@@ -130,9 +130,13 @@ export default function VoiceDnaScreen() {
 
   const chipLabel = (item: IdentityProfile) => {
     if (item.linked_user_id === user?.id) return "Tôi";
-    if (item.relation_label) return item.relation_label;
-    return item.display_name;
+    const name = item.relation_label || item.display_name;
+    if (item.status === "remembered") return `${name} · Ký ức`;
+    return name;
   };
+
+  const editingLinkedSelf =
+    showEdit && selectedIdentity?.linked_user_id === user?.id;
 
   const personTitle = selectedIdentity
     ? selectedIdentity.linked_user_id === user?.id
@@ -157,13 +161,20 @@ export default function VoiceDnaScreen() {
 
   const createVoice = async () => {
     if (!spaceId || !selectedIdentity || !consent || busy) return;
-    if (!canManage && selectedIdentity.linked_user_id !== user?.id) {
-      Alert.alert("Không đủ quyền", "Chỉ Owner / Steward tạo Voice DNA cho người khác.");
+    const isSelf = selectedIdentity.linked_user_id === user?.id;
+    const isHeritage = selectedIdentity.status === "remembered";
+    if (!isSelf && !canManage) {
+      Alert.alert(
+        "Không đủ quyền",
+        isHeritage
+          ? "Hồ sơ Ký ức chỉ Owner / Steward tạo và quản lý Voice DNA."
+          : "Chỉ Owner / Steward tạo Voice DNA cho người khác.",
+      );
       return;
     }
     setBusy(true);
     try {
-      if (selectedIdentity.linked_user_id === user?.id) {
+      if (isSelf) {
         await api.createSelfVoice(spaceId, true);
       } else {
         await api.createVoiceForIdentity(spaceId, selectedIdentity.id, true);
@@ -319,25 +330,20 @@ export default function VoiceDnaScreen() {
           </Text>
           <View style={styles.stickyLinks}>
             {canManage ? (
-              <>
-                <Pressable onPress={openAddForm} hitSlop={8}>
-                  <Text style={styles.link}>+ Thêm hồ sơ</Text>
-                </Pressable>
-                <Pressable
-                  onPress={openEdit}
-                  disabled={!selectedIdentity}
-                  hitSlop={8}
+              <Pressable
+                onPress={openEdit}
+                disabled={!selectedIdentity}
+                hitSlop={8}
+              >
+                <Text
+                  style={[
+                    styles.link,
+                    !selectedIdentity && styles.linkMuted,
+                  ]}
                 >
-                  <Text
-                    style={[
-                      styles.link,
-                      !selectedIdentity && styles.linkMuted,
-                    ]}
-                  >
-                    Sửa
-                  </Text>
-                </Pressable>
-              </>
+                  Sửa hồ sơ
+                </Text>
+              </Pressable>
             ) : (
               <Text style={styles.linkMuted}>Chỉ xem</Text>
             )}
@@ -377,7 +383,7 @@ export default function VoiceDnaScreen() {
             })}
             {canManage ? (
               <Pressable style={styles.chipAdd} onPress={openAddForm} hitSlop={4}>
-                <Text style={styles.chipAddText}>+ Thêm người</Text>
+                <Text style={styles.chipAddText}>+ Thêm</Text>
               </Pressable>
             ) : null}
           </View>
@@ -413,23 +419,9 @@ export default function VoiceDnaScreen() {
             <Text style={styles.infoTitle}>Chỉ có hồ sơ "Tôi"?</Text>
             <Text style={styles.infoBody}>
               Thêm Bố, Mẹ hoặc người thân khác cần quyền quản lý nhà (Owner hoặc
-              Steward). Nếu bạn là thành viên, nhờ người tạo Space đăng nhập và
-              bấm "+ Thêm người" ở trên.
+              Steward). Nhờ người tạo Space đăng nhập để thêm hồ sơ.
             </Text>
           </View>
-        ) : null}
-
-        {canManage &&
-        identities.length === 1 &&
-        !showAdd &&
-        !showEdit ? (
-          <Pressable style={styles.addBanner} onPress={openAddForm}>
-            <Text style={styles.addBannerTitle}>Thêm hồ sơ Bố / Mẹ / người khác</Text>
-            <Text style={styles.addBannerSub}>
-              Mỗi người một chip riêng — ghi mẫu, clone và tạo giọng độc lập.
-            </Text>
-            <Text style={styles.addBannerCta}>+ Thêm hồ sơ</Text>
-          </Pressable>
         ) : null}
 
         {showAdd || showEdit ? (
@@ -469,19 +461,35 @@ export default function VoiceDnaScreen() {
                 style={[
                   styles.chip,
                   newStatus === "remembered" && styles.chipActive,
+                  editingLinkedSelf && styles.chipDisabled,
                 ]}
-                onPress={() => setNewStatus("remembered")}
+                onPress={() => {
+                  if (editingLinkedSelf) return;
+                  setNewStatus("remembered");
+                }}
+                disabled={editingLinkedSelf}
               >
                 <Text
                   style={[
                     styles.chipText,
                     newStatus === "remembered" && styles.chipTextActive,
+                    editingLinkedSelf && styles.chipTextDisabled,
                   ]}
                 >
                   Ký ức
                 </Text>
               </Pressable>
             </View>
+            {editingLinkedSelf ? (
+              <Text style={styles.formHint}>
+                Hồ sơ Tôi luôn là Đang sống — Ký ức dùng cho người thân (Bố, Mẹ…).
+              </Text>
+            ) : newStatus === "remembered" ? (
+              <Text style={styles.formHint}>
+                Ký ức: người đã mất hoặc giọng lưu trữ — cần quyền Owner/Steward và
+                đồng ý ký ức khi tạo Voice DNA.
+              </Text>
+            ) : null}
             <View style={styles.rowActions}>
               <Pressable
                 style={[styles.btnGhost, styles.rowBtn]}
@@ -688,8 +696,10 @@ const styles = StyleSheet.create({
     borderColor: colors.line,
   },
   chipActive: { backgroundColor: colors.brand, borderColor: colors.brand },
+  chipDisabled: { opacity: 0.45 },
   chipText: { fontSize: 13, color: colors.ink, fontWeight: "600" },
   chipTextActive: { color: "#fff" },
+  chipTextDisabled: { color: colors.inkSoft },
   chipAdd: {
     paddingHorizontal: 12,
     paddingVertical: 8,
@@ -710,12 +720,6 @@ const styles = StyleSheet.create({
   },
   addBannerTitle: { fontSize: 16, fontWeight: "700", color: colors.ink },
   addBannerSub: { fontSize: 13, lineHeight: 18, color: colors.inkSoft },
-  addBannerCta: {
-    marginTop: 4,
-    fontSize: 15,
-    fontWeight: "700",
-    color: colors.brand,
-  },
   infoCard: {
     backgroundColor: "#f7f1e6",
     borderRadius: 14,
@@ -727,6 +731,7 @@ const styles = StyleSheet.create({
   infoTitle: { fontSize: 15, fontWeight: "700", color: colors.ink },
   infoBody: { fontSize: 13, lineHeight: 18, color: colors.inkSoft },
   formTitle: { fontSize: 14, fontWeight: "700", color: colors.ink },
+  formHint: { fontSize: 12, lineHeight: 17, color: colors.inkSoft },
   input: {
     borderWidth: 1,
     borderColor: colors.line,

@@ -1,4 +1,4 @@
-import { SpaceSettings } from "@forever/api-client";
+import { FamilySpace, SpaceSettings, StewardshipStatus } from "@forever/api-client";
 import { useNavigation } from "@react-navigation/native";
 import { useLocalSearchParams } from "expo-router";
 import { useCallback, useLayoutEffect, useState } from "react";
@@ -18,9 +18,12 @@ import { colors, fonts } from "@/lib/theme";
 
 export default function SettingsScreen() {
   const { spaceId } = useLocalSearchParams<{ spaceId: string }>();
-  const { api } = useAuth();
+  const { api, user } = useAuth();
   const navigation = useNavigation();
+  const [space, setSpace] = useState<FamilySpace | null>(null);
   const [settings, setSettings] = useState<SpaceSettings | null>(null);
+  const [stewardship, setStewardship] = useState<StewardshipStatus | null>(null);
+  const [inviteCode, setInviteCode] = useState<string | null>(null);
   const [apiKey, setApiKey] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -33,8 +36,14 @@ export default function SettingsScreen() {
     if (!spaceId) return;
     setLoading(true);
     try {
-      const res = await api.getSpaceSettings(spaceId);
-      setSettings(res);
+      const [spaceRes, settingsRes, stewardRes] = await Promise.all([
+        api.getSpace(spaceId),
+        api.getSpaceSettings(spaceId),
+        api.getStewardship(spaceId),
+      ]);
+      setSpace(spaceRes);
+      setSettings(settingsRes);
+      setStewardship(stewardRes);
     } catch (e) {
       Alert.alert("Lỗi", e instanceof Error ? e.message : "Không tải cài đặt.");
     } finally {
@@ -45,6 +54,50 @@ export default function SettingsScreen() {
   useLayoutEffect(() => {
     load();
   }, [load]);
+
+  const makeInvite = async () => {
+    if (!spaceId) return;
+    try {
+      const invite = await api.createInvite(spaceId);
+      setInviteCode(invite.code);
+    } catch (e) {
+      Alert.alert("Lỗi", e instanceof Error ? e.message : "Không tạo mã được.");
+    }
+  };
+
+  const nominateMember = () => {
+    if (!spaceId || !space?.members?.length) return;
+    const candidates = space.members.filter((m) => m.id !== user?.id);
+    if (!candidates.length) {
+      Alert.alert(
+        "Chưa có thành viên khác",
+        "Mời người thân vào trước khi chỉ định kế nhiệm.",
+      );
+      return;
+    }
+    Alert.alert(
+      "Chỉ định người giữ nhà kế nhiệm",
+      "Chọn thành viên sẽ nhận quyền steward khi bạn trao / mất khả năng quản trị.",
+      [
+        ...candidates.map((m) => ({
+          text: `${m.name}${m.handle ? ` (@${m.handle})` : ""}`,
+          onPress: async () => {
+            try {
+              await api.nominateSuccessor(spaceId, m.id, "Chỉ định kế nhiệm Forever");
+              await load();
+              Alert.alert(
+                "Đã đề cử",
+                `${m.name} cần chấp nhận trên thiết bị của họ.`,
+              );
+            } catch (e) {
+              Alert.alert("Lỗi", e instanceof Error ? e.message : "Không đề cử được.");
+            }
+          },
+        })),
+        { text: "Huỷ", style: "cancel" },
+      ],
+    );
+  };
 
   const saveKey = async () => {
     if (!spaceId || saving) return;
@@ -80,8 +133,118 @@ export default function SettingsScreen() {
     );
   }
 
+  const succession = stewardship?.succession;
+  const iAmNominee = succession?.nominee?.id === user?.id;
+  const isOwner = space?.role === "owner";
+
   return (
     <ScrollView contentContainerStyle={styles.root}>
+      <Text style={styles.section}>Không gian</Text>
+      <View style={styles.card}>
+        <Text style={styles.value}>{space?.name ?? "—"}</Text>
+        <Text style={styles.metaLine}>
+          {space?.member_count ?? 0} thành viên
+          {space?.role === "owner" ? " · Bạn quản trị" : ""}
+        </Text>
+        {stewardship?.steward ? (
+          <Text style={styles.metaLine}>Steward: {stewardship.steward.name}</Text>
+        ) : null}
+      </View>
+
+      {isOwner ? (
+        <>
+          <Text style={styles.section}>Mời gia đình</Text>
+          <View style={styles.card}>
+            <Text style={styles.help}>
+              Tạo mã mời để con cháu tham gia không gian này (hết hạn sau 14 ngày).
+            </Text>
+            <Pressable style={styles.btnSecondary} onPress={makeInvite}>
+              <Text style={styles.btnSecondaryText}>
+                {inviteCode ? `Mã mời: ${inviteCode}` : "Tạo mã mời"}
+              </Text>
+            </Pressable>
+          </View>
+        </>
+      ) : null}
+
+      <Text style={styles.section}>Trường tồn · Steward</Text>
+      <View style={styles.card}>
+        {succession ? (
+          <Text style={styles.body}>
+            Đề cử: {succession.nominee.name}
+            {succession.nominee.handle ? ` (@${succession.nominee.handle})` : ""} ·{" "}
+            {succession.status}
+          </Text>
+        ) : (
+          <Text style={styles.body}>
+            Chưa có người kế nhiệm. Steward hiện tại giữ quyền quản trị không gian
+            này.
+          </Text>
+        )}
+        <View style={styles.row}>
+          {stewardship?.is_steward ? (
+            <>
+              <Pressable style={styles.smallBtn} onPress={nominateMember}>
+                <Text style={styles.smallBtnText}>Chỉ định kế nhiệm</Text>
+              </Pressable>
+              {succession && ["pending", "accepted"].includes(succession.status) ? (
+                <Pressable
+                  style={styles.smallBtnGhost}
+                  onPress={async () => {
+                    if (!spaceId) return;
+                    await api.revokeSuccession(spaceId);
+                    await load();
+                  }}
+                >
+                  <Text style={styles.smallBtnGhostText}>Thu hồi</Text>
+                </Pressable>
+              ) : null}
+            </>
+          ) : null}
+          {iAmNominee && succession?.status === "pending" ? (
+            <>
+              <Pressable
+                style={styles.smallBtn}
+                onPress={async () => {
+                  if (!spaceId) return;
+                  await api.acceptSuccession(spaceId);
+                  await load();
+                }}
+              >
+                <Text style={styles.smallBtnText}>Nhận kế nhiệm</Text>
+              </Pressable>
+              <Pressable
+                style={styles.smallBtnGhost}
+                onPress={async () => {
+                  if (!spaceId) return;
+                  await api.declineSuccession(spaceId);
+                  await load();
+                }}
+              >
+                <Text style={styles.smallBtnGhostText}>Từ chối</Text>
+              </Pressable>
+            </>
+          ) : null}
+          {succession?.status === "accepted" &&
+          (iAmNominee || stewardship?.is_steward) ? (
+            <Pressable
+              style={styles.smallBtn}
+              onPress={async () => {
+                if (!spaceId) return;
+                await api.activateSuccession(spaceId);
+                await load();
+                Alert.alert(
+                  "Đã chuyển giao",
+                  "Quyền steward / owner đã trao cho người kế nhiệm.",
+                );
+              }}
+            >
+              <Text style={styles.smallBtnText}>Kích hoạt chuyển giao</Text>
+            </Pressable>
+          ) : null}
+        </View>
+      </View>
+
       <Text style={styles.section}>Voice DNA · ElevenLabs</Text>
       <Text style={styles.help}>
         Key dùng để clone giọng và TTS trong không gian này. Chỉ Steward / Owner
@@ -114,7 +277,9 @@ export default function SettingsScreen() {
               onPress={saveKey}
               disabled={saving}
             >
-              <Text style={styles.btnText}>{saving ? "Đang lưu…" : "Lưu API key"}</Text>
+              <Text style={styles.btnText}>
+                {saving ? "Đang lưu…" : "Lưu API key"}
+              </Text>
             </Pressable>
           </>
         ) : (
@@ -133,15 +298,21 @@ export default function SettingsScreen() {
 }
 
 const styles = StyleSheet.create({
-  center: { flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: colors.bg },
-  root: { padding: 20, gap: 12, backgroundColor: colors.bg },
+  center: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: colors.bg,
+  },
+  root: { padding: 20, gap: 12, paddingBottom: 40, backgroundColor: colors.bg },
   section: {
     fontFamily: fonts.display,
     fontSize: 22,
     color: colors.ink,
     marginBottom: 4,
+    marginTop: 4,
   },
-  help: { fontSize: 14, lineHeight: 20, color: colors.inkSoft, marginBottom: 8 },
+  help: { fontSize: 14, lineHeight: 20, color: colors.inkSoft, marginBottom: 4 },
   card: {
     backgroundColor: colors.card,
     borderRadius: 14,
@@ -150,8 +321,42 @@ const styles = StyleSheet.create({
     borderColor: colors.line,
     gap: 8,
   },
-  label: { fontSize: 12, fontWeight: "600", color: colors.inkSoft, textTransform: "uppercase" },
-  value: { fontSize: 16, color: colors.ink },
+  label: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: colors.inkSoft,
+    textTransform: "uppercase",
+  },
+  value: { fontSize: 16, fontWeight: "600", color: colors.ink },
+  metaLine: { fontSize: 14, color: colors.inkSoft, lineHeight: 20 },
+  body: { fontSize: 14, color: colors.inkSoft, lineHeight: 20 },
+  row: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginTop: 4 },
+  smallBtn: {
+    backgroundColor: colors.brand,
+    borderRadius: 999,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  smallBtnText: { color: "#f4efe6", fontWeight: "600", fontSize: 13 },
+  smallBtnGhost: {
+    borderRadius: 999,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderWidth: 1,
+    borderColor: colors.line,
+  },
+  smallBtnGhostText: { color: colors.brand, fontWeight: "600", fontSize: 13 },
+  btnSecondary: {
+    alignSelf: "flex-start",
+    backgroundColor: "#fff",
+    borderWidth: 1,
+    borderColor: colors.brand,
+    borderRadius: 999,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    marginTop: 4,
+  },
+  btnSecondaryText: { color: colors.brand, fontWeight: "700", fontSize: 14 },
   input: {
     borderWidth: 1,
     borderColor: colors.line,
@@ -172,5 +377,5 @@ const styles = StyleSheet.create({
   btnDisabled: { opacity: 0.6 },
   btnText: { color: "#fff", fontWeight: "700", fontSize: 15 },
   locked: { marginTop: 8, fontSize: 14, color: colors.inkSoft, lineHeight: 20 },
-  footnote: { fontSize: 12, color: colors.inkSoft, lineHeight: 18, marginTop: 8 },
+  footnote: { fontSize: 12, color: colors.inkSoft, lineHeight: 18, marginTop: 4 },
 });

@@ -517,6 +517,12 @@ def update_identity(
     if not row:
         raise HTTPException(status_code=404, detail="Identity profile not found.")
 
+    if body.status == "remembered" and row.linked_user_id:
+        raise HTTPException(
+            status_code=400,
+            detail="Hồ sơ gắn tài khoản (Tôi) không thể đặt là Ký ức.",
+        )
+
     if body.display_name is not None:
         row.display_name = body.display_name.strip()
     if body.relation_label is not None:

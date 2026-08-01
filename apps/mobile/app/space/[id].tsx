@@ -1,12 +1,12 @@
-import { FamilySpace, StewardshipStatus, ThreadSummary } from "@forever/api-client";
+import { FamilySpace, ThreadSummary } from "@forever/api-client";
 import { useNavigation } from "@react-navigation/native";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { useCallback, useLayoutEffect, useState } from "react";
+import { useCallback, useLayoutEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
-  Alert,
   FlatList,
   Pressable,
+  RefreshControl,
   StyleSheet,
   Text,
   View,
@@ -15,87 +15,151 @@ import {
 import { useAuth } from "@/lib/auth";
 import { colors, fonts } from "@/lib/theme";
 
+function threadPreview(item: ThreadSummary): string {
+  const last = item.last_message;
+  if (!last) return "Chưa có tin nhắn";
+  if (last.kind === "voice") return "Tin nhắn thoại";
+  return last.body || "Chưa có tin nhắn";
+}
+
+function threadKindLabel(kind: string): string | null {
+  if (kind === "heritage") return "Ký ức";
+  return null;
+}
+
 export default function SpaceScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { api, user } = useAuth();
+  const { api } = useAuth();
   const router = useRouter();
   const navigation = useNavigation();
   const [space, setSpace] = useState<FamilySpace | null>(null);
   const [threads, setThreads] = useState<ThreadSummary[]>([]);
-  const [stewardship, setStewardship] = useState<StewardshipStatus | null>(null);
-  const [inviteCode, setInviteCode] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const load = useCallback(async () => {
-    if (!id) return;
-    setLoading(true);
-    setError(null);
-    try {
-      const [spaceRes, threadRes, stewardRes] = await Promise.all([
-        api.getSpace(id),
-        api.listThreads(id),
-        api.getStewardship(id),
-      ]);
-      setSpace(spaceRes);
-      setThreads(threadRes.threads);
-      setStewardship(stewardRes);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Không tải được.");
-    } finally {
-      setLoading(false);
-    }
-  }, [api, id]);
+  const load = useCallback(
+    async (opts?: { silent?: boolean }) => {
+      if (!id) return;
+      const silent = opts?.silent === true;
+      if (silent) setRefreshing(true);
+      else setLoading(true);
+      setError(null);
+      try {
+        const [spaceRes, threadRes] = await Promise.all([
+          api.getSpace(id),
+          api.listThreads(id),
+        ]);
+        setSpace(spaceRes);
+        setThreads(threadRes.threads);
+      } catch (e) {
+        setError(e instanceof Error ? e.message : "Không tải được.");
+      } finally {
+        setLoading(false);
+        setRefreshing(false);
+      }
+    },
+    [api, id],
+  );
 
   useLayoutEffect(() => {
     load();
   }, [load]);
 
   useLayoutEffect(() => {
-    if (space?.name) {
-      navigation.setOptions({ title: space.name });
-    }
-  }, [navigation, space?.name]);
+    navigation.setOptions({
+      title: space?.name ?? "Gia đình",
+      headerRight: () => (
+        <Pressable
+          onPress={() => id && router.push(`/settings/${id}`)}
+          hitSlop={8}
+          style={styles.headerBtn}
+        >
+          <Text style={styles.headerBtnText}>Cài đặt</Text>
+        </Pressable>
+      ),
+    });
+  }, [navigation, space?.name, id, router]);
 
-  const makeInvite = async () => {
-    if (!id) return;
-    try {
-      const invite = await api.createInvite(id);
-      setInviteCode(invite.code);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Không tạo mã được.");
-    }
+  const familyThread = useMemo(
+    () => threads.find((t) => t.kind === "family") ?? null,
+    [threads],
+  );
+
+  const otherThreads = useMemo(
+    () =>
+      familyThread
+        ? threads.filter((t) => t.id !== familyThread.id)
+        : threads,
+    [threads, familyThread],
+  );
+
+  const openThread = (threadId: string) => {
+    router.push(`/chat/${threadId}`);
   };
 
-  const nominateMember = () => {
-    if (!id || !space?.members?.length) return;
-    const candidates = space.members.filter((m) => m.id !== user?.id);
-    if (!candidates.length) {
-      Alert.alert("Chưa có thành viên khác", "Mời người thân vào trước khi chỉ định kế nhiệm.");
-      return;
-    }
-    Alert.alert(
-      "Chỉ định người giữ nhà kế nhiệm",
-      "Chọn thành viên sẽ nhận quyền steward khi bạn trao / mất khả năng quản trị.",
-      [
-        ...candidates.map((m) => ({
-          text: `${m.name}${m.handle ? ` (@${m.handle})` : ""}`,
-          onPress: async () => {
-            try {
-              await api.nominateSuccessor(id, m.id, "Chỉ định kế nhiệm Forever");
-              await load();
-              Alert.alert("Đã đề cử", `${m.name} cần chấp nhận trên thiết bị của họ.`);
-            } catch (e) {
-              Alert.alert("Lỗi", e instanceof Error ? e.message : "Không đề cử được.");
-            }
-          },
-        })),
-        { text: "Huỷ", style: "cancel" },
-      ],
-    );
-  };
+  const renderHeader = () => (
+    <View style={styles.headerBlock}>
+      <Text style={styles.meta}>
+        {space?.member_count ?? 0} thành viên
+        {space?.role === "owner" ? " · Bạn quản trị" : ""}
+      </Text>
 
-  if (loading) {
+      {familyThread ? (
+        <Pressable
+          style={styles.hero}
+          onPress={() => openThread(familyThread.id)}
+        >
+          <Text style={styles.heroKicker}>Phòng khách</Text>
+          <Text style={styles.heroPreview} numberOfLines={2}>
+            {threadPreview(familyThread)}
+          </Text>
+          <Text style={styles.heroCta}>Vào trò chuyện →</Text>
+        </Pressable>
+      ) : (
+        <View style={styles.heroMuted}>
+          <Text style={styles.heroKickerMuted}>Phòng khách</Text>
+          <Text style={styles.heroPreviewMuted}>Chưa có cuộc trò chuyện chung.</Text>
+        </View>
+      )}
+
+      <Text style={styles.memoryLabel}>Ký ức & giọng</Text>
+      <View style={styles.memoryRow}>
+        <Pressable
+          style={styles.memoryTile}
+          onPress={() => id && router.push(`/library/${id}`)}
+        >
+          <Text style={styles.memoryTitle}>Thư viện</Text>
+          <Text style={styles.memorySub}>Ảnh, ghi chú</Text>
+        </Pressable>
+        <Pressable
+          style={styles.memoryTile}
+          onPress={() => id && router.push(`/interview/${id}`)}
+        >
+          <Text style={styles.memoryTitle}>Time-Capsule</Text>
+          <Text style={styles.memorySub}>Câu hỏi cội nguồn</Text>
+        </Pressable>
+        <Pressable
+          style={styles.memoryTile}
+          onPress={() => id && router.push(`/voice/${id}`)}
+        >
+          <Text style={styles.memoryTitle}>Voice DNA</Text>
+          <Text style={styles.memorySub}>Giọng & TTS</Text>
+        </Pressable>
+      </View>
+
+      <Text style={styles.section}>
+        {otherThreads.length ? "Cuộc trò chuyện khác" : "Cuộc trò chuyện"}
+      </Text>
+      {!otherThreads.length && familyThread ? (
+        <Text style={styles.emptyHint}>
+          Các phòng Ký ức (người thân) sẽ hiện ở đây khi được tạo.
+        </Text>
+      ) : null}
+    </View>
+  );
+
+  if (loading && !space) {
     return (
       <View style={styles.center}>
         <ActivityIndicator color={colors.brand} />
@@ -103,214 +167,153 @@ export default function SpaceScreen() {
     );
   }
 
-  const succession = stewardship?.succession;
-  const iAmNominee = succession?.nominee?.id === user?.id;
-
   return (
-    <View style={styles.root}>
-      <Text style={styles.meta}>
-        {space?.member_count ?? 0} thành viên
-        {space?.role === "owner" ? " · Bạn là người quản trị" : ""}
-        {stewardship?.steward
-          ? ` · Steward: ${stewardship.steward.name}`
-          : ""}
-      </Text>
-
-      {space?.role === "owner" ? (
-        <Pressable style={styles.inviteBtn} onPress={makeInvite}>
-          <Text style={styles.inviteText}>
-            {inviteCode ? `Mã mời: ${inviteCode}` : "Tạo mã mời"}
-          </Text>
-        </Pressable>
-      ) : null}
-
-      <View style={styles.hub}>
-        <Pressable
-          style={styles.hubBtn}
-          onPress={() => id && router.push(`/library/${id}`)}
-        >
-          <Text style={styles.hubTitle}>Thư viện ký ức</Text>
-          <Text style={styles.hubSub}>Ảnh, ghi chú, giọng nói của cả nhà</Text>
-        </Pressable>
-        <Pressable
-          style={styles.hubBtn}
-          onPress={() => id && router.push(`/interview/${id}`)}
-        >
-          <Text style={styles.hubTitle}>Time-Capsule</Text>
-          <Text style={styles.hubSub}>Một câu hỏi cội nguồn — trả lời khi tiện</Text>
-        </Pressable>
-        <Pressable
-          style={styles.hubBtn}
-          onPress={() => id && router.push(`/voice/${id}`)}
-        >
-          <Text style={styles.hubTitle}>Voice DNA</Text>
-          <Text style={styles.hubSub}>Giọng của bạn hoặc ký ức người thân</Text>
-        </Pressable>
-        <Pressable
-          style={styles.hubBtn}
-          onPress={() => id && router.push(`/settings/${id}`)}
-        >
-          <Text style={styles.hubTitle}>Cài đặt</Text>
-          <Text style={styles.hubSub}>ElevenLabs API key và tùy chọn không gian</Text>
-        </Pressable>
-      </View>
-
-      <Text style={styles.section}>Trường tồn · Steward</Text>
-      <View style={styles.stewardCard}>
-        {succession ? (
-          <Text style={styles.stewardBody}>
-            Đề cử: {succession.nominee.name}
-            {succession.nominee.handle ? ` (@${succession.nominee.handle})` : ""} ·{" "}
-            {succession.status}
-          </Text>
-        ) : (
-          <Text style={styles.stewardBody}>
-            Chưa có người kế nhiệm. Steward hiện tại giữ quyền Owner của không gian này.
-          </Text>
-        )}
-        <View style={styles.stewardActions}>
-          {stewardship?.is_steward ? (
-            <>
-              <Pressable style={styles.smallBtn} onPress={nominateMember}>
-                <Text style={styles.smallBtnText}>Chỉ định kế nhiệm</Text>
-              </Pressable>
-              {succession && ["pending", "accepted"].includes(succession.status) ? (
-                <Pressable
-                  style={styles.smallBtnGhost}
-                  onPress={async () => {
-                    if (!id) return;
-                    await api.revokeSuccession(id);
-                    await load();
-                  }}
-                >
-                  <Text style={styles.smallBtnGhostText}>Thu hồi</Text>
-                </Pressable>
+    <FlatList
+      style={styles.list}
+      contentContainerStyle={styles.listContent}
+      data={otherThreads}
+      keyExtractor={(item) => item.id}
+      ListHeaderComponent={renderHeader}
+      refreshControl={
+        <RefreshControl
+          refreshing={refreshing}
+          onRefresh={() => load({ silent: true })}
+          tintColor={colors.brand}
+        />
+      }
+      renderItem={({ item }) => {
+        const badge = threadKindLabel(item.kind);
+        return (
+          <Pressable style={styles.thread} onPress={() => openThread(item.id)}>
+            <View style={styles.threadTop}>
+              <Text style={styles.threadTitle}>{item.title}</Text>
+              {badge ? (
+                <View style={styles.badge}>
+                  <Text style={styles.badgeText}>{badge}</Text>
+                </View>
               ) : null}
-            </>
-          ) : null}
-          {iAmNominee && succession?.status === "pending" ? (
-            <>
-              <Pressable
-                style={styles.smallBtn}
-                onPress={async () => {
-                  if (!id) return;
-                  await api.acceptSuccession(id);
-                  await load();
-                }}
-              >
-                <Text style={styles.smallBtnText}>Nhận kế nhiệm</Text>
-              </Pressable>
-              <Pressable
-                style={styles.smallBtnGhost}
-                onPress={async () => {
-                  if (!id) return;
-                  await api.declineSuccession(id);
-                  await load();
-                }}
-              >
-                <Text style={styles.smallBtnGhostText}>Từ chối</Text>
-              </Pressable>
-            </>
-          ) : null}
-          {succession?.status === "accepted" &&
-          (iAmNominee || stewardship?.is_steward) ? (
-            <Pressable
-              style={styles.smallBtn}
-              onPress={async () => {
-                if (!id) return;
-                await api.activateSuccession(id);
-                await load();
-                Alert.alert("Đã chuyển giao", "Quyền steward / owner đã trao cho người kế nhiệm.");
-              }}
-            >
-              <Text style={styles.smallBtnText}>Kích hoạt chuyển giao</Text>
-            </Pressable>
-          ) : null}
-        </View>
-      </View>
-
-      <Text style={styles.section}>Cuộc trò chuyện</Text>
-      <FlatList
-        data={threads}
-        keyExtractor={(item) => item.id}
-        renderItem={({ item }) => (
-          <Pressable
-            style={styles.thread}
-            onPress={() => router.push(`/chat/${item.id}`)}
-          >
-            <Text style={styles.threadTitle}>{item.title}</Text>
+            </View>
             <Text style={styles.threadPreview} numberOfLines={2}>
-              {item.last_message?.body ?? "Chưa có tin nhắn"}
+              {threadPreview(item)}
             </Text>
           </Pressable>
-        )}
-      />
-      {error ? <Text style={styles.error}>{error}</Text> : null}
-    </View>
+        );
+      }}
+      ListEmptyComponent={
+        !familyThread ? (
+          <Text style={styles.empty}>Chưa có cuộc trò chuyện nào.</Text>
+        ) : null
+      }
+      ListFooterComponent={
+        error ? <Text style={styles.error}>{error}</Text> : null
+      }
+    />
   );
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, padding: 20, backgroundColor: colors.bg },
+  list: { flex: 1, backgroundColor: colors.bg },
+  listContent: { padding: 20, paddingBottom: 40 },
   center: {
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: colors.bg,
   },
-  meta: { color: colors.inkSoft, marginBottom: 12 },
-  inviteBtn: {
-    alignSelf: "flex-start",
-    backgroundColor: colors.card,
-    borderWidth: 1,
-    borderColor: colors.line,
-    borderRadius: 999,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    marginBottom: 18,
+  headerBtn: { marginRight: 4, paddingVertical: 4, paddingHorizontal: 2 },
+  headerBtnText: { color: colors.brand, fontWeight: "600", fontSize: 16 },
+  headerBlock: { gap: 12, marginBottom: 4 },
+  meta: { color: colors.inkSoft, fontSize: 14 },
+  hero: {
+    backgroundColor: colors.brand,
+    borderRadius: 16,
+    padding: 18,
+    gap: 6,
   },
-  inviteText: { color: colors.brand, fontWeight: "600" },
-  hub: { gap: 10, marginBottom: 20 },
-  hubBtn: {
+  heroMuted: {
     backgroundColor: colors.card,
-    borderRadius: 14,
-    padding: 16,
+    borderRadius: 16,
+    padding: 18,
+    gap: 6,
     borderWidth: 1,
     borderColor: colors.line,
   },
-  hubTitle: { fontSize: 17, fontWeight: "600", color: colors.ink },
-  hubSub: { marginTop: 6, color: colors.inkSoft, lineHeight: 20 },
+  heroKicker: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: "rgba(244, 239, 230, 0.85)",
+    textTransform: "uppercase",
+    letterSpacing: 0.4,
+  },
+  heroKickerMuted: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: colors.inkSoft,
+    textTransform: "uppercase",
+    letterSpacing: 0.4,
+  },
+  heroPreview: {
+    fontFamily: fonts.display,
+    fontSize: 20,
+    lineHeight: 28,
+    color: "#f4efe6",
+  },
+  heroPreviewMuted: {
+    fontFamily: fonts.display,
+    fontSize: 18,
+    lineHeight: 26,
+    color: colors.inkSoft,
+  },
+  heroCta: {
+    marginTop: 4,
+    fontSize: 15,
+    fontWeight: "700",
+    color: "#f4efe6",
+  },
+  memoryLabel: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: colors.inkSoft,
+    textTransform: "uppercase",
+    letterSpacing: 0.4,
+    marginTop: 4,
+  },
+  memoryRow: { flexDirection: "row", gap: 8 },
+  memoryTile: {
+    flex: 1,
+    backgroundColor: colors.card,
+    borderRadius: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 8,
+    borderWidth: 1,
+    borderColor: colors.line,
+    alignItems: "center",
+    gap: 4,
+  },
+  memoryTitle: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: colors.ink,
+    textAlign: "center",
+  },
+  memorySub: {
+    fontSize: 11,
+    color: colors.inkSoft,
+    textAlign: "center",
+    lineHeight: 14,
+  },
   section: {
     fontFamily: fonts.display,
     fontSize: 22,
     color: colors.ink,
-    marginBottom: 10,
+    marginTop: 8,
   },
-  stewardCard: {
-    backgroundColor: colors.card,
-    borderRadius: 14,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: colors.line,
-    marginBottom: 20,
+  emptyHint: {
+    fontSize: 13,
+    color: colors.inkSoft,
+    lineHeight: 18,
+    marginBottom: 4,
   },
-  stewardBody: { color: colors.inkSoft, lineHeight: 20 },
-  stewardActions: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginTop: 12 },
-  smallBtn: {
-    backgroundColor: colors.brand,
-    borderRadius: 999,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-  },
-  smallBtnText: { color: "#f4efe6", fontWeight: "600", fontSize: 13 },
-  smallBtnGhost: {
-    borderRadius: 999,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderWidth: 1,
-    borderColor: colors.line,
-  },
-  smallBtnGhostText: { color: colors.brand, fontWeight: "600", fontSize: 13 },
   thread: {
     backgroundColor: colors.card,
     borderRadius: 14,
@@ -319,7 +322,32 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.line,
   },
-  threadTitle: { fontSize: 17, fontWeight: "600", color: colors.ink },
+  threadTop: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 8,
+  },
+  threadTitle: {
+    flex: 1,
+    fontSize: 17,
+    fontWeight: "600",
+    color: colors.ink,
+  },
+  badge: {
+    backgroundColor: "#f7f1e6",
+    borderRadius: 999,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderWidth: 1,
+    borderColor: "rgba(196, 165, 116, 0.45)",
+  },
+  badgeText: {
+    fontSize: 11,
+    fontWeight: "700",
+    color: colors.accent,
+  },
   threadPreview: { marginTop: 6, color: colors.inkSoft, lineHeight: 20 },
-  error: { color: colors.danger, marginTop: 8 },
+  empty: { color: colors.inkSoft, lineHeight: 22, marginTop: 4 },
+  error: { color: colors.danger, marginTop: 12 },
 });

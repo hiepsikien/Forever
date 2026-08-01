@@ -1,6 +1,5 @@
 import { ChatMessage } from "@forever/api-client";
 import {
-  RecordingPresets,
   requestRecordingPermissionsAsync,
   useAudioRecorder,
   useAudioRecorderState,
@@ -28,6 +27,8 @@ import {
   prepareRecordingMode,
   stopActivePlayback,
 } from "@/lib/audio";
+import { RecordingLevelMeter } from "@/lib/recordingMeter";
+import { VOICE_RECORDING_OPTIONS } from "@/lib/recordingOptions";
 import { useAuth } from "@/lib/auth";
 import { fetchAuthedMediaUri } from "@/lib/media";
 import { colors } from "@/lib/theme";
@@ -52,8 +53,8 @@ export default function ChatScreen() {
   const { api, user } = useAuth();
   const navigation = useNavigation();
   const insets = useSafeAreaInsets();
-  const recorder = useAudioRecorder(RecordingPresets.HIGH_QUALITY);
-  const recorderState = useAudioRecorderState(recorder);
+  const recorder = useAudioRecorder(VOICE_RECORDING_OPTIONS);
+  const recorderState = useAudioRecorderState(recorder, 80);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [text, setText] = useState("");
   const [loading, setLoading] = useState(true);
@@ -321,7 +322,7 @@ export default function ChatScreen() {
       />
       <Text style={styles.hint}>
         {recording
-          ? "Đang ghi… nhấn Dừng & gửi, hoặc Huỷ"
+          ? "Nói vào micro — nhấn Dừng & gửi khi xong"
           : "Giữ tin nhắn để lưu vào thư viện"}
       </Text>
       <View
@@ -340,7 +341,11 @@ export default function ChatScreen() {
               <Text style={styles.cancelText}>Huỷ</Text>
             </Pressable>
             <View style={styles.recordingPill}>
-              <Text style={styles.recordingText}>Đang ghi âm…</Text>
+              <RecordingLevelMeter
+                active={recording}
+                metering={recorderState.metering}
+                durationMillis={recorderState.durationMillis}
+              />
             </View>
             <Pressable
               onPress={stopAndSendVoice}
@@ -488,11 +493,10 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "rgba(180, 80, 60, 0.35)",
     backgroundColor: "#fff7f5",
-    alignItems: "center",
     justifyContent: "center",
     paddingHorizontal: 12,
+    paddingVertical: 8,
   },
-  recordingText: { color: "#a04535", fontWeight: "600", fontSize: 15 },
   send: {
     backgroundColor: colors.brand,
     borderRadius: 16,

@@ -1,11 +1,9 @@
-import * as AuthSession from "expo-auth-session";
-import * as Google from "expo-auth-session/providers/google";
-import * as WebBrowser from "expo-web-browser";
 import { useEffect, useState } from "react";
 import {
   KeyboardAvoidingView,
   Platform,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -15,71 +13,38 @@ import {
 import { useAuth } from "@/lib/auth";
 import { resolveBaseUrl } from "@/lib/api";
 import {
+  googleIosClientId,
   googleWebClientId,
   isAuthDevEnabled,
   isFirebaseConfigured,
-  signInWithGoogleIdToken,
 } from "@/lib/firebase";
 import {
   canUseNativeGoogleSignIn,
   formatGoogleSignInError,
+  isExpoGo,
   signInWithNativeGoogle,
 } from "@/lib/googleSignIn";
 import { colors, fonts } from "@/lib/theme";
-
-WebBrowser.maybeCompleteAuthSession();
 
 export default function LoginScreen() {
   const { signInDev, signInWithIdToken } = useAuth();
   const [email, setEmail] = useState("me@forever.family");
   const [password, setPassword] = useState("forever123");
-  const [phone, setPhone] = useState("+84");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [showDev, setShowDev] = useState(false);
   const firebaseOn = isFirebaseConfigured();
   const devOn = isAuthDevEnabled();
-  const webClientId = googleWebClientId();
-  const useNativeGoogle = canUseNativeGoogleSignIn();
-  const redirectUri = AuthSession.makeRedirectUri();
+  const nativeGoogle = canUseNativeGoogleSignIn();
+  const expoGo = isExpoGo();
   const resolveHint = resolveBaseUrl();
-
-  // Expo Go: only the Web client ID. Passing it as ios/androidClientId causes Google Error 400.
-  const [request, response, promptGoogle] = Google.useIdTokenAuthRequest(
-    !useNativeGoogle && webClientId
-      ? { clientId: webClientId, redirectUri }
-      : { clientId: "placeholder.apps.googleusercontent.com" },
-  );
+  const hasWebClient = Boolean(googleWebClientId());
+  const hasIosClient = Boolean(googleIosClientId());
 
   useEffect(() => {
-    if (useNativeGoogle) return;
-    (async () => {
-      if (response?.type === "error") {
-        setError(
-          response.error?.message ||
-            response.params?.error_description ||
-            "Google trả lỗi (thường do redirect URI chưa khai báo).",
-        );
-        return;
-      }
-      if (response?.type !== "success") return;
-      const idToken = response.params.id_token;
-      if (!idToken) {
-        setError("Google không trả về id_token.");
-        return;
-      }
-      setBusy(true);
-      setError(null);
-      try {
-        const cred = await signInWithGoogleIdToken(idToken);
-        const token = await cred.user.getIdToken();
-        await signInWithIdToken(token);
-      } catch (e) {
-        setError(e instanceof Error ? e.message : "Google đăng nhập thất bại.");
-      } finally {
-        setBusy(false);
-      }
-    })();
-  }, [response, signInWithIdToken, useNativeGoogle]);
+    if (!firebaseOn && devOn) setShowDev(true);
+    if (expoGo && firebaseOn && devOn) setShowDev(true);
+  }, [firebaseOn, devOn, expoGo]);
 
   const onDevSubmit = async () => {
     setBusy(true);
@@ -94,138 +59,155 @@ export default function LoginScreen() {
   };
 
   const onGoogle = async () => {
-    if (!firebaseOn || !webClientId) {
-      setError("Thiếu Firebase / Google Web Client ID trong cấu hình.");
-      return;
-    }
     setError(null);
-    if (useNativeGoogle) {
-      setBusy(true);
-      try {
-        const cred = await signInWithNativeGoogle();
-        const token = await cred.user.getIdToken();
-        await signInWithIdToken(token);
-      } catch (e) {
-        setError(formatGoogleSignInError(e));
-      } finally {
-        setBusy(false);
-      }
-      return;
+    setBusy(true);
+    try {
+      const cred = await signInWithNativeGoogle();
+      const token = await cred.user.getIdToken();
+      await signInWithIdToken(token);
+    } catch (e) {
+      setError(formatGoogleSignInError(e));
+    } finally {
+      setBusy(false);
     }
-    await promptGoogle();
   };
 
-  const onPhoneHint = () => {
-    setError(
-      phone.trim().length < 8
-        ? "Nhập số E.164 (vd. +8490…)."
-        : "SMS Phone Auth cần cấu hình thêm. Tạm dùng Google hoặc Dev login.",
-    );
-  };
-
-  const googleDisabled = busy || (!useNativeGoogle && !request);
+  const googleBlockedReason = expoGo
+    ? "Expo Go không hỗ trợ Google OAuth (Google chặn redirect). Dùng đăng nhập dev bên dưới, hoặc cài bản APK / dev build."
+    : Platform.OS === "ios" && !hasIosClient
+      ? "Thiếu EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID trong apps/mobile/.env — lấy từ Firebase iOS app."
+      : !hasWebClient
+        ? "Thiếu EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID trong apps/mobile/.env."
+        : null;
 
   return (
     <KeyboardAvoidingView
       style={styles.root}
       behavior={Platform.OS === "ios" ? "padding" : undefined}
     >
-      <View style={styles.hero}>
-        <Text style={styles.brand}>Forever</Text>
-        <Text style={styles.tagline}>
-          Mái nhà số cho gia đình — kết nối, lưu giữ, trường tồn.
-        </Text>
-      </View>
+      <ScrollView
+        contentContainerStyle={styles.scroll}
+        keyboardShouldPersistTaps="handled"
+      >
+        <View style={styles.hero}>
+          <Text style={styles.brand}>Forever</Text>
+          <Text style={styles.tagline}>
+            Mái nhà số cho gia đình — kết nối, lưu giữ, trường tồn.
+          </Text>
+        </View>
 
-      <View style={styles.form}>
-        {firebaseOn ? (
-          <>
-            <Pressable
-              onPress={onGoogle}
-              disabled={googleDisabled}
-              style={({ pressed }) => [
-                styles.secondaryCta,
-                (pressed || busy) && { opacity: 0.85 },
-              ]}
-            >
-              <Text style={styles.secondaryText}>
-                {busy ? "Đang vào…" : "Tiếp tục với Google"}
-              </Text>
-            </Pressable>
-
-            <Text style={styles.label}>Điện thoại (SMS)</Text>
-            <TextInput
-              autoCapitalize="none"
-              keyboardType="phone-pad"
-              value={phone}
-              onChangeText={setPhone}
-              style={styles.input}
-              placeholder="+8490…"
-              placeholderTextColor={colors.inkSoft}
-            />
-            <Pressable
-              onPress={onPhoneHint}
-              disabled={busy}
-              style={({ pressed }) => [
-                styles.secondaryCta,
-                (pressed || busy) && { opacity: 0.85 },
-              ]}
-            >
-              <Text style={styles.secondaryText}>Gửi mã SMS</Text>
-            </Pressable>
-            <Text style={styles.divider}>hoặc</Text>
-          </>
-        ) : null}
-
-        {devOn ? (
-          <>
-            <Text style={styles.label}>Email (dev)</Text>
-            <TextInput
-              autoCapitalize="none"
-              keyboardType="email-address"
-              value={email}
-              onChangeText={setEmail}
-              style={styles.input}
-              placeholderTextColor={colors.inkSoft}
-            />
-            <Text style={styles.label}>Mật khẩu</Text>
-            <TextInput
-              secureTextEntry
-              value={password}
-              onChangeText={setPassword}
-              style={styles.input}
-              placeholderTextColor={colors.inkSoft}
-            />
-            <Pressable
-              onPress={onDevSubmit}
-              disabled={busy}
-              style={({ pressed }) => [
-                styles.cta,
-                (pressed || busy) && { opacity: 0.85 },
-              ]}
-            >
-              <Text style={styles.ctaText}>{busy ? "Đang vào…" : "Vào nhà (dev)"}</Text>
-            </Pressable>
-            <Text style={styles.hint}>
-              Demo: me@forever.family / forever123 · API: {resolveHint}
+        <View style={styles.form}>
+          {firebaseOn ? (
+            <>
+              <Text style={styles.formLead}>Đăng nhập để vào nhà</Text>
+              {nativeGoogle ? (
+                <Pressable
+                  onPress={onGoogle}
+                  disabled={busy}
+                  style={({ pressed }) => [
+                    styles.cta,
+                    (pressed || busy) && { opacity: 0.85 },
+                  ]}
+                >
+                  <Text style={styles.ctaText}>
+                    {busy ? "Đang vào…" : "Tiếp tục với Google"}
+                  </Text>
+                </Pressable>
+              ) : (
+                <View style={styles.notice}>
+                  <Text style={styles.noticeTitle}>Google chưa dùng được</Text>
+                  <Text style={styles.noticeBody}>{googleBlockedReason}</Text>
+                </View>
+              )}
+              {!nativeGoogle && devOn ? (
+                <Text style={styles.formNote}>
+                  Tạm thời: mở «Đăng nhập dev» bên dưới (me@forever.family /
+                  forever123).
+                </Text>
+              ) : (
+                <Text style={styles.formNote}>
+                  Dùng tài khoản Google của bạn. Forever không lưu mật khẩu
+                  Google.
+                </Text>
+              )}
+            </>
+          ) : devOn ? (
+            <Text style={styles.formLead}>Chế độ dev — chưa bật Firebase</Text>
+          ) : (
+            <Text style={styles.formLead}>
+              Chưa cấu hình đăng nhập. Liên hệ người quản trị.
             </Text>
-          </>
-        ) : null}
+          )}
 
-        {error ? <Text style={styles.error}>{error}</Text> : null}
-      </View>
+          {devOn ? (
+            <>
+              {firebaseOn ? (
+                <Pressable
+                  onPress={() => setShowDev((v) => !v)}
+                  style={styles.devToggle}
+                  disabled={busy}
+                >
+                  <Text style={styles.devToggleText}>
+                    {showDev ? "Ẩn đăng nhập dev ▴" : "Đăng nhập dev (local) ▾"}
+                  </Text>
+                </Pressable>
+              ) : null}
+
+              {showDev ? (
+                <View style={styles.devPanel}>
+                  <Text style={styles.label}>Email</Text>
+                  <TextInput
+                    autoCapitalize="none"
+                    keyboardType="email-address"
+                    value={email}
+                    onChangeText={setEmail}
+                    style={styles.input}
+                    placeholderTextColor={colors.inkSoft}
+                  />
+                  <Text style={styles.label}>Mật khẩu</Text>
+                  <TextInput
+                    secureTextEntry
+                    value={password}
+                    onChangeText={setPassword}
+                    style={styles.input}
+                    placeholderTextColor={colors.inkSoft}
+                  />
+                  <Pressable
+                    onPress={onDevSubmit}
+                    disabled={busy}
+                    style={({ pressed }) => [
+                      styles.secondaryCta,
+                      (pressed || busy) && { opacity: 0.85 },
+                    ]}
+                  >
+                    <Text style={styles.secondaryText}>
+                      {busy ? "Đang vào…" : "Vào nhà (dev)"}
+                    </Text>
+                  </Pressable>
+                  <Text style={styles.hint}>
+                    Demo: me@forever.family / forever123 · API: {resolveHint}
+                  </Text>
+                </View>
+              ) : null}
+            </>
+          ) : null}
+
+          {error ? <Text style={styles.error}>{error}</Text> : null}
+        </View>
+      </ScrollView>
     </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
-  root: {
-    flex: 1,
-    backgroundColor: colors.brand,
+  root: { flex: 1, backgroundColor: colors.brand },
+  scroll: {
+    flexGrow: 1,
     paddingHorizontal: 28,
+    paddingVertical: 32,
     justifyContent: "center",
   },
-  hero: { marginBottom: 36 },
+  hero: { marginBottom: 28 },
   brand: {
     fontFamily: fonts.display,
     fontSize: 48,
@@ -243,12 +225,34 @@ const styles = StyleSheet.create({
     backgroundColor: colors.card,
     borderRadius: 18,
     padding: 20,
+    gap: 10,
   },
+  formLead: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: colors.ink,
+    marginBottom: 4,
+  },
+  formNote: {
+    fontSize: 13,
+    lineHeight: 18,
+    color: colors.inkSoft,
+  },
+  notice: {
+    backgroundColor: "#f7f1e6",
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "rgba(196, 165, 116, 0.45)",
+    padding: 12,
+    gap: 6,
+  },
+  noticeTitle: { fontSize: 14, fontWeight: "700", color: colors.ink },
+  noticeBody: { fontSize: 13, lineHeight: 18, color: colors.inkSoft },
   label: {
     fontSize: 13,
     color: colors.inkSoft,
-    marginBottom: 6,
-    marginTop: 8,
+    marginBottom: 4,
+    marginTop: 4,
   },
   input: {
     borderWidth: 1,
@@ -261,15 +265,28 @@ const styles = StyleSheet.create({
     backgroundColor: "#fff",
   },
   cta: {
-    marginTop: 18,
     backgroundColor: colors.brand,
     borderRadius: 12,
     paddingVertical: 14,
     alignItems: "center",
   },
   ctaText: { color: "#f4efe6", fontSize: 16, fontWeight: "600" },
+  devToggle: { paddingVertical: 8, marginTop: 4 },
+  devToggleText: {
+    textAlign: "center",
+    color: colors.inkSoft,
+    fontSize: 14,
+    fontWeight: "600",
+  },
+  devPanel: {
+    marginTop: 4,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: colors.line,
+    gap: 6,
+  },
   secondaryCta: {
-    marginTop: 10,
+    marginTop: 8,
     backgroundColor: colors.bgDeep,
     borderRadius: 12,
     paddingVertical: 14,
@@ -278,14 +295,9 @@ const styles = StyleSheet.create({
     borderColor: colors.line,
   },
   secondaryText: { color: colors.brand, fontSize: 16, fontWeight: "600" },
-  divider: {
-    textAlign: "center",
-    marginVertical: 14,
-    color: colors.inkSoft,
-  },
-  error: { marginTop: 10, color: colors.danger },
+  error: { marginTop: 4, color: colors.danger, lineHeight: 20 },
   hint: {
-    marginTop: 14,
+    marginTop: 8,
     fontSize: 12,
     color: colors.inkSoft,
     lineHeight: 18,

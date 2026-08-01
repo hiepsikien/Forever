@@ -16,6 +16,7 @@ type Extra = {
   firebaseAppId?: string;
   firebaseMessagingSenderId?: string;
   googleWebClientId?: string;
+  googleIosClientId?: string;
   authDev?: boolean;
 };
 
@@ -43,6 +44,14 @@ export function googleWebClientId(): string {
   return (
     process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID?.trim() ||
     extra().googleWebClientId?.trim() ||
+    ""
+  );
+}
+
+export function googleIosClientId(): string {
+  return (
+    process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID?.trim() ||
+    extra().googleIosClientId?.trim() ||
     ""
   );
 }
