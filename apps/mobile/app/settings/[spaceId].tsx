@@ -1,6 +1,6 @@
 import { FamilySpace, SpaceSettings, StewardshipStatus } from "@forever/api-client";
 import { useNavigation } from "@react-navigation/native";
-import { useLocalSearchParams } from "expo-router";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import { useCallback, useLayoutEffect, useState } from "react";
 import {
   ActivityIndicator,
@@ -20,6 +20,7 @@ export default function SettingsScreen() {
   const { spaceId } = useLocalSearchParams<{ spaceId: string }>();
   const { api, user } = useAuth();
   const navigation = useNavigation();
+  const router = useRouter();
   const [space, setSpace] = useState<FamilySpace | null>(null);
   const [settings, setSettings] = useState<SpaceSettings | null>(null);
   const [stewardship, setStewardship] = useState<StewardshipStatus | null>(null);
@@ -293,6 +294,20 @@ export default function SettingsScreen() {
         Lấy key tại elevenlabs.io → Profile → API Keys. Gói Starter trở lên để
         Instant Voice Clone qua API.
       </Text>
+
+      <Text style={styles.section}>Về Forever</Text>
+      <Pressable
+        style={styles.philosophyLink}
+        onPress={() => router.push("/settings/philosophy")}
+      >
+        <View style={styles.philosophyLinkMain}>
+          <Text style={styles.philosophyLinkTitle}>Triết lý Forever</Text>
+          <Text style={styles.philosophyLinkSub}>
+            Vì sao app này tồn tại, và cam kết với gia đình bạn
+          </Text>
+        </View>
+        <Text style={styles.philosophyChevron}>›</Text>
+      </Pressable>
     </ScrollView>
   );
 }
@@ -378,4 +393,26 @@ const styles = StyleSheet.create({
   btnText: { color: "#fff", fontWeight: "700", fontSize: 15 },
   locked: { marginTop: 8, fontSize: 14, color: colors.inkSoft, lineHeight: 20 },
   footnote: { fontSize: 12, color: colors.inkSoft, lineHeight: 18, marginTop: 4 },
+  philosophyLink: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    backgroundColor: colors.card,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: colors.line,
+    padding: 16,
+  },
+  philosophyLinkMain: { flex: 1, gap: 4 },
+  philosophyLinkTitle: {
+    fontFamily: fonts.display,
+    fontSize: 18,
+    color: colors.ink,
+  },
+  philosophyLinkSub: { fontSize: 14, lineHeight: 20, color: colors.inkSoft },
+  philosophyChevron: {
+    fontSize: 24,
+    fontWeight: "600",
+    color: colors.inkSoft,
+  },
 });

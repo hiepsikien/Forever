@@ -85,6 +85,10 @@ export default function RootLayout() {
               options={{ title: "Duyệt đoạn tách" }}
             />
             <Stack.Screen name="settings/[spaceId]" options={{ title: "Cài đặt" }} />
+            <Stack.Screen
+              name="settings/philosophy"
+              options={{ title: "Triết lý Forever" }}
+            />
           </Stack>
         </Gate>
       </AuthProvider>
