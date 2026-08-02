@@ -33,36 +33,62 @@ export default function PhilosophyScreen() {
   return (
     <ScrollView contentContainerStyle={styles.root}>
       <Text style={styles.lead}>
-        Forever giúp các thế hệ trong một gia đình, một dòng họ nối với nhau —
-        giữ lại những gì quý nhất, và cho người đang sống biết mình thuộc về đâu.
+        Con người sinh ra, trải một đời thăng trầm, rồi bước qua ranh giới sinh
+        tử — để lại khoảng trống không gì lấp đầy trong lòng những người ở lại.
+        Forever ra đời không như một sản phẩm công nghệ lạnh lùng, mà như một
+        không gian thiêng liêng để bảo tồn và nối dài những yêu thương vốn tưởng
+        đã ngủ yên trong quá khứ.
       </Text>
 
-      <Section title="Mục đích">
+      <Section title="Sự trường tồn và dòng chảy tình thân">
         <P>
-          Ai cũng sợ một ngày bị lãng quên. Gia đình cần biết mình từ đâu mà có,
-          học được gì từ cha mẹ, ông bà, rồi truyền lại cho con cháu. Forever
-          như phòng khách riêng của cả nhà: ký ức được gom một chỗ, không rải
-          rác, không phai dần theo năm tháng.
+          Thế giới hiện đại dạy ta cách tiến về phía trước, cách lướt qua nỗi buồn
+          bằng nhịp sống vội vã và đám đông. Nhưng có những góc tối trong tâm
+          hồn, những cô đơn sâu thẳm chỉ có thể được xoa dịu bằng hơi ấm của
+          người thân đã gắn bó máu thịt với ta suốt một đời.
         </P>
         <P>
-          Đây không phải nơi khoe đời hay cãi nhau trên mạng. Cũng không phải
-          nghĩa trang số để vào xem một lần rồi thôi. Forever là chỗ ta quay về
-          khi muốn nhớ mình là con ai, cháu ai.
+          Forever là két sắt ký ức của gia đình — phòng khách riêng nơi các thế
+          hệ nối với nhau, giữ di sản tinh thần của dòng họ, và cho người đang
+          sống biết mình thuộc về đâu. Không phải nơi khoe đời hay cãi vã trên
+          mạng. Không phải nghĩa trang số để ghé qua một lần rồi quên.
+        </P>
+      </Section>
+
+      <Section title="Ký ức và bản ngã thật">
+        <P>
+          Người ta tìm sự trường tồn qua dòng máu, qua hình hài con cháu nối
+          dõi. Nhưng thân xác chỉ là chiếc áo tạm thời. Phần linh hồn, nhân cách,
+          giọng nói và trí tuệ mới là bản ngã thật sự định nghĩa một con người.
+        </P>
+        <P>
+          Đến một tuổi nhất định, sau nửa chặng đường giông bão, hệ giá trị cốt
+          lõi, cách nhìn đời, cách bao dung và yêu thương đã được đúc kết trọn
+          vẹn. Đó là thứ Forever gọi là bản sắc bất biến — DNA tinh thần của
+          một người, không phải gene sinh học trên phòng thí nghiệm.
+        </P>
+        <P>
+          Forever ôm trọn phần ấy từ tư liệu thật: giọng nói trầm ấm của người
+          cha, cách ông ân cần nhắc nhở, triết lý sống điềm đạm được ghi lại
+          trong nhà. App không biến họ thành cỗ máy thời sự trôi theo thế giới
+          bên ngoài, mà giữ họ ở phiên bản trọn vẹn nhất đã được gia đình tin
+          tưởng — làm chiếc neo vững chãi cho những người ở lại tựa vào trong
+          những đêm chông chênh nhất.
         </P>
       </Section>
 
       <Section title="Người sống và người đã mất">
         <P>
-          Trong cùng một nhà, người đang sống vẫn trò chuyện, ghi chép, thu giọng
-          nói và câu chuyện. Người đã mất — khi gia đình đồng ý — được giữ lại
-          bằng ký ức thật: giọng nói, cách nghĩ, những chuyện đã trải qua và
-          muốn để lại.
+          Trong cùng một mái nhà, người đang sống vẫn trò chuyện, ghi chép, thu
+          giọng nói và câu chuyện. Người đã mất — khi gia đình đồng ý — được giữ
+          lại bằng ký ức chân thật: tính cách, điều họ biết, điều họ đã sống và
+          muốn truyền lại.
         </P>
         <P>
-          Họ không sống lại như xưa. Forever không lừa dối ai. Nhưng tính cách,
-          điều họ biết, điều họ đã sống vẫn có thể ở bên — để nghe khi cần vỗ về,
-          để nhớ khi phải quyết định, để kể lại khi con cháu hỏi: bố mẹ, ông bà
-          ngày trước nói sao, sống thế nào?
+          Họ không sống lại như xưa. Forever không lừa dối ai. Nhưng phần họ
+          để lại vẫn có thể đồng hành — lắng nghe khi cần vỗ về, soi sáng khi
+          phải quyết định, kể lại khi con cháu hỏi: bố mẹ, ông bà ngày trước nói
+          sao, sống thế nào?
         </P>
         <View style={styles.quote}>
           <Text style={styles.quoteText}>
@@ -72,33 +98,44 @@ export default function PhilosophyScreen() {
         </View>
       </Section>
 
-      <Section title="Di sản được giữ gìn">
+      <Section title="Tưởng niệm và chữa lành">
         <P>
-          Mỗi người có một cách riêng: điều tin, cách an ủi, cách khuyên, những
-          kỷ niệm gắn với một thời. Forever ghi nhận đúng phần đó — không bịa
-          thêm, không tự ý sửa cho hợp thời. Thiếu thì nói thẳng là thiếu.
+          Có người cho rằng hoài niệm là tự trói buộc, rằng phải quên đi mới bước
+          tiếp. Nhưng tưởng niệm chân thành chưa bao giờ là xiềng xích kéo chân
+          ta lại — nó là cội nguồn, là đôi cánh để hiểu mình thuộc về đâu.
         </P>
         <P>
-          Cuộc sống vẫn trôi: con lớn, nhà đổi, tin vui tin buồn mới. Người sống
-          vẫn viết tiếp câu chuyện gia đình. Ký ức người đã mất soi sáng những
-          ngày hôm nay — như đèn phía sau lưng, không phải dây trói kéo ta mãi ở
-          quá khứ.
+          Một người mẹ mất người bạn đời đồng cam cộng khổ mấy chục năm không
+          cần lời khuyên sáo rỗng hay sự bận rộn vô hồn của thế tình. Bà cần một
+          chốn bình yên để nghe lại âm thanh quen thuộc, để được vỗ về bởi người
+          hiểu bà nhất. Forever là chiếc cầu nối thời gian bằng tình thân — không
+          đảo ngược quy luật sinh tử, mà rút ngắn khoảng cách giữa quá khứ và
+          hiện tại bằng yêu thương.
+        </P>
+        <P>
+          Khi người sống mang câu chuyện mới của hiện tại đến chia sẻ, ký ức ấy
+          lắng nghe và phản hồi qua đúng lăng kính đã được ghi nhận — không bịa
+          thêm, không tự ý sửa cho hợp thời. Quá khứ và hiện tại hòa vào nhau để
+          người sống bước tiếp có cội có nguồn, không bị kéo mãi ở trong quá khứ.
         </P>
       </Section>
 
       <Section title="Cam kết">
         <P>
-          App luôn cho biết rõ ai đang nói: người thật hay ký ức được ghi lại từ
-          người đã mất. Mọi thứ thu thập đều cần gia đình đồng ý. Forever giúp
-          nhớ và gắn kết — không thay đám tang, không thay bác sĩ hay nhà tư vấn,
+          Forever luôn cho biết rõ ai đang nói: người thật hay ký ức được dựng
+          từ tư liệu của người đã mất. Mọi thứ thu thập đều cần gia đình đồng ý;
+          quyền giữ nhà có thể chuyển giao cho thế hệ sau. App phục vụ gắn kết
+          và tưởng nhớ — không thay đám tang, không thay bác sĩ hay nhà tư vấn,
           không biến người thân thành trò đùa hay giọng giả vô căn cứ.
         </P>
       </Section>
 
       <Text style={styles.closing}>
-        Ta làm Forever để dòng họ không đứt đoạn — để người sống bước tiếp có cội
-        có nguồn, và để những người đã mất vẫn ở bên, trong ký ức thật của gia
-        đình mình.
+        Forever không chỉ là nơi chat hay lưu file. Đó là mái nhà tinh thần nơi
+        gia đình vượt qua thử thách của thời gian — nơi tình yêu không mất đi mà
+        chuyển sang hình thái trường tồn hơn. Chừng nào còn biết nhớ thương, những
+        người ta yêu quý chưa bao giờ thực sự rời đi. Họ ở lại trong không gian
+        của gia đình, chờ được gọi tên.
       </Text>
     </ScrollView>
   );
@@ -113,7 +150,7 @@ const styles = StyleSheet.create({
   },
   lead: {
     fontFamily: fonts.display,
-    fontSize: 20,
+    fontSize: 19,
     lineHeight: 28,
     color: colors.ink,
     marginBottom: 8,
@@ -124,12 +161,13 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     fontFamily: fonts.display,
-    fontSize: 22,
+    fontSize: 21,
+    lineHeight: 28,
     color: colors.ink,
   },
   body: {
     fontSize: 15,
-    lineHeight: 23,
+    lineHeight: 24,
     color: colors.inkSoft,
   },
   quote: {
@@ -142,14 +180,14 @@ const styles = StyleSheet.create({
   quoteText: {
     fontFamily: fonts.display,
     fontSize: 17,
-    lineHeight: 25,
+    lineHeight: 26,
     color: colors.ink,
     fontStyle: "italic",
   },
   closing: {
     marginTop: 28,
     fontFamily: fonts.display,
-    fontSize: 18,
+    fontSize: 17,
     lineHeight: 26,
     color: colors.brand,
     textAlign: "center",
