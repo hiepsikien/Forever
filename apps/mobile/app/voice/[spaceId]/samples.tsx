@@ -25,6 +25,19 @@ import { colors, fonts } from "@/lib/theme";
 
 type Playback = { id: string; paused: boolean } | null;
 
+function sourceLabel(source: string): string {
+  switch (source) {
+    case "record":
+      return "Ghi trực tiếp";
+    case "upload":
+      return "Tải file";
+    case "memory":
+      return "Thư viện";
+    default:
+      return source;
+  }
+}
+
 export default function VoiceSamplesScreen() {
   const { spaceId, voiceId } = useLocalSearchParams<{
     spaceId: string;
@@ -40,7 +53,7 @@ export default function VoiceSamplesScreen() {
   const [saving, setSaving] = useState(false);
 
   useLayoutEffect(() => {
-    navigation.setOptions({ title: "Sample đã ghi" });
+    navigation.setOptions({ title: "Mẫu giọng" });
   }, [navigation]);
 
   const load = useCallback(async () => {
@@ -159,7 +172,7 @@ export default function VoiceSamplesScreen() {
         </Text>
         <Text style={styles.meta}>
           {item.voice_subject_kind === "heritage" ? "Ký ức" : "Giọng sống"} ·{" "}
-          {item.source} · {item.created_at.slice(0, 16).replace("T", " ")}
+          {sourceLabel(item.source)} · {item.created_at.slice(0, 16).replace("T", " ")}
         </Text>
         <Text style={[styles.score, { color: scoreColor }]}>
           {item.quality_score != null
@@ -251,18 +264,20 @@ export default function VoiceSamplesScreen() {
       keyExtractor={(s) => s.key}
       ListHeaderComponent={
         <View style={styles.header}>
-          <Text style={styles.headerTitle}>Sample đã ghi</Text>
+          <Text style={styles.headerTitle}>Mẫu giọng</Text>
           <Text style={styles.headerSub}>
-            Nghe lại, gắn ghi chú text, chọn sample tốt rồi quay lại hub để Clone.
+            Nghe lại, gắn ghi chú, chọn mẫu tốt rồi quay lại hub để Clone.
           </Text>
           <Text style={styles.count}>
-            {samples.length} sample
+            {samples.length} mẫu
             {voiceId ? " · lọc theo Voice DNA đang chọn" : " trong không gian"}
           </Text>
         </View>
       }
       ListEmptyComponent={
-        <Text style={styles.empty}>Chưa có sample. Ghi từ trang Voice DNA.</Text>
+        <Text style={styles.empty}>
+          Chưa có mẫu. Ghi hoặc tải file từ trang Voice DNA.
+        </Text>
       }
       renderItem={({ item: section }) => {
         if (!section.data.length) return null;

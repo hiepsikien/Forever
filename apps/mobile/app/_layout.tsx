@@ -54,11 +54,15 @@ export default function RootLayout() {
             <Stack.Screen name="voice/[spaceId]/index" options={{ title: "Voice DNA" }} />
             <Stack.Screen
               name="voice/[spaceId]/samples"
-              options={{ title: "Sample đã ghi" }}
+              options={{ title: "Mẫu giọng" }}
             />
             <Stack.Screen
               name="voice/[spaceId]/record"
               options={{ title: "Ghi sample" }}
+            />
+            <Stack.Screen
+              name="voice/[spaceId]/upload"
+              options={{ title: "Tải file audio" }}
             />
             <Stack.Screen
               name="voice/[spaceId]/speak"

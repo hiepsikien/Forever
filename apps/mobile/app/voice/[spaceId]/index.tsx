@@ -146,17 +146,29 @@ export default function VoiceDnaScreen() {
         : selectedIdentity.display_name
     : "Chưa chọn hồ sơ";
 
+  const isHeritageProfile = selectedIdentity?.status === "remembered";
+
   const nextStep = useMemo(() => {
     if (!selectedIdentity) return "Thêm hoặc chọn hồ sơ người.";
-    if (!activeVoice) return "Tạo Voice DNA cho hồ sơ này để bắt đầu ghi mẫu.";
-    if (activeVoice.sample_count < 1) return "Tiếp theo: ghi ít nhất một mẫu giọng.";
-    if (activeVoice.status !== "ready") return "Tiếp theo: Clone để dùng tạo giọng.";
+    if (!activeVoice) {
+      return isHeritageProfile
+        ? "Tạo Voice DNA cho hồ sơ Ký ức để bắt đầu tải mẫu giọng."
+        : "Tạo Voice DNA cho hồ sơ này để bắt đầu ghi mẫu.";
+    }
+    if (activeVoice.sample_count < 1) {
+      return isHeritageProfile
+        ? "Tiếp theo: tải ít nhất một file audio."
+        : "Tiếp theo: ghi ít nhất một mẫu giọng.";
+    }
+    if (activeVoice.status !== "ready") {
+      return "Clone lại nếu vừa đổi mẫu — hoặc tạo giọng từ text với bản clone có sẵn.";
+    }
     return "Có thể tạo giọng từ text. Clone lại nếu vừa đổi mẫu.";
-  }, [selectedIdentity, activeVoice]);
+  }, [selectedIdentity, activeVoice, isHeritageProfile]);
 
   const statusSummary = useMemo(() => {
     if (!activeVoice) return "Chưa có Voice DNA";
-    return `${statusVi(activeVoice.status)} · ${activeVoice.sample_count} mẫu ghi`;
+    return `${statusVi(activeVoice.status)} · ${activeVoice.sample_count} mẫu`;
   }, [activeVoice]);
 
   const createVoice = async () => {
@@ -264,7 +276,12 @@ export default function VoiceDnaScreen() {
       return;
     }
     if (activeVoice.sample_count < 1) {
-      Alert.alert("Chưa có mẫu", "Ghi ít nhất một mẫu trước khi clone.");
+      Alert.alert(
+        "Chưa có mẫu",
+        isHeritageProfile
+          ? "Tải ít nhất một file audio trước khi clone."
+          : "Ghi ít nhất một mẫu trước khi clone.",
+      );
       return;
     }
     setBusy(true);
@@ -319,6 +336,7 @@ export default function VoiceDnaScreen() {
   }
 
   const ready = activeVoice?.status === "ready";
+  const canUseTts = !!activeVoice;
   const canClone = !!activeVoice && activeVoice.sample_count >= 1;
 
   return (
@@ -545,15 +563,33 @@ export default function VoiceDnaScreen() {
         ) : (
           <>
             <Text style={styles.kicker}>Thu thập & Clone</Text>
-            <View style={styles.group}>
-              <Pressable style={styles.action} onPress={() => go("record")}>
-                <Text style={styles.actionTitle}>Ghi mẫu</Text>
-                <Text style={styles.actionSub}>
-                  AI đoạn đọc → ghi → nghe → lưu
+            {isHeritageProfile ? (
+              <View style={styles.infoCard}>
+                <Text style={styles.infoTitle}>Ký ức — tải file ghi âm</Text>
+                <Text style={styles.infoBody}>
+                  Dùng ghi âm cũ: tin nhắn thoại Zalo, cuộc gọi, video đã trích audio.
+                  Nên làm sạch nhiễu trước khi tải lên.
                 </Text>
-              </Pressable>
+              </View>
+            ) : null}
+            <View style={styles.group}>
+              {isHeritageProfile ? (
+                <Pressable style={styles.action} onPress={() => go("upload")}>
+                  <Text style={styles.actionTitle}>Tải file audio</Text>
+                  <Text style={styles.actionSub}>
+                    Chọn file → nghe thử → lưu mẫu
+                  </Text>
+                </Pressable>
+              ) : (
+                <Pressable style={styles.action} onPress={() => go("record")}>
+                  <Text style={styles.actionTitle}>Ghi mẫu</Text>
+                  <Text style={styles.actionSub}>
+                    AI đoạn đọc → ghi → nghe → lưu
+                  </Text>
+                </Pressable>
+              )}
               <Pressable style={styles.action} onPress={() => go("samples")}>
-                <Text style={styles.actionTitle}>Mẫu đã ghi</Text>
+                <Text style={styles.actionTitle}>Mẫu giọng</Text>
                 <Text style={styles.actionSub}>
                   Nghe lại, điểm chất lượng, ghi chú
                 </Text>
@@ -571,10 +607,12 @@ export default function VoiceDnaScreen() {
                 </Pressable>
                 <Text style={styles.cloneHint}>
                   {!canClone
-                    ? "Cần ≥ 1 mẫu ghi trước khi clone."
+                    ? isHeritageProfile
+                      ? "Cần ≥ 1 file audio trước khi clone."
+                      : "Cần ≥ 1 mẫu ghi trước khi clone."
                     : ready
                       ? "Đã clone. Làm lại nếu vừa đổi mẫu."
-                      : "Clone để mở bước tạo giọng từ text."}
+                      : "Clone để gắn bản mới nhất với hồ sơ này."}
                 </Text>
                 <Pressable onPress={() => go("clones")} hitSlop={6}>
                   <Text style={styles.historyLink}>Xem lịch sử clone</Text>
@@ -585,23 +623,15 @@ export default function VoiceDnaScreen() {
             <Text style={styles.kicker}>Tạo giọng</Text>
             <View style={styles.group}>
               <Pressable
-                style={[styles.action, !ready && styles.actionDisabled]}
-                onPress={() => {
-                  if (!ready) {
-                    Alert.alert(
-                      "Chưa clone",
-                      "Cần Clone Voice DNA trước khi tạo giọng từ text.",
-                    );
-                    return;
-                  }
-                  go("speak");
-                }}
+                style={[styles.action, !canUseTts && styles.actionDisabled]}
+                onPress={() => go("speak")}
+                disabled={!canUseTts}
               >
                 <Text style={styles.actionTitle}>Tạo giọng từ text</Text>
                 <Text style={styles.actionSub}>
                   {ready
                     ? "Chọn bản clone + model → nghe thử → lưu"
-                    : "Cần clone xong mới dùng được"}
+                    : "Chọn bản clone ElevenLabs có sẵn → nghe thử → lưu"}
                 </Text>
               </Pressable>
               <Pressable style={styles.action} onPress={() => go("renders")}>

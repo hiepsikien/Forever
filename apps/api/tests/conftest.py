@@ -15,6 +15,15 @@ from app.main import app
 
 @pytest.fixture(scope="session", autouse=True)
 def prepare_db():
+    if engine.url.get_backend_name() == "sqlite":
+        from sqlalchemy import event
+
+        @event.listens_for(engine, "connect")
+        def _sqlite_fk(dbapi_conn, _connection_record):
+            cursor = dbapi_conn.cursor()
+            cursor.execute("PRAGMA foreign_keys=ON")
+            cursor.close()
+
     Base.metadata.create_all(bind=engine)
     yield
     Base.metadata.drop_all(bind=engine)

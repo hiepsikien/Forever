@@ -13,11 +13,8 @@ MAX_UPLOAD_BYTES = 25 * 1024 * 1024
 ALLOWED_MIME = {
     "audio/mpeg",
     "audio/mp4",
-    "audio/m4a",
-    "audio/x-m4a",
     "audio/aac",
     "audio/wav",
-    "audio/x-wav",
     "audio/webm",
     "audio/3gpp",
     "image/jpeg",
@@ -30,11 +27,8 @@ ALLOWED_MIME = {
 EXT_BY_MIME = {
     "audio/mpeg": ".mp3",
     "audio/mp4": ".m4a",
-    "audio/m4a": ".m4a",
-    "audio/x-m4a": ".m4a",
     "audio/aac": ".aac",
     "audio/wav": ".wav",
-    "audio/x-wav": ".wav",
     "audio/webm": ".webm",
     "audio/3gpp": ".3gp",
     "image/jpeg": ".jpg",
@@ -44,14 +38,59 @@ EXT_BY_MIME = {
     "image/heif": ".heif",
 }
 
+MIME_ALIASES = {
+    "audio/mp3": "audio/mpeg",
+    "audio/m4a": "audio/mp4",
+    "audio/x-m4a": "audio/mp4",
+    "audio/wave": "audio/wav",
+    "audio/x-wav": "audio/wav",
+    "audio/vnd.wave": "audio/wav",
+    "audio/vnd.wav": "audio/wav",
+    "audio/3gp": "audio/3gpp",
+}
+
+
+def _normalize_mime(mime: str, filename: str = "") -> str:
+    lower = (mime or "").split(";")[0].strip().lower()
+    if lower in MIME_ALIASES:
+        return MIME_ALIASES[lower]
+    if lower in EXT_BY_MIME:
+        return lower
+    if lower.startswith("audio/"):
+        sub = lower[len("audio/") :]
+        if "wav" in sub or sub == "wave":
+            return "audio/wav"
+        if "mpeg" in sub or sub == "mp3":
+            return "audio/mpeg"
+        if "m4a" in sub or "mp4" in sub:
+            return "audio/mp4"
+        if "aac" in sub:
+            return "audio/aac"
+        if "webm" in sub:
+            return "audio/webm"
+        if "3gp" in sub:
+            return "audio/3gpp"
+    ext = Path(filename or "").suffix.lower()
+    ext_map = {
+        ".mp3": "audio/mpeg",
+        ".m4a": "audio/mp4",
+        ".wav": "audio/wav",
+        ".aac": "audio/aac",
+        ".webm": "audio/webm",
+        ".3gp": "audio/3gpp",
+    }
+    if ext in ext_map:
+        return ext_map[ext]
+    return lower
+
 
 def _guess_mime(upload: UploadFile) -> str:
     content_type = (upload.content_type or "").split(";")[0].strip().lower()
-    if content_type and content_type != "application/octet-stream":
-        return content_type
     name = upload.filename or ""
+    if content_type and content_type != "application/octet-stream":
+        return _normalize_mime(content_type, name)
     guessed, _ = mimetypes.guess_type(name)
-    return (guessed or "application/octet-stream").lower()
+    return _normalize_mime(guessed or "application/octet-stream", name)
 
 
 def save_upload(space_id: str, upload: UploadFile) -> tuple[str, str]:
@@ -70,7 +109,9 @@ def save_upload(space_id: str, upload: UploadFile) -> tuple[str, str]:
     if len(data) > MAX_UPLOAD_BYTES:
         raise HTTPException(status_code=400, detail="File too large (max 25MB).")
 
-    ext = EXT_BY_MIME.get(mime) or Path(upload.filename or "").suffix.lower() or ".bin"
+    ext = EXT_BY_MIME.get(mime) or Path(upload.filename or "").suffix.lower()
+    if not ext or ext == ".bin":
+        ext = ".m4a" if mime.startswith("audio/") else ".jpg"
     relative = f"{space_id}/{generate()}{ext}"
     dest = Path(settings.upload_dir) / relative
     dest.parent.mkdir(parents=True, exist_ok=True)

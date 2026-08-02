@@ -23,10 +23,27 @@ import {
   stopActivePlayback,
 } from "@/lib/audio";
 import { useAuth } from "@/lib/auth";
-import { fetchAuthedMediaUri } from "@/lib/media";
+import {
+  fetchAuthedMediaUri,
+  prepareAudioExport,
+  saveLocalAudioToLibrary,
+  shareLocalAudio,
+} from "@/lib/media";
 import { colors, fonts } from "@/lib/theme";
 
 type Playback = { id: string; paused: boolean } | null;
+type BusyAction = { id: string; kind: "save" | "share" } | null;
+
+function exportBaseName(item: VoiceRender): string {
+  const voice = item.voice_display_name || "Voice-DNA";
+  // Include time + short id so exports don't collide on the same day.
+  const stamp = item.created_at
+    .slice(0, 16)
+    .replace("T", "-")
+    .replace(/:/g, "");
+  const suffix = item.id.slice(-6);
+  return `Forever-TTS-${voice}-${stamp}-${suffix}`;
+}
 
 export default function VoiceRendersScreen() {
   const { spaceId, voiceId: voiceIdParam } = useLocalSearchParams<{
@@ -42,6 +59,7 @@ export default function VoiceRendersScreen() {
   const [renders, setRenders] = useState<VoiceRender[]>([]);
   const [loading, setLoading] = useState(true);
   const [playback, setPlayback] = useState<Playback>(null);
+  const [busy, setBusy] = useState<BusyAction>(null);
 
   useLayoutEffect(() => {
     navigation.setOptions({ title: "Bản TTS đã tạo" });
@@ -71,6 +89,20 @@ export default function VoiceRendersScreen() {
     };
   }, [load]);
 
+  const getPlayUri = async (item: VoiceRender): Promise<string> => {
+    const url = api.voiceRenderMediaUrl(item.voice_profile_id, item.id);
+    return fetchAuthedMediaUri(
+      url,
+      `voice-render-${item.id}`,
+      item.media_mime,
+    );
+  };
+
+  const resolveExportUri = async (item: VoiceRender): Promise<string> => {
+    const cached = await getPlayUri(item);
+    return prepareAudioExport(cached, exportBaseName(item), item.media_mime);
+  };
+
   const togglePlay = async (item: VoiceRender) => {
     if (playback?.id === item.id) {
       if (playback.paused) {
@@ -81,17 +113,52 @@ export default function VoiceRendersScreen() {
       return;
     }
     try {
-      const url = api.voiceRenderMediaUrl(item.voice_profile_id, item.id);
-      const uri = await fetchAuthedMediaUri(
-        url,
-        `voice-render-${item.id}`,
-        item.media_mime,
-      );
+      const uri = await getPlayUri(item);
       setPlayback({ id: item.id, paused: false });
       await playLocalAudio(uri, () => setPlayback(null));
     } catch (e) {
       setPlayback(null);
       Alert.alert("Lỗi", e instanceof Error ? e.message : "Không phát được.");
+    }
+  };
+
+  const shareRender = async (item: VoiceRender) => {
+    if (busy) return;
+    setBusy({ id: item.id, kind: "share" });
+    try {
+      const uri = await resolveExportUri(item);
+      await shareLocalAudio(uri, {
+        mimeType: item.media_mime,
+        dialogTitle: exportBaseName(item),
+      });
+    } catch (e) {
+      Alert.alert("Lỗi", e instanceof Error ? e.message : "Không chia sẻ được.");
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const saveRender = async (item: VoiceRender) => {
+    if (busy) return;
+    setBusy({ id: item.id, kind: "save" });
+    try {
+      const uri = await resolveExportUri(item);
+      const mode = await saveLocalAudioToLibrary(uri, {
+        mimeType: item.media_mime,
+        dialogTitle: exportBaseName(item),
+      });
+      if (mode === "share_sheet") {
+        Alert.alert(
+          "Lưu audio",
+          "Chọn “Lưu vào Files” (hoặc app bạn muốn) trong menu vừa mở.",
+        );
+      } else {
+        Alert.alert("Đã lưu", "File audio đã được lưu vào thư viện thiết bị.");
+      }
+    } catch (e) {
+      Alert.alert("Lỗi", e instanceof Error ? e.message : "Không lưu được.");
+    } finally {
+      setBusy(null);
     }
   };
 
@@ -151,7 +218,7 @@ export default function VoiceRendersScreen() {
         <View style={styles.header}>
           <Text style={styles.title}>Bản TTS đã tạo</Text>
           <Text style={styles.sub}>
-            Lọc theo Voice DNA — mỗi bản ghi tên giọng, model và thời điểm.
+            Lọc theo Voice DNA — nghe, lưu hoặc chia sẻ từng bản.
           </Text>
           <View style={styles.chips}>
             <Pressable
@@ -197,6 +264,10 @@ export default function VoiceRendersScreen() {
         const paused = active && playback?.paused;
         const when = item.created_at.slice(0, 16).replace("T", " ");
         const voiceName = item.voice_display_name || "Voice DNA";
+        const saving = busy?.id === item.id && busy.kind === "save";
+        const sharing = busy?.id === item.id && busy.kind === "share";
+        const itemBusy = saving || sharing;
+
         return (
           <View style={styles.card}>
             <Text style={styles.voiceName}>{voiceName}</Text>
@@ -214,12 +285,38 @@ export default function VoiceRendersScreen() {
               {voiceTtsModelLabel(item.model_id)}
             </Text>
             <View style={styles.row}>
-              <Pressable style={styles.play} onPress={() => togglePlay(item)}>
+              <Pressable
+                style={styles.play}
+                onPress={() => togglePlay(item)}
+                disabled={itemBusy}
+              >
                 <Text style={styles.playText}>
                   {!active ? "Nghe" : paused ? "Tiếp tục" : "Tạm dừng"}
                 </Text>
               </Pressable>
-              <Pressable onPress={() => remove(item)}>
+              <Pressable
+                style={[styles.secondary, itemBusy && styles.disabled]}
+                onPress={() => saveRender(item)}
+                disabled={itemBusy}
+              >
+                {saving ? (
+                  <ActivityIndicator size="small" color={colors.brand} />
+                ) : (
+                  <Text style={styles.secondaryText}>Lưu</Text>
+                )}
+              </Pressable>
+              <Pressable
+                style={[styles.secondary, itemBusy && styles.disabled]}
+                onPress={() => shareRender(item)}
+                disabled={itemBusy}
+              >
+                {sharing ? (
+                  <ActivityIndicator size="small" color={colors.brand} />
+                ) : (
+                  <Text style={styles.secondaryText}>Chia sẻ</Text>
+                )}
+              </Pressable>
+              <Pressable onPress={() => remove(item)} disabled={itemBusy}>
                 <Text style={styles.delete}>Xóa</Text>
               </Pressable>
             </View>
@@ -280,7 +377,12 @@ const styles = StyleSheet.create({
     color: colors.ink,
   },
   meta: { fontSize: 12, color: colors.inkSoft },
-  row: { flexDirection: "row", alignItems: "center", gap: 14 },
+  row: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    flexWrap: "wrap",
+  },
   play: {
     backgroundColor: colors.brand,
     borderRadius: 8,
@@ -288,5 +390,16 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
   },
   playText: { color: "#fff", fontWeight: "700", fontSize: 13 },
+  secondary: {
+    borderWidth: 1,
+    borderColor: colors.brand,
+    borderRadius: 8,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    minWidth: 64,
+    alignItems: "center",
+  },
+  secondaryText: { color: colors.brand, fontWeight: "700", fontSize: 13 },
+  disabled: { opacity: 0.5 },
   delete: { color: colors.danger, fontWeight: "700", fontSize: 13 },
 });

@@ -477,6 +477,7 @@ def create_identity(
             created_at=now,
         )
         db.add(thread)
+        db.flush()
         thread_id = thread.id
 
     row = IdentityProfile(
@@ -542,6 +543,7 @@ def update_identity(
                 created_at=now,
             )
             db.add(thread)
+            db.flush()
             row.heritage_thread_id = thread.id
 
     # Keep linked Voice DNA label in sync.

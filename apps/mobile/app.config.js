@@ -30,7 +30,13 @@ module.exports = ({ config }) => {
         foregroundImage: "./assets/adaptive-icon.png",
         backgroundColor: "#2d4a3e",
       },
-      permissions: ["INTERNET", "RECORD_AUDIO", "READ_MEDIA_IMAGES", "CAMERA"],
+      permissions: [
+        "INTERNET",
+        "RECORD_AUDIO",
+        "READ_MEDIA_IMAGES",
+        "READ_MEDIA_AUDIO",
+        "CAMERA",
+      ],
       allowBackup: false,
       softwareKeyboardLayoutMode: "resize",
     },
@@ -48,6 +54,15 @@ module.exports = ({ config }) => {
         {
           photosPermission:
             "Forever cần ảnh để lưu vào thư viện ký ức gia đình.",
+        },
+      ],
+      [
+        "expo-media-library",
+        {
+          photosPermission:
+            "Forever cần truy cập thư viện để lưu audio TTS.",
+          savePhotosPermission:
+            "Forever cần quyền lưu file audio TTS vào thư viện thiết bị.",
         },
       ],
       [
