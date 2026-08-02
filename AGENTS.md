@@ -21,3 +21,10 @@ Canonical plan: `docs/PROJECT.md`.
 ## Local auth
 
 `AUTH_DEV_MODE=true` + `POST /api/auth/dev-login`. Demo users seeded: `me@forever.family` / `con@forever.family` (`forever123`).
+
+## Extract (Voice DNA từ ký ức)
+
+- Engine + worker: `Extract/` (`extract-worker` polls Forever internal API)
+- Run local worker: `./scripts/run-extract-worker.sh` (needs `HF_TOKEN`, API on `:8001`)
+- Steward UX: Voice DNA → **Giọng từ ký ức** → review → import `VoiceSample(source=extract)`
+- Do not auto-attach segments to heritage Voice DNA without human review.

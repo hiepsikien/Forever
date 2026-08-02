@@ -72,6 +72,18 @@ npx expo start
 
 Set `EXPO_PUBLIC_API_URL` to your machine LAN IP when testing on a physical device.
 
+### 4. Extract worker (Voice DNA từ ký ức)
+
+Local diarization worker — polls Forever API for jobs created from **Voice DNA → Giọng từ ký ức**:
+
+```bash
+export HF_TOKEN=hf_xxx   # accept pyannote model terms on Hugging Face
+export FOREVER_API_URL=http://127.0.0.1:8001
+./scripts/run-extract-worker.sh
+```
+
+Keep `EXTRACT_WORKER_TOKEN` in sync with `apps/api/.env` (default `forever-extract-worker`). Details: [`Extract/README.md`](./Extract/README.md).
+
 ## Android family APK (local build — no EAS quota)
 
 Sideloadable release APK via Gradle on this Mac. Does **not** use EAS cloud builds.

@@ -95,6 +95,31 @@ def ensure_schema() -> None:
         "identity_profile_id",
         "ALTER TABLE voice_profiles ADD COLUMN identity_profile_id VARCHAR(32)",
     )
+    _add_column_if_missing(
+        "voice_samples",
+        "extract_job_id",
+        "ALTER TABLE voice_samples ADD COLUMN extract_job_id VARCHAR(32)",
+    )
+    _add_column_if_missing(
+        "voice_samples",
+        "extract_segment_id",
+        "ALTER TABLE voice_samples ADD COLUMN extract_segment_id VARCHAR(32)",
+    )
+    _add_column_if_missing(
+        "voice_samples",
+        "t_start",
+        "ALTER TABLE voice_samples ADD COLUMN t_start FLOAT",
+    )
+    _add_column_if_missing(
+        "voice_samples",
+        "t_end",
+        "ALTER TABLE voice_samples ADD COLUMN t_end FLOAT",
+    )
+    _add_column_if_missing(
+        "voice_samples",
+        "speaker_label",
+        "ALTER TABLE voice_samples ADD COLUMN speaker_label VARCHAR(64)",
+    )
     try:
         with engine.begin() as conn:
             conn.execute(

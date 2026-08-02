@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "extract-diarize"
-version = "0.1.0"
-description = "Local speaker diarization: cut multi-speaker audio into per-speaker segments"
+version = "0.2.0"
+description = "Speaker diarization + exclusive solo harvest for Forever Voice DNA"
 readme = "README.md"
 requires-python = ">=3.11"
 license = { text = "MIT" }
@@ -20,9 +20,13 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = ["pytest>=8.0.0"]
+worker = [
+  "requests>=2.31.0",
+]
 
 [project.scripts]
 extract = "extract.cli:main"
+extract-worker = "extract.worker:main"
 
 [tool.setuptools.packages.find]
 include = ["extract*"]

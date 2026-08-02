@@ -159,24 +159,24 @@ Case khó (xe, 5 người, ồn): coi output là **bản nháp**.
 
 ## 7. Lộ trình
 
-### Phase 0 — CLI nội bộ *(đang có trong thư mục Extract/)*
+### Phase 0 — CLI nội bộ *(done)*
 
-- Normalize → diarize → cut  
-- `diarization.json`  
-- Test unit cho merge/pad/label  
+- Normalize → diarize → exclusive refine → cut  
+- `diarization.json` + `clean|short|mixed`  
+- Test unit cho merge/pad/exclusive/purity  
 
-### Phase 1 — Worker trên GCE
+### Phase 1 — Worker local / GCE *(local done)*
 
-- Entrypoint `extract-worker` poll job  
-- Lưu artifact theo `space_id` / `job_id`  
+- Entrypoint `extract-worker` poll Forever internal API  
+- Artifact dưới `uploads/{space_id}/extract/{job_id}/`  
 - Status: `queued | running | needs_review | failed | done`  
-- Log thời gian chạy, DER không bắt buộc đo lúc đầu  
+- Script: `scripts/run-extract-worker.sh`  
 
-### Phase 2 — Forever API + UI tối giản
+### Phase 2 — Forever API + UI tối giản *(done v1)*
 
-- Endpoint tạo job + list segments  
-- Màn review speaker (steward only)  
-- Import vào `VoiceSample` (`source=extract`)  
+- Endpoint tạo job + list segments + accept import  
+- Màn review trong Voice DNA hub (steward)  
+- Import vào `VoiceSample` (`source=extract` + provenance)  
 
 ### Phase 3 — Cứng hóa product
 

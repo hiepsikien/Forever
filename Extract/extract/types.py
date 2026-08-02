@@ -10,6 +10,8 @@ class Segment:
     start: float
     end: float
     file: str | None = None
+    purity: float | None = None
+    quality: str | None = None  # clean | mixed | short
 
     @property
     def duration(self) -> float:

@@ -7,7 +7,7 @@ from fastapi.responses import JSONResponse
 
 from .config import get_settings
 from .db import Base, SessionLocal, engine
-from .routers import auth, interviews, memories, messages, spaces, stewardship, threads
+from .routers import auth, extract, interviews, memories, messages, spaces, stewardship, threads
 from .routers import settings as settings_router
 from .routers import voice_dna
 from .schema_patch import ensure_schema
@@ -71,3 +71,5 @@ app.include_router(messages.media_router)
 app.include_router(memories.router)
 app.include_router(interviews.router)
 app.include_router(voice_dna.router)
+app.include_router(extract.router)
+app.include_router(extract.internal_router)

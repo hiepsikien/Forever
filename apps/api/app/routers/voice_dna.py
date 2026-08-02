@@ -158,6 +158,11 @@ def _sample_payload(row: VoiceSample, *, voice: VoiceProfile | None = None) -> d
         "quality_score": row.quality_score,
         "quality_label": row.quality_label or None,
         "quality_tip": row.quality_tip or None,
+        "extract_job_id": getattr(row, "extract_job_id", None),
+        "extract_segment_id": getattr(row, "extract_segment_id", None),
+        "t_start": getattr(row, "t_start", None),
+        "t_end": getattr(row, "t_end", None),
+        "speaker_label": getattr(row, "speaker_label", None),
         "created_at": row.created_at.isoformat(),
     }
     if voice is not None:
@@ -783,7 +788,7 @@ async def add_sample(
     if voice.status == "paused":
         raise HTTPException(status_code=400, detail="Voice đang tạm dừng.")
 
-    if source not in ("record", "upload", "memory"):
+    if source not in ("record", "upload", "memory", "extract"):
         source = "upload"
 
     media_path, mime = save_upload(voice.space_id, file)

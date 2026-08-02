@@ -4,6 +4,14 @@ import subprocess
 from pathlib import Path
 
 from extract.normalize import require_ffmpeg
+from extract.refine import (
+    DEFAULT_EDGE_TRIM,
+    DEFAULT_MAX_GAP,
+    DEFAULT_MIN_DURATION,
+    DEFAULT_PAD,
+    DEFAULT_PURITY_MIN,
+    refine_segments,
+)
 from extract.types import Segment
 
 
@@ -13,26 +21,12 @@ def merge_segments(
     max_gap: float = 0.75,
     min_duration: float = 0.4,
 ) -> list[Segment]:
-    """Merge nearby same-speaker turns and drop tiny fragments."""
+    """Legacy helper: merge nearby same-speaker turns and drop tiny fragments."""
+    from extract.refine import merge_same_speaker
+
     if not segments:
         return []
-
-    ordered = sorted(segments, key=lambda s: (s.start, s.end, s.speaker))
-    merged: list[Segment] = [ordered[0]]
-
-    for seg in ordered[1:]:
-        prev = merged[-1]
-        same_speaker = seg.speaker == prev.speaker
-        close_enough = seg.start - prev.end <= max_gap
-        if same_speaker and close_enough:
-            merged[-1] = Segment(
-                speaker=prev.speaker,
-                start=prev.start,
-                end=max(prev.end, seg.end),
-            )
-        else:
-            merged.append(seg)
-
+    merged = merge_same_speaker(segments, max_gap=max_gap)
     return [s for s in merged if s.duration >= min_duration]
 
 
@@ -42,16 +36,9 @@ def apply_padding(
     pad: float = 0.2,
     total_duration: float | None = None,
 ) -> list[Segment]:
-    padded: list[Segment] = []
-    for seg in segments:
-        start = max(0.0, seg.start - pad)
-        end = seg.end + pad
-        if total_duration is not None and total_duration > 0:
-            end = min(end, total_duration)
-        if end <= start:
-            continue
-        padded.append(Segment(speaker=seg.speaker, start=start, end=end))
-    return padded
+    from extract.refine import apply_padding as _pad
+
+    return _pad(segments, pad=pad, total_duration=total_duration)
 
 
 def cut_segments(
@@ -59,28 +46,45 @@ def cut_segments(
     segments: list[Segment],
     out_dir: Path,
     *,
-    pad: float = 0.2,
-    max_gap: float = 0.75,
-    min_duration: float = 0.4,
+    pad: float = DEFAULT_PAD,
+    max_gap: float = DEFAULT_MAX_GAP,
+    min_duration: float = DEFAULT_MIN_DURATION,
+    edge_trim: float = DEFAULT_EDGE_TRIM,
+    purity_min: float = DEFAULT_PURITY_MIN,
+    exclusive_only: bool = True,
+    keep_mixed: bool = False,
     total_duration: float | None = None,
+    prepared: list[Segment] | None = None,
 ) -> list[Segment]:
     """Cut wav clips into speakers/SPEAKER_xx/NNNN.wav and return updated segments."""
     ffmpeg = require_ffmpeg()
-    prepared = apply_padding(
-        merge_segments(segments, max_gap=max_gap, min_duration=min_duration),
+    ready = prepared or refine_segments(
+        segments,
+        exclusive_only=exclusive_only,
+        edge_trim=edge_trim,
+        max_gap=max_gap,
         pad=pad,
+        min_duration=min_duration,
+        purity_min=purity_min,
         total_duration=total_duration,
+        keep_mixed=keep_mixed,
     )
 
     counters: dict[str, int] = {}
     written: list[Segment] = []
 
-    for seg in prepared:
+    for seg in ready:
         counters[seg.speaker] = counters.get(seg.speaker, 0) + 1
         idx = counters[seg.speaker]
-        speaker_dir = out_dir / "speakers" / seg.speaker
+        quality = seg.quality or "clean"
+        # Keep clean clips in the main speaker folder; others under _review/.
+        if quality == "clean":
+            speaker_dir = out_dir / "speakers" / seg.speaker
+            rel = Path("speakers") / seg.speaker / f"{idx:04d}.wav"
+        else:
+            speaker_dir = out_dir / "speakers" / "_review" / seg.speaker
+            rel = Path("speakers") / "_review" / seg.speaker / f"{quality}_{idx:04d}.wav"
         speaker_dir.mkdir(parents=True, exist_ok=True)
-        rel = Path("speakers") / seg.speaker / f"{idx:04d}.wav"
         abs_path = out_dir / rel
 
         duration = seg.end - seg.start
@@ -110,6 +114,8 @@ def cut_segments(
                 start=seg.start,
                 end=seg.end,
                 file=str(rel).replace("\\", "/"),
+                purity=seg.purity,
+                quality=quality,
             )
         )
 

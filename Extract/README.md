@@ -1,16 +1,17 @@
 # Extract
 
-Local/server tool: **speaker diarization → cut per-speaker audio segments**.
+Local/server tool: **speaker diarization → exclusive solo harvest → cut per-speaker segments**.
 
-**Product plan:** [`PROJECT.md`](./PROJECT.md) — hướng merge vào Forever như sub-app / worker (Voice DNA heritage sampling).
+**Product plan:** [`PROJECT.md`](./PROJECT.md) — Forever sub-app / worker cho Voice DNA từ ký ức.
 
 - Input: audio (`.wav`, `.mp3`, `.m4a`, `.aac`, `.flac`, …)
 - Model: [`pyannote/speaker-diarization-community-1`](https://huggingface.co/pyannote/speaker-diarization-community-1)
 - You pass `--num-speakers` per file
-- Output: `speakers/SPEAKER_xx/*.wav` + `diarization.json`
-- No ASR / transcription in v0.1
+- Post-process: **exclusive-only** (bỏ overlap), trim biên, purity + `clean|short|mixed`
+- Output: `speakers/SPEAKER_xx/*.wav` (clean) + `diarization.json`
+- Forever: worker poll API → steward review trong Voice DNA hub
 
-CLI local là bản tạm; production-lite dự kiến chạy CPU worker trên GCE (`*-standard-2`).
+CLI local là bản tạm; worker local: `../scripts/run-extract-worker.sh`.
 
 ## Requirements
 
@@ -53,9 +54,25 @@ python -m extract -i car_chat.m4a -n 5 -o ./out/car_chat
 |------|---------|---------|
 | `--num-speakers` / `-n` | required | Exact speaker count |
 | `--device` | `auto` | `mps` / `cuda` / `cpu` |
-| `--pad` | `0.2` | Seconds padded around each cut |
-| `--max-gap` | `0.75` | Merge same-speaker gaps under this |
-| `--min-duration` | `0.4` | Drop tiny fragments after merge |
+| `--pad` | `0.05` | Seconds padded around each cut |
+| `--max-gap` | `0.35` | Merge same-speaker gaps under this |
+| `--min-duration` | `2.0` | Minimum duration for `clean` label |
+| `--edge-trim` | `0.05` | Trim contaminated edges |
+| `--purity-min` | `0.9` | Min exclusive ratio for clean |
+| `--no-exclusive` | off | Keep original turns + score purity |
+| `--keep-mixed` | off | Also emit mixed clips under `_review/` |
+
+### Forever worker (local)
+
+```bash
+# terminal 1 — Forever API (port 8001)
+# terminal 2:
+export HF_TOKEN=hf_xxx
+export FOREVER_API_URL=http://127.0.0.1:8001
+./scripts/run-extract-worker.sh
+```
+
+Steward tạo job từ app: Voice DNA → **Giọng từ ký ức**.
 
 ## Output layout
 

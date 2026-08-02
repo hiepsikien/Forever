@@ -45,7 +45,7 @@ EXT_BY_MIME = {
 }
 
 
-def _guess_mime(upload: UploadFile) -> str:
+def guess_mime(upload: UploadFile) -> str:
     content_type = (upload.content_type or "").split(";")[0].strip().lower()
     if content_type and content_type != "application/octet-stream":
         return content_type
@@ -57,7 +57,7 @@ def _guess_mime(upload: UploadFile) -> str:
 def save_upload(space_id: str, upload: UploadFile) -> tuple[str, str]:
     """Save upload under upload_dir/space_id/. Returns (relative_path, mime)."""
     settings = get_settings()
-    mime = _guess_mime(upload)
+    mime = guess_mime(upload)
     if mime not in ALLOWED_MIME:
         raise HTTPException(
             status_code=400,

@@ -137,10 +137,57 @@ export interface VoiceSample {
   quality_score?: number | null;
   quality_label?: string | null;
   quality_tip?: string | null;
+  extract_job_id?: string | null;
+  extract_segment_id?: string | null;
+  t_start?: number | null;
+  t_end?: number | null;
+  speaker_label?: string | null;
   created_at: string;
   voice_display_name?: string;
   voice_subject_kind?: string;
   voice_status?: string;
+}
+
+export interface ExtractSegment {
+  id: string;
+  job_id: string;
+  speaker_label: string;
+  t_start: number;
+  t_end: number;
+  duration_ms: number;
+  duration_label?: string | null;
+  media_path?: string | null;
+  purity?: number | null;
+  quality: "clean" | "mixed" | "short" | string;
+  review_status: "pending" | "accepted" | "rejected" | string;
+  voice_sample_id?: string | null;
+  created_at: string;
+}
+
+export interface ExtractJob {
+  id: string;
+  space_id: string;
+  voice_profile_id: string;
+  source_kind: string;
+  original_filename?: string | null;
+  input_mime?: string | null;
+  num_speakers: number;
+  status: "queued" | "running" | "needs_review" | "failed" | "done" | string;
+  error_message?: string | null;
+  artifact_dir?: string | null;
+  options?: Record<string, unknown>;
+  duration_seconds?: number | null;
+  device?: string | null;
+  model?: string | null;
+  raw_turn_count?: number | null;
+  assigned_speaker_label?: string | null;
+  clean_segment_count?: number;
+  accepted_segment_count?: number;
+  created_by: string;
+  created_at: string;
+  started_at?: string | null;
+  finished_at?: string | null;
+  segments?: ExtractSegment[];
 }
 
 export interface VoiceRender {
@@ -601,7 +648,7 @@ export function createApiClient({
         uri: string;
         name: string;
         mimeType: string;
-        source?: "record" | "upload" | "memory";
+        source?: "record" | "upload" | "memory" | "extract";
         durationMs?: number;
         note?: string;
       },
@@ -733,6 +780,93 @@ export function createApiClient({
     },
     voiceSampleMediaUrl: (voiceId: string, sampleId: string) =>
       `${resolveRoot()}/api/voices/${voiceId}/samples/${sampleId}/media`,
+
+    createExtractJob: async (
+      spaceId: string,
+      payload: {
+        uri: string;
+        name: string;
+        mimeType: string;
+        voiceProfileId: string;
+        numSpeakers: number;
+      },
+    ) => {
+      const form = new FormData();
+      form.append("voice_profile_id", payload.voiceProfileId);
+      form.append("num_speakers", String(payload.numSpeakers));
+      form.append("file", {
+        uri: payload.uri,
+        name: payload.name,
+        type: payload.mimeType,
+      } as unknown as Blob);
+      return request<ExtractJob>(
+        `/api/spaces/${spaceId}/extract/jobs`,
+        { method: "POST", body: form as unknown as BodyInit },
+        { json: false },
+      );
+    },
+    listExtractJobs: (spaceId: string, voiceId?: string) => {
+      const q = voiceId ? `?voice_id=${encodeURIComponent(voiceId)}` : "";
+      return request<{ jobs: ExtractJob[] }>(
+        `/api/spaces/${spaceId}/extract/jobs${q}`,
+      );
+    },
+    getExtractJob: (spaceId: string, jobId: string) =>
+      request<ExtractJob>(`/api/spaces/${spaceId}/extract/jobs/${jobId}`),
+    listExtractSegments: (
+      spaceId: string,
+      jobId: string,
+      opts?: { quality?: string; speakerLabel?: string },
+    ) => {
+      const params = new URLSearchParams();
+      if (opts?.quality) params.set("quality", opts.quality);
+      if (opts?.speakerLabel) params.set("speaker_label", opts.speakerLabel);
+      const q = params.toString() ? `?${params.toString()}` : "";
+      return request<{ segments: ExtractSegment[] }>(
+        `/api/spaces/${spaceId}/extract/jobs/${jobId}/segments${q}`,
+      );
+    },
+    assignExtractSpeaker: (
+      spaceId: string,
+      jobId: string,
+      speakerLabel: string,
+    ) =>
+      request<ExtractJob>(
+        `/api/spaces/${spaceId}/extract/jobs/${jobId}/assign-speaker`,
+        {
+          method: "POST",
+          body: JSON.stringify({ speaker_label: speakerLabel }),
+        },
+      ),
+    acceptExtractSegments: (
+      spaceId: string,
+      jobId: string,
+      payload: {
+        segmentIds?: string[];
+        speakerLabel?: string;
+        quality?: "clean" | "short" | "mixed";
+      },
+    ) =>
+      request<{
+        imported: number;
+        sample_ids: string[];
+        job: ExtractJob;
+        total_clean_seconds: number;
+      }>(`/api/spaces/${spaceId}/extract/jobs/${jobId}/segments/accept`, {
+        method: "POST",
+        body: JSON.stringify({
+          segment_ids: payload.segmentIds ?? [],
+          speaker_label: payload.speakerLabel,
+          quality: payload.quality ?? "clean",
+        }),
+      }),
+    finishExtractJob: (spaceId: string, jobId: string) =>
+      request<ExtractJob>(
+        `/api/spaces/${spaceId}/extract/jobs/${jobId}/finish`,
+        { method: "POST" },
+      ),
+    extractSegmentMediaUrl: (spaceId: string, segmentId: string) =>
+      `${resolveRoot()}/api/spaces/${spaceId}/extract/segments/${segmentId}/media`,
   };
 }
 

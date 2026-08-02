@@ -552,6 +552,22 @@ export default function VoiceDnaScreen() {
                   AI đoạn đọc → ghi → nghe → lưu
                 </Text>
               </Pressable>
+              {canManage ? (
+                <Pressable
+                  style={styles.action}
+                  onPress={() => {
+                    if (!activeVoice || !spaceId) return;
+                    router.push(
+                      `/voice/${spaceId}/extract/new?voiceId=${activeVoice.id}` as never,
+                    );
+                  }}
+                >
+                  <Text style={styles.actionTitle}>Giọng từ ký ức</Text>
+                  <Text style={styles.actionSub}>
+                    Upload băng cũ → tách solo → duyệt tay → Voice DNA
+                  </Text>
+                </Pressable>
+              ) : null}
               <Pressable style={styles.action} onPress={() => go("samples")}>
                 <Text style={styles.actionTitle}>Mẫu đã ghi</Text>
                 <Text style={styles.actionSub}>
