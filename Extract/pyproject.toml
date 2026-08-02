@@ -1,0 +1,32 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "extract-diarize"
+version = "0.1.0"
+description = "Local speaker diarization: cut multi-speaker audio into per-speaker segments"
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+authors = [{ name = "Forever / Extract" }]
+dependencies = [
+  "pyannote.audio>=3.3.2",
+  "torch>=2.2.0",
+  "torchaudio>=2.2.0",
+  "soundfile>=0.12.1",
+  "numpy>=1.26.0",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8.0.0"]
+
+[project.scripts]
+extract = "extract.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["extract*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]

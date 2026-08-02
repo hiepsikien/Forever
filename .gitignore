@@ -61,3 +61,9 @@ apps/api/uploads
 
 # typescript
 *.tsbuildinfo
+
+# Extract local artifacts
+Extract/.venv/
+Extract/out/
+Extract/.pytest_cache/
+Extract/**/__pycache__/
