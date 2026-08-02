@@ -30,6 +30,7 @@ import {
   stopActivePlayback,
 } from "@/lib/audio";
 import { useAuth } from "@/lib/auth";
+import { elVoiceSortKey, formatElVoiceWhen } from "@/lib/elVoice";
 import { writeCacheAudio } from "@/lib/media";
 import { colors, fonts } from "@/lib/theme";
 
@@ -97,36 +98,6 @@ function TtsStepper({
       </View>
     </View>
   );
-}
-
-function elVoiceSortKey(v: ElevenLabsVoice): number {
-  if (typeof v.created_at_unix === "number" && v.created_at_unix > 0) {
-    return v.created_at_unix;
-  }
-  // Forever · Name · YYYY-MM-DD HH:MM
-  const m = v.name.match(
-    /(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})/,
-  );
-  if (m) {
-    const [, y, mo, d, h, mi] = m;
-    return Math.floor(
-      Date.UTC(+y, +mo - 1, +d, +h, +mi) / 1000,
-    );
-  }
-  return 0;
-}
-
-function formatElVoiceMeta(v: ElevenLabsVoice): string {
-  const ts = elVoiceSortKey(v);
-  if (!ts) return v.category || "cloned";
-  const d = new Date(ts * 1000);
-  return d.toLocaleString("vi-VN", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
 }
 
 function DropdownField({
@@ -226,19 +197,53 @@ export default function VoiceSpeakScreen() {
     [modelId],
   );
 
+  const pickPreferredElVoice = useCallback(
+    (profile: VoiceProfile | null, sorted: ElevenLabsVoice[]) =>
+      (profile?.provider_voice_id &&
+        sorted.find((x) => x.voice_id === profile.provider_voice_id)?.voice_id) ||
+      sorted.find((x) =>
+        profile?.display_name
+          ? x.name
+              .toLowerCase()
+              .includes(profile.display_name.split("(")[0].trim().toLowerCase())
+          : false,
+      )?.voice_id ||
+      sorted[0]?.voice_id ||
+      profile?.provider_voice_id ||
+      null,
+    [],
+  );
+
+  const loadElVoicesForProfile = useCallback(
+    async (profile: VoiceProfile | null) => {
+      if (!spaceId || !profile) {
+        setElVoices([]);
+        setSelectedElVoiceId(null);
+        return;
+      }
+      const el = await api.listElevenLabsVoices(spaceId, {
+        clonedOnly: true,
+        voiceId: profile.id,
+      });
+      const sorted = [...el.voices].sort(
+        (a, b) => elVoiceSortKey(b) - elVoiceSortKey(a),
+      );
+      setElVoices(sorted);
+      setSelectedElVoiceId((prev) =>
+        prev && sorted.some((v) => v.voice_id === prev)
+          ? prev
+          : pickPreferredElVoice(profile, sorted),
+      );
+    },
+    [api, spaceId, pickPreferredElVoice],
+  );
+
   const load = useCallback(async () => {
     if (!spaceId) return;
     setLoading(true);
     try {
-      const [v, el] = await Promise.all([
-        api.listVoices(spaceId),
-        api.listElevenLabsVoices(spaceId, { clonedOnly: true }),
-      ]);
-      const sorted = [...el.voices].sort(
-        (a, b) => elVoiceSortKey(b) - elVoiceSortKey(a),
-      );
+      const v = await api.listVoices(spaceId);
       setProfiles(v.voices);
-      setElVoices(sorted);
 
       const nextProfile =
         (voiceIdParam && v.voices.find((x) => x.id === voiceIdParam)) ||
@@ -246,30 +251,13 @@ export default function VoiceSpeakScreen() {
         v.voices[0] ||
         null;
       setSelectedProfileId(nextProfile?.id ?? null);
-
-      const preferredEl =
-        (nextProfile?.provider_voice_id &&
-          sorted.find((x) => x.voice_id === nextProfile.provider_voice_id)
-            ?.voice_id) ||
-        sorted.find((x) =>
-          nextProfile?.display_name
-            ? x.name
-                .toLowerCase()
-                .includes(
-                  nextProfile.display_name.split("(")[0].trim().toLowerCase(),
-                )
-            : false,
-        )?.voice_id ||
-        sorted[0]?.voice_id ||
-        nextProfile?.provider_voice_id ||
-        null;
-      setSelectedElVoiceId(preferredEl);
+      await loadElVoicesForProfile(nextProfile);
     } catch (e) {
       Alert.alert("Lỗi", e instanceof Error ? e.message : "Không tải voices.");
     } finally {
       setLoading(false);
     }
-  }, [api, spaceId, voiceIdParam]);
+  }, [api, spaceId, voiceIdParam, loadElVoicesForProfile]);
 
   useEffect(() => {
     void load();
@@ -308,13 +296,8 @@ export default function VoiceSpeakScreen() {
     setPreviewing(false);
     setPaused(false);
     setSelectedProfileId(id);
-    const profile = profiles.find((p) => p.id === id);
-    if (
-      profile?.provider_voice_id &&
-      sortedElVoices.some((v) => v.voice_id === profile.provider_voice_id)
-    ) {
-      setSelectedElVoiceId(profile.provider_voice_id);
-    }
+    const profile = profiles.find((p) => p.id === id) ?? null;
+    void loadElVoicesForProfile(profile);
   };
 
   const selectElVoice = (id: string) => {
@@ -397,7 +380,7 @@ export default function VoiceSpeakScreen() {
         id: v.voice_id,
         title: v.name,
         subtitle:
-          formatElVoiceMeta(v) +
+          formatElVoiceWhen(v) +
           (selectedProfile?.provider_voice_id === v.voice_id
             ? " · đang gắn"
             : ""),
@@ -485,7 +468,7 @@ export default function VoiceSpeakScreen() {
           placeholder="Chọn Voice DNA…"
           hint={
             selectedElVoice
-              ? formatElVoiceMeta(selectedElVoice)
+              ? formatElVoiceWhen(selectedElVoice)
               : "Chưa có clone trên ElevenLabs"
           }
           onPress={() => setOpenPicker("voice")}
@@ -496,7 +479,13 @@ export default function VoiceSpeakScreen() {
             Clone Voice DNA trên hub để tạo bản mới (mới nhất hiện trên cùng).
           </Text>
         ) : (
-          <Pressable onPress={() => void load()} disabled={busy}>
+          <Pressable
+            onPress={() => {
+              const profile = profiles.find((p) => p.id === selectedProfileId) ?? null;
+              void loadElVoicesForProfile(profile);
+            }}
+            disabled={busy || !selectedProfileId}
+          >
             <Text style={styles.refresh}>Làm mới danh sách</Text>
           </Pressable>
         )}

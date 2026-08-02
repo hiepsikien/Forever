@@ -13,29 +13,8 @@ import {
 } from "react-native";
 
 import { useAuth } from "@/lib/auth";
+import { elVoiceSortKey, formatElVoiceWhen } from "@/lib/elVoice";
 import { colors, fonts } from "@/lib/theme";
-
-function sortKey(v: ElevenLabsVoice): number {
-  if (typeof v.created_at_unix === "number" && v.created_at_unix > 0) {
-    return v.created_at_unix;
-  }
-  const m = v.name.match(/(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})/);
-  if (!m) return 0;
-  const [, y, mo, d, h, mi] = m;
-  return Math.floor(Date.UTC(+y, +mo - 1, +d, +h, +mi) / 1000);
-}
-
-function formatWhen(v: ElevenLabsVoice): string {
-  const ts = sortKey(v);
-  if (!ts) return v.category || "cloned";
-  return new Date(ts * 1000).toLocaleString("vi-VN", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-}
 
 export default function VoiceClonesScreen() {
   const { spaceId, voiceId } = useLocalSearchParams<{
@@ -70,7 +49,7 @@ export default function VoiceClonesScreen() {
         clonedOnly: true,
         voiceId: voiceId || undefined,
       });
-      const sorted = [...res.voices].sort((a, b) => sortKey(b) - sortKey(a));
+      const sorted = [...res.voices].sort((a, b) => elVoiceSortKey(b) - elVoiceSortKey(a));
       setVoices(sorted);
     } catch (e) {
       Alert.alert("Lỗi", e instanceof Error ? e.message : "Không tải Voice DNA.");
@@ -121,7 +100,7 @@ export default function VoiceClonesScreen() {
           <View style={[styles.card, active && styles.cardActive]}>
             <Text style={styles.name}>{item.name}</Text>
             <Text style={styles.meta}>
-              {formatWhen(item)}
+              {formatElVoiceWhen(item)}
               {active ? " · đang gắn" : ""}
             </Text>
             <Text style={styles.id} numberOfLines={1}>

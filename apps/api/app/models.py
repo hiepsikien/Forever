@@ -280,6 +280,7 @@ class VoiceSample(Base):
     pipeline_stage: Mapped[str] = mapped_column(String(32), default="processed")
     # JSON array of source sample ids when source=combine
     parent_sample_ids: Mapped[str] = mapped_column(Text, default="")
+    processing_applied: Mapped[str] = mapped_column(Text, default="")
     created_by: Mapped[str] = mapped_column(ForeignKey("users.id"))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
 

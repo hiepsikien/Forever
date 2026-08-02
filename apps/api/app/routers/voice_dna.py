@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 from datetime import datetime, timezone
+from zoneinfo import ZoneInfo
 from pathlib import Path
 from typing import Annotated
 
@@ -31,6 +32,7 @@ from ..models import (
 from ..routers.settings import HERITAGE_CONSENT, SELF_CONSENT
 from ..services import elevenlabs as el
 from ..services.audio_combine import AudioCombineError, combine_audio_files
+from ..services.audio_process import normalize_audio_file, normalize_audio_file_inplace
 from ..services.sample_quality import score_voice_sample
 from ..services.storage import MAX_UPLOAD_BYTES, absolute_media_path, save_bytes, save_upload
 from ..services.voice_script import generate_voice_sample_script
@@ -97,6 +99,12 @@ class CombineSamplesBody(BaseModel):
         min_length=COMBINE_MIN_SAMPLES, max_length=COMBINE_MAX_SAMPLES
     )
     note: str = Field(default="", max_length=2000)
+    normalize: bool = False
+
+
+class ProcessSamplesBody(BaseModel):
+    sample_ids: list[str] = Field(min_length=1, max_length=100)
+    normalize: bool = True
 
 
 class VoiceScriptBody(BaseModel):
@@ -219,6 +227,68 @@ def _parent_sample_ids(sample: VoiceSample) -> list[str]:
     return []
 
 
+def _processing_applied(sample: VoiceSample) -> dict:
+    raw = getattr(sample, "processing_applied", None) or ""
+    if not raw:
+        return {}
+    try:
+        parsed = json.loads(raw)
+        if isinstance(parsed, dict):
+            return parsed
+    except json.JSONDecodeError:
+        pass
+    return {}
+
+
+def _assert_unprocessed_samples(samples: list[VoiceSample]) -> None:
+    for sample in samples:
+        if _effective_stage(sample) != "unprocessed":
+            raise HTTPException(
+                status_code=400,
+                detail="Chỉ xử lý mẫu ở trạng thái Chưa xử lý (unprocessed).",
+            )
+
+
+def _create_derived_sample(
+    *,
+    db: Session,
+    voice: VoiceProfile,
+    user: User,
+    now: datetime,
+    relative_path: str,
+    duration_ms: int | None,
+    file_size: int,
+    source: str,
+    note: str,
+    parent_ids: list[str],
+    processing: dict,
+) -> VoiceSample:
+    score, label, tip = score_voice_sample(
+        duration_ms=duration_ms,
+        file_size_bytes=file_size,
+    )
+    row = VoiceSample(
+        id=generate(),
+        voice_profile_id=voice.id,
+        media_path=relative_path.replace("\\", "/"),
+        media_mime="audio/wav",
+        source=source,
+        note=note[:2000],
+        duration_ms=duration_ms,
+        file_size_bytes=file_size,
+        quality_score=score,
+        quality_label=label,
+        quality_tip=tip,
+        pipeline_stage="unprocessed",
+        parent_sample_ids=json.dumps(parent_ids),
+        processing_applied=json.dumps(processing),
+        created_by=user.id,
+        created_at=now,
+    )
+    db.add(row)
+    return row
+
+
 def _sample_payload(row: VoiceSample, *, voice: VoiceProfile | None = None) -> dict:
     _enrich_sample_quality(row)
     payload = {
@@ -240,6 +310,7 @@ def _sample_payload(row: VoiceSample, *, voice: VoiceProfile | None = None) -> d
         "speaker_label": getattr(row, "speaker_label", None),
         "pipeline_stage": _effective_stage(row),
         "parent_sample_ids": _parent_sample_ids(row),
+        "processing_applied": _processing_applied(row),
         "created_at": row.created_at.isoformat(),
     }
     if voice is not None:
@@ -1018,13 +1089,7 @@ def combine_samples(
         raise HTTPException(status_code=404, detail="Một hoặc nhiều sample không tồn tại.")
     by_id = {row.id: row for row in rows}
     ordered = [by_id[sid] for sid in unique_ids]
-
-    for sample in ordered:
-        if _effective_stage(sample) != "unprocessed":
-            raise HTTPException(
-                status_code=400,
-                detail="Chỉ ghép mẫu ở trạng thái Chưa xử lý (unprocessed).",
-            )
+    _assert_unprocessed_samples(ordered)
 
     input_paths = [absolute_media_path(sample.media_path) for sample in ordered]
     input_duration_ms = sum(sample.duration_ms or 0 for sample in ordered)
@@ -1039,6 +1104,8 @@ def combine_samples(
     output_path = Path(settings.upload_dir) / relative
     try:
         duration_ms, file_size = combine_audio_files(input_paths, output_path)
+        if body.normalize:
+            duration_ms, file_size = normalize_audio_file_inplace(output_path)
     except AudioCombineError as exc:
         output_path.unlink(missing_ok=True)
         raise HTTPException(status_code=400, detail=exc.message) from exc
@@ -1050,34 +1117,28 @@ def combine_samples(
             detail="File ghép quá lớn (tối đa 25MB). Chọn ít mẫu hơn.",
         )
 
-    score, label, tip = score_voice_sample(
-        duration_ms=duration_ms or None,
-        file_size_bytes=file_size,
-    )
+    processing = {"combine": True, "normalize": body.normalize, "denoise": "off"}
     auto_note = f"Ghép {len(ordered)} mẫu ({_format_duration(duration_ms) or '—:—'})"
+    if body.normalize:
+        auto_note += " · đã normalize"
     user_note = (body.note or "").strip()
     note = f"{auto_note}. {user_note}".strip() if user_note else auto_note
 
     now = datetime.now(timezone.utc)
-    combined = VoiceSample(
-        id=generate(),
-        voice_profile_id=voice.id,
-        media_path=relative.replace("\\", "/"),
-        media_mime="audio/wav",
-        source="combine",
-        note=note[:2000],
+    combined = _create_derived_sample(
+        db=db,
+        voice=voice,
+        user=user,
+        now=now,
+        relative_path=relative,
         duration_ms=duration_ms or None,
-        file_size_bytes=file_size,
-        quality_score=score,
-        quality_label=label,
-        quality_tip=tip,
-        pipeline_stage="unprocessed",
-        parent_sample_ids=json.dumps(unique_ids),
-        created_by=user.id,
-        created_at=now,
+        file_size=file_size,
+        source="combine",
+        note=note,
+        parent_ids=unique_ids,
+        processing=processing,
     )
     voice.updated_at = now
-    db.add(combined)
     db.commit()
 
     samples = (
@@ -1088,6 +1149,93 @@ def combine_samples(
     )
     return {
         "sample_id": combined.id,
+        "voice": _voice_payload(voice, samples),
+    }
+
+
+@router.post("/api/voices/{voice_id}/samples/process")
+def process_samples(
+    voice_id: str,
+    body: ProcessSamplesBody,
+    user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[Session, Depends(get_db)],
+):
+    """Create new unprocessed samples from normalize (keeps originals untouched)."""
+    voice = _get_voice_or_404(db, voice_id)
+    require_membership(db, space_id=voice.space_id, user=user)
+    if not _can_mutate_voice(db, voice, user):
+        raise HTTPException(status_code=403, detail="Không được sửa Voice DNA này.")
+    if voice.status == "paused":
+        raise HTTPException(status_code=400, detail="Voice đang tạm dừng.")
+    if not body.normalize:
+        raise HTTPException(status_code=400, detail="Chọn ít nhất normalize.")
+
+    unique_ids = list(dict.fromkeys(body.sample_ids))
+    rows = (
+        db.query(VoiceSample)
+        .filter(
+            VoiceSample.voice_profile_id == voice.id,
+            VoiceSample.id.in_(unique_ids),
+        )
+        .all()
+    )
+    if len(rows) != len(unique_ids):
+        raise HTTPException(status_code=404, detail="Một hoặc nhiều sample không tồn tại.")
+    by_id = {row.id: row for row in rows}
+    ordered = [by_id[sid] for sid in unique_ids]
+    _assert_unprocessed_samples(ordered)
+
+    settings = get_settings()
+    now = datetime.now(timezone.utc)
+    created_ids: list[str] = []
+
+    for index, sample in enumerate(ordered, start=1):
+        input_path = absolute_media_path(sample.media_path)
+        relative = f"{voice.space_id}/{generate()}.wav"
+        output_path = Path(settings.upload_dir) / relative
+        try:
+            duration_ms, file_size = normalize_audio_file(input_path, output_path)
+        except AudioCombineError as exc:
+            output_path.unlink(missing_ok=True)
+            raise HTTPException(
+                status_code=400,
+                detail=f"Mẫu #{index}: {exc.message}",
+            ) from exc
+
+        if file_size > MAX_UPLOAD_BYTES:
+            output_path.unlink(missing_ok=True)
+            raise HTTPException(
+                status_code=400,
+                detail=f"Mẫu #{index} sau normalize quá lớn (tối đa 25MB).",
+            )
+
+        note = f"Normalize từ mẫu gốc ({_format_duration(duration_ms) or '—:—'})"
+        row = _create_derived_sample(
+            db=db,
+            voice=voice,
+            user=user,
+            now=now,
+            relative_path=relative,
+            duration_ms=duration_ms or None,
+            file_size=file_size,
+            source="process",
+            note=note,
+            parent_ids=[sample.id],
+            processing={"normalize": True, "denoise": "off"},
+        )
+        created_ids.append(row.id)
+
+    voice.updated_at = now
+    db.commit()
+
+    samples = (
+        db.query(VoiceSample)
+        .filter(VoiceSample.voice_profile_id == voice.id)
+        .order_by(VoiceSample.created_at.asc())
+        .all()
+    )
+    return {
+        "created_sample_ids": created_ids,
         "voice": _voice_payload(voice, samples),
     }
 
@@ -1178,7 +1326,7 @@ def clone_voice(
         else settings.elevenlabs_remove_noise
     )
 
-    stamp = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M")
+    stamp = datetime.now(ZoneInfo("Asia/Ho_Chi_Minh")).strftime("%Y-%m-%d %H:%M")
     clone_name = f"Forever · {voice.display_name} · {stamp}"[:100]
     try:
         provider_voice_id = el.create_instant_voice_clone(

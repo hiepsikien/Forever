@@ -144,6 +144,7 @@ export interface VoiceSample {
   speaker_label?: string | null;
   pipeline_stage?: "unprocessed" | "processed" | "archived" | string;
   parent_sample_ids?: string[];
+  processing_applied?: Record<string, unknown>;
   created_at: string;
   voice_display_name?: string;
   voice_subject_kind?: string;
@@ -743,7 +744,7 @@ export function createApiClient({
     combineVoiceSamples: (
       voiceId: string,
       sampleIds: string[],
-      note?: string,
+      opts?: { note?: string; normalize?: boolean },
     ) =>
       request<{ sample_id: string; voice: VoiceProfile }>(
         `/api/voices/${voiceId}/samples/combine`,
@@ -751,7 +752,23 @@ export function createApiClient({
           method: "POST",
           body: JSON.stringify({
             sample_ids: sampleIds,
-            note: note ?? "",
+            note: opts?.note ?? "",
+            normalize: opts?.normalize ?? false,
+          }),
+        },
+      ),
+    processVoiceSamples: (
+      voiceId: string,
+      sampleIds: string[],
+      opts?: { normalize?: boolean },
+    ) =>
+      request<{ created_sample_ids: string[]; voice: VoiceProfile }>(
+        `/api/voices/${voiceId}/samples/process`,
+        {
+          method: "POST",
+          body: JSON.stringify({
+            sample_ids: sampleIds,
+            normalize: opts?.normalize ?? true,
           }),
         },
       ),

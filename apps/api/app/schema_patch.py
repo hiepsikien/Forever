@@ -141,6 +141,11 @@ def ensure_schema() -> None:
         "ALTER TABLE voice_samples ADD COLUMN parent_sample_ids TEXT DEFAULT ''",
     )
     _add_column_if_missing(
+        "voice_samples",
+        "processing_applied",
+        "ALTER TABLE voice_samples ADD COLUMN processing_applied TEXT DEFAULT ''",
+    )
+    _add_column_if_missing(
         "extract_jobs",
         "speaker_assignments_json",
         "ALTER TABLE extract_jobs ADD COLUMN speaker_assignments_json TEXT DEFAULT '{}'",

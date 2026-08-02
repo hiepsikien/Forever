@@ -502,3 +502,57 @@ def test_combine_unprocessed_samples(client: TestClient, monkeypatch, tmp_path):
     )
     assert all_unprocessed.status_code == 200
     assert len(all_unprocessed.json()["samples"]) == 4
+
+
+def test_process_normalize_creates_derived_sample(
+    client: TestClient, monkeypatch, tmp_path
+):
+    monkeypatch.setenv("UPLOAD_DIR", str(tmp_path))
+
+    def fake_normalize(input_path, output_path):
+        output_path.write_bytes(b"fake-normalized-wav")
+        return 30_000, len(b"fake-normalized-wav")
+
+    monkeypatch.setattr(
+        "app.routers.voice_dna.normalize_audio_file",
+        fake_normalize,
+    )
+
+    token = _login(client, "normalize@forever.family", "Normalize")
+    headers = {"Authorization": f"Bearer {token}"}
+    space_id = _space(client, token)
+
+    created = client.post(
+        f"/api/spaces/{space_id}/voices/self",
+        headers=headers,
+        json={"consent": True},
+    )
+    voice_id = created.json()["id"]
+
+    original = client.post(
+        f"/api/voices/{voice_id}/samples",
+        headers=headers,
+        files={"file": ("quiet.wav", BytesIO(b"fake-quiet"), "audio/wav")},
+        data={"source": "extract"},
+    )
+    assert original.status_code == 200, original.text
+    sample_id = original.json()["sample_id"]
+
+    processed = client.post(
+        f"/api/voices/{voice_id}/samples/process",
+        headers=headers,
+        json={"sample_ids": [sample_id], "normalize": True},
+    )
+    assert processed.status_code == 200, processed.text
+    payload = processed.json()
+    assert len(payload["created_sample_ids"]) == 1
+    assert payload["voice"]["unprocessed_count"] == 2
+
+    new_sample = next(
+        s
+        for s in payload["voice"]["samples"]
+        if s["id"] == payload["created_sample_ids"][0]
+    )
+    assert new_sample["source"] == "process"
+    assert new_sample["processing_applied"]["normalize"] is True
+    assert new_sample["parent_sample_ids"] == [sample_id]
