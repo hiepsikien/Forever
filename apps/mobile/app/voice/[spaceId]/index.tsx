@@ -588,6 +588,22 @@ export default function VoiceDnaScreen() {
                   </Text>
                 </Pressable>
               )}
+              {canManage ? (
+                <Pressable
+                  style={styles.action}
+                  onPress={() => {
+                    if (!activeVoice || !spaceId) return;
+                    router.push(
+                      `/voice/${spaceId}/extract/new?voiceId=${activeVoice.id}` as never,
+                    );
+                  }}
+                >
+                  <Text style={styles.actionTitle}>Giọng từ ký ức</Text>
+                  <Text style={styles.actionSub}>
+                    1 băng → pool chung → gán nhiều Voice DNA
+                  </Text>
+                </Pressable>
+              ) : null}
               <Pressable style={styles.action} onPress={() => go("samples")}>
                 <Text style={styles.actionTitle}>Mẫu giọng</Text>
                 <Text style={styles.actionSub}>

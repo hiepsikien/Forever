@@ -15,5 +15,19 @@ services:
       timeout: 5s
       retries: 10
 
+  # Optional local worker — requires HF_TOKEN and host networking to reach API.
+  # Prefer: ./scripts/run-extract-worker.sh on the host (torch/pyannote).
+  # extract-worker:
+  #   build:
+  #     context: ./Extract
+  #   environment:
+  #     FOREVER_API_URL: http://host.docker.internal:8001
+  #     EXTRACT_WORKER_TOKEN: forever-extract-worker
+  #     HF_TOKEN: ${HF_TOKEN:-}
+  #   volumes:
+  #     - ./apps/api/uploads:/uploads
+  #   extra_hosts:
+  #     - "host.docker.internal:host-gateway"
+
 volumes:
   forever_pgdata:

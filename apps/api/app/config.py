@@ -34,6 +34,9 @@ class Settings(BaseSettings):
     elevenlabs_speaker_boost: bool = True
     elevenlabs_remove_noise: bool = True
 
+    # Shared secret for local Extract worker → Forever API claim/complete.
+    extract_worker_token: str = "forever-extract-worker"
+
     @property
     def cors_origin_list(self) -> list[str]:
         return [origin.strip() for origin in self.cors_origins.split(",") if origin.strip()]

@@ -10,7 +10,9 @@ def test_merge_same_speaker_within_gap():
     ]
     merged = merge_segments(segs, max_gap=0.75, min_duration=0.4)
     assert len(merged) == 2
-    assert merged[0] == Segment("SPEAKER_00", 0.0, 2.5)
+    assert merged[0].speaker == "SPEAKER_00"
+    assert merged[0].start == 0.0
+    assert merged[0].end == 2.5
     assert merged[1].speaker == "SPEAKER_01"
 
 

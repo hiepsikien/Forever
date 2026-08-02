@@ -39,6 +39,7 @@ class FamilySpace(Base):
     successions: Mapped[list[StewardSuccession]] = relationship(back_populates="space")
     identities: Mapped[list[IdentityProfile]] = relationship(back_populates="space")
     voice_profiles: Mapped[list[VoiceProfile]] = relationship(back_populates="space")
+    extract_jobs: Mapped[list[ExtractJob]] = relationship(back_populates="space")
     settings: Mapped[SpaceSettings | None] = relationship(
         back_populates="space", uselist=False
     )
@@ -246,6 +247,7 @@ class VoiceProfile(Base):
     )
     samples: Mapped[list[VoiceSample]] = relationship(back_populates="voice_profile")
     renders: Mapped[list[VoiceRender]] = relationship(back_populates="voice_profile")
+    extract_jobs: Mapped[list[ExtractJob]] = relationship(back_populates="voice_profile")
 
 
 class VoiceSample(Base):
@@ -257,7 +259,7 @@ class VoiceSample(Base):
     )
     media_path: Mapped[str] = mapped_column(String(512))
     media_mime: Mapped[str] = mapped_column(String(120))
-    # record | upload | memory
+    # record | upload | memory | extract
     source: Mapped[str] = mapped_column(String(32), default="upload")
     note: Mapped[str] = mapped_column(Text, default="")
     duration_ms: Mapped[int | None] = mapped_column(Integer, nullable=True)
@@ -265,10 +267,85 @@ class VoiceSample(Base):
     quality_score: Mapped[int | None] = mapped_column(Integer, nullable=True)
     quality_label: Mapped[str] = mapped_column(String(32), default="")
     quality_tip: Mapped[str] = mapped_column(Text, default="")
+    extract_job_id: Mapped[str | None] = mapped_column(
+        ForeignKey("extract_jobs.id"), nullable=True, index=True
+    )
+    extract_segment_id: Mapped[str | None] = mapped_column(
+        ForeignKey("extract_segments.id"), nullable=True, index=True
+    )
+    t_start: Mapped[float | None] = mapped_column(Float, nullable=True)
+    t_end: Mapped[float | None] = mapped_column(Float, nullable=True)
+    speaker_label: Mapped[str | None] = mapped_column(String(64), nullable=True)
     created_by: Mapped[str] = mapped_column(ForeignKey("users.id"))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
 
     voice_profile: Mapped[VoiceProfile] = relationship(back_populates="samples")
+
+
+class ExtractJob(Base):
+    """Shared pool from one tape: diarize once, import into any Voice DNA profiles."""
+
+    __tablename__ = "extract_jobs"
+
+    id: Mapped[str] = mapped_column(String(32), primary_key=True)
+    space_id: Mapped[str] = mapped_column(ForeignKey("family_spaces.id"), index=True)
+    # Optional UI context only — pool is not locked to one Voice DNA.
+    voice_profile_id: Mapped[str | None] = mapped_column(
+        ForeignKey("voice_profiles.id"), nullable=True, index=True
+    )
+    # upload (v1); memory reserved
+    source_kind: Mapped[str] = mapped_column(String(32), default="upload")
+    input_path: Mapped[str] = mapped_column(String(512))
+    input_mime: Mapped[str] = mapped_column(String(120), default="")
+    original_filename: Mapped[str] = mapped_column(String(260), default="")
+    num_speakers: Mapped[int] = mapped_column(Integer)
+    # queued | running | needs_review | failed | done
+    status: Mapped[str] = mapped_column(String(32), default="queued", index=True)
+    error_message: Mapped[str] = mapped_column(Text, default="")
+    artifact_dir: Mapped[str] = mapped_column(String(512), default="")
+    options_json: Mapped[str] = mapped_column(Text, default="{}")
+    # SPEAKER_xx → voice_profile_id assignments during review
+    speaker_assignments_json: Mapped[str] = mapped_column(Text, default="{}")
+    duration_seconds: Mapped[float | None] = mapped_column(Float, nullable=True)
+    device: Mapped[str] = mapped_column(String(32), default="")
+    model: Mapped[str] = mapped_column(String(200), default="")
+    raw_turn_count: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    assigned_speaker_label: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    created_by: Mapped[str] = mapped_column(ForeignKey("users.id"))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
+    started_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    finished_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+
+    space: Mapped[FamilySpace] = relationship(back_populates="extract_jobs")
+    voice_profile: Mapped[VoiceProfile | None] = relationship(
+        back_populates="extract_jobs"
+    )
+    segments: Mapped[list[ExtractSegment]] = relationship(back_populates="job")
+
+
+class ExtractSegment(Base):
+    __tablename__ = "extract_segments"
+
+    id: Mapped[str] = mapped_column(String(32), primary_key=True)
+    job_id: Mapped[str] = mapped_column(ForeignKey("extract_jobs.id"), index=True)
+    speaker_label: Mapped[str] = mapped_column(String(64), index=True)
+    t_start: Mapped[float] = mapped_column(Float)
+    t_end: Mapped[float] = mapped_column(Float)
+    duration_ms: Mapped[int] = mapped_column(Integer, default=0)
+    media_path: Mapped[str] = mapped_column(String(512), default="")
+    purity: Mapped[float | None] = mapped_column(Float, nullable=True)
+    # clean | mixed | short
+    quality: Mapped[str] = mapped_column(String(32), default="clean", index=True)
+    # pending | accepted | rejected
+    review_status: Mapped[str] = mapped_column(String(32), default="pending", index=True)
+    voice_sample_id: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+    job: Mapped[ExtractJob] = relationship(back_populates="segments")
 
 
 class VoiceRender(Base):

@@ -76,6 +76,14 @@ export default function RootLayout() {
               name="voice/[spaceId]/clones"
               options={{ title: "Lịch sử clone" }}
             />
+            <Stack.Screen
+              name="voice/[spaceId]/extract/new"
+              options={{ title: "Giọng từ ký ức" }}
+            />
+            <Stack.Screen
+              name="voice/[spaceId]/extract/[jobId]"
+              options={{ title: "Duyệt đoạn tách" }}
+            />
             <Stack.Screen name="settings/[spaceId]" options={{ title: "Cài đặt" }} />
           </Stack>
         </Gate>

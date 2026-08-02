@@ -1,15 +1,19 @@
 from __future__ import annotations
 
 import argparse
-import json
 import sys
-from datetime import datetime, timezone
 from pathlib import Path
 
 from extract import __version__
-from extract.cut import cut_segments
-from extract.diarize import DEFAULT_MODEL, diarize_file
-from extract.normalize import normalize_audio, probe_duration_seconds
+from extract.diarize import DEFAULT_MODEL
+from extract.pipeline import run_extract_pipeline
+from extract.refine import (
+    DEFAULT_EDGE_TRIM,
+    DEFAULT_MAX_GAP,
+    DEFAULT_MIN_DURATION,
+    DEFAULT_PAD,
+    DEFAULT_PURITY_MIN,
+)
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -17,7 +21,7 @@ def build_parser() -> argparse.ArgumentParser:
         prog="extract",
         description=(
             "Local speaker diarization: normalize audio, detect speakers, "
-            "cut per-speaker segments."
+            "refine exclusive solo segments, cut per-speaker clips."
         ),
     )
     p.add_argument("--input", "-i", required=True, type=Path, help="Input audio file")
@@ -49,20 +53,42 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument(
         "--pad",
         type=float,
-        default=0.2,
-        help="Padding seconds around each cut (default: 0.2)",
+        default=DEFAULT_PAD,
+        help=f"Padding seconds around each cut (default: {DEFAULT_PAD})",
     )
     p.add_argument(
         "--max-gap",
         type=float,
-        default=0.75,
-        help="Merge same-speaker segments closer than this many seconds",
+        default=DEFAULT_MAX_GAP,
+        help=f"Merge same-speaker gaps under this many seconds (default: {DEFAULT_MAX_GAP})",
     )
     p.add_argument(
         "--min-duration",
         type=float,
-        default=0.4,
-        help="Drop segments shorter than this many seconds after merge",
+        default=DEFAULT_MIN_DURATION,
+        help=f"Minimum duration for clean label (default: {DEFAULT_MIN_DURATION})",
+    )
+    p.add_argument(
+        "--edge-trim",
+        type=float,
+        default=DEFAULT_EDGE_TRIM,
+        help=f"Trim seconds from each edge before pad (default: {DEFAULT_EDGE_TRIM})",
+    )
+    p.add_argument(
+        "--purity-min",
+        type=float,
+        default=DEFAULT_PURITY_MIN,
+        help=f"Minimum exclusive ratio for clean (default: {DEFAULT_PURITY_MIN})",
+    )
+    p.add_argument(
+        "--no-exclusive",
+        action="store_true",
+        help="Keep original turns and score purity instead of exclusive-only cuts",
+    )
+    p.add_argument(
+        "--keep-mixed",
+        action="store_true",
+        help="Also emit mixed-quality clips under speakers/_review/",
     )
     p.add_argument(
         "--sample-rate",
@@ -89,63 +115,48 @@ def main(argv: list[str] | None = None) -> int:
         if args.out
         else (Path.cwd() / "out" / input_path.stem).resolve()
     )
-    out_dir.mkdir(parents=True, exist_ok=True)
 
-    source_wav = out_dir / "source.wav"
-    print(f"[1/3] normalize → {source_wav}")
-    normalize_audio(input_path, source_wav, sample_rate=args.sample_rate)
-    duration = probe_duration_seconds(source_wav)
-
+    print(f"[extract] input={input_path}")
     print(
-        f"[2/3] diarize model={args.model} num_speakers={args.num_speakers} "
-        f"device={args.device}"
+        f"[extract] exclusive_only={not args.no_exclusive} "
+        f"min_duration={args.min_duration} pad={args.pad}"
     )
-    raw_segments, device_used = diarize_file(
-        source_wav,
-        num_speakers=args.num_speakers,
-        model_id=args.model,
-        device=args.device,
+    try:
+        payload = run_extract_pipeline(
+            input_path,
+            out_dir,
+            num_speakers=args.num_speakers,
+            model_id=args.model,
+            device=args.device,
+            pad=args.pad,
+            max_gap=args.max_gap,
+            min_duration=args.min_duration,
+            edge_trim=args.edge_trim,
+            purity_min=args.purity_min,
+            exclusive_only=not args.no_exclusive,
+            keep_mixed=args.keep_mixed,
+            sample_rate=args.sample_rate,
+        )
+    except Exception as exc:  # noqa: BLE001 — CLI surface
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
+
+    segments = payload.get("segments") or []
+    speakers = payload.get("detected_speakers") or []
+    clean = payload.get("clean_segment_count") or 0
+    print(
+        f"done: {len(segments)} segments ({clean} clean), "
+        f"{len(speakers)} speakers, device={payload.get('device')}"
     )
-    print(f"      device_used={device_used} raw_turns={len(raw_segments)}")
-
-    print(f"[3/3] cut segments → {out_dir / 'speakers'}")
-    written = cut_segments(
-        source_wav,
-        raw_segments,
-        out_dir,
-        pad=args.pad,
-        max_gap=args.max_gap,
-        min_duration=args.min_duration,
-        total_duration=duration or None,
-    )
-
-    speakers = sorted({s.speaker for s in written})
-    payload = {
-        "version": __version__,
-        "created_at": datetime.now(timezone.utc).isoformat(),
-        "input": str(input_path),
-        "source_wav": "source.wav",
-        "num_speakers": args.num_speakers,
-        "detected_speakers": speakers,
-        "model": args.model,
-        "device": device_used,
-        "duration_seconds": duration or None,
-        "options": {
-            "pad": args.pad,
-            "max_gap": args.max_gap,
-            "min_duration": args.min_duration,
-            "sample_rate": args.sample_rate,
-        },
-        "segments": [s.to_dict() for s in written],
-    }
-    meta_path = out_dir / "diarization.json"
-    meta_path.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n")
-
-    print(f"done: {len(written)} segments, {len(speakers)} speakers")
-    print(f"meta: {meta_path}")
+    print(f"meta: {out_dir / 'diarization.json'}")
     for spk in speakers:
-        count = sum(1 for s in written if s.speaker == spk)
-        print(f"  {spk}: {count} files")
+        count = sum(1 for s in segments if s.get("speaker") == spk)
+        clean_n = sum(
+            1
+            for s in segments
+            if s.get("speaker") == spk and s.get("quality") == "clean"
+        )
+        print(f"  {spk}: {count} files ({clean_n} clean)")
     return 0
 
 
