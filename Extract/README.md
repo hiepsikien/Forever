@@ -1,6 +1,8 @@
 # Extract
 
-Local tool: **speaker diarization → cut per-speaker audio segments**.
+Local/server tool: **speaker diarization → cut per-speaker audio segments**.
+
+**Product plan:** [`PROJECT.md`](./PROJECT.md) — hướng merge vào Forever như sub-app / worker (Voice DNA heritage sampling).
 
 - Input: audio (`.wav`, `.mp3`, `.m4a`, `.aac`, `.flac`, …)
 - Model: [`pyannote/speaker-diarization-community-1`](https://huggingface.co/pyannote/speaker-diarization-community-1)
@@ -8,9 +10,7 @@ Local tool: **speaker diarization → cut per-speaker audio segments**.
 - Output: `speakers/SPEAKER_xx/*.wav` + `diarization.json`
 - No ASR / transcription in v0.1
 
-Designed for MacBook Apple Silicon (MPS) first; also works on CUDA/CPU.
-
-> Currently developed inside the Forever workspace. Intended to live as its own GitHub repo (`Extract`) — create the empty repo anytime, then push this folder.
+CLI local là bản tạm; production-lite dự kiến chạy CPU worker trên GCE (`*-standard-2`).
 
 ## Requirements
 
