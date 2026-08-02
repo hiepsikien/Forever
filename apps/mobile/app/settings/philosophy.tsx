@@ -23,15 +23,6 @@ function P({ children }: { children: string }) {
   return <Text style={styles.body}>{children}</Text>;
 }
 
-function Bullet({ children }: { children: string }) {
-  return (
-    <View style={styles.bulletRow}>
-      <Text style={styles.bulletMark}>·</Text>
-      <Text style={styles.bulletText}>{children}</Text>
-    </View>
-  );
-}
-
 export default function PhilosophyScreen() {
   const navigation = useNavigation();
 
@@ -42,167 +33,73 @@ export default function PhilosophyScreen() {
   return (
     <ScrollView contentContainerStyle={styles.root}>
       <Text style={styles.lead}>
-        Forever là két sắt ký ức của một gia đình — phòng khách riêng tư, nơi
-        chúng ta giữ lại những gì quý nhất và tiếp tục thuộc về nhau qua nhiều
-        thế hệ.
+        Forever tồn tại để nối các thế hệ trong một gia đình, một dòng họ — giữ
+        di sản tinh thần và cho người đang sống cảm giác thuộc về một cội nguồn
+        chung.
       </Text>
 
-      <Section title="Forever là gì">
+      <Section title="Mục đích">
         <P>
-          Đây là nơi trò chuyện với người thân, lưu giữ ảnh và ghi chú, thu thập
-          giọng nói và câu chuyện cội nguồn — rồi, khi cần, lắng nghe lại tiếng
-          nói và suy nghĩ của những người ta yêu thương.
+          Con người sợ bị lãng quên. Gia đình cần biết mình đến từ đâu, học hỏi
+          gì từ cha mẹ, ông bà, tổ tiên — rồi truyền tiếp cho con cháu. Forever
+          là phòng khách riêng tư của dòng họ: nơi ký ức được gom lại, không phân
+          tán, không phai theo thời gian.
         </P>
         <P>
-          Forever không cạnh tranh với Zalo hay Facebook. Ở đó, ta thường muốn
-          được nhìn thấy. Ở đây, ta hỏi một câu khác: chúng ta là ai, chúng ta
-          đến từ đâu, và chúng ta muốn để lại gì cho nhau?
-        </P>
-      </Section>
-
-      <Section title="Forever không phải là gì">
-        <Bullet>Mạng xã hội để khoe hay tìm sự chú ý.</Bullet>
-        <Bullet>Nghĩa trang số tĩnh — chỉ để nhìn, không để sống cùng.</Bullet>
-        <Bullet>Robot nói chuyện chung chung, bịa chuyện không có thật.</Bullet>
-        <Bullet>
-          Cách “hồi sinh” người đã mất như thể họ vẫn còn sống ở phòng bên cạnh.
-        </Bullet>
-      </Section>
-
-      <Section title="Ba điều gia đình cần">
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>Di sản tinh thần</Text>
-          <Text style={styles.cardBody}>
-            Sợ bị lãng quên là tự nhiên. Forever giúp giữ lại giá trị sống, cách
-            nói, cách an ủi — để con cháu còn nghe, còn hiểu, còn cảm thấy mình
-            nối tiếp một mạch máu tinh thần.
-          </Text>
-        </View>
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>An toàn và thuộc về</Text>
-          <Text style={styles.cardBody}>
-            Một vùng riêng tư, không phán xét, không tranh luận gay gắt trực
-            diện. Nơi ta được yêu thương vì là con, là cha mẹ, là anh chị em —
-            không vì hồ sơ hay hình ảnh đẹp.
-          </Text>
-        </View>
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>Neo cội nguồn</Text>
-          <Text style={styles.cardBody}>
-            Biết mình đứng ở đâu trong dòng họ, trong lịch sử gia đình, để bước
-            tiếp vững hơn — không mất phương, không quên mình từ đâu mà có.
-          </Text>
-        </View>
-      </Section>
-
-      <Section title="Phòng khách số">
-        <P>
-          Mỗi gia đình có một không gian riêng trong Forever. Phòng khách là nơi
-          trò chuyện hàng ngày. Thư viện giữ ảnh, ghi chú, âm thanh. Time-Capsule
-          gợi những câu hỏi cội nguồn — trả lời bằng giọng nói, nghe lại bất cứ
-          lúc nào, không cần ngồi đối diện căng thẳng.
-        </P>
-        <P>
-          Voice DNA là lớp giọng nói: thu mẫu, chọn đoạn sạch, tạo bản giọng để
-          đọc lại những câu chữ ta muốn giữ — luôn có sự đồng ý rõ ràng, luôn do
-          người trong nhà quyết định.
+          Không phải mạng xã hội để khoe hay tranh luận. Không phải nghĩa trang
+          số chỉ để nhìn một lần rồi quên. Forever là chỗ ta quay về khi cần
+          hiểu mình thuộc về ai.
         </P>
       </Section>
 
-      <Section title="Ký ức và người sống">
+      <Section title="Người sống và người đã mất">
         <P>
-          Forever phân biệt rõ tin nhắn của người đang sống và phản hồi từ thực
-          thể ký ức — những gì được dựng từ tư liệu thật của người đã mất hoặc
-          giọng được lưu trữ.
+          Trong cùng một không gian, người đang sống trò chuyện, ghi chép, thu
+          giọng nói và câu chuyện. Người đã mất — với sự đồng ý của gia đình —
+          được giữ lại dưới dạng ký ức số: cách nói, cách nghĩ, những gì họ đã
+          trải qua và muốn để lại.
         </P>
         <P>
-          Thực thể ký ức không phải người thật. App không đánh lừa rằng bố, mẹ hay
-          ông bà “vẫn còn ở đó”. Đó là cách lắng nghe lại — chân thật vừa đủ —
-          để được vỗ về, rồi quay lại cuộc sống hiện tại.
+          Họ không “sống lại” như ngày xưa. Forever không đánh lừa ai. Nhưng cá
+          tính, tri thức và trải nghiệm sống của họ vẫn có thể đồng hành — lắng
+          nghe khi cần an ủi, tham khảo khi cần quyết định, truyền lại khi thế hệ
+          sau hỏi: ông bà, bố mẹ ngày xưa nói thế nào, sống ra sao?
         </P>
         <View style={styles.quote}>
           <Text style={styles.quoteText}>
-            Forever là neo cảm xúc, không phải thuốc an thần kéo ta mãi ở trong
-            quá khứ.
+            Người đã mất không rời hẳn khỏi dòng họ. Họ trở thành một phần của
+            những người còn đi tiếp.
           </Text>
         </View>
       </Section>
 
-      <Section title="Cái bất biến và cái thay đổi">
+      <Section title="Di sản được giữ gìn">
         <P>
-          Mỗi người có một bản sắc lõi: giá trị, tính cách, cách ra quyết định,
-          giọng điệu — những thứ định hình con người qua nhiều năm. Đó là phần
-          bất biến, không tự ý “sống theo thời sự”.
+          Mỗi người mang một bản sắc: giá trị, khí chất, cách an ủi, cách khuyên
+          nhủ, ký ức gắn với một thời đại. Forever ghi nhận phần bất biến đó — không
+          bịa thêm, không tự ý “cập nhật” cho hợp thời. Thiếu tư liệu thì thừa nhận
+          thiếu.
         </P>
         <P>
-          Cuộc sống hàng ngày vẫn chảy: con cái lớn, nhà cửa đổi, tin vui tin buồn
-          mới. Người sống cập nhật điều đó qua trò chuyện và thư viện. Thực thể
-          ký ức phản hồi trong bối cảnh mới — nhưng vẫn giữ đúng bản sắc đã được
-          ghi nhận, không bịa thêm.
-        </P>
-      </Section>
-
-      <Section title="Vùng đệm giữa các thế hệ">
-        <P>
-          Nhiều gia đình khó nói thẳng với nhau: ngượng, sợ mất thể diện, sợ bị
-          hiểu lầm. Forever không ép “ngồi xuống nói cho hết ngay”. Thay vào đó:
-        </P>
-        <Bullet>
-          Kể chuyện bất đồng bộ — ghi âm, viết, để lại khi sẵn sàng.
-        </Bullet>
-        <Bullet>
-          Nghi thức nhỏ định kỳ — một câu hỏi, một bức ảnh cũ — không gánh nặng
-          như một buổi họp mặt lớn.
-        </Bullet>
-        <Bullet>
-          Cầu nối thời gian — con cháu nghe lại cội nguồn trước khi tranh luận
-          trực diện.
-        </Bullet>
-        <P>
-          App là vùng đệm: đủ ấm để gần nhau hơn, đủ tôn trọng để không xâm phạm
-          ranh giới riêng tư của từng người.
+          Cuộc sống hiện tại vẫn chảy: con lớn, nhà đổi, tin mới đến. Người sống
+          tiếp tục viết nên dòng họ. Ký ức của người đã mất chiếu sáng bối cảnh mới
+          — như một ngọn đèn phía sau, không phải xiềng xích kéo ta ở lại quá khứ.
         </P>
       </Section>
 
-      <Section title="Cam kết của chúng tôi">
-        <Bullet>
-          Không bịa tiểu sử, sự kiện hay lời nói chưa có trong kho ký ức. Thiếu
-          thì thừa nhận thiếu.
-        </Bullet>
-        <Bullet>
-          Luôn gắn nhãn rõ: ai đang nói — người sống hay thực thể ký ức.
-        </Bullet>
-        <Bullet>
-          Mọi thu thập giọng và tư liệu đều cần sự đồng ý; quyền quản trị có thể
-          chuyển giao cho người giữ nhà kế nhiệm.
-        </Bullet>
-        <Bullet>
-          Forever hỗ trợ gắn kết và tưởng nhớ — không thay tang lễ, không thay
-          bác sĩ hay nhà trị liệu chuyên nghiệp.
-        </Bullet>
-        <Bullet>
-          Giữ tôn nghiêm thực thể số: không biến thành trò đùa, deepfake tùy tiện
-          hay công cụ giải trí vô căn cứ.
-        </Bullet>
-      </Section>
-
-      <Section title="Món quà đầu tiên">
+      <Section title="Cam kết">
         <P>
-          Forever bắt đầu từ một gia đình — piece by piece, từng mảnh một. Người
-          nhận đầu tiên là mẹ: app phải đủ đơn giản để bà tự mở, đủ ấm để một
-          buổi tối cảm thấy được vỗ vê, và đủ trung thực để cả nhà tin vào những
-          gì nghe được.
-        </P>
-        <P>
-          Thành công với chúng tôi không phải số lượt tải. Thành công là: cả nhà
-          cùng góp kỷ niệm, có vài câu trả lời cội nguồn bằng giọng thật trong
-          thư viện, và khi cần — xuất được toàn bộ ký ức về tay mình.
+          Luôn phân biệt rõ ai đang nói: người sống hay thực thể ký ức. Mọi tư
+          liệu thu thập đều cần sự đồng ý. Forever hỗ trợ gắn kết và tưởng nhớ —
+          không thay tang lễ, không thay chuyên gia tâm lý, không biến người thân
+          thành trò đùa hay deepfake vô căn cứ.
         </P>
       </Section>
 
       <Text style={styles.closing}>
-        Chúng ta xây Forever không để sống trong quá khứ, mà để không quên mình
-        thuộc về đâu — rồi bước tiếp, cùng nhau.
+        Chúng ta xây Forever để dòng họ không đứt mạch — để người sống bước tiếp
+        có cội, có nguồn, và có những người đã mất đi vẫn ở bên, trong ký ức
+        chân thật của gia đình mình.
       </Text>
     </ScrollView>
   );
@@ -234,41 +131,6 @@ const styles = StyleSheet.create({
   body: {
     fontSize: 15,
     lineHeight: 23,
-    color: colors.inkSoft,
-  },
-  bulletRow: {
-    flexDirection: "row",
-    gap: 8,
-    paddingRight: 8,
-  },
-  bulletMark: {
-    fontSize: 18,
-    lineHeight: 23,
-    color: colors.brand,
-    fontWeight: "700",
-  },
-  bulletText: {
-    flex: 1,
-    fontSize: 15,
-    lineHeight: 23,
-    color: colors.inkSoft,
-  },
-  card: {
-    backgroundColor: colors.card,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: colors.line,
-    padding: 14,
-    gap: 6,
-  },
-  cardTitle: {
-    fontSize: 16,
-    fontWeight: "700",
-    color: colors.ink,
-  },
-  cardBody: {
-    fontSize: 14,
-    lineHeight: 21,
     color: colors.inkSoft,
   },
   quote: {
