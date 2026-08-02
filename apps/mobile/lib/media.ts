@@ -137,6 +137,10 @@ export async function fetchAuthedMediaUri(
   // iOS AVPlayer needs a real extension (-11828 without one).
   const ext = extensionForMime(mimeType);
   const target = `${dir}forever-media-${cacheKey}${ext}`;
+  const existing = await FileSystem.getInfoAsync(target);
+  if (existing.exists) {
+    return target;
+  }
   const result = await FileSystem.downloadAsync(remoteUrl, target, {
     headers: token ? { Authorization: `Bearer ${token}` } : undefined,
   });

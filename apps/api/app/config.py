@@ -36,6 +36,8 @@ class Settings(BaseSettings):
 
     # Shared secret for local Extract worker → Forever API claim/complete.
     extract_worker_token: str = "forever-extract-worker"
+    # Re-queue running jobs with no worker heartbeat after this many minutes.
+    extract_job_stale_minutes: int = 60
 
     @property
     def cors_origin_list(self) -> list[str]:

@@ -71,5 +71,6 @@ export function createMobileApi(getToken: () => Promise<string | null>) {
   return createApiClient({
     baseUrl: resolveBaseUrl,
     getToken,
+    timeoutMs: 60_000,
   });
 }

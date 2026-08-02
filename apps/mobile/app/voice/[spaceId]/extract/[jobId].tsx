@@ -1,4 +1,4 @@
-import { ExtractJob, ExtractSegment, VoiceProfile } from "@forever/api-client";
+import { ExtractJob, ExtractSegment, IdentityProfile, VoiceProfile } from "@forever/api-client";
 import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
@@ -17,6 +17,17 @@ import { playLocalAudio, stopActivePlayback } from "@/lib/audio";
 import { useAuth } from "@/lib/auth";
 import { fetchAuthedMediaUri } from "@/lib/media";
 import { colors, fonts } from "@/lib/theme";
+
+function identityChipLabel(
+  ident: IdentityProfile,
+  userId?: string | null,
+): string {
+  if (ident.linked_user_id && ident.linked_user_id === userId) return "Tôi";
+  if (ident.relation_label) {
+    return `${ident.display_name} · ${ident.relation_label}`;
+  }
+  return ident.display_name;
+}
 
 function statusLabel(status: string): string {
   switch (status) {
@@ -41,17 +52,19 @@ export default function ExtractJobScreen() {
     jobId: string;
     voiceId?: string;
   }>();
-  const { api } = useAuth();
+  const { api, user } = useAuth();
   const navigation = useNavigation();
   const router = useRouter();
 
   const [job, setJob] = useState<ExtractJob | null>(null);
   const [segments, setSegments] = useState<ExtractSegment[]>([]);
   const [voices, setVoices] = useState<VoiceProfile[]>([]);
+  const [identities, setIdentities] = useState<IdentityProfile[]>([]);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [selectedSpeaker, setSelectedSpeaker] = useState<string | null>(null);
   const [targetVoiceId, setTargetVoiceId] = useState<string | null>(null);
+  const [targetIdentityId, setTargetIdentityId] = useState<string | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [playingId, setPlayingId] = useState<string | null>(null);
   const [showCreate, setShowCreate] = useState(false);
@@ -61,6 +74,12 @@ export default function ExtractJobScreen() {
     "remembered",
   );
   const statusRef = useRef<string | null>(null);
+  const loadGen = useRef(0);
+  const hasLoadedRef = useRef(false);
+  const userPickedTargetRef = useRef(false);
+  const mediaCacheRef = useRef<Map<string, string>>(new Map());
+  const playLockRef = useRef(false);
+  const [playBusyId, setPlayBusyId] = useState<string | null>(null);
 
   useLayoutEffect(() => {
     navigation.setOptions({ title: "Pool tách giọng" });
@@ -72,60 +91,129 @@ export default function ExtractJobScreen() {
     };
   }, []);
 
-  const load = useCallback(async () => {
+  const applySegments = useCallback((segList: ExtractSegment[]) => {
+    setSegments(segList);
+    setSelectedSpeaker((prev) => {
+      if (prev && segList.some((s) => s.speaker_label === prev)) return prev;
+      const first = segList.find((s) => s.quality === "clean");
+      return first?.speaker_label ?? null;
+    });
+  }, []);
+
+  const load = useCallback(async (opts?: { silent?: boolean }) => {
     if (!spaceId || !jobId) return;
+    const silent = opts?.silent === true;
+    const gen = ++loadGen.current;
+    if (!silent) setLoading(true);
     try {
-      const [j, v] = await Promise.all([
+      const [j, v, i] = await Promise.all([
         api.getExtractJob(spaceId, jobId),
         api.listVoices(spaceId),
+        api.listIdentities(spaceId),
       ]);
+
+      let segList: ExtractSegment[] = [];
+      if (j.status === "needs_review" || j.status === "done") {
+        if (j.segments?.length) {
+          segList = j.segments;
+        } else {
+          const res = await api.listExtractSegments(spaceId, jobId, {
+            quality: "all",
+          });
+          segList = res.segments;
+        }
+      }
+
+      // Commit together — avoid job metadata without segment rows (race).
+      if (gen !== loadGen.current) return;
       statusRef.current = j.status;
       setJob(j);
       setVoices(v.voices);
-      if (j.status === "needs_review" || j.status === "done") {
-        const res = await api.listExtractSegments(spaceId, jobId, {
-          quality: "all",
-        });
-        setSegments(res.segments);
-        setSelectedSpeaker((prev) => {
-          if (prev) return prev;
-          const first = res.segments.find((s) => s.quality === "clean");
-          return first?.speaker_label ?? null;
-        });
+      setIdentities(i.identities);
+      if (segList.length) {
+        applySegments(segList);
+      } else {
+        setSegments([]);
       }
+      hasLoadedRef.current = true;
     } catch (e) {
-      Alert.alert(
-        "Lỗi",
-        e instanceof Error ? e.message : "Không tải được job Extract.",
-      );
+      if (gen === loadGen.current) {
+        Alert.alert(
+          "Lỗi",
+          e instanceof Error ? e.message : "Không tải được job Extract.",
+        );
+      }
     } finally {
-      setLoading(false);
+      if (gen === loadGen.current) {
+        setLoading(false);
+      }
     }
-  }, [api, jobId, spaceId]);
+  }, [api, applySegments, jobId, spaceId]);
 
   useFocusEffect(
     useCallback(() => {
-      void load();
+      void load({ silent: hasLoadedRef.current });
       const t = setInterval(() => {
         const st = statusRef.current;
         if (st === "queued" || st === "running" || st == null) {
-          void load();
+          void load({ silent: true });
         }
       }, 3000);
       return () => clearInterval(t);
     }, [load]),
   );
 
-  // When speaker changes, prefer existing assignment / hub voiceId.
+  // Default target voice when speaker changes — don't override manual picks.
   useEffect(() => {
     if (!selectedSpeaker || !job) return;
     const mapped = job.speaker_assignments?.[selectedSpeaker];
     if (mapped) {
       setTargetVoiceId(mapped);
+      const ident = identities.find((x) => x.voice_profile_id === mapped);
+      setTargetIdentityId(ident?.id ?? null);
+      userPickedTargetRef.current = true;
       return;
     }
-    if (voiceId) setTargetVoiceId(voiceId);
-  }, [job, selectedSpeaker, voiceId]);
+    if (userPickedTargetRef.current) return;
+    if (voiceId) {
+      setTargetVoiceId(voiceId);
+      const ident = identities.find((x) => x.voice_profile_id === voiceId);
+      setTargetIdentityId(ident?.id ?? null);
+    }
+  }, [identities, job, selectedSpeaker, voiceId]);
+
+  const canImport =
+    Boolean(selectedSpeaker) &&
+    selectedIds.size > 0 &&
+    Boolean(targetVoiceId || targetIdentityId);
+
+  const displayNameForVoiceId = useCallback(
+    (voiceIdValue: string | null | undefined) => {
+      if (!voiceIdValue) return null;
+      const ident = identities.find((x) => x.voice_profile_id === voiceIdValue);
+      if (ident) return identityChipLabel(ident, user?.id);
+      return voices.find((v) => v.id === voiceIdValue)?.display_name ?? voiceIdValue;
+    },
+    [identities, user?.id, voices],
+  );
+
+  const resolveTargetVoiceId = async (): Promise<string | undefined> => {
+    if (targetVoiceId) return targetVoiceId;
+    if (!targetIdentityId || !spaceId) return undefined;
+    const ident = identities.find((x) => x.id === targetIdentityId);
+    if (!ident) return undefined;
+    if (ident.voice_profile_id) {
+      setTargetVoiceId(ident.voice_profile_id);
+      return ident.voice_profile_id;
+    }
+    const voice = await api.createVoiceForIdentity(
+      spaceId,
+      targetIdentityId,
+      true,
+    );
+    setTargetVoiceId(voice.id);
+    return voice.id;
+  };
 
   const speakers = useMemo(() => {
     const map = new Map<string, { clean: number; totalMs: number }>();
@@ -162,8 +250,8 @@ export default function ExtractJobScreen() {
     if (!selectedSpeaker || !job?.speaker_assignments) return null;
     const vid = job.speaker_assignments[selectedSpeaker];
     if (!vid) return null;
-    return voices.find((v) => v.id === vid)?.display_name ?? vid;
-  }, [job, selectedSpeaker, voices]);
+    return displayNameForVoiceId(vid);
+  }, [displayNameForVoiceId, job, selectedSpeaker]);
 
   const toggleSelect = (id: string) => {
     setSelectedIds((prev) => {
@@ -183,20 +271,28 @@ export default function ExtractJobScreen() {
   };
 
   const play = async (seg: ExtractSegment) => {
-    if (!spaceId) return;
+    if (!spaceId || playLockRef.current) return;
     if (playingId === seg.id) {
       await stopActivePlayback();
       setPlayingId(null);
       return;
     }
+    playLockRef.current = true;
+    setPlayBusyId(seg.id);
     try {
-      const url = api.extractSegmentMediaUrl(spaceId, seg.id);
-      const uri = await fetchAuthedMediaUri(
-        url,
-        `extract-seg-${seg.id}`,
-        "audio/wav",
-      );
+      let uri = mediaCacheRef.current.get(seg.id);
+      if (!uri) {
+        const url = api.extractSegmentMediaUrl(spaceId, seg.id);
+        uri = await fetchAuthedMediaUri(
+          url,
+          `extract-seg-${seg.id}`,
+          "audio/wav",
+        );
+        mediaCacheRef.current.set(seg.id, uri);
+      }
+      await stopActivePlayback();
       setPlayingId(seg.id);
+      setPlayBusyId(null);
       await playLocalAudio(uri, () => setPlayingId(null));
     } catch (e) {
       setPlayingId(null);
@@ -204,6 +300,9 @@ export default function ExtractJobScreen() {
         "Không phát được",
         e instanceof Error ? e.message : "Lỗi audio.",
       );
+    } finally {
+      playLockRef.current = false;
+      setPlayBusyId(null);
     }
   };
 
@@ -228,16 +327,18 @@ export default function ExtractJobScreen() {
       );
       return;
     }
-    const voiceProfileId = opts?.voiceProfileId ?? targetVoiceId ?? undefined;
-    if (!voiceProfileId && !opts?.createIdentity) {
-      Alert.alert(
-        "Chọn hồ sơ đích",
-        "Chọn Voice DNA có sẵn hoặc tạo hồ sơ mới.",
-      );
-      return;
-    }
     setBusy(true);
     try {
+      const voiceProfileId =
+        opts?.voiceProfileId ??
+        (opts?.createIdentity ? undefined : await resolveTargetVoiceId());
+      if (!voiceProfileId && !opts?.createIdentity) {
+        Alert.alert(
+          "Chọn hồ sơ đích",
+          "Chọn hồ sơ có sẵn hoặc tạo hồ sơ mới.",
+        );
+        return;
+      }
       if (voiceProfileId && !opts?.createIdentity) {
         await api.assignExtractSpeaker(spaceId, jobId, {
           speakerLabel: selectedSpeaker,
@@ -250,10 +351,14 @@ export default function ExtractJobScreen() {
         voiceProfileId,
         createIdentity: opts?.createIdentity,
       });
-      await load();
+      await load({ silent: true });
       setSelectedIds(new Set());
       setShowCreate(false);
       setTargetVoiceId(res.voice_profile_id);
+      const ident = identities.find(
+        (x) => x.voice_profile_id === res.voice_profile_id,
+      );
+      if (ident) setTargetIdentityId(ident.id);
       Alert.alert(
         "Đã import vào pool → Voice DNA",
         `${res.imported} đoạn (~${res.total_clean_seconds}s) → ${res.voice_display_name}.\nCó thể chọn SPEAKER khác và import tiếp.`,
@@ -278,19 +383,54 @@ export default function ExtractJobScreen() {
     }
   };
 
-  const createAndImport = async () => {
+  const saveNewProfile = async () => {
+    if (!spaceId || !jobId || !selectedSpeaker) {
+      Alert.alert("Chọn speaker", "Chọn SPEAKER trước khi lưu hồ sơ.");
+      return;
+    }
     if (!newName.trim()) {
       Alert.alert("Thiếu tên", "Nhập tên người cần giữ.");
       return;
     }
-    await importSelected({
-      createIdentity: {
-        display_name: newName.trim(),
-        relation_label: newRelation.trim(),
-        status: newStatus,
-        consent: true,
-      },
-    });
+    setBusy(true);
+    try {
+      const res = await api.assignExtractSpeaker(spaceId, jobId, {
+        speakerLabel: selectedSpeaker,
+        createIdentity: {
+          display_name: newName.trim(),
+          relation_label: newRelation.trim(),
+          status: newStatus,
+          consent: true,
+        },
+      });
+      await load({ silent: true });
+      setShowCreate(false);
+      setNewName("");
+      setNewRelation("");
+      setNewStatus("remembered");
+      const vid = res.assigned_voice?.id;
+      if (vid) {
+        setTargetVoiceId(vid);
+        const newIdentId = res.assigned_voice?.identity_profile_id;
+        if (newIdentId) {
+          setTargetIdentityId(newIdentId);
+        } else {
+          const ident = identities.find((x) => x.voice_profile_id === vid);
+          setTargetIdentityId(ident?.id ?? null);
+        }
+      }
+      Alert.alert(
+        "Đã lưu hồ sơ",
+        `${selectedSpeaker} → ${res.assigned_voice?.display_name ?? newName.trim()}.\nChọn đoạn clean rồi bấm Import.`,
+      );
+    } catch (e) {
+      Alert.alert(
+        "Lỗi",
+        e instanceof Error ? e.message : "Không lưu được hồ sơ.",
+      );
+    } finally {
+      setBusy(false);
+    }
   };
 
   if (loading && !job) {
@@ -328,8 +468,8 @@ export default function ExtractJobScreen() {
         <View style={styles.info}>
           <ActivityIndicator color={colors.brand} />
           <Text style={styles.body}>
-            Worker đang đổ vào pool chung. Sau đó bạn gán từng SPEAKER sang các
-            Voice DNA riêng.
+            Job chạy trên máy chủ — bạn có thể quay lại Voice DNA; pool vẫn
+            được xử lý. Cần bật extract-worker trên máy dev.
           </Text>
         </View>
       ) : null}
@@ -345,13 +485,26 @@ export default function ExtractJobScreen() {
             import.
           </Text>
           <View style={styles.chips}>
+            {!speakers.length && (job.clean_segment_count ?? 0) > 0 ? (
+              <View style={styles.emptyPool}>
+                <Text style={styles.body}>
+                  Có {job.clean_segment_count} đoạn clean nhưng danh sách chưa
+                  tải được.
+                </Text>
+                <Pressable
+                  style={styles.btnGhost}
+                  onPress={() => void load({ silent: false })}
+                  disabled={busy}
+                >
+                  <Text style={styles.btnGhostText}>Tải lại pool</Text>
+                </Pressable>
+              </View>
+            ) : null}
             {speakers.map(([label, info]) => {
               const active = selectedSpeaker === label;
               const sec = Math.round(info.totalMs / 100) / 10;
               const mapped = job.speaker_assignments?.[label];
-              const mappedName = mapped
-                ? voices.find((v) => v.id === mapped)?.display_name
-                : null;
+              const mappedName = mapped ? displayNameForVoiceId(mapped) : null;
               return (
                 <Pressable
                   key={label}
@@ -360,6 +513,7 @@ export default function ExtractJobScreen() {
                     setSelectedSpeaker(label);
                     setSelectedIds(new Set());
                     setShowCreate(false);
+                    userPickedTargetRef.current = false;
                   }}
                 >
                   <Text
@@ -378,29 +532,43 @@ export default function ExtractJobScreen() {
             })}
           </View>
 
-          <Text style={styles.kicker}>2. Hồ sơ đích (Voice DNA)</Text>
+          <Text style={styles.kicker}>2. Hồ sơ đích</Text>
+          <Text style={styles.body}>
+            Tất cả hồ sơ trong nhà ({identities.length}). Chưa có Voice DNA sẽ
+            được tạo khi Import.
+          </Text>
           {assignedLabel ? (
             <Text style={styles.meta}>
               SPEAKER này đã gán: {assignedLabel}
             </Text>
           ) : null}
           <View style={styles.chips}>
-            {voices.map((v) => {
-              const active = targetVoiceId === v.id && !showCreate;
+            {identities.map((ident) => {
+              const active = targetIdentityId === ident.id && !showCreate;
+              const hasVoice = Boolean(ident.voice_profile_id);
               return (
                 <Pressable
-                  key={v.id}
+                  key={ident.id}
                   style={[styles.chip, active && styles.chipActive]}
                   onPress={() => {
-                    setTargetVoiceId(v.id);
+                    userPickedTargetRef.current = true;
+                    setTargetIdentityId(ident.id);
+                    setTargetVoiceId(ident.voice_profile_id ?? null);
                     setShowCreate(false);
                   }}
                 >
                   <Text
                     style={[styles.chipText, active && styles.chipTextActive]}
                   >
-                    {v.display_name || v.id}
+                    {identityChipLabel(ident, user?.id)}
                   </Text>
+                  {!hasVoice ? (
+                    <Text
+                      style={[styles.chipSub, active && styles.chipTextActive]}
+                    >
+                      Chưa có Voice DNA
+                    </Text>
+                  ) : null}
                 </Pressable>
               );
             })}
@@ -409,6 +577,8 @@ export default function ExtractJobScreen() {
               onPress={() => {
                 setShowCreate(true);
                 setTargetVoiceId(null);
+                setTargetIdentityId(null);
+                userPickedTargetRef.current = true;
               }}
             >
               <Text
@@ -421,6 +591,9 @@ export default function ExtractJobScreen() {
 
           {showCreate ? (
             <View style={styles.createBox}>
+              <Text style={styles.createHint}>
+                Lưu hồ sơ trước, sau đó chọn đoạn và Import bên dưới.
+              </Text>
               <TextInput
                 style={styles.input}
                 value={newName}
@@ -469,6 +642,32 @@ export default function ExtractJobScreen() {
                   </Text>
                 </Pressable>
               </View>
+              <View style={styles.rowActions}>
+                <Pressable
+                  style={[styles.btnGhost, styles.rowBtn]}
+                  onPress={() => {
+                    setShowCreate(false);
+                    setNewName("");
+                    setNewRelation("");
+                    setNewStatus("remembered");
+                  }}
+                  disabled={busy}
+                >
+                  <Text style={styles.btnGhostText}>Huỷ</Text>
+                </Pressable>
+                <Pressable
+                  style={[
+                    styles.btn,
+                    styles.rowBtn,
+                    (busy || !newName.trim() || !selectedSpeaker) &&
+                      styles.disabled,
+                  ]}
+                  onPress={saveNewProfile}
+                  disabled={busy || !newName.trim() || !selectedSpeaker}
+                >
+                  <Text style={styles.btnText}>Lưu hồ sơ</Text>
+                </Pressable>
+              </View>
             </View>
           ) : null}
 
@@ -512,11 +711,16 @@ export default function ExtractJobScreen() {
                   </Pressable>
                   <Pressable
                     style={styles.playBtn}
-                    onPress={() => play(seg)}
+                    onPress={() => void play(seg)}
+                    disabled={Boolean(playBusyId && playBusyId !== seg.id)}
                     hitSlop={8}
                   >
                     <Text style={styles.playText}>
-                      {playingId === seg.id ? "Dừng" : "Nghe"}
+                      {playBusyId === seg.id
+                        ? "Tải…"
+                        : playingId === seg.id
+                          ? "Dừng"
+                          : "Nghe"}
                     </Text>
                   </Pressable>
                 </View>
@@ -529,23 +733,23 @@ export default function ExtractJobScreen() {
             ) : null}
           </View>
 
+          {!canImport ? (
+            <Text style={styles.meta}>
+              {!selectedSpeaker
+                ? "Chọn SPEAKER trước."
+                : !selectedIds.size
+                  ? "Tick ít nhất một đoạn clean."
+                  : "Chọn hồ sơ đích bên trên."}
+            </Text>
+          ) : null}
+
           <Pressable
-            style={[
-              styles.btn,
-              (busy || !selectedIds.size || (!targetVoiceId && !showCreate)) &&
-                styles.disabled,
-            ]}
-            onPress={() =>
-              showCreate ? createAndImport() : importSelected()
-            }
-            disabled={
-              busy || !selectedIds.size || (!targetVoiceId && !showCreate)
-            }
+            style={[styles.btn, (!canImport || busy) && styles.disabled]}
+            onPress={() => void importSelected()}
+            disabled={!canImport || busy}
           >
             <Text style={styles.btnText}>
-              {showCreate
-                ? `Tạo hồ sơ & import (${selectedIds.size})`
-                : `Import vào Voice DNA (${selectedIds.size})`}
+              Import vào Voice DNA ({selectedIds.size})
             </Text>
           </Pressable>
 
@@ -557,7 +761,7 @@ export default function ExtractJobScreen() {
                 setBusy(true);
                 try {
                   await api.finishExtractJob(spaceId!, jobId!);
-                  await load();
+                  await load({ silent: true });
                 } catch (e) {
                   Alert.alert(
                     "Lỗi",
@@ -609,6 +813,15 @@ const styles = StyleSheet.create({
     letterSpacing: 0.4,
   },
   chips: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
+  emptyPool: {
+    width: "100%",
+    gap: 10,
+    padding: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: colors.line,
+    backgroundColor: colors.card,
+  },
   chip: {
     borderWidth: 1,
     borderColor: colors.line,
@@ -623,6 +836,9 @@ const styles = StyleSheet.create({
   chipSub: { fontSize: 12, color: colors.inkSoft, marginTop: 2 },
   chipTextActive: { color: "#fff" },
   createBox: { gap: 8 },
+  createHint: { fontSize: 13, lineHeight: 18, color: colors.inkSoft },
+  rowActions: { flexDirection: "row", gap: 10, marginTop: 4 },
+  rowBtn: { flex: 1 },
   input: {
     borderWidth: 1,
     borderColor: colors.line,

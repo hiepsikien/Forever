@@ -1,7 +1,7 @@
 import { VoiceSample } from "@forever/api-client";
 import { useNavigation } from "@react-navigation/native";
 import { useLocalSearchParams } from "expo-router";
-import { useCallback, useEffect, useLayoutEffect, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -24,6 +24,7 @@ import { fetchAuthedMediaUri } from "@/lib/media";
 import { colors, fonts } from "@/lib/theme";
 
 type Playback = { id: string; paused: boolean } | null;
+type TabStage = "unprocessed" | "processed";
 
 function sourceLabel(source: string): string {
   switch (source) {
@@ -33,24 +34,42 @@ function sourceLabel(source: string): string {
       return "Tải file";
     case "memory":
       return "Thư viện";
+    case "extract":
+      return "Extract pool";
+    case "combine":
+      return "Ghép clip";
     default:
       return source;
   }
 }
 
+function formatDurationMs(ms: number | null | undefined): string {
+  if (ms == null || ms < 0) return "—:—";
+  const totalSec = Math.round(ms / 1000);
+  const minutes = Math.floor(totalSec / 60);
+  const seconds = totalSec % 60;
+  return `${minutes}:${seconds.toString().padStart(2, "0")}`;
+}
+
 export default function VoiceSamplesScreen() {
-  const { spaceId, voiceId } = useLocalSearchParams<{
+  const { spaceId, voiceId, stage: stageParam } = useLocalSearchParams<{
     spaceId: string;
     voiceId?: string;
+    stage?: string;
   }>();
   const { api } = useAuth();
   const navigation = useNavigation();
+  const initialTab: TabStage =
+    stageParam === "processed" ? "processed" : "unprocessed";
+  const [tab, setTab] = useState<TabStage>(initialTab);
   const [samples, setSamples] = useState<VoiceSample[]>([]);
   const [loading, setLoading] = useState(true);
   const [playback, setPlayback] = useState<Playback>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [draftNote, setDraftNote] = useState("");
   const [saving, setSaving] = useState(false);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [bulkBusy, setBulkBusy] = useState(false);
 
   useLayoutEffect(() => {
     navigation.setOptions({ title: "Mẫu giọng" });
@@ -60,14 +79,15 @@ export default function VoiceSamplesScreen() {
     if (!spaceId) return;
     setLoading(true);
     try {
-      const res = await api.listSpaceVoiceSamples(spaceId, voiceId || undefined);
+      const res = await api.listSpaceVoiceSamples(spaceId, voiceId || undefined, tab);
       setSamples(res.samples);
+      setSelected(new Set());
     } catch (e) {
       Alert.alert("Lỗi", e instanceof Error ? e.message : "Không tải sample.");
     } finally {
       setLoading(false);
     }
-  }, [api, spaceId, voiceId]);
+  }, [api, spaceId, voiceId, tab]);
 
   useEffect(() => {
     load();
@@ -76,9 +96,92 @@ export default function VoiceSamplesScreen() {
     };
   }, [load]);
 
+  const toggleSelect = (id: string) => {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const resolveTargetVoiceId = (ids: string[]) =>
+    voiceId || samples.find((s) => ids.includes(s.id))?.voice_profile_id;
+
+  const bulkStage = async (pipelineStage: "processed" | "archived") => {
+    const ids = [...selected];
+    const targetVoiceId = resolveTargetVoiceId(ids);
+    if (!targetVoiceId || !ids.length || bulkBusy) return;
+    const label = pipelineStage === "processed" ? "duyệt sang Sẵn sàng clone" : "loại (archive)";
+    Alert.alert(
+      pipelineStage === "processed" ? "Duyệt mẫu?" : "Loại mẫu?",
+      `${ids.length} mẫu sẽ được ${label}.`,
+      [
+        { text: "Huỷ", style: "cancel" },
+        {
+          text: pipelineStage === "processed" ? "Duyệt" : "Loại",
+          style: pipelineStage === "archived" ? "destructive" : "default",
+          onPress: async () => {
+            setBulkBusy(true);
+            try {
+              await api.bulkStageVoiceSamples(targetVoiceId, ids, pipelineStage);
+              await load();
+            } catch (e) {
+              Alert.alert("Lỗi", e instanceof Error ? e.message : "Không cập nhật được.");
+            } finally {
+              setBulkBusy(false);
+            }
+          },
+        },
+      ],
+    );
+  };
+
+  const selectAll = () => {
+    if (selected.size === samples.length) {
+      setSelected(new Set());
+      return;
+    }
+    setSelected(new Set(samples.map((s) => s.id)));
+  };
+
+  const combineSelected = async () => {
+    const ids = [...selected];
+    const targetVoiceId = resolveTargetVoiceId(ids);
+    if (!targetVoiceId || ids.length < 2 || bulkBusy) return;
+    Alert.alert(
+      "Ghép mẫu?",
+      `Ghép ${ids.length} đoạn thành 1 file mới. Các đoạn gốc vẫn giữ ở Chưa xử lý.`,
+      [
+        { text: "Huỷ", style: "cancel" },
+        {
+          text: "Ghép",
+          onPress: async () => {
+            setBulkBusy(true);
+            try {
+              const res = await api.combineVoiceSamples(targetVoiceId, ids);
+              await load();
+              const combined = res.voice.samples?.find((s) => s.id === res.sample_id);
+              Alert.alert(
+                "Đã ghép",
+                combined?.duration_label
+                  ? `File mới ~${combined.duration_label}. Nghe lại rồi Duyệt nếu ổn.`
+                  : "File mới đã tạo. Nghe lại rồi Duyệt nếu ổn.",
+              );
+            } catch (e) {
+              Alert.alert("Lỗi", e instanceof Error ? e.message : "Không ghép được.");
+            } finally {
+              setBulkBusy(false);
+            }
+          },
+        },
+      ],
+    );
+  };
+
   const togglePlay = async (item: VoiceSample) => {
-    const voiceId = item.voice_profile_id;
-    if (!voiceId) return;
+    const vid = item.voice_profile_id;
+    if (!vid) return;
 
     if (playback?.id === item.id) {
       if (playback.paused) {
@@ -90,7 +193,7 @@ export default function VoiceSamplesScreen() {
     }
 
     try {
-      const url = api.voiceSampleMediaUrl(voiceId, item.id);
+      const url = api.voiceSampleMediaUrl(vid, item.id);
       const uri = await fetchAuthedMediaUri(url, `voice-sample-${item.id}`, item.media_mime);
       setPlayback({ id: item.id, paused: false });
       await playLocalAudio(uri, () => setPlayback(null));
@@ -101,11 +204,11 @@ export default function VoiceSamplesScreen() {
   };
 
   const saveNote = async (item: VoiceSample) => {
-    const voiceId = item.voice_profile_id;
-    if (!voiceId || saving) return;
+    const vid = item.voice_profile_id;
+    if (!vid || saving) return;
     setSaving(true);
     try {
-      const updated = await api.updateVoiceSampleNote(voiceId, item.id, draftNote);
+      const updated = await api.updateVoiceSampleNote(vid, item.id, draftNote);
       setSamples((prev) => prev.map((s) => (s.id === item.id ? { ...s, ...updated } : s)));
       setEditingId(null);
     } catch (e) {
@@ -116,8 +219,8 @@ export default function VoiceSamplesScreen() {
   };
 
   const remove = async (item: VoiceSample) => {
-    const voiceId = item.voice_profile_id;
-    if (!voiceId) return;
+    const vid = item.voice_profile_id;
+    if (!vid) return;
     Alert.alert("Xóa sample?", "Sample sẽ bị xóa và cần Clone lại nếu voice đang ready.", [
       { text: "Huỷ", style: "cancel" },
       {
@@ -125,7 +228,7 @@ export default function VoiceSamplesScreen() {
         style: "destructive",
         onPress: async () => {
           try {
-            await api.deleteVoiceSample(voiceId, item.id);
+            await api.deleteVoiceSample(vid, item.id);
             if (playback?.id === item.id) {
               await stopActivePlayback();
               setPlayback(null);
@@ -139,6 +242,11 @@ export default function VoiceSamplesScreen() {
     ]);
   };
 
+  const totalDuration = useMemo(
+    () => samples.reduce((sum, s) => sum + (s.duration_ms ?? 0), 0),
+    [samples],
+  );
+
   if (loading) {
     return (
       <View style={styles.center}>
@@ -146,13 +254,6 @@ export default function VoiceSamplesScreen() {
       </View>
     );
   }
-
-  const good = samples.filter((s) => (s.quality_score ?? 0) >= 75);
-  const ok = samples.filter((s) => {
-    const q = s.quality_score ?? 0;
-    return q >= 55 && q < 75;
-  });
-  const weak = samples.filter((s) => (s.quality_score ?? 0) < 55);
 
   const renderItem = (item: VoiceSample, index: number) => {
     const scoreColor =
@@ -163,16 +264,26 @@ export default function VoiceSamplesScreen() {
           : colors.danger;
     const isActive = playback?.id === item.id;
     const isPaused = isActive && playback?.paused;
+    const checked = selected.has(item.id);
 
     return (
-      <View style={styles.card}>
-        <Text style={styles.title}>
-          #{index + 1} · {item.voice_display_name ?? "Voice"} ·{" "}
-          {item.duration_label ?? "—:—"}
-        </Text>
+      <View style={[styles.card, checked && styles.cardSelected]}>
+        <Pressable style={styles.selectRow} onPress={() => toggleSelect(item.id)}>
+          <View style={[styles.checkbox, checked && styles.checkboxOn]}>
+            {checked ? <Text style={styles.checkMark}>✓</Text> : null}
+          </View>
+          <Text style={styles.title}>
+            #{index + 1} · {item.voice_display_name ?? "Voice"} ·{" "}
+            {item.duration_label ?? "—:—"}
+          </Text>
+        </Pressable>
         <Text style={styles.meta}>
           {item.voice_subject_kind === "heritage" ? "Ký ức" : "Giọng sống"} ·{" "}
-          {sourceLabel(item.source)} · {item.created_at.slice(0, 16).replace("T", " ")}
+          {sourceLabel(item.source)}
+          {item.parent_sample_ids?.length
+            ? ` · từ ${item.parent_sample_ids.length} đoạn`
+            : ""}{" "}
+          · {item.created_at.slice(0, 16).replace("T", " ")}
         </Text>
         <Text style={[styles.score, { color: scoreColor }]}>
           {item.quality_score != null
@@ -194,17 +305,10 @@ export default function VoiceSamplesScreen() {
                 multiline
               />
               <View style={styles.row}>
-                <Pressable
-                  style={styles.btn}
-                  onPress={() => saveNote(item)}
-                  disabled={saving}
-                >
+                <Pressable style={styles.btn} onPress={() => saveNote(item)} disabled={saving}>
                   <Text style={styles.btnText}>{saving ? "Đang lưu…" : "Lưu"}</Text>
                 </Pressable>
-                <Pressable
-                  style={styles.btnGhost}
-                  onPress={() => setEditingId(null)}
-                >
+                <Pressable style={styles.btnGhost} onPress={() => setEditingId(null)}>
                   <Text style={styles.btnGhostText}>Huỷ</Text>
                 </Pressable>
               </View>
@@ -242,6 +346,22 @@ export default function VoiceSamplesScreen() {
               <Text style={styles.pauseText}>Pause</Text>
             </Pressable>
           ) : null}
+          {tab === "unprocessed" ? (
+            <Pressable
+              onPress={async () => {
+                const vid = item.voice_profile_id;
+                if (!vid) return;
+                try {
+                  await api.updateVoiceSampleStage(vid, item.id, "processed");
+                  await load();
+                } catch (e) {
+                  Alert.alert("Lỗi", e instanceof Error ? e.message : "Không duyệt được.");
+                }
+              }}
+            >
+              <Text style={styles.approve}>Duyệt</Text>
+            </Pressable>
+          ) : null}
           <Pressable onPress={() => remove(item)}>
             <Text style={styles.delete}>Xóa</Text>
           </Pressable>
@@ -250,46 +370,93 @@ export default function VoiceSamplesScreen() {
     );
   };
 
-  const sections = [
-    { key: "good", title: "Tốt — nên giữ để clone", data: good },
-    { key: "ok", title: "Tạm được — nghe lại trước khi giữ", data: ok },
-    { key: "weak", title: "Yếu / kém — cân nhắc xóa", data: weak },
-  ];
-
   return (
     <FlatList
       style={styles.root}
       contentContainerStyle={styles.content}
-      data={sections}
-      keyExtractor={(s) => s.key}
+      data={samples}
+      keyExtractor={(s) => s.id}
       ListHeaderComponent={
         <View style={styles.header}>
           <Text style={styles.headerTitle}>Mẫu giọng</Text>
           <Text style={styles.headerSub}>
-            Nghe lại, gắn ghi chú, chọn mẫu tốt rồi quay lại hub để Clone.
+            {tab === "unprocessed"
+              ? "Chọn 2+ đoạn → Ghép thành file dài hơn, hoặc Duyệt từng mẫu sạch."
+              : "Chỉ mẫu đã duyệt mới được dùng khi Clone (tối đa 3 file, ~1–2 phút)."}
           </Text>
+          <View style={styles.tabs}>
+            <Pressable
+              style={[styles.tab, tab === "unprocessed" && styles.tabActive]}
+              onPress={() => setTab("unprocessed")}
+            >
+              <Text style={[styles.tabText, tab === "unprocessed" && styles.tabTextActive]}>
+                Chưa xử lý
+              </Text>
+            </Pressable>
+            <Pressable
+              style={[styles.tab, tab === "processed" && styles.tabActive]}
+              onPress={() => setTab("processed")}
+            >
+              <Text style={[styles.tabText, tab === "processed" && styles.tabTextActive]}>
+                Sẵn sàng clone
+              </Text>
+            </Pressable>
+          </View>
           <Text style={styles.count}>
-            {samples.length} mẫu
-            {voiceId ? " · lọc theo Voice DNA đang chọn" : " trong không gian"}
+            {samples.length} mẫu · {formatDurationMs(totalDuration)} tổng
+            {voiceId ? " · lọc theo Voice DNA" : ""}
           </Text>
+          {tab === "unprocessed" && samples.length > 0 ? (
+            <Pressable onPress={selectAll} hitSlop={6}>
+              <Text style={styles.selectAll}>
+                {selected.size === samples.length ? "Bỏ chọn tất cả" : "Chọn tất cả"}
+              </Text>
+            </Pressable>
+          ) : null}
+          {selected.size > 0 ? (
+            <View style={styles.bulkRow}>
+              <Text style={styles.bulkLabel}>{selected.size} đã chọn</Text>
+              {tab === "unprocessed" && selected.size >= 2 ? (
+                <Pressable
+                  style={[styles.btnSecondary, bulkBusy && styles.disabled]}
+                  onPress={combineSelected}
+                  disabled={bulkBusy}
+                >
+                  <Text style={styles.btnSecondaryText}>
+                    {bulkBusy ? "Đang ghép…" : "Ghép"}
+                  </Text>
+                </Pressable>
+              ) : null}
+              {tab === "unprocessed" ? (
+                <Pressable
+                  style={[styles.btn, bulkBusy && styles.disabled]}
+                  onPress={() => bulkStage("processed")}
+                  disabled={bulkBusy}
+                >
+                  <Text style={styles.btnText}>
+                    {bulkBusy ? "Đang lưu…" : "Duyệt → Sẵn sàng clone"}
+                  </Text>
+                </Pressable>
+              ) : null}
+              <Pressable
+                style={styles.btnGhost}
+                onPress={() => bulkStage("archived")}
+                disabled={bulkBusy}
+              >
+                <Text style={styles.btnGhostText}>Loại</Text>
+              </Pressable>
+            </View>
+          ) : null}
         </View>
       }
       ListEmptyComponent={
         <Text style={styles.empty}>
-          Chưa có mẫu. Ghi hoặc tải file từ trang Voice DNA.
+          {tab === "unprocessed"
+            ? "Không còn mẫu chưa xử lý. Import từ pool hoặc chuyển sang tab Sẵn sàng clone."
+            : "Chưa có mẫu sẵn clone. Duyệt mẫu tốt từ tab Chưa xử lý."}
         </Text>
       }
-      renderItem={({ item: section }) => {
-        if (!section.data.length) return null;
-        return (
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>{section.title}</Text>
-            {section.data.map((sample, idx) => (
-              <View key={sample.id}>{renderItem(sample, idx + 1)}</View>
-            ))}
-          </View>
-        );
-      }}
+      renderItem={({ item, index }) => renderItem(item, index + 1)}
     />
   );
 }
@@ -306,16 +473,24 @@ const styles = StyleSheet.create({
   header: { gap: 6, marginBottom: 12 },
   headerTitle: { fontFamily: fonts.display, fontSize: 24, color: colors.ink },
   headerSub: { fontSize: 14, lineHeight: 20, color: colors.inkSoft },
-  count: { fontSize: 13, fontWeight: "600", color: colors.brand, marginTop: 4 },
-  empty: { fontSize: 14, color: colors.inkSoft, marginTop: 20 },
-  section: { gap: 10, marginBottom: 16 },
-  sectionTitle: {
-    fontSize: 13,
-    fontWeight: "700",
-    color: colors.inkSoft,
-    textTransform: "uppercase",
-    letterSpacing: 0.4,
+  tabs: { flexDirection: "row", gap: 8, marginTop: 8 },
+  tab: {
+    flex: 1,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: colors.line,
+    paddingVertical: 10,
+    alignItems: "center",
+    backgroundColor: colors.card,
   },
+  tabActive: { borderColor: colors.brand, backgroundColor: colors.bgDeep },
+  tabText: { fontSize: 13, fontWeight: "600", color: colors.inkSoft },
+  tabTextActive: { color: colors.brand },
+  count: { fontSize: 13, fontWeight: "600", color: colors.brand, marginTop: 4 },
+  selectAll: { fontSize: 13, fontWeight: "700", color: colors.brand, marginTop: 4 },
+  bulkRow: { flexDirection: "row", flexWrap: "wrap", alignItems: "center", gap: 8, marginTop: 8 },
+  bulkLabel: { fontSize: 13, fontWeight: "700", color: colors.ink },
+  empty: { fontSize: 14, color: colors.inkSoft, marginTop: 20 },
   card: {
     backgroundColor: colors.card,
     borderRadius: 14,
@@ -325,7 +500,20 @@ const styles = StyleSheet.create({
     gap: 8,
     marginBottom: 8,
   },
-  title: { fontSize: 15, fontWeight: "700", color: colors.ink },
+  cardSelected: { borderColor: colors.brand },
+  selectRow: { flexDirection: "row", alignItems: "center", gap: 10 },
+  checkbox: {
+    width: 22,
+    height: 22,
+    borderRadius: 6,
+    borderWidth: 2,
+    borderColor: colors.line,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  checkboxOn: { borderColor: colors.brand, backgroundColor: colors.brand },
+  checkMark: { color: "#fff", fontWeight: "700", fontSize: 14 },
+  title: { flex: 1, fontSize: 15, fontWeight: "700", color: colors.ink },
   meta: { fontSize: 12, color: colors.inkSoft },
   score: { fontSize: 13, fontWeight: "700" },
   tip: { fontSize: 12, lineHeight: 17, color: colors.inkSoft },
@@ -364,6 +552,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
   },
   pauseText: { color: colors.brand, fontWeight: "700", fontSize: 13 },
+  approve: { color: colors.brand, fontWeight: "700", fontSize: 13 },
   delete: { color: colors.danger, fontWeight: "700", fontSize: 13 },
   btn: {
     backgroundColor: colors.brand,
@@ -372,6 +561,15 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
   },
   btnText: { color: "#fff", fontWeight: "700", fontSize: 13 },
+  btnSecondary: {
+    borderWidth: 1,
+    borderColor: colors.brand,
+    borderRadius: 8,
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    backgroundColor: colors.bgDeep,
+  },
+  btnSecondaryText: { color: colors.brand, fontWeight: "700", fontSize: 13 },
   btnGhost: {
     borderWidth: 1,
     borderColor: colors.line,
@@ -380,4 +578,5 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
   },
   btnGhostText: { color: colors.inkSoft, fontWeight: "600", fontSize: 13 },
+  disabled: { opacity: 0.5 },
 });

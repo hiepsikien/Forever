@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 import shutil
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Annotated, Any
 
@@ -101,6 +101,32 @@ def _get_voice_or_404(db: Session, voice_id: str) -> VoiceProfile:
     if not voice:
         raise HTTPException(status_code=404, detail="Voice DNA not found.")
     return voice
+
+
+def _reclaim_stale_running_jobs(db: Session) -> int:
+    """Re-queue Extract jobs stuck in running (worker died or timed out)."""
+    settings = get_settings()
+    stale_minutes = max(5, int(settings.extract_job_stale_minutes or 60))
+    cutoff = datetime.now(timezone.utc) - timedelta(minutes=stale_minutes)
+    stale = (
+        db.query(ExtractJob)
+        .filter(
+            ExtractJob.status == "running",
+            ExtractJob.started_at.isnot(None),
+            ExtractJob.started_at < cutoff,
+        )
+        .all()
+    )
+    if not stale:
+        return 0
+    for job in stale:
+        job.status = "queued"
+        job.started_at = None
+        job.error_message = (
+            f"Worker timeout sau {stale_minutes} phút — đã đưa lại hàng đợi."
+        )
+    db.commit()
+    return len(stale)
 
 
 def _get_job_or_404(db: Session, space_id: str, job_id: str) -> ExtractJob:
@@ -396,6 +422,7 @@ def list_extract_jobs(
     voice_id: str | None = None,
 ):
     require_steward_or_owner(db, space_id=space_id, user=user)
+    _reclaim_stale_running_jobs(db)
     q = db.query(ExtractJob).filter(ExtractJob.space_id == space_id)
     if voice_id:
         # Context hint OR speaker assignment targets this voice.
@@ -420,6 +447,7 @@ def get_extract_job(
     db: Annotated[Session, Depends(get_db)],
 ):
     require_steward_or_owner(db, space_id=space_id, user=user)
+    _reclaim_stale_running_jobs(db)
     job = _get_job_or_404(db, space_id, job_id)
     segments = (
         db.query(ExtractSegment)
@@ -587,6 +615,7 @@ def accept_segments(
             t_start=seg.t_start,
             t_end=seg.t_end,
             speaker_label=seg.speaker_label,
+            pipeline_stage="unprocessed",
             created_by=user.id,
             created_at=now,
         )
@@ -663,6 +692,7 @@ def claim_extract_job(
     _: Annotated[None, Depends(_require_worker_token)],
 ):
     """Worker claims the oldest queued job (one at a time)."""
+    _reclaim_stale_running_jobs(db)
     job = (
         db.query(ExtractJob)
         .filter(ExtractJob.status == "queued")

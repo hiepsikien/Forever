@@ -218,6 +218,7 @@ def test_extract_pool_import_to_multiple_voices(
     ).json()["samples"]
     assert len(bo_samples) == 1
     assert bo_samples[0]["speaker_label"] == "SPEAKER_00"
+    assert bo_samples[0]["pipeline_stage"] == "unprocessed"
 
     me_samples = client.get(
         f"/api/spaces/{space_id}/voice-samples",
@@ -227,6 +228,7 @@ def test_extract_pool_import_to_multiple_voices(
     assert len(me_samples) == 1
     assert me_samples[0]["speaker_label"] == "SPEAKER_01"
     assert me_samples[0]["extract_job_id"] == job_id
+    assert me_samples[0]["pipeline_stage"] == "unprocessed"
 
     finish = client.post(
         f"/api/spaces/{space_id}/extract/jobs/{job_id}/finish",
@@ -234,5 +236,61 @@ def test_extract_pool_import_to_multiple_voices(
     )
     assert finish.status_code == 200
     assert finish.json()["status"] == "done"
+
+    get_settings.cache_clear()
+
+
+def test_stale_running_job_requeued(client: TestClient, tmp_path, monkeypatch):
+    monkeypatch.setenv("UPLOAD_DIR", str(tmp_path))
+    monkeypatch.setenv("EXTRACT_WORKER_TOKEN", "test-worker-token")
+    monkeypatch.setenv("EXTRACT_JOB_STALE_MINUTES", "30")
+    from datetime import datetime, timedelta, timezone
+
+    from app.config import get_settings
+    from app.db import SessionLocal
+    from app.models import ExtractJob
+
+    get_settings.cache_clear()
+
+    token = _login(client, "extract-stale-owner@example.com", "Con")
+    headers = {"Authorization": f"Bearer {token}"}
+    space_id = _space(client, token)
+
+    created = client.post(
+        f"/api/spaces/{space_id}/extract/jobs",
+        headers=headers,
+        data={"num_speakers": "2"},
+        files={"file": ("tape.wav", BytesIO(b"RIFFxxxxWAVEdata"), "audio/wav")},
+    )
+    assert created.status_code == 200, created.text
+    job_id = created.json()["id"]
+
+    claim = client.post(
+        "/api/internal/extract/claim",
+        headers={"X-Extract-Worker-Token": "test-worker-token"},
+    )
+    assert claim.status_code == 200, claim.text
+    assert claim.json()["job"]["id"] == job_id
+
+    with SessionLocal() as db:
+        job = db.query(ExtractJob).filter(ExtractJob.id == job_id).one()
+        job.started_at = datetime.now(timezone.utc) - timedelta(hours=2)
+        db.commit()
+
+    listed = client.get(
+        f"/api/spaces/{space_id}/extract/jobs",
+        headers=headers,
+    )
+    assert listed.status_code == 200, listed.text
+    row = next(j for j in listed.json()["jobs"] if j["id"] == job_id)
+    assert row["status"] == "queued"
+    assert "timeout" in (row.get("error_message") or "").lower()
+
+    reclaim_claim = client.post(
+        "/api/internal/extract/claim",
+        headers={"X-Extract-Worker-Token": "test-worker-token"},
+    )
+    assert reclaim_claim.status_code == 200, reclaim_claim.text
+    assert reclaim_claim.json()["job"]["id"] == job_id
 
     get_settings.cache_clear()

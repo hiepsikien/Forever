@@ -121,6 +121,8 @@ def test_self_voice_flow_with_mocked_elevenlabs(client: TestClient, tmp_path, mo
     )
     assert sample.status_code == 200, sample.text
     assert sample.json()["voice"]["sample_count"] == 1
+    assert sample.json()["voice"]["processed_count"] == 1
+    assert sample.json()["voice"]["unprocessed_count"] == 0
 
     with patch(
         "app.routers.voice_dna.el.create_instant_voice_clone",
@@ -372,3 +374,131 @@ def test_owner_multi_profile_toi_then_bo(client: TestClient, tmp_path, monkeypat
     assert sample_self.status_code == 200, sample_self.text
 
     get_settings.cache_clear()
+
+
+def test_pipeline_stage_clone_uses_processed_only(client: TestClient, monkeypatch):
+    """Extract imports are unprocessed; clone needs bulk approve to processed."""
+    monkeypatch.setenv("ELEVENLABS_API_KEY", "test-key")
+    from app.config import get_settings
+
+    get_settings.cache_clear()
+
+    token = _login(client, "pipeline@forever.family", "Pipeline")
+    headers = {"Authorization": f"Bearer {token}"}
+    space_id = _space(client, token)
+
+    created = client.post(
+        f"/api/spaces/{space_id}/voices/self",
+        headers=headers,
+        json={"consent": True},
+    )
+    assert created.status_code == 200, created.text
+    voice_id = created.json()["id"]
+
+    unprocessed = client.post(
+        f"/api/voices/{voice_id}/samples",
+        headers=headers,
+        files={"file": ("pool.wav", BytesIO(b"fake-pool"), "audio/wav")},
+        data={"source": "extract"},
+    )
+    assert unprocessed.status_code == 200, unprocessed.text
+    voice = unprocessed.json()["voice"]
+    assert voice["unprocessed_count"] == 1
+    assert voice["processed_count"] == 0
+    sample_id = unprocessed.json()["sample_id"]
+
+    blocked = client.post(f"/api/voices/{voice_id}/clone", headers=headers)
+    assert blocked.status_code == 400
+    assert "duyệt" in blocked.json()["error"].lower()
+
+    staged = client.post(
+        f"/api/voices/{voice_id}/samples/bulk-stage",
+        headers=headers,
+        json={"sample_ids": [sample_id], "pipeline_stage": "processed"},
+    )
+    assert staged.status_code == 200, staged.text
+    assert staged.json()["processed_count"] == 1
+    assert staged.json()["unprocessed_count"] == 0
+
+    with patch(
+        "app.routers.voice_dna.el.create_instant_voice_clone",
+        return_value="el_pipeline_voice",
+    ):
+        cloned = client.post(f"/api/voices/{voice_id}/clone", headers=headers)
+    assert cloned.status_code == 200, cloned.text
+    assert cloned.json()["status"] == "ready"
+
+    filtered = client.get(
+        f"/api/spaces/{space_id}/voice-samples",
+        headers=headers,
+        params={"voice_id": voice_id, "stage": "processed"},
+    )
+    assert filtered.status_code == 200
+    assert len(filtered.json()["samples"]) == 1
+    assert filtered.json()["samples"][0]["pipeline_stage"] == "processed"
+
+    get_settings.cache_clear()
+
+
+def test_combine_unprocessed_samples(client: TestClient, monkeypatch, tmp_path):
+    monkeypatch.setenv("UPLOAD_DIR", str(tmp_path))
+
+    def fake_combine(input_paths, output_path):
+        output_path.write_bytes(b"fake-combined-wav")
+        return 90_000, len(b"fake-combined-wav")
+
+    monkeypatch.setattr(
+        "app.routers.voice_dna.combine_audio_files",
+        fake_combine,
+    )
+
+    token = _login(client, "combine@forever.family", "Combine")
+    headers = {"Authorization": f"Bearer {token}"}
+    space_id = _space(client, token)
+
+    created = client.post(
+        f"/api/spaces/{space_id}/voices/self",
+        headers=headers,
+        json={"consent": True},
+    )
+    assert created.status_code == 200, created.text
+    voice_id = created.json()["id"]
+
+    sample_ids: list[str] = []
+    for idx in range(3):
+        res = client.post(
+            f"/api/voices/{voice_id}/samples",
+            headers=headers,
+            files={"file": (f"seg{idx}.wav", BytesIO(b"fake-seg"), "audio/wav")},
+            data={"source": "extract"},
+        )
+        assert res.status_code == 200, res.text
+        sample_ids.append(res.json()["sample_id"])
+
+    combined = client.post(
+        f"/api/voices/{voice_id}/samples/combine",
+        headers=headers,
+        json={"sample_ids": sample_ids[:2]},
+    )
+    assert combined.status_code == 200, combined.text
+    payload = combined.json()
+    assert payload["sample_id"]
+    voice = payload["voice"]
+    assert voice["unprocessed_count"] == 4
+    assert voice["processed_count"] == 0
+
+    combined_sample = next(
+        s for s in voice["samples"] if s["id"] == payload["sample_id"]
+    )
+    assert combined_sample["source"] == "combine"
+    assert combined_sample["pipeline_stage"] == "unprocessed"
+    assert combined_sample["parent_sample_ids"] == sample_ids[:2]
+    assert combined_sample["duration_ms"] == 90_000
+
+    all_unprocessed = client.get(
+        f"/api/spaces/{space_id}/voice-samples",
+        headers=headers,
+        params={"voice_id": voice_id, "stage": "unprocessed"},
+    )
+    assert all_unprocessed.status_code == 200
+    assert len(all_unprocessed.json()["samples"]) == 4

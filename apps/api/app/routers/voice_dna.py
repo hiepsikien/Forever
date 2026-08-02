@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import json
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
@@ -28,11 +30,20 @@ from ..models import (
 )
 from ..routers.settings import HERITAGE_CONSENT, SELF_CONSENT
 from ..services import elevenlabs as el
+from ..services.audio_combine import AudioCombineError, combine_audio_files
 from ..services.sample_quality import score_voice_sample
-from ..services.storage import absolute_media_path, save_bytes, save_upload
+from ..services.storage import MAX_UPLOAD_BYTES, absolute_media_path, save_bytes, save_upload
 from ..services.voice_script import generate_voice_sample_script
 
 router = APIRouter(tags=["voice-dna"])
+
+PIPELINE_STAGES = frozenset({"unprocessed", "processed", "archived"})
+CLONE_MAX_SAMPLES = 3
+CLONE_TARGET_DURATION_MS = 120_000
+CLONE_MAX_DURATION_MS = 150_000
+COMBINE_MIN_SAMPLES = 2
+COMBINE_MAX_SAMPLES = 100
+COMBINE_MAX_INPUT_DURATION_MS = 600_000
 
 
 class CreateIdentityBody(BaseModel):
@@ -66,6 +77,25 @@ class CloneBody(BaseModel):
 
 
 class SampleNoteBody(BaseModel):
+    note: str = Field(default="", max_length=2000)
+
+
+class SampleUpdateBody(BaseModel):
+    note: str | None = Field(default=None, max_length=2000)
+    pipeline_stage: str | None = Field(
+        default=None, pattern="^(unprocessed|processed|archived)$"
+    )
+
+
+class BulkStageBody(BaseModel):
+    sample_ids: list[str] = Field(min_length=1, max_length=200)
+    pipeline_stage: str = Field(pattern="^(unprocessed|processed|archived)$")
+
+
+class CombineSamplesBody(BaseModel):
+    sample_ids: list[str] = Field(
+        min_length=COMBINE_MIN_SAMPLES, max_length=COMBINE_MAX_SAMPLES
+    )
     note: str = Field(default="", max_length=2000)
 
 
@@ -144,6 +174,51 @@ def _enrich_sample_quality(sample: VoiceSample) -> None:
     sample.quality_tip = tip
 
 
+def _effective_stage(sample: VoiceSample) -> str:
+    stage = getattr(sample, "pipeline_stage", None) or "processed"
+    return stage if stage in PIPELINE_STAGES else "processed"
+
+
+def _voice_stage_stats(samples: list[VoiceSample]) -> dict[str, int]:
+    unprocessed = processed = archived = 0
+    processed_duration_ms = 0
+    for sample in samples:
+        stage = _effective_stage(sample)
+        if stage == "unprocessed":
+            unprocessed += 1
+        elif stage == "processed":
+            processed += 1
+            processed_duration_ms += sample.duration_ms or 0
+        else:
+            archived += 1
+    return {
+        "sample_count": unprocessed + processed,
+        "unprocessed_count": unprocessed,
+        "processed_count": processed,
+        "archived_count": archived,
+        "processed_duration_ms": processed_duration_ms,
+    }
+
+
+def _invalidate_clone_if_ready(voice: VoiceProfile) -> None:
+    if voice.status == "ready":
+        voice.status = "draft"
+        voice.provider_voice_id = None
+
+
+def _parent_sample_ids(sample: VoiceSample) -> list[str]:
+    raw = getattr(sample, "parent_sample_ids", None) or ""
+    if not raw:
+        return []
+    try:
+        parsed = json.loads(raw)
+        if isinstance(parsed, list):
+            return [str(item) for item in parsed]
+    except json.JSONDecodeError:
+        pass
+    return []
+
+
 def _sample_payload(row: VoiceSample, *, voice: VoiceProfile | None = None) -> dict:
     _enrich_sample_quality(row)
     payload = {
@@ -163,6 +238,8 @@ def _sample_payload(row: VoiceSample, *, voice: VoiceProfile | None = None) -> d
         "t_start": getattr(row, "t_start", None),
         "t_end": getattr(row, "t_end", None),
         "speaker_label": getattr(row, "speaker_label", None),
+        "pipeline_stage": _effective_stage(row),
+        "parent_sample_ids": _parent_sample_ids(row),
         "created_at": row.created_at.isoformat(),
     }
     if voice is not None:
@@ -197,9 +274,9 @@ def _identity_payload(
 
 def _voice_payload(
     row: VoiceProfile,
-    sample_count: int = 0,
     samples: list[VoiceSample] | None = None,
 ) -> dict:
+    stats = _voice_stage_stats(samples or [])
     payload = {
         "id": row.id,
         "space_id": row.space_id,
@@ -212,7 +289,11 @@ def _voice_payload(
         "display_name": row.display_name,
         "consent_at": row.consent_at.isoformat() if row.consent_at else None,
         "error_message": row.error_message or None,
-        "sample_count": sample_count,
+        "sample_count": stats["sample_count"],
+        "unprocessed_count": stats["unprocessed_count"],
+        "processed_count": stats["processed_count"],
+        "archived_count": stats["archived_count"],
+        "processed_duration_ms": stats["processed_duration_ms"],
         "created_by": row.created_by,
         "created_at": row.created_at.isoformat(),
         "updated_at": row.updated_at.isoformat(),
@@ -592,7 +673,7 @@ def list_voices(
             .order_by(VoiceSample.created_at.asc())
             .all()
         )
-        voices.append(_voice_payload(v, len(samples), samples))
+        voices.append(_voice_payload(v, samples))
     db.commit()  # persist quality enrichment for legacy samples
     return {"voices": voices}
 
@@ -615,7 +696,7 @@ def create_self_voice(
         user=user,
         consent=body.consent,
     )
-    return _voice_payload(row, 0)
+    return _voice_payload(row)
 
 
 @router.post("/api/spaces/{space_id}/voices/for-identity")
@@ -648,7 +729,7 @@ def create_voice_for_identity(
         user=user,
         consent=body.consent,
     )
-    return _voice_payload(row, 0)
+    return _voice_payload(row)
 
 
 @router.post("/api/spaces/{space_id}/voices/heritage")
@@ -677,7 +758,7 @@ def create_heritage_voice(
         user=user,
         consent=body.consent,
     )
-    return _voice_payload(row, 0)
+    return _voice_payload(row)
 
 
 @router.get("/api/spaces/{space_id}/voice-samples")
@@ -686,8 +767,11 @@ def list_space_voice_samples(
     user: Annotated[User, Depends(get_current_user)],
     db: Annotated[Session, Depends(get_db)],
     voice_id: str | None = None,
+    stage: str | None = None,
 ):
     require_membership(db, space_id=space_id, user=user)
+    if stage is not None and stage not in PIPELINE_STAGES:
+        raise HTTPException(status_code=400, detail="stage không hợp lệ.")
     q = (
         db.query(VoiceSample, VoiceProfile)
         .join(VoiceProfile, VoiceSample.voice_profile_id == VoiceProfile.id)
@@ -695,6 +779,8 @@ def list_space_voice_samples(
     )
     if voice_id:
         q = q.filter(VoiceSample.voice_profile_id == voice_id)
+    if stage:
+        q = q.filter(VoiceSample.pipeline_stage == stage)
     rows = q.order_by(VoiceSample.created_at.desc()).all()
     samples = [_sample_payload(sample, voice=voice) for sample, voice in rows]
     db.commit()
@@ -736,7 +822,7 @@ def get_voice(
         .order_by(VoiceSample.created_at.asc())
         .all()
     )
-    return _voice_payload(voice, len(samples), samples)
+    return _voice_payload(voice, samples)
 
 
 @router.delete("/api/voices/{voice_id}/samples/{sample_id}")
@@ -759,10 +845,7 @@ def delete_sample(
         raise HTTPException(status_code=404, detail="Sample not found.")
     db.delete(sample)
     voice.updated_at = datetime.now(timezone.utc)
-    # After sample change, clone is stale until re-cloned.
-    if voice.status == "ready":
-        voice.status = "draft"
-        voice.provider_voice_id = None
+    _invalidate_clone_if_ready(voice)
     db.commit()
     samples = (
         db.query(VoiceSample)
@@ -770,7 +853,7 @@ def delete_sample(
         .order_by(VoiceSample.created_at.asc())
         .all()
     )
-    return _voice_payload(voice, len(samples), samples)
+    return _voice_payload(voice, samples)
 
 
 @router.post("/api/voices/{voice_id}/samples")
@@ -792,6 +875,7 @@ async def add_sample(
 
     if source not in ("record", "upload", "memory", "extract"):
         source = "upload"
+    pipeline_stage = "unprocessed" if source == "extract" else "processed"
 
     media_path, mime = save_upload(voice.space_id, file)
     if not mime.startswith("audio/"):
@@ -815,6 +899,7 @@ async def add_sample(
         quality_score=score,
         quality_label=label,
         quality_tip=tip,
+        pipeline_stage=pipeline_stage,
         created_by=user.id,
         created_at=now,
     )
@@ -832,14 +917,14 @@ async def add_sample(
         .order_by(VoiceSample.created_at.asc())
         .all()
     )
-    return {"sample_id": sample.id, "voice": _voice_payload(voice, len(samples), samples)}
+    return {"sample_id": sample.id, "voice": _voice_payload(voice, samples)}
 
 
 @router.patch("/api/voices/{voice_id}/samples/{sample_id}")
-def update_sample_note(
+def update_sample(
     voice_id: str,
     sample_id: str,
-    body: SampleNoteBody,
+    body: SampleUpdateBody,
     user: Annotated[User, Depends(get_current_user)],
     db: Annotated[Session, Depends(get_db)],
 ):
@@ -854,11 +939,157 @@ def update_sample_note(
     )
     if not sample:
         raise HTTPException(status_code=404, detail="Sample not found.")
-    sample.note = (body.note or "").strip()[:2000]
+    prev_stage = _effective_stage(sample)
+    if body.note is not None:
+        sample.note = (body.note or "").strip()[:2000]
+    if body.pipeline_stage is not None:
+        sample.pipeline_stage = body.pipeline_stage
     voice.updated_at = datetime.now(timezone.utc)
+    if body.pipeline_stage is not None and body.pipeline_stage != prev_stage:
+        _invalidate_clone_if_ready(voice)
     db.commit()
     db.refresh(sample)
     return _sample_payload(sample, voice=voice)
+
+
+@router.post("/api/voices/{voice_id}/samples/bulk-stage")
+def bulk_stage_samples(
+    voice_id: str,
+    body: BulkStageBody,
+    user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[Session, Depends(get_db)],
+):
+    voice = _get_voice_or_404(db, voice_id)
+    require_membership(db, space_id=voice.space_id, user=user)
+    if not _can_mutate_voice(db, voice, user):
+        raise HTTPException(status_code=403, detail="Không được sửa Voice DNA này.")
+    rows = (
+        db.query(VoiceSample)
+        .filter(
+            VoiceSample.voice_profile_id == voice.id,
+            VoiceSample.id.in_(body.sample_ids),
+        )
+        .all()
+    )
+    if len(rows) != len(set(body.sample_ids)):
+        raise HTTPException(status_code=404, detail="Một hoặc nhiều sample không tồn tại.")
+    changed = False
+    for sample in rows:
+        if _effective_stage(sample) != body.pipeline_stage:
+            sample.pipeline_stage = body.pipeline_stage
+            changed = True
+    if changed:
+        voice.updated_at = datetime.now(timezone.utc)
+        _invalidate_clone_if_ready(voice)
+    db.commit()
+    samples = (
+        db.query(VoiceSample)
+        .filter(VoiceSample.voice_profile_id == voice.id)
+        .order_by(VoiceSample.created_at.asc())
+        .all()
+    )
+    return _voice_payload(voice, samples)
+
+
+@router.post("/api/voices/{voice_id}/samples/combine")
+def combine_samples(
+    voice_id: str,
+    body: CombineSamplesBody,
+    user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[Session, Depends(get_db)],
+):
+    voice = _get_voice_or_404(db, voice_id)
+    require_membership(db, space_id=voice.space_id, user=user)
+    if not _can_mutate_voice(db, voice, user):
+        raise HTTPException(status_code=403, detail="Không được sửa Voice DNA này.")
+    if voice.status == "paused":
+        raise HTTPException(status_code=400, detail="Voice đang tạm dừng.")
+
+    unique_ids = list(dict.fromkeys(body.sample_ids))
+    rows = (
+        db.query(VoiceSample)
+        .filter(
+            VoiceSample.voice_profile_id == voice.id,
+            VoiceSample.id.in_(unique_ids),
+        )
+        .all()
+    )
+    if len(rows) != len(unique_ids):
+        raise HTTPException(status_code=404, detail="Một hoặc nhiều sample không tồn tại.")
+    by_id = {row.id: row for row in rows}
+    ordered = [by_id[sid] for sid in unique_ids]
+
+    for sample in ordered:
+        if _effective_stage(sample) != "unprocessed":
+            raise HTTPException(
+                status_code=400,
+                detail="Chỉ ghép mẫu ở trạng thái Chưa xử lý (unprocessed).",
+            )
+
+    input_paths = [absolute_media_path(sample.media_path) for sample in ordered]
+    input_duration_ms = sum(sample.duration_ms or 0 for sample in ordered)
+    if input_duration_ms > COMBINE_MAX_INPUT_DURATION_MS:
+        raise HTTPException(
+            status_code=400,
+            detail="Tổng thời lượng mẫu chọn quá dài (tối đa ~10 phút).",
+        )
+
+    settings = get_settings()
+    relative = f"{voice.space_id}/{generate()}.wav"
+    output_path = Path(settings.upload_dir) / relative
+    try:
+        duration_ms, file_size = combine_audio_files(input_paths, output_path)
+    except AudioCombineError as exc:
+        output_path.unlink(missing_ok=True)
+        raise HTTPException(status_code=400, detail=exc.message) from exc
+
+    if file_size > MAX_UPLOAD_BYTES:
+        output_path.unlink(missing_ok=True)
+        raise HTTPException(
+            status_code=400,
+            detail="File ghép quá lớn (tối đa 25MB). Chọn ít mẫu hơn.",
+        )
+
+    score, label, tip = score_voice_sample(
+        duration_ms=duration_ms or None,
+        file_size_bytes=file_size,
+    )
+    auto_note = f"Ghép {len(ordered)} mẫu ({_format_duration(duration_ms) or '—:—'})"
+    user_note = (body.note or "").strip()
+    note = f"{auto_note}. {user_note}".strip() if user_note else auto_note
+
+    now = datetime.now(timezone.utc)
+    combined = VoiceSample(
+        id=generate(),
+        voice_profile_id=voice.id,
+        media_path=relative.replace("\\", "/"),
+        media_mime="audio/wav",
+        source="combine",
+        note=note[:2000],
+        duration_ms=duration_ms or None,
+        file_size_bytes=file_size,
+        quality_score=score,
+        quality_label=label,
+        quality_tip=tip,
+        pipeline_stage="unprocessed",
+        parent_sample_ids=json.dumps(unique_ids),
+        created_by=user.id,
+        created_at=now,
+    )
+    voice.updated_at = now
+    db.add(combined)
+    db.commit()
+
+    samples = (
+        db.query(VoiceSample)
+        .filter(VoiceSample.voice_profile_id == voice.id)
+        .order_by(VoiceSample.created_at.asc())
+        .all()
+    )
+    return {
+        "sample_id": combined.id,
+        "voice": _voice_payload(voice, samples),
+    }
 
 
 @router.get("/api/voices/{voice_id}/samples/{sample_id}/media")
@@ -907,20 +1138,36 @@ def clone_voice(
         .order_by(VoiceSample.created_at.asc())
         .all()
     )
-    if not samples:
-        raise HTTPException(status_code=400, detail="Cần upload ít nhất một sample audio.")
-    if len(samples) > 4:
+    processed = [s for s in samples if _effective_stage(s) == "processed"]
+    if not processed:
         raise HTTPException(
             status_code=400,
             detail=(
-                "IVC tốt nhất với 1–3 sample sạch (~1–2 phút tổng). "
-                "Xóa bớt sample kém rồi clone lại."
+                "Cần duyệt ít nhất một mẫu sang Sẵn sàng clone (Processed). "
+                "Vào Mẫu giọng → chọn mẫu tốt → Duyệt."
+            ),
+        )
+    if len(processed) > CLONE_MAX_SAMPLES:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                f"IVC tốt nhất với 1–{CLONE_MAX_SAMPLES} mẫu sạch (~1–2 phút tổng). "
+                "Loại bớt mẫu kém hoặc archive trước khi clone."
+            ),
+        )
+    total_ms = sum(s.duration_ms or 0 for s in processed)
+    if total_ms > CLONE_MAX_DURATION_MS:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "Tổng thời lượng mẫu Processed quá dài (~>2.5 phút). "
+                "Chọn ít mẫu hơn hoặc archive bớt."
             ),
         )
 
     settings = get_settings()
     api_key = el.resolve_api_key(settings, _space_api_key(db, voice.space_id))
-    paths = [absolute_media_path(s.media_path) for s in samples]
+    paths = [absolute_media_path(s.media_path) for s in processed]
     for path in paths:
         if not path.exists():
             raise HTTPException(status_code=400, detail="Sample audio bị thiếu trên server.")
@@ -956,7 +1203,7 @@ def clone_voice(
     voice.updated_at = datetime.now(timezone.utc)
     db.commit()
     db.refresh(voice)
-    return _voice_payload(voice, len(samples), samples)
+    return _voice_payload(voice, samples)
 
 
 @router.post("/api/voices/{voice_id}/tts")
@@ -1185,4 +1432,4 @@ def pause_voice(
         .order_by(VoiceSample.created_at.asc())
         .all()
     )
-    return _voice_payload(voice, len(samples), samples)
+    return _voice_payload(voice, samples)

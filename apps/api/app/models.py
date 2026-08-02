@@ -259,7 +259,7 @@ class VoiceSample(Base):
     )
     media_path: Mapped[str] = mapped_column(String(512))
     media_mime: Mapped[str] = mapped_column(String(120))
-    # record | upload | memory | extract
+    # record | upload | memory | extract | combine
     source: Mapped[str] = mapped_column(String(32), default="upload")
     note: Mapped[str] = mapped_column(Text, default="")
     duration_ms: Mapped[int | None] = mapped_column(Integer, nullable=True)
@@ -276,6 +276,10 @@ class VoiceSample(Base):
     t_start: Mapped[float | None] = mapped_column(Float, nullable=True)
     t_end: Mapped[float | None] = mapped_column(Float, nullable=True)
     speaker_label: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    # unprocessed | processed | archived — clone uses processed only
+    pipeline_stage: Mapped[str] = mapped_column(String(32), default="processed")
+    # JSON array of source sample ids when source=combine
+    parent_sample_ids: Mapped[str] = mapped_column(Text, default="")
     created_by: Mapped[str] = mapped_column(ForeignKey("users.id"))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
 

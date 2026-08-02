@@ -121,6 +121,26 @@ def ensure_schema() -> None:
         "ALTER TABLE voice_samples ADD COLUMN speaker_label VARCHAR(64)",
     )
     _add_column_if_missing(
+        "voice_samples",
+        "pipeline_stage",
+        "ALTER TABLE voice_samples ADD COLUMN pipeline_stage VARCHAR(32) DEFAULT 'processed'",
+    )
+    try:
+        with engine.begin() as conn:
+            conn.execute(
+                text(
+                    "UPDATE voice_samples SET pipeline_stage = 'unprocessed' "
+                    "WHERE source = 'extract' AND pipeline_stage = 'processed'"
+                )
+            )
+    except Exception:
+        pass
+    _add_column_if_missing(
+        "voice_samples",
+        "parent_sample_ids",
+        "ALTER TABLE voice_samples ADD COLUMN parent_sample_ids TEXT DEFAULT ''",
+    )
+    _add_column_if_missing(
         "extract_jobs",
         "speaker_assignments_json",
         "ALTER TABLE extract_jobs ADD COLUMN speaker_assignments_json TEXT DEFAULT '{}'",

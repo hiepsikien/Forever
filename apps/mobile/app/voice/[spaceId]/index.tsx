@@ -1,4 +1,5 @@
 import {
+  ExtractJob,
   IdentityProfile,
   SpaceSettings,
   VoiceProfile,
@@ -35,6 +36,23 @@ function statusVi(status: string): string {
   }
 }
 
+function extractJobStatusVi(status: string): string {
+  switch (status) {
+    case "queued":
+      return "Đang chờ worker";
+    case "running":
+      return "Đang tách giọng";
+    case "needs_review":
+      return "Sẵn sàng duyệt";
+    case "failed":
+      return "Lỗi";
+    case "done":
+      return "Hoàn tất";
+    default:
+      return status;
+  }
+}
+
 export default function VoiceDnaScreen() {
   const { spaceId } = useLocalSearchParams<{ spaceId: string }>();
   const { api, user } = useAuth();
@@ -57,7 +75,9 @@ export default function VoiceDnaScreen() {
   const [newStatus, setNewStatus] = useState<"living" | "remembered">("living");
   const [showAdd, setShowAdd] = useState(false);
   const [showEdit, setShowEdit] = useState(false);
+  const [extractJobs, setExtractJobs] = useState<ExtractJob[]>([]);
   const loadGen = useRef(0);
+  const extractPollRef = useRef(false);
 
   useLayoutEffect(() => {
     navigation.setOptions({ title: "Voice DNA" });
@@ -92,6 +112,21 @@ export default function VoiceDnaScreen() {
           const me = i.identities.find((x) => x.linked_user_id === user?.id);
           return me?.id ?? i.identities[0]?.id ?? null;
         });
+        const manage =
+          s.can_edit === true ||
+          space.role === "owner" ||
+          space.steward_user_id === user?.id;
+        if (manage) {
+          const ej = await api.listExtractJobs(spaceId);
+          if (gen !== loadGen.current) return;
+          setExtractJobs(ej.jobs);
+          extractPollRef.current = ej.jobs.some(
+            (j) => j.status === "queued" || j.status === "running",
+          );
+        } else {
+          setExtractJobs([]);
+          extractPollRef.current = false;
+        }
       } catch (e) {
         if (gen === loadGen.current) {
           Alert.alert(
@@ -113,7 +148,23 @@ export default function VoiceDnaScreen() {
     useCallback(() => {
       // Soft refresh when returning from child screens — keep UI mounted.
       void load({ silent: true });
+      const t = setInterval(() => {
+        if (extractPollRef.current) void load({ silent: true });
+      }, 8000);
+      return () => clearInterval(t);
     }, [load]),
+  );
+
+  const visibleExtractJobs = useMemo(
+    () =>
+      extractJobs.filter(
+        (j) =>
+          j.status === "queued" ||
+          j.status === "running" ||
+          j.status === "needs_review" ||
+          j.status === "failed",
+      ),
+    [extractJobs],
   );
 
   const selectedIdentity = useMemo(
@@ -148,6 +199,10 @@ export default function VoiceDnaScreen() {
 
   const isHeritageProfile = selectedIdentity?.status === "remembered";
 
+  const processedCount = activeVoice?.processed_count ?? 0;
+  const unprocessedCount = activeVoice?.unprocessed_count ?? 0;
+  const processedDurationMs = activeVoice?.processed_duration_ms ?? 0;
+
   const nextStep = useMemo(() => {
     if (!selectedIdentity) return "Thêm hoặc chọn hồ sơ người.";
     if (!activeVoice) {
@@ -155,21 +210,31 @@ export default function VoiceDnaScreen() {
         ? "Tạo Voice DNA cho hồ sơ Ký ức để bắt đầu tải mẫu giọng."
         : "Tạo Voice DNA cho hồ sơ này để bắt đầu ghi mẫu.";
     }
-    if (activeVoice.sample_count < 1) {
+    if (processedCount < 1 && unprocessedCount < 1) {
       return isHeritageProfile
         ? "Tiếp theo: tải ít nhất một file audio."
         : "Tiếp theo: ghi ít nhất một mẫu giọng.";
     }
+    if (processedCount < 1 && unprocessedCount > 0) {
+      return `Có ${unprocessedCount} mẫu chưa duyệt — ghép 2+ đoạn hoặc chọn 1–3 đoạn sạch rồi Duyệt.`;
+    }
+    if (processedCount > 3) {
+      return "Quá nhiều mẫu sẵn clone — archive bớt, giữ tối đa 3 mẫu (~1–2 phút).";
+    }
     if (activeVoice.status !== "ready") {
-      return "Clone lại nếu vừa đổi mẫu — hoặc tạo giọng từ text với bản clone có sẵn.";
+      return "Clone để tạo giọng ElevenLabs — hoặc dùng bản clone có sẵn cho TTS.";
     }
     return "Có thể tạo giọng từ text. Clone lại nếu vừa đổi mẫu.";
-  }, [selectedIdentity, activeVoice, isHeritageProfile]);
+  }, [selectedIdentity, activeVoice, isHeritageProfile, processedCount, unprocessedCount]);
 
   const statusSummary = useMemo(() => {
     if (!activeVoice) return "Chưa có Voice DNA";
-    return `${statusVi(activeVoice.status)} · ${activeVoice.sample_count} mẫu`;
-  }, [activeVoice]);
+    const parts: string[] = [statusVi(activeVoice.status)];
+    if (unprocessedCount > 0) parts.push(`${unprocessedCount} chưa xử lý`);
+    if (processedCount > 0) parts.push(`${processedCount} sẵn clone`);
+    else if (activeVoice.sample_count > 0) parts.push(`${activeVoice.sample_count} mẫu`);
+    return parts.join(" · ");
+  }, [activeVoice, unprocessedCount, processedCount]);
 
   const createVoice = async () => {
     if (!spaceId || !selectedIdentity || !consent || busy) return;
@@ -275,12 +340,28 @@ export default function VoiceDnaScreen() {
       );
       return;
     }
-    if (activeVoice.sample_count < 1) {
+    if (processedCount < 1) {
       Alert.alert(
-        "Chưa có mẫu",
-        isHeritageProfile
-          ? "Tải ít nhất một file audio trước khi clone."
-          : "Ghi ít nhất một mẫu trước khi clone.",
+        "Chưa có mẫu sẵn clone",
+        unprocessedCount > 0
+          ? `Có ${unprocessedCount} mẫu chưa duyệt. Vào Mẫu giọng → chọn đoạn sạch → Duyệt.`
+          : isHeritageProfile
+            ? "Tải ít nhất một file audio trước khi clone."
+            : "Ghi ít nhất một mẫu trước khi clone.",
+      );
+      return;
+    }
+    if (processedCount > 3) {
+      Alert.alert(
+        "Quá nhiều mẫu",
+        "Giữ tối đa 3 mẫu đã duyệt (~1–2 phút). Archive bớt trong Mẫu giọng.",
+      );
+      return;
+    }
+    if (processedDurationMs > 150_000) {
+      Alert.alert(
+        "Quá dài",
+        "Tổng mẫu sẵn clone quá ~2.5 phút. Archive bớt rồi clone lại.",
       );
       return;
     }
@@ -337,7 +418,11 @@ export default function VoiceDnaScreen() {
 
   const ready = activeVoice?.status === "ready";
   const canUseTts = !!activeVoice;
-  const canClone = !!activeVoice && activeVoice.sample_count >= 1;
+  const canClone =
+    !!activeVoice &&
+    processedCount >= 1 &&
+    processedCount <= 3 &&
+    processedDurationMs <= 150_000;
 
   return (
     <View style={styles.screen}>
@@ -439,6 +524,52 @@ export default function VoiceDnaScreen() {
               Thêm Bố, Mẹ hoặc người thân khác cần quyền quản lý nhà (Owner hoặc
               Steward). Nhờ người tạo Space đăng nhập để thêm hồ sơ.
             </Text>
+          </View>
+        ) : null}
+
+        {canManage && visibleExtractJobs.length ? (
+          <View style={styles.card}>
+            <Text style={styles.cardTitle}>Pool tách giọng</Text>
+            <Text style={styles.meta}>
+              Job chạy trên máy chủ — bạn có thể quay lại Voice DNA để xem tiến
+              độ.
+            </Text>
+            {visibleExtractJobs.map((job) => {
+              const active =
+                job.status === "queued" || job.status === "running";
+              return (
+                <Pressable
+                  key={job.id}
+                  style={styles.extractRow}
+                  onPress={() =>
+                    router.push(
+                      `/voice/${spaceId}/extract/${job.id}` as never,
+                    )
+                  }
+                >
+                  <View style={styles.extractRowMain}>
+                    <Text style={styles.extractRowTitle} numberOfLines={1}>
+                      {job.original_filename || "Băng ghi"} ·{" "}
+                      {job.num_speakers} người
+                    </Text>
+                    <Text style={styles.extractRowSub}>
+                      {extractJobStatusVi(job.status)}
+                      {job.status === "needs_review" && job.clean_segment_count
+                        ? ` · ${job.clean_segment_count} đoạn clean`
+                        : ""}
+                      {job.status === "failed" && job.error_message
+                        ? ` — ${job.error_message}`
+                        : ""}
+                    </Text>
+                  </View>
+                  {active ? (
+                    <ActivityIndicator size="small" color={colors.brand} />
+                  ) : (
+                    <Text style={styles.extractChevron}>›</Text>
+                  )}
+                </Pressable>
+              );
+            })}
           </View>
         ) : null}
 
@@ -607,7 +738,9 @@ export default function VoiceDnaScreen() {
               <Pressable style={styles.action} onPress={() => go("samples")}>
                 <Text style={styles.actionTitle}>Mẫu giọng</Text>
                 <Text style={styles.actionSub}>
-                  Nghe lại, điểm chất lượng, ghi chú
+                  {unprocessedCount > 0
+                    ? `${unprocessedCount} chưa xử lý · duyệt trước khi clone`
+                    : "Nghe lại, duyệt, ghi chú"}
                 </Text>
               </Pressable>
 
@@ -623,12 +756,16 @@ export default function VoiceDnaScreen() {
                 </Pressable>
                 <Text style={styles.cloneHint}>
                   {!canClone
-                    ? isHeritageProfile
-                      ? "Cần ≥ 1 file audio trước khi clone."
-                      : "Cần ≥ 1 mẫu ghi trước khi clone."
+                    ? unprocessedCount > 0 && processedCount < 1
+                      ? `${unprocessedCount} mẫu chờ duyệt — vào Mẫu giọng.`
+                      : processedCount > 3
+                        ? "Archive bớt — tối đa 3 mẫu sẵn clone."
+                        : isHeritageProfile
+                          ? "Cần ≥ 1 mẫu đã duyệt trước khi clone."
+                          : "Cần ≥ 1 mẫu đã duyệt trước khi clone."
                     : ready
                       ? "Đã clone. Làm lại nếu vừa đổi mẫu."
-                      : "Clone để gắn bản mới nhất với hồ sơ này."}
+                      : `${processedCount} mẫu sẵn clone — bấm Clone Voice DNA.`}
                 </Text>
                 <Pressable onPress={() => go("clones")} hitSlop={6}>
                   <Text style={styles.historyLink}>Xem lịch sử clone</Text>
@@ -837,4 +974,21 @@ const styles = StyleSheet.create({
   },
   btnGhostText: { color: colors.brand, fontWeight: "700", fontSize: 14 },
   disabled: { opacity: 0.5 },
+  extractRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    paddingVertical: 10,
+    borderTopWidth: 1,
+    borderTopColor: colors.line,
+  },
+  extractRowMain: { flex: 1, gap: 2 },
+  extractRowTitle: { fontSize: 15, fontWeight: "700", color: colors.ink },
+  extractRowSub: { fontSize: 13, lineHeight: 18, color: colors.inkSoft },
+  extractChevron: {
+    fontSize: 22,
+    fontWeight: "600",
+    color: colors.inkSoft,
+    paddingHorizontal: 4,
+  },
 });

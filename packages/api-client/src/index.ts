@@ -142,6 +142,8 @@ export interface VoiceSample {
   t_start?: number | null;
   t_end?: number | null;
   speaker_label?: string | null;
+  pipeline_stage?: "unprocessed" | "processed" | "archived" | string;
+  parent_sample_ids?: string[];
   created_at: string;
   voice_display_name?: string;
   voice_subject_kind?: string;
@@ -266,6 +268,10 @@ export interface VoiceProfile {
   consent_at?: string | null;
   error_message?: string | null;
   sample_count: number;
+  unprocessed_count?: number;
+  processed_count?: number;
+  archived_count?: number;
+  processed_duration_ms?: number;
   samples?: VoiceSample[];
   created_by: string;
   created_at: string;
@@ -680,8 +686,15 @@ export function createApiClient({
         { json: false },
       );
     },
-    listSpaceVoiceSamples: (spaceId: string, voiceId?: string) => {
-      const q = voiceId ? `?voice_id=${encodeURIComponent(voiceId)}` : "";
+    listSpaceVoiceSamples: (
+      spaceId: string,
+      voiceId?: string,
+      stage?: "unprocessed" | "processed" | "archived",
+    ) => {
+      const params = new URLSearchParams();
+      if (voiceId) params.set("voice_id", voiceId);
+      if (stage) params.set("stage", stage);
+      const q = params.toString() ? `?${params.toString()}` : "";
       return request<{ samples: VoiceSample[] }>(
         `/api/spaces/${spaceId}/voice-samples${q}`,
       );
@@ -706,6 +719,42 @@ export function createApiClient({
         method: "PATCH",
         body: JSON.stringify({ note }),
       }),
+    updateVoiceSampleStage: (
+      voiceId: string,
+      sampleId: string,
+      pipelineStage: "unprocessed" | "processed" | "archived",
+    ) =>
+      request<VoiceSample>(`/api/voices/${voiceId}/samples/${sampleId}`, {
+        method: "PATCH",
+        body: JSON.stringify({ pipeline_stage: pipelineStage }),
+      }),
+    bulkStageVoiceSamples: (
+      voiceId: string,
+      sampleIds: string[],
+      pipelineStage: "unprocessed" | "processed" | "archived",
+    ) =>
+      request<VoiceProfile>(`/api/voices/${voiceId}/samples/bulk-stage`, {
+        method: "POST",
+        body: JSON.stringify({
+          sample_ids: sampleIds,
+          pipeline_stage: pipelineStage,
+        }),
+      }),
+    combineVoiceSamples: (
+      voiceId: string,
+      sampleIds: string[],
+      note?: string,
+    ) =>
+      request<{ sample_id: string; voice: VoiceProfile }>(
+        `/api/voices/${voiceId}/samples/combine`,
+        {
+          method: "POST",
+          body: JSON.stringify({
+            sample_ids: sampleIds,
+            note: note ?? "",
+          }),
+        },
+      ),
     deleteVoiceSample: (voiceId: string, sampleId: string) =>
       request<VoiceProfile>(`/api/voices/${voiceId}/samples/${sampleId}`, {
         method: "DELETE",
