@@ -564,7 +564,7 @@ export default function VoiceDnaScreen() {
                 >
                   <Text style={styles.actionTitle}>Giọng từ ký ức</Text>
                   <Text style={styles.actionSub}>
-                    Upload băng cũ → tách solo → duyệt tay → Voice DNA
+                    1 băng → pool chung → gán nhiều Voice DNA
                   </Text>
                 </Pressable>
               ) : null}

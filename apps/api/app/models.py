@@ -283,14 +283,15 @@ class VoiceSample(Base):
 
 
 class ExtractJob(Base):
-    """Async diarization job: memory tape → candidate solo segments for Voice DNA."""
+    """Shared pool from one tape: diarize once, import into any Voice DNA profiles."""
 
     __tablename__ = "extract_jobs"
 
     id: Mapped[str] = mapped_column(String(32), primary_key=True)
     space_id: Mapped[str] = mapped_column(ForeignKey("family_spaces.id"), index=True)
-    voice_profile_id: Mapped[str] = mapped_column(
-        ForeignKey("voice_profiles.id"), index=True
+    # Optional UI context only — pool is not locked to one Voice DNA.
+    voice_profile_id: Mapped[str | None] = mapped_column(
+        ForeignKey("voice_profiles.id"), nullable=True, index=True
     )
     # upload (v1); memory reserved
     source_kind: Mapped[str] = mapped_column(String(32), default="upload")
@@ -303,6 +304,8 @@ class ExtractJob(Base):
     error_message: Mapped[str] = mapped_column(Text, default="")
     artifact_dir: Mapped[str] = mapped_column(String(512), default="")
     options_json: Mapped[str] = mapped_column(Text, default="{}")
+    # SPEAKER_xx → voice_profile_id assignments during review
+    speaker_assignments_json: Mapped[str] = mapped_column(Text, default="{}")
     duration_seconds: Mapped[float | None] = mapped_column(Float, nullable=True)
     device: Mapped[str] = mapped_column(String(32), default="")
     model: Mapped[str] = mapped_column(String(200), default="")
@@ -318,7 +321,9 @@ class ExtractJob(Base):
     )
 
     space: Mapped[FamilySpace] = relationship(back_populates="extract_jobs")
-    voice_profile: Mapped[VoiceProfile] = relationship(back_populates="extract_jobs")
+    voice_profile: Mapped[VoiceProfile | None] = relationship(
+        back_populates="extract_jobs"
+    )
     segments: Mapped[list[ExtractSegment]] = relationship(back_populates="job")
 
 

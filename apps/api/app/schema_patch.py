@@ -120,6 +120,11 @@ def ensure_schema() -> None:
         "speaker_label",
         "ALTER TABLE voice_samples ADD COLUMN speaker_label VARCHAR(64)",
     )
+    _add_column_if_missing(
+        "extract_jobs",
+        "speaker_assignments_json",
+        "ALTER TABLE extract_jobs ADD COLUMN speaker_assignments_json TEXT DEFAULT '{}'",
+    )
     try:
         with engine.begin() as conn:
             conn.execute(

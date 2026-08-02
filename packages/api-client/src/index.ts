@@ -167,7 +167,8 @@ export interface ExtractSegment {
 export interface ExtractJob {
   id: string;
   space_id: string;
-  voice_profile_id: string;
+  /** Optional UI context only — pool is not locked to one Voice DNA. */
+  voice_profile_id?: string | null;
   source_kind: string;
   original_filename?: string | null;
   input_mime?: string | null;
@@ -176,6 +177,8 @@ export interface ExtractJob {
   error_message?: string | null;
   artifact_dir?: string | null;
   options?: Record<string, unknown>;
+  /** SPEAKER_xx → voice_profile_id */
+  speaker_assignments?: Record<string, string>;
   duration_seconds?: number | null;
   device?: string | null;
   model?: string | null;
@@ -188,6 +191,13 @@ export interface ExtractJob {
   started_at?: string | null;
   finished_at?: string | null;
   segments?: ExtractSegment[];
+}
+
+export interface ExtractCreateIdentity {
+  display_name: string;
+  relation_label?: string;
+  status?: "living" | "remembered";
+  consent?: boolean;
 }
 
 export interface VoiceRender {
@@ -787,13 +797,16 @@ export function createApiClient({
         uri: string;
         name: string;
         mimeType: string;
-        voiceProfileId: string;
         numSpeakers: number;
+        /** Optional context only — does not lock the pool to one profile. */
+        voiceProfileId?: string;
       },
     ) => {
       const form = new FormData();
-      form.append("voice_profile_id", payload.voiceProfileId);
       form.append("num_speakers", String(payload.numSpeakers));
+      if (payload.voiceProfileId) {
+        form.append("voice_profile_id", payload.voiceProfileId);
+      }
       form.append("file", {
         uri: payload.uri,
         name: payload.name,
@@ -829,15 +842,29 @@ export function createApiClient({
     assignExtractSpeaker: (
       spaceId: string,
       jobId: string,
-      speakerLabel: string,
+      payload: {
+        speakerLabel: string;
+        voiceProfileId?: string;
+        createIdentity?: ExtractCreateIdentity;
+      },
     ) =>
-      request<ExtractJob>(
-        `/api/spaces/${spaceId}/extract/jobs/${jobId}/assign-speaker`,
-        {
-          method: "POST",
-          body: JSON.stringify({ speaker_label: speakerLabel }),
-        },
-      ),
+      request<
+        ExtractJob & {
+          assigned_voice?: {
+            id: string;
+            display_name: string;
+            subject_kind: string;
+            identity_profile_id?: string | null;
+          };
+        }
+      >(`/api/spaces/${spaceId}/extract/jobs/${jobId}/assign-speaker`, {
+        method: "POST",
+        body: JSON.stringify({
+          speaker_label: payload.speakerLabel,
+          voice_profile_id: payload.voiceProfileId,
+          create_identity: payload.createIdentity,
+        }),
+      }),
     acceptExtractSegments: (
       spaceId: string,
       jobId: string,
@@ -845,11 +872,15 @@ export function createApiClient({
         segmentIds?: string[];
         speakerLabel?: string;
         quality?: "clean" | "short" | "mixed";
+        voiceProfileId?: string;
+        createIdentity?: ExtractCreateIdentity;
       },
     ) =>
       request<{
         imported: number;
         sample_ids: string[];
+        voice_profile_id: string;
+        voice_display_name: string;
         job: ExtractJob;
         total_clean_seconds: number;
       }>(`/api/spaces/${spaceId}/extract/jobs/${jobId}/segments/accept`, {
@@ -858,6 +889,8 @@ export function createApiClient({
           segment_ids: payload.segmentIds ?? [],
           speaker_label: payload.speakerLabel,
           quality: payload.quality ?? "clean",
+          voice_profile_id: payload.voiceProfileId,
+          create_identity: payload.createIdentity,
         }),
       }),
     finishExtractJob: (spaceId: string, jobId: string) =>

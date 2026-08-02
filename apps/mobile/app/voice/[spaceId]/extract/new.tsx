@@ -52,10 +52,7 @@ export default function ExtractNewScreen() {
   };
 
   const submit = async () => {
-    if (!spaceId || !voiceId) {
-      Alert.alert("Thiếu Voice DNA", "Mở từ hub Voice DNA với một hồ sơ.");
-      return;
-    }
+    if (!spaceId) return;
     if (!file) {
       Alert.alert("Chưa chọn băng", "Chọn file audio nhiều người nói.");
       return;
@@ -71,12 +68,11 @@ export default function ExtractNewScreen() {
         uri: file.uri,
         name: file.name,
         mimeType: file.mimeType,
-        voiceProfileId: voiceId,
         numSpeakers: n,
+        voiceProfileId: voiceId || undefined,
       });
-      router.replace(
-        `/voice/${spaceId}/extract/${job.id}?voiceId=${voiceId}` as never,
-      );
+      const q = voiceId ? `?voiceId=${voiceId}` : "";
+      router.replace(`/voice/${spaceId}/extract/${job.id}${q}` as never);
     } catch (e) {
       Alert.alert(
         "Lỗi",
@@ -93,10 +89,10 @@ export default function ExtractNewScreen() {
       contentContainerStyle={styles.root}
       keyboardShouldPersistTaps="handled"
     >
-      <Text style={styles.title}>Lấy giọng từ băng cũ</Text>
+      <Text style={styles.title}>Pool giọng từ băng cũ</Text>
       <Text style={styles.body}>
-        Upload băng nhiều người. Máy tách đoạn solo sạch; bạn nghe và chọn đúng
-        người trước khi đưa vào Voice DNA.
+        Chạy một lần → pool chung các SPEAKER. Sau đó gán từng người quan tâm
+        vào Voice DNA riêng (có sẵn hoặc tạo mới). Người không cần thì bỏ.
       </Text>
 
       <Text style={styles.label}>Số người nói trong băng</Text>
@@ -126,7 +122,7 @@ export default function ExtractNewScreen() {
         {busy ? (
           <ActivityIndicator color="#fff" />
         ) : (
-          <Text style={styles.btnText}>Bắt đầu tách giọng</Text>
+          <Text style={styles.btnText}>Tạo pool & tách giọng</Text>
         )}
       </Pressable>
     </ScrollView>

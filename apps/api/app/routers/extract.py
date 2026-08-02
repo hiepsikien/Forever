@@ -16,7 +16,15 @@ from ..access import require_steward_or_owner
 from ..auth import get_current_user
 from ..config import get_settings
 from ..db import get_db
-from ..models import ExtractJob, ExtractSegment, User, VoiceProfile, VoiceSample
+from ..models import (
+    ExtractJob,
+    ExtractSegment,
+    IdentityProfile,
+    User,
+    VoiceProfile,
+    VoiceSample,
+)
+from ..routers.settings import HERITAGE_CONSENT, SELF_CONSENT
 from ..services.sample_quality import score_voice_sample
 from ..services.storage import (
     ALLOWED_MIME,
@@ -44,14 +52,26 @@ DEFAULT_OPTIONS = {
 }
 
 
+class CreateIdentityBody(BaseModel):
+    display_name: str = Field(min_length=1, max_length=120)
+    relation_label: str = Field(default="", max_length=80)
+    status: str = Field(default="remembered", pattern="^(living|remembered)$")
+    consent: bool = True
+
+
 class AssignSpeakerBody(BaseModel):
     speaker_label: str = Field(min_length=1, max_length=64)
+    voice_profile_id: str | None = Field(default=None, min_length=1, max_length=32)
+    create_identity: CreateIdentityBody | None = None
 
 
 class AcceptSegmentsBody(BaseModel):
     segment_ids: list[str] = Field(default_factory=list)
     speaker_label: str | None = Field(default=None, max_length=64)
     quality: str = Field(default="clean", pattern="^(clean|short|mixed)$")
+    # Target Voice DNA for this import (pool → any profile).
+    voice_profile_id: str | None = Field(default=None, min_length=1, max_length=32)
+    create_identity: CreateIdentityBody | None = None
 
 
 class CompleteBody(BaseModel):
@@ -105,6 +125,27 @@ def _options_dict(job: ExtractJob) -> dict[str, Any]:
     return merged
 
 
+def _assignments_dict(job: ExtractJob) -> dict[str, str]:
+    try:
+        data = json.loads(job.speaker_assignments_json or "{}")
+    except json.JSONDecodeError:
+        return {}
+    if not isinstance(data, dict):
+        return {}
+    out: dict[str, str] = {}
+    for key, value in data.items():
+        if isinstance(key, str) and isinstance(value, str) and key and value:
+            out[key] = value
+    return out
+
+
+def _set_assignment(job: ExtractJob, speaker_label: str, voice_id: str) -> None:
+    mapping = _assignments_dict(job)
+    mapping[speaker_label] = voice_id
+    job.speaker_assignments_json = json.dumps(mapping)
+    job.assigned_speaker_label = speaker_label
+
+
 def _format_duration(ms: int | None) -> str | None:
     if ms is None or ms < 0:
         return None
@@ -114,6 +155,107 @@ def _format_duration(ms: int | None) -> str | None:
         h, m = divmod(m, 60)
         return f"{h}:{m:02d}:{s:02d}"
     return f"{m}:{s:02d}"
+
+
+def _voice_display_label(identity: IdentityProfile) -> str:
+    if identity.relation_label:
+        return f"{identity.display_name} ({identity.relation_label})"
+    return identity.display_name
+
+
+def _subject_kind_for_identity(identity: IdentityProfile) -> str:
+    if identity.linked_user_id:
+        return "self"
+    if identity.status == "remembered":
+        return "heritage"
+    return "person"
+
+
+def _ensure_voice_for_identity(
+    db: Session,
+    *,
+    space_id: str,
+    identity: IdentityProfile,
+    user: User,
+    consent: bool,
+) -> VoiceProfile:
+    existing = (
+        db.query(VoiceProfile)
+        .filter(VoiceProfile.identity_profile_id == identity.id)
+        .one_or_none()
+    )
+    if existing:
+        return existing
+    if not consent:
+        raise HTTPException(status_code=400, detail="Consent is required.")
+    now = datetime.now(timezone.utc)
+    kind = _subject_kind_for_identity(identity)
+    row = VoiceProfile(
+        id=generate(),
+        space_id=space_id,
+        subject_kind=kind,
+        subject_user_id=identity.linked_user_id,
+        identity_profile_id=identity.id,
+        provider="elevenlabs",
+        provider_voice_id=None,
+        status="draft",
+        consent_text=SELF_CONSENT if kind == "self" else HERITAGE_CONSENT,
+        consent_at=now,
+        consented_by_user_id=user.id,
+        error_message="",
+        display_name=_voice_display_label(identity),
+        created_by=user.id,
+        created_at=now,
+        updated_at=now,
+    )
+    db.add(row)
+    db.flush()
+    return row
+
+
+def _resolve_target_voice(
+    db: Session,
+    *,
+    space_id: str,
+    user: User,
+    voice_profile_id: str | None,
+    create_identity: CreateIdentityBody | None,
+) -> VoiceProfile:
+    if voice_profile_id:
+        voice = _get_voice_or_404(db, voice_profile_id)
+        if voice.space_id != space_id:
+            raise HTTPException(status_code=400, detail="Voice DNA không thuộc space này.")
+        if voice.status == "paused":
+            raise HTTPException(status_code=400, detail="Voice đang tạm dừng.")
+        return voice
+
+    if create_identity is None:
+        raise HTTPException(
+            status_code=400,
+            detail="Chọn voice_profile_id hoặc create_identity cho người cần giữ.",
+        )
+
+    now = datetime.now(timezone.utc)
+    identity = IdentityProfile(
+        id=generate(),
+        space_id=space_id,
+        display_name=create_identity.display_name.strip(),
+        relation_label=(create_identity.relation_label or "").strip(),
+        status=create_identity.status,
+        linked_user_id=None,
+        heritage_thread_id=None,
+        created_by=user.id,
+        created_at=now,
+    )
+    db.add(identity)
+    db.flush()
+    return _ensure_voice_for_identity(
+        db,
+        space_id=space_id,
+        identity=identity,
+        user=user,
+        consent=create_identity.consent,
+    )
 
 
 def _segment_payload(row: ExtractSegment) -> dict[str, Any]:
@@ -159,6 +301,7 @@ def _job_payload(
         "error_message": job.error_message or None,
         "artifact_dir": job.artifact_dir or None,
         "options": _options_dict(job),
+        "speaker_assignments": _assignments_dict(job),
         "duration_seconds": job.duration_seconds,
         "device": job.device or None,
         "model": job.model or None,
@@ -203,18 +346,20 @@ async def create_extract_job(
     user: Annotated[User, Depends(get_current_user)],
     db: Annotated[Session, Depends(get_db)],
     file: UploadFile = File(...),
-    voice_profile_id: str = Form(...),
     num_speakers: int = Form(...),
+    voice_profile_id: str | None = Form(default=None),
 ):
+    """Create a shared segment pool from one tape (not locked to one Voice DNA)."""
     require_steward_or_owner(db, space_id=space_id, user=user)
     if num_speakers < 1 or num_speakers > 20:
         raise HTTPException(status_code=400, detail="num_speakers must be 1–20.")
 
-    voice = _get_voice_or_404(db, voice_profile_id)
-    if voice.space_id != space_id:
-        raise HTTPException(status_code=400, detail="Voice DNA không thuộc space này.")
-    if voice.status == "paused":
-        raise HTTPException(status_code=400, detail="Voice đang tạm dừng.")
+    hint_voice_id: str | None = None
+    if voice_profile_id:
+        voice = _get_voice_or_404(db, voice_profile_id.strip())
+        if voice.space_id != space_id:
+            raise HTTPException(status_code=400, detail="Voice DNA không thuộc space này.")
+        hint_voice_id = voice.id
 
     job_id = generate()
     now = datetime.now(timezone.utc)
@@ -224,7 +369,7 @@ async def create_extract_job(
     job = ExtractJob(
         id=job_id,
         space_id=space_id,
-        voice_profile_id=voice.id,
+        voice_profile_id=hint_voice_id,
         source_kind="upload",
         input_path=input_path,
         input_mime=mime,
@@ -233,6 +378,7 @@ async def create_extract_job(
         status="queued",
         artifact_dir=artifact_dir,
         options_json=json.dumps(DEFAULT_OPTIONS),
+        speaker_assignments_json="{}",
         created_by=user.id,
         created_at=now,
     )
@@ -252,7 +398,16 @@ def list_extract_jobs(
     require_steward_or_owner(db, space_id=space_id, user=user)
     q = db.query(ExtractJob).filter(ExtractJob.space_id == space_id)
     if voice_id:
-        q = q.filter(ExtractJob.voice_profile_id == voice_id)
+        # Context hint OR speaker assignment targets this voice.
+        jobs = q.order_by(ExtractJob.created_at.desc()).limit(100).all()
+        filtered = []
+        for job in jobs:
+            if job.voice_profile_id == voice_id:
+                filtered.append(job)
+                continue
+            if voice_id in _assignments_dict(job).values():
+                filtered.append(job)
+        return {"jobs": [_job_payload(j) for j in filtered[:50]]}
     jobs = q.order_by(ExtractJob.created_at.desc()).limit(50).all()
     return {"jobs": [_job_payload(j) for j in jobs]}
 
@@ -292,7 +447,9 @@ def list_extract_segments(
     if speaker_label:
         q = q.filter(ExtractSegment.speaker_label == speaker_label)
     segments = q.order_by(
-        ExtractSegment.speaker_label.asc(), ExtractSegment.t_start.asc()
+        ExtractSegment.duration_ms.desc(),
+        ExtractSegment.speaker_label.asc(),
+        ExtractSegment.t_start.asc(),
     ).all()
     return {"segments": [_segment_payload(s) for s in segments]}
 
@@ -305,6 +462,7 @@ def assign_speaker(
     user: Annotated[User, Depends(get_current_user)],
     db: Annotated[Session, Depends(get_db)],
 ):
+    """Map SPEAKER_xx → an existing or newly created Voice DNA in the pool."""
     require_steward_or_owner(db, space_id=space_id, user=user)
     job = _get_job_or_404(db, space_id, job_id)
     label = body.speaker_label.strip()
@@ -318,10 +476,25 @@ def assign_speaker(
     )
     if not exists:
         raise HTTPException(status_code=400, detail="Speaker label không có trong job.")
-    job.assigned_speaker_label = label
+
+    voice = _resolve_target_voice(
+        db,
+        space_id=space_id,
+        user=user,
+        voice_profile_id=body.voice_profile_id,
+        create_identity=body.create_identity,
+    )
+    _set_assignment(job, label, voice.id)
     db.commit()
     db.refresh(job)
-    return _job_payload(job)
+    payload = _job_payload(job)
+    payload["assigned_voice"] = {
+        "id": voice.id,
+        "display_name": voice.display_name,
+        "subject_kind": voice.subject_kind,
+        "identity_profile_id": voice.identity_profile_id,
+    }
+    return payload
 
 
 @router.post("/api/spaces/{space_id}/extract/jobs/{job_id}/segments/accept")
@@ -332,7 +505,7 @@ def accept_segments(
     user: Annotated[User, Depends(get_current_user)],
     db: Annotated[Session, Depends(get_db)],
 ):
-    """Import reviewed exclusive clips into the job's Voice DNA as VoiceSample."""
+    """Import selected pool clips into any Voice DNA (existing or created now)."""
     require_steward_or_owner(db, space_id=space_id, user=user)
     job = _get_job_or_404(db, space_id, job_id)
     if job.status not in ("needs_review", "done"):
@@ -341,7 +514,20 @@ def accept_segments(
             detail="Job chưa sẵn sàng review (cần needs_review).",
         )
 
-    voice = _get_voice_or_404(db, job.voice_profile_id)
+    speaker = (body.speaker_label or job.assigned_speaker_label or "").strip()
+    assignments = _assignments_dict(job)
+    target_voice_id = body.voice_profile_id
+    if not target_voice_id and not body.create_identity and speaker:
+        target_voice_id = assignments.get(speaker)
+
+    voice = _resolve_target_voice(
+        db,
+        space_id=space_id,
+        user=user,
+        voice_profile_id=target_voice_id,
+        create_identity=body.create_identity,
+    )
+
     q = db.query(ExtractSegment).filter(
         ExtractSegment.job_id == job.id,
         ExtractSegment.review_status == "pending",
@@ -349,7 +535,6 @@ def accept_segments(
     if body.segment_ids:
         q = q.filter(ExtractSegment.id.in_(body.segment_ids))
     else:
-        speaker = (body.speaker_label or job.assigned_speaker_label or "").strip()
         if not speaker:
             raise HTTPException(
                 status_code=400,
@@ -360,9 +545,13 @@ def accept_segments(
             ExtractSegment.quality == body.quality,
         )
 
-    rows = q.order_by(ExtractSegment.t_start.asc()).all()
+    rows = q.order_by(ExtractSegment.duration_ms.desc(), ExtractSegment.t_start.asc()).all()
     if not rows:
         raise HTTPException(status_code=400, detail="Không có segment phù hợp để import.")
+
+    # Keep speaker→voice map in sync with this import.
+    if rows[0].speaker_label:
+        _set_assignment(job, rows[0].speaker_label, voice.id)
 
     now = datetime.now(timezone.utc)
     created: list[VoiceSample] = []
@@ -414,13 +603,13 @@ def accept_segments(
         voice.status = "draft"
         voice.provider_voice_id = None
         voice.error_message = ""
-    if not job.assigned_speaker_label and created[0].speaker_label:
-        job.assigned_speaker_label = created[0].speaker_label
     db.commit()
 
     return {
         "imported": len(created),
         "sample_ids": [s.id for s in created],
+        "voice_profile_id": voice.id,
+        "voice_display_name": voice.display_name,
         "job": _job_payload(job),
         "total_clean_seconds": round(
             sum((s.duration_ms or 0) for s in created) / 1000.0, 2
@@ -483,10 +672,7 @@ def claim_extract_job(
     if not job:
         return Response(status_code=204)
 
-    # Only one running job globally for local CPU worker.
-    running = (
-        db.query(ExtractJob).filter(ExtractJob.status == "running").first()
-    )
+    running = db.query(ExtractJob).filter(ExtractJob.status == "running").first()
     if running:
         return Response(status_code=204)
 
@@ -525,7 +711,6 @@ def complete_extract_job(
         raise HTTPException(status_code=400, detail="Job is not running.")
 
     now = datetime.now(timezone.utc)
-    # Replace prior segments if worker retries.
     db.query(ExtractSegment).filter(ExtractSegment.job_id == job.id).delete()
 
     for row in body.segments:
@@ -582,7 +767,7 @@ def complete_extract_job(
     segments = (
         db.query(ExtractSegment)
         .filter(ExtractSegment.job_id == job.id)
-        .order_by(ExtractSegment.t_start.asc())
+        .order_by(ExtractSegment.duration_ms.desc(), ExtractSegment.t_start.asc())
         .all()
     )
     return _job_payload(job, segments=segments, include_segments=True)

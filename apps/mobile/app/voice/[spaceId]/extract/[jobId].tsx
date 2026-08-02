@@ -1,4 +1,4 @@
-import { ExtractJob, ExtractSegment } from "@forever/api-client";
+import { ExtractJob, ExtractSegment, VoiceProfile } from "@forever/api-client";
 import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
@@ -9,6 +9,7 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   View,
 } from "react-native";
 
@@ -24,7 +25,7 @@ function statusLabel(status: string): string {
     case "running":
       return "Đang tách giọng…";
     case "needs_review":
-      return "Sẵn sàng duyệt";
+      return "Pool sẵn sàng duyệt";
     case "failed":
       return "Lỗi";
     case "done":
@@ -46,15 +47,23 @@ export default function ExtractJobScreen() {
 
   const [job, setJob] = useState<ExtractJob | null>(null);
   const [segments, setSegments] = useState<ExtractSegment[]>([]);
+  const [voices, setVoices] = useState<VoiceProfile[]>([]);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [selectedSpeaker, setSelectedSpeaker] = useState<string | null>(null);
+  const [targetVoiceId, setTargetVoiceId] = useState<string | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [playingId, setPlayingId] = useState<string | null>(null);
+  const [showCreate, setShowCreate] = useState(false);
+  const [newName, setNewName] = useState("");
+  const [newRelation, setNewRelation] = useState("");
+  const [newStatus, setNewStatus] = useState<"living" | "remembered">(
+    "remembered",
+  );
   const statusRef = useRef<string | null>(null);
 
   useLayoutEffect(() => {
-    navigation.setOptions({ title: "Duyệt đoạn tách" });
+    navigation.setOptions({ title: "Pool tách giọng" });
   }, [navigation]);
 
   useEffect(() => {
@@ -66,10 +75,13 @@ export default function ExtractJobScreen() {
   const load = useCallback(async () => {
     if (!spaceId || !jobId) return;
     try {
-      const j = await api.getExtractJob(spaceId, jobId);
+      const [j, v] = await Promise.all([
+        api.getExtractJob(spaceId, jobId),
+        api.listVoices(spaceId),
+      ]);
       statusRef.current = j.status;
       setJob(j);
-      setSelectedSpeaker((prev) => prev ?? j.assigned_speaker_label ?? null);
+      setVoices(v.voices);
       if (j.status === "needs_review" || j.status === "done") {
         const res = await api.listExtractSegments(spaceId, jobId, {
           quality: "all",
@@ -104,6 +116,17 @@ export default function ExtractJobScreen() {
     }, [load]),
   );
 
+  // When speaker changes, prefer existing assignment / hub voiceId.
+  useEffect(() => {
+    if (!selectedSpeaker || !job) return;
+    const mapped = job.speaker_assignments?.[selectedSpeaker];
+    if (mapped) {
+      setTargetVoiceId(mapped);
+      return;
+    }
+    if (voiceId) setTargetVoiceId(voiceId);
+  }, [job, selectedSpeaker, voiceId]);
+
   const speakers = useMemo(() => {
     const map = new Map<string, { clean: number; totalMs: number }>();
     for (const s of segments) {
@@ -114,15 +137,17 @@ export default function ExtractJobScreen() {
       }
       map.set(s.speaker_label, cur);
     }
-    return [...map.entries()].sort((a, b) => a[0].localeCompare(b[0]));
+    return [...map.entries()].sort((a, b) => b[1].totalMs - a[1].totalMs);
   }, [segments]);
 
   const visible = useMemo(() => {
-    return segments.filter(
-      (s) =>
-        s.quality === "clean" &&
-        (!selectedSpeaker || s.speaker_label === selectedSpeaker),
-    );
+    return segments
+      .filter(
+        (s) =>
+          s.quality === "clean" &&
+          (!selectedSpeaker || s.speaker_label === selectedSpeaker),
+      )
+      .sort((a, b) => (b.duration_ms || 0) - (a.duration_ms || 0));
   }, [segments, selectedSpeaker]);
 
   const totalSelectedSec = useMemo(() => {
@@ -132,6 +157,13 @@ export default function ExtractJobScreen() {
     }
     return Math.round(ms / 100) / 10;
   }, [selectedIds, visible]);
+
+  const assignedLabel = useMemo(() => {
+    if (!selectedSpeaker || !job?.speaker_assignments) return null;
+    const vid = job.speaker_assignments[selectedSpeaker];
+    if (!vid) return null;
+    return voices.find((v) => v.id === vid)?.display_name ?? vid;
+  }, [job, selectedSpeaker, voices]);
 
   const toggleSelect = (id: string) => {
     setSelectedIds((prev) => {
@@ -175,9 +207,17 @@ export default function ExtractJobScreen() {
     }
   };
 
-  const assignAndImport = async () => {
+  const importSelected = async (opts?: {
+    voiceProfileId?: string;
+    createIdentity?: {
+      display_name: string;
+      relation_label?: string;
+      status?: "living" | "remembered";
+      consent?: boolean;
+    };
+  }) => {
     if (!spaceId || !jobId || !selectedSpeaker) {
-      Alert.alert("Chọn speaker", "Chọn SPEAKER đúng người cần giữ.");
+      Alert.alert("Chọn speaker", "Chọn SPEAKER cần giữ.");
       return;
     }
     const ids = [...selectedIds];
@@ -188,23 +228,41 @@ export default function ExtractJobScreen() {
       );
       return;
     }
+    const voiceProfileId = opts?.voiceProfileId ?? targetVoiceId ?? undefined;
+    if (!voiceProfileId && !opts?.createIdentity) {
+      Alert.alert(
+        "Chọn hồ sơ đích",
+        "Chọn Voice DNA có sẵn hoặc tạo hồ sơ mới.",
+      );
+      return;
+    }
     setBusy(true);
     try {
-      await api.assignExtractSpeaker(spaceId, jobId, selectedSpeaker);
+      if (voiceProfileId && !opts?.createIdentity) {
+        await api.assignExtractSpeaker(spaceId, jobId, {
+          speakerLabel: selectedSpeaker,
+          voiceProfileId,
+        });
+      }
       const res = await api.acceptExtractSegments(spaceId, jobId, {
         segmentIds: ids,
+        speakerLabel: selectedSpeaker,
+        voiceProfileId,
+        createIdentity: opts?.createIdentity,
       });
       await load();
       setSelectedIds(new Set());
+      setShowCreate(false);
+      setTargetVoiceId(res.voice_profile_id);
       Alert.alert(
-        "Đã import",
-        `${res.imported} đoạn (~${res.total_clean_seconds}s) vào Voice DNA.\nNghe lại ở Mẫu đã ghi, rồi Clone khi đủ.`,
+        "Đã import vào pool → Voice DNA",
+        `${res.imported} đoạn (~${res.total_clean_seconds}s) → ${res.voice_display_name}.\nCó thể chọn SPEAKER khác và import tiếp.`,
         [
           {
             text: "Xem mẫu",
             onPress: () =>
               router.push(
-                `/voice/${spaceId}/samples?voiceId=${voiceId || job?.voice_profile_id}` as never,
+                `/voice/${spaceId}/samples?voiceId=${res.voice_profile_id}` as never,
               ),
           },
           { text: "Tiếp tục duyệt", style: "cancel" },
@@ -218,6 +276,21 @@ export default function ExtractJobScreen() {
     } finally {
       setBusy(false);
     }
+  };
+
+  const createAndImport = async () => {
+    if (!newName.trim()) {
+      Alert.alert("Thiếu tên", "Nhập tên người cần giữ.");
+      return;
+    }
+    await importSelected({
+      createIdentity: {
+        display_name: newName.trim(),
+        relation_label: newRelation.trim(),
+        status: newStatus,
+        consent: true,
+      },
+    });
   };
 
   if (loading && !job) {
@@ -239,7 +312,11 @@ export default function ExtractJobScreen() {
   const reviewing = job.status === "needs_review" || job.status === "done";
 
   return (
-    <ScrollView style={styles.screen} contentContainerStyle={styles.root}>
+    <ScrollView
+      style={styles.screen}
+      contentContainerStyle={styles.root}
+      keyboardShouldPersistTaps="handled"
+    >
       <Text style={styles.title}>{statusLabel(job.status)}</Text>
       <Text style={styles.meta}>
         {job.original_filename || "Băng ghi"} · {job.num_speakers} người
@@ -251,8 +328,8 @@ export default function ExtractJobScreen() {
         <View style={styles.info}>
           <ActivityIndicator color={colors.brand} />
           <Text style={styles.body}>
-            Worker local đang chạy pipeline exclusive-only. Giữ màn này hoặc quay
-            lại sau.
+            Worker đang đổ vào pool chung. Sau đó bạn gán từng SPEAKER sang các
+            Voice DNA riêng.
           </Text>
         </View>
       ) : null}
@@ -262,15 +339,19 @@ export default function ExtractJobScreen() {
 
       {reviewing ? (
         <>
-          <Text style={styles.kicker}>Chọn đúng người</Text>
+          <Text style={styles.kicker}>1. Chọn SPEAKER (dài → ngắn)</Text>
           <Text style={styles.body}>
-            Nghe vài đoạn mỗi SPEAKER. Chọn người cần (vd. bố), tick đoạn sạch,
-            rồi import vào Voice DNA.
+            Nghe để biết ai. Không quan tâm → bỏ. Quan tâm → chọn hồ sơ đích rồi
+            import.
           </Text>
           <View style={styles.chips}>
             {speakers.map(([label, info]) => {
               const active = selectedSpeaker === label;
               const sec = Math.round(info.totalMs / 100) / 10;
+              const mapped = job.speaker_assignments?.[label];
+              const mappedName = mapped
+                ? voices.find((v) => v.id === mapped)?.display_name
+                : null;
               return (
                 <Pressable
                   key={label}
@@ -278,6 +359,7 @@ export default function ExtractJobScreen() {
                   onPress={() => {
                     setSelectedSpeaker(label);
                     setSelectedIds(new Set());
+                    setShowCreate(false);
                   }}
                 >
                   <Text
@@ -289,11 +371,106 @@ export default function ExtractJobScreen() {
                     style={[styles.chipSub, active && styles.chipTextActive]}
                   >
                     {info.clean} clean · {sec}s
+                    {mappedName ? ` → ${mappedName}` : ""}
                   </Text>
                 </Pressable>
               );
             })}
           </View>
+
+          <Text style={styles.kicker}>2. Hồ sơ đích (Voice DNA)</Text>
+          {assignedLabel ? (
+            <Text style={styles.meta}>
+              SPEAKER này đã gán: {assignedLabel}
+            </Text>
+          ) : null}
+          <View style={styles.chips}>
+            {voices.map((v) => {
+              const active = targetVoiceId === v.id && !showCreate;
+              return (
+                <Pressable
+                  key={v.id}
+                  style={[styles.chip, active && styles.chipActive]}
+                  onPress={() => {
+                    setTargetVoiceId(v.id);
+                    setShowCreate(false);
+                  }}
+                >
+                  <Text
+                    style={[styles.chipText, active && styles.chipTextActive]}
+                  >
+                    {v.display_name || v.id}
+                  </Text>
+                </Pressable>
+              );
+            })}
+            <Pressable
+              style={[styles.chip, showCreate && styles.chipActive]}
+              onPress={() => {
+                setShowCreate(true);
+                setTargetVoiceId(null);
+              }}
+            >
+              <Text
+                style={[styles.chipText, showCreate && styles.chipTextActive]}
+              >
+                + Tạo hồ sơ
+              </Text>
+            </Pressable>
+          </View>
+
+          {showCreate ? (
+            <View style={styles.createBox}>
+              <TextInput
+                style={styles.input}
+                value={newName}
+                onChangeText={setNewName}
+                placeholder="Tên (vd. Hùng)"
+                placeholderTextColor={colors.inkSoft}
+              />
+              <TextInput
+                style={styles.input}
+                value={newRelation}
+                onChangeText={setNewRelation}
+                placeholder="Quan hệ (vd. Bố)"
+                placeholderTextColor={colors.inkSoft}
+              />
+              <View style={styles.chips}>
+                <Pressable
+                  style={[
+                    styles.chip,
+                    newStatus === "living" && styles.chipActive,
+                  ]}
+                  onPress={() => setNewStatus("living")}
+                >
+                  <Text
+                    style={[
+                      styles.chipText,
+                      newStatus === "living" && styles.chipTextActive,
+                    ]}
+                  >
+                    Đang sống
+                  </Text>
+                </Pressable>
+                <Pressable
+                  style={[
+                    styles.chip,
+                    newStatus === "remembered" && styles.chipActive,
+                  ]}
+                  onPress={() => setNewStatus("remembered")}
+                >
+                  <Text
+                    style={[
+                      styles.chipText,
+                      newStatus === "remembered" && styles.chipTextActive,
+                    ]}
+                  >
+                    Ký ức
+                  </Text>
+                </Pressable>
+              </View>
+            </View>
+          ) : null}
 
           <View style={styles.row}>
             <Pressable onPress={selectAllPending} hitSlop={8}>
@@ -329,7 +506,6 @@ export default function ExtractJobScreen() {
                       </Text>
                       <Text style={styles.itemSub}>
                         {seg.quality}
-                        {seg.purity != null ? ` · purity ${seg.purity}` : ""}
                         {accepted ? " · đã import" : ""}
                       </Text>
                     </View>
@@ -348,8 +524,7 @@ export default function ExtractJobScreen() {
             })}
             {!visible.length ? (
               <Text style={styles.body}>
-                Chưa có đoạn clean cho speaker này. Thử băng khác hoặc nới
-                min_duration.
+                Chưa có đoạn clean cho speaker này.
               </Text>
             ) : null}
           </View>
@@ -357,13 +532,20 @@ export default function ExtractJobScreen() {
           <Pressable
             style={[
               styles.btn,
-              (busy || !selectedIds.size) && styles.disabled,
+              (busy || !selectedIds.size || (!targetVoiceId && !showCreate)) &&
+                styles.disabled,
             ]}
-            onPress={assignAndImport}
-            disabled={busy || !selectedIds.size}
+            onPress={() =>
+              showCreate ? createAndImport() : importSelected()
+            }
+            disabled={
+              busy || !selectedIds.size || (!targetVoiceId && !showCreate)
+            }
           >
             <Text style={styles.btnText}>
-              Import vào Voice DNA ({selectedIds.size})
+              {showCreate
+                ? `Tạo hồ sơ & import (${selectedIds.size})`
+                : `Import vào Voice DNA (${selectedIds.size})`}
             </Text>
           </Pressable>
 
@@ -386,7 +568,7 @@ export default function ExtractJobScreen() {
                 }
               }}
             >
-              <Text style={styles.btnGhostText}>Đánh dấu xong job</Text>
+              <Text style={styles.btnGhostText}>Đánh dấu xong pool</Text>
             </Pressable>
           ) : null}
         </>
@@ -434,12 +616,23 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     paddingHorizontal: 12,
     paddingVertical: 8,
-    minWidth: 110,
+    minWidth: 100,
   },
   chipActive: { backgroundColor: colors.brand, borderColor: colors.brand },
   chipText: { fontWeight: "700", color: colors.ink },
   chipSub: { fontSize: 12, color: colors.inkSoft, marginTop: 2 },
   chipTextActive: { color: "#fff" },
+  createBox: { gap: 8 },
+  input: {
+    borderWidth: 1,
+    borderColor: colors.line,
+    backgroundColor: colors.card,
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    fontSize: 16,
+    color: colors.ink,
+  },
   row: {
     flexDirection: "row",
     justifyContent: "space-between",
