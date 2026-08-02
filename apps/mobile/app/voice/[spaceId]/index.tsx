@@ -21,20 +21,9 @@ import {
 import { useAuth } from "@/lib/auth";
 import { colors, fonts } from "@/lib/theme";
 
-function statusVi(status: string): string {
-  switch (status) {
-    case "ready":
-      return "Sẵn sàng";
-    case "draft":
-      return "Nháp";
-    case "failed":
-      return "Lỗi clone";
-    case "paused":
-      return "Tạm dừng";
-    default:
-      return status;
-  }
-}
+type WorkflowStep = 0 | 1 | 2 | 3;
+
+const STEP_LABELS = ["Thu thập", "Duyệt", "Clone", "Nói"] as const;
 
 function extractJobStatusVi(status: string): string {
   switch (status) {
@@ -76,6 +65,7 @@ export default function VoiceDnaScreen() {
   const [showAdd, setShowAdd] = useState(false);
   const [showEdit, setShowEdit] = useState(false);
   const [extractJobs, setExtractJobs] = useState<ExtractJob[]>([]);
+  const [showTools, setShowTools] = useState(false);
   const loadGen = useRef(0);
   const extractPollRef = useRef(false);
 
@@ -181,60 +171,79 @@ export default function VoiceDnaScreen() {
 
   const chipLabel = (item: IdentityProfile) => {
     if (item.linked_user_id === user?.id) return "Tôi";
-    const name = item.relation_label || item.display_name;
-    if (item.status === "remembered") return `${name} · Ký ức`;
-    return name;
+    const base = item.display_name;
+    if (item.relation_label && item.relation_label !== base) {
+      return item.status === "remembered"
+        ? `${base} · ${item.relation_label}`
+        : `${base} · ${item.relation_label}`;
+    }
+    if (item.status === "remembered") return `${base} · Ký ức`;
+    return base;
   };
+
+  const displayIdentities = identities;
 
   const editingLinkedSelf =
     showEdit && selectedIdentity?.linked_user_id === user?.id;
 
-  const personTitle = selectedIdentity
-    ? selectedIdentity.linked_user_id === user?.id
-      ? "Tôi"
-      : selectedIdentity.relation_label
-        ? `${selectedIdentity.display_name} · ${selectedIdentity.relation_label}`
-        : selectedIdentity.display_name
-    : "Chưa chọn hồ sơ";
-
   const isHeritageProfile = selectedIdentity?.status === "remembered";
+  const personShort = selectedIdentity
+    ? selectedIdentity.linked_user_id === user?.id
+      ? "bạn"
+      : selectedIdentity.display_name
+    : "người này";
 
   const processedCount = activeVoice?.processed_count ?? 0;
   const unprocessedCount = activeVoice?.unprocessed_count ?? 0;
   const processedDurationMs = activeVoice?.processed_duration_ms ?? 0;
 
-  const nextStep = useMemo(() => {
-    if (!selectedIdentity) return "Thêm hoặc chọn hồ sơ người.";
-    if (!activeVoice) {
-      return isHeritageProfile
-        ? "Tạo Voice DNA cho hồ sơ Ký ức để bắt đầu tải mẫu giọng."
-        : "Tạo Voice DNA cho hồ sơ này để bắt đầu ghi mẫu.";
-    }
-    if (processedCount < 1 && unprocessedCount < 1) {
-      return isHeritageProfile
-        ? "Tiếp theo: tải ít nhất một file audio."
-        : "Tiếp theo: ghi ít nhất một mẫu giọng.";
-    }
-    if (processedCount < 1 && unprocessedCount > 0) {
-      return `Có ${unprocessedCount} mẫu chưa duyệt — ghép 2+ đoạn hoặc chọn 1–3 đoạn sạch rồi Duyệt.`;
-    }
-    if (processedCount > 3) {
-      return "Quá nhiều mẫu sẵn clone — archive bớt, giữ tối đa 3 mẫu (~1–2 phút).";
-    }
-    if (activeVoice.status !== "ready") {
-      return "Clone để tạo giọng ElevenLabs — hoặc dùng bản clone có sẵn cho TTS.";
-    }
-    return "Có thể tạo giọng từ text. Clone lại nếu vừa đổi mẫu.";
-  }, [selectedIdentity, activeVoice, isHeritageProfile, processedCount, unprocessedCount]);
+  const workflowStep = useMemo((): WorkflowStep => {
+    if (!activeVoice) return 0;
+    const totalSamples = unprocessedCount + processedCount;
+    if (totalSamples < 1) return 0;
+    if (processedCount < 1) return 1;
+    if (activeVoice.status !== "ready") return 2;
+    return 3;
+  }, [activeVoice, unprocessedCount, processedCount]);
+
+  const stepDone = useMemo(
+    () => [
+      !!activeVoice && unprocessedCount + processedCount > 0,
+      processedCount >= 1,
+      activeVoice?.status === "ready",
+      activeVoice?.status === "ready",
+    ],
+    [activeVoice, unprocessedCount, processedCount],
+  );
 
   const statusSummary = useMemo(() => {
-    if (!activeVoice) return "Chưa có Voice DNA";
-    const parts: string[] = [statusVi(activeVoice.status)];
-    if (unprocessedCount > 0) parts.push(`${unprocessedCount} chưa xử lý`);
-    if (processedCount > 0) parts.push(`${processedCount} sẵn clone`);
-    else if (activeVoice.sample_count > 0) parts.push(`${activeVoice.sample_count} mẫu`);
-    return parts.join(" · ");
-  }, [activeVoice, unprocessedCount, processedCount]);
+    if (!selectedIdentity) return "Chọn hồ sơ để bắt đầu";
+    if (!activeVoice) return "Chưa tạo Voice DNA";
+    if (processedCount < 1 && unprocessedCount < 1) {
+      return isHeritageProfile
+        ? "Chưa có mẫu — tải hoặc ghi âm cũ"
+        : "Chưa có mẫu — ghi thử một đoạn";
+    }
+    if (processedCount < 1 && unprocessedCount > 0) {
+      return `${unprocessedCount} mẫu chờ duyệt`;
+    }
+    if (activeVoice.status === "failed") {
+      return `Clone lần trước thất bại · ${processedCount} mẫu sẵn sàng`;
+    }
+    if (activeVoice.status === "ready") {
+      return `Giọng sẵn sàng · ${processedCount} mẫu`;
+    }
+    if (processedCount > 3) {
+      return `${processedCount} mẫu — giữ tối đa 3 trước khi clone`;
+    }
+    return `${processedCount} mẫu sẵn sàng — chưa clone`;
+  }, [
+    selectedIdentity,
+    activeVoice,
+    isHeritageProfile,
+    unprocessedCount,
+    processedCount,
+  ]);
 
   const createVoice = async () => {
     if (!spaceId || !selectedIdentity || !consent || busy) return;
@@ -388,8 +397,7 @@ export default function VoiceDnaScreen() {
   const go = (path: string) => {
     if (!spaceId) return;
     if (path === "renders") {
-      const q = activeVoice ? `?voiceId=${activeVoice.id}` : "";
-      router.push(`/voice/${spaceId}/renders${q}` as never);
+      router.push(`/voice/${spaceId}/renders` as never);
       return;
     }
     if (path === "clones") {
@@ -408,6 +416,109 @@ export default function VoiceDnaScreen() {
     router.push(`/voice/${spaceId}/${path}?voiceId=${activeVoice.id}` as never);
   };
 
+  const goSamples = (stage: "unprocessed" | "processed" = "unprocessed") => {
+    if (!spaceId || !activeVoice) return;
+    router.push(
+      `/voice/${spaceId}/samples?voiceId=${activeVoice.id}&stage=${stage}` as never,
+    );
+  };
+
+  const ready = activeVoice?.status === "ready";
+  const cloneFailed = activeVoice?.status === "failed";
+  const canUseTts = !!activeVoice;
+  const canClone =
+    !!activeVoice &&
+    processedCount >= 1 &&
+    processedCount <= 3 &&
+    processedDurationMs <= 150_000;
+
+  const primaryAction = useMemo(() => {
+    if (!selectedIdentity) return null;
+    if (!activeVoice) {
+      return {
+        label: "Tạo Voice DNA",
+        subtext: isHeritageProfile
+          ? `Bắt đầu thu giọng ký ức cho ${personShort}`
+          : `Bắt đầu thu giọng cho ${personShort}`,
+        kind: "create" as const,
+      };
+    }
+    if (processedCount < 1 && unprocessedCount < 1) {
+      return {
+        label: isHeritageProfile ? "Tải file audio" : "Ghi mẫu giọng",
+        subtext: isHeritageProfile
+          ? "Chọn ghi âm cũ từ điện thoại hoặc máy tính"
+          : "Đọc theo đoạn AI gợi ý — khoảng 30 giây",
+        onPress: () => go(isHeritageProfile ? "upload" : "record"),
+        kind: "nav" as const,
+      };
+    }
+    if (processedCount < 1 && unprocessedCount > 0) {
+      return {
+        label: "Duyệt mẫu",
+        subtext: `${unprocessedCount} đoạn chờ — chọn 1–3 đoạn sạch để clone`,
+        onPress: () => goSamples("unprocessed"),
+        kind: "nav" as const,
+      };
+    }
+    if (processedCount > 3) {
+      return {
+        label: "Giảm số mẫu",
+        subtext: "Giữ tối đa 3 mẫu (~1–2 phút) trước khi clone",
+        onPress: () => goSamples("processed"),
+        kind: "nav" as const,
+      };
+    }
+    if (!ready) {
+      return {
+        label: cloneFailed ? "Thử clone lại" : "Clone giọng",
+        subtext: cloneFailed
+          ? `Lần trước không thành công · ${processedCount} mẫu sẵn sàng`
+          : `${processedCount} mẫu sẵn sàng — tạo bản giọng AI`,
+        onPress: clone,
+        disabled: !canClone || busy,
+        kind: "clone" as const,
+      };
+    }
+    return {
+      label: "Tạo câu nói",
+      subtext: `Nghe thử giọng ${personShort} từ câu chữ`,
+      onPress: () => go("speak"),
+      kind: "nav" as const,
+    };
+  }, [
+    selectedIdentity,
+    activeVoice,
+    isHeritageProfile,
+    personShort,
+    processedCount,
+    unprocessedCount,
+    ready,
+    cloneFailed,
+    canClone,
+    busy,
+  ]);
+
+  const goStep = (step: WorkflowStep) => {
+    if (!activeVoice) return;
+    switch (step) {
+      case 0:
+        go(isHeritageProfile ? "upload" : "record");
+        break;
+      case 1:
+        goSamples("unprocessed");
+        break;
+      case 2:
+        if (canClone && !ready) clone();
+        else if (ready) go("clones");
+        else goSamples("processed");
+        break;
+      case 3:
+        go("speak");
+        break;
+    }
+  };
+
   if (loading && identities.length === 0) {
     return (
       <View style={styles.center}>
@@ -416,21 +527,11 @@ export default function VoiceDnaScreen() {
     );
   }
 
-  const ready = activeVoice?.status === "ready";
-  const canUseTts = !!activeVoice;
-  const canClone =
-    !!activeVoice &&
-    processedCount >= 1 &&
-    processedCount <= 3 &&
-    processedDurationMs <= 150_000;
-
   return (
     <View style={styles.screen}>
       <View style={styles.sticky}>
         <View style={styles.stickyTop}>
-          <Text style={styles.personTitle} numberOfLines={1}>
-            {personTitle}
-          </Text>
+          <Text style={styles.stickyKicker}>Voice DNA</Text>
           <View style={styles.stickyLinks}>
             {canManage ? (
               <Pressable
@@ -450,20 +551,20 @@ export default function VoiceDnaScreen() {
             ) : (
               <Text style={styles.linkMuted}>Chỉ xem</Text>
             )}
-            <Pressable
-              onPress={() => spaceId && router.push(`/settings/${spaceId}`)}
-              hitSlop={8}
-            >
-              <Text style={styles.linkMuted}>
-                Key {settings?.elevenlabs_api_key_set ? "OK" : "thiếu"}
-              </Text>
-            </Pressable>
+            {canManage && !settings?.elevenlabs_api_key_set ? (
+              <Pressable
+                onPress={() => spaceId && router.push(`/settings/${spaceId}`)}
+                hitSlop={8}
+              >
+                <Text style={styles.linkWarn}>Thiếu API key</Text>
+              </Pressable>
+            ) : null}
           </View>
         </View>
 
-        {identities.length ? (
+        {displayIdentities.length ? (
           <View style={styles.chipsWrap}>
-            {identities.map((item) => {
+            {displayIdentities.map((item) => {
               const active = selectedIdentityId === item.id;
               return (
                 <Pressable
@@ -503,13 +604,64 @@ export default function VoiceDnaScreen() {
           </Text>
         )}
 
+        {activeVoice ? (
+          <View style={styles.stepper}>
+            {STEP_LABELS.map((label, idx) => {
+              const step = idx as WorkflowStep;
+              const done = stepDone[idx];
+              const active = workflowStep === step;
+              const reachable = !!activeVoice;
+              return (
+                <Pressable
+                  key={label}
+                  style={styles.stepItem}
+                  onPress={() => reachable && goStep(step)}
+                  disabled={!reachable}
+                >
+                  <View
+                    style={[
+                      styles.stepDot,
+                      done && styles.stepDotDone,
+                      active && styles.stepDotActive,
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.stepDotText,
+                        (done || active) && styles.stepDotTextActive,
+                      ]}
+                    >
+                      {done && !active ? "✓" : idx + 1}
+                    </Text>
+                  </View>
+                  <Text
+                    style={[
+                      styles.stepLabel,
+                      active && styles.stepLabelActive,
+                      done && !active && styles.stepLabelDone,
+                    ]}
+                  >
+                    {label}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
+        ) : null}
+
         <View style={styles.statusRow}>
-          <Text style={styles.statusLine}>{statusSummary}</Text>
+          <Text
+            style={[
+              styles.statusLine,
+              cloneFailed && styles.statusWarn,
+            ]}
+          >
+            {statusSummary}
+          </Text>
           {refreshing ? (
             <ActivityIndicator size="small" color={colors.inkSoft} />
           ) : null}
         </View>
-        <Text style={styles.nextStep}>{nextStep}</Text>
       </View>
 
       <ScrollView
@@ -668,8 +820,11 @@ export default function VoiceDnaScreen() {
         ) : null}
 
         {!selectedIdentity ? null : !activeVoice ? (
-          <View style={styles.card}>
-            <Text style={styles.cardTitle}>Tạo Voice DNA</Text>
+          <View style={styles.heroCard}>
+            <Text style={styles.heroTitle}>Bước tiếp theo</Text>
+            <Text style={styles.heroSub}>
+              {primaryAction?.subtext ?? "Tạo Voice DNA để bắt đầu"}
+            </Text>
             <Pressable
               style={styles.checkRow}
               onPress={() => setConsent((v) => !v)}
@@ -691,111 +846,130 @@ export default function VoiceDnaScreen() {
               <Text style={styles.btnText}>Tạo Voice DNA</Text>
             </Pressable>
           </View>
-        ) : (
+        ) : primaryAction ? (
           <>
-            <Text style={styles.kicker}>Thu thập & Clone</Text>
-            {isHeritageProfile ? (
-              <View style={styles.infoCard}>
-                <Text style={styles.infoTitle}>Ký ức — tải file ghi âm</Text>
-                <Text style={styles.infoBody}>
-                  Dùng ghi âm cũ: tin nhắn thoại Zalo, cuộc gọi, video đã trích audio.
-                  Nên làm sạch nhiễu trước khi tải lên.
-                </Text>
-              </View>
-            ) : null}
-            <View style={styles.group}>
-              {isHeritageProfile ? (
-                <Pressable style={styles.action} onPress={() => go("upload")}>
-                  <Text style={styles.actionTitle}>Tải file audio</Text>
-                  <Text style={styles.actionSub}>
-                    Chọn file → nghe thử → lưu mẫu
-                  </Text>
-                </Pressable>
-              ) : (
-                <Pressable style={styles.action} onPress={() => go("record")}>
-                  <Text style={styles.actionTitle}>Ghi mẫu</Text>
-                  <Text style={styles.actionSub}>
-                    AI đoạn đọc → ghi → nghe → lưu
-                  </Text>
+            <View style={styles.heroCard}>
+              <Text style={styles.heroTitle}>Bước tiếp theo</Text>
+              <Text style={styles.heroSub}>{primaryAction.subtext}</Text>
+              {primaryAction.kind === "create" ? null : (
+                <Pressable
+                  style={[
+                    styles.btn,
+                    primaryAction.disabled && styles.disabled,
+                  ]}
+                  onPress={primaryAction.onPress}
+                  disabled={primaryAction.disabled}
+                >
+                  <Text style={styles.btnText}>{primaryAction.label}</Text>
                 </Pressable>
               )}
-              {canManage ? (
+              {activeVoice && unprocessedCount + processedCount > 0 ? (
                 <Pressable
-                  style={styles.action}
-                  onPress={() => {
-                    if (!activeVoice || !spaceId) return;
-                    router.push(
-                      `/voice/${spaceId}/extract/new?voiceId=${activeVoice.id}` as never,
-                    );
-                  }}
+                  style={styles.heroLink}
+                  onPress={() => goSamples("unprocessed")}
+                  hitSlop={6}
                 >
-                  <Text style={styles.actionTitle}>Giọng từ ký ức</Text>
-                  <Text style={styles.actionSub}>
-                    1 băng → pool chung → gán nhiều Voice DNA
+                  <Text style={styles.historyLink}>
+                    Mẫu giọng
+                    {unprocessedCount > 0
+                      ? ` · ${unprocessedCount} chờ duyệt`
+                      : processedCount > 0
+                        ? ` · ${processedCount} sẵn sàng`
+                        : ""}
                   </Text>
                 </Pressable>
               ) : null}
-              <Pressable style={styles.action} onPress={() => go("samples")}>
-                <Text style={styles.actionTitle}>Mẫu giọng</Text>
-                <Text style={styles.actionSub}>
-                  {unprocessedCount > 0
-                    ? `${unprocessedCount} chưa xử lý · duyệt trước khi clone`
-                    : "Nghe lại, duyệt, ghi chú"}
-                </Text>
-              </Pressable>
+            </View>
 
-              <View style={styles.cloneBlock}>
-                <Pressable
-                  style={[styles.btn, (!canClone || busy) && styles.disabled]}
-                  onPress={clone}
-                  disabled={!canClone || busy}
-                >
-                  <Text style={styles.btnText}>
-                    {ready ? "Clone lại" : "Clone Voice DNA"}
+            <Pressable
+              style={styles.toolsToggle}
+              onPress={() => setShowTools((v) => !v)}
+            >
+              <Text style={styles.toolsToggleText}>
+                {showTools ? "Ẩn công cụ khác" : "Công cụ khác"}
+              </Text>
+              <Text style={styles.toolsChevron}>{showTools ? "▾" : "▸"}</Text>
+            </Pressable>
+
+            {showTools ? (
+              <View style={styles.group}>
+                {isHeritageProfile ? (
+                  <>
+                    <Pressable style={styles.action} onPress={() => go("upload")}>
+                      <Text style={styles.actionTitle}>Tải file audio</Text>
+                      <Text style={styles.actionSub}>
+                        Ghi âm cũ từ Zalo, cuộc gọi, video
+                      </Text>
+                    </Pressable>
+                    {canManage ? (
+                      <Pressable
+                        style={styles.action}
+                        onPress={() => {
+                          if (!activeVoice || !spaceId) return;
+                          router.push(
+                            `/voice/${spaceId}/extract/new?voiceId=${activeVoice.id}` as never,
+                          );
+                        }}
+                      >
+                        <Text style={styles.actionTitle}>Tách giọng từ băng dài</Text>
+                        <Text style={styles.actionSub}>
+                          Một băng ghi — gán cho nhiều người trong nhà
+                        </Text>
+                      </Pressable>
+                    ) : null}
+                  </>
+                ) : (
+                  <Pressable style={styles.action} onPress={() => go("record")}>
+                    <Text style={styles.actionTitle}>Ghi mẫu</Text>
+                    <Text style={styles.actionSub}>
+                      Đọc theo đoạn gợi ý, nghe lại rồi lưu
+                    </Text>
+                  </Pressable>
+                )}
+                <Pressable style={styles.action} onPress={() => goSamples()}>
+                  <Text style={styles.actionTitle}>Mẫu giọng</Text>
+                  <Text style={styles.actionSub}>
+                    Nghe lại, duyệt, ghép đoạn
                   </Text>
                 </Pressable>
-                <Text style={styles.cloneHint}>
-                  {!canClone
-                    ? unprocessedCount > 0 && processedCount < 1
-                      ? `${unprocessedCount} mẫu chờ duyệt — vào Mẫu giọng.`
-                      : processedCount > 3
-                        ? "Archive bớt — tối đa 3 mẫu sẵn clone."
-                        : isHeritageProfile
-                          ? "Cần ≥ 1 mẫu đã duyệt trước khi clone."
-                          : "Cần ≥ 1 mẫu đã duyệt trước khi clone."
-                    : ready
-                      ? "Đã clone. Làm lại nếu vừa đổi mẫu."
-                      : `${processedCount} mẫu sẵn clone — bấm Clone Voice DNA.`}
-                </Text>
-                <Pressable onPress={() => go("clones")} hitSlop={6}>
-                  <Text style={styles.historyLink}>Xem lịch sử clone</Text>
+                {ready ? (
+                  <Pressable
+                    style={styles.action}
+                    onPress={clone}
+                    disabled={!canClone || busy}
+                  >
+                    <Text style={styles.actionTitle}>Clone lại</Text>
+                    <Text style={styles.actionSub}>
+                      Làm mới bản giọng sau khi đổi mẫu
+                    </Text>
+                  </Pressable>
+                ) : null}
+                <Pressable style={styles.action} onPress={() => go("clones")}>
+                  <Text style={styles.actionTitle}>Lịch sử clone</Text>
+                  <Text style={styles.actionSub}>
+                    Các lần tạo bản giọng trước
+                  </Text>
+                </Pressable>
+                <Pressable
+                  style={[styles.action, !canUseTts && styles.actionDisabled]}
+                  onPress={() => go("speak")}
+                  disabled={!canUseTts}
+                >
+                  <Text style={styles.actionTitle}>Tạo câu nói</Text>
+                  <Text style={styles.actionSub}>
+                    Nhập text, nghe thử, lưu lại
+                  </Text>
+                </Pressable>
+                <Pressable style={styles.action} onPress={() => go("renders")}>
+                  <Text style={styles.actionTitle}>Bản đã tạo</Text>
+                  <Text style={styles.actionSub}>
+                    Lịch sử các câu nói từ text
+                  </Text>
                 </Pressable>
               </View>
-            </View>
-
-            <Text style={styles.kicker}>Tạo giọng</Text>
-            <View style={styles.group}>
-              <Pressable
-                style={[styles.action, !canUseTts && styles.actionDisabled]}
-                onPress={() => go("speak")}
-                disabled={!canUseTts}
-              >
-                <Text style={styles.actionTitle}>Tạo giọng từ text</Text>
-                <Text style={styles.actionSub}>
-                  {ready
-                    ? "Chọn bản clone + model → nghe thử → lưu"
-                    : "Chọn bản clone ElevenLabs có sẵn → nghe thử → lưu"}
-                </Text>
-              </Pressable>
-              <Pressable style={styles.action} onPress={() => go("renders")}>
-                <Text style={styles.actionTitle}>Bản TTS đã tạo</Text>
-                <Text style={styles.actionSub}>
-                  Lịch sử các lần tạo từ text
-                </Text>
-              </Pressable>
-            </View>
+            ) : null}
           </>
-        )}
+        ) : null}
       </ScrollView>
     </View>
   );
@@ -824,29 +998,104 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     gap: 10,
   },
-  personTitle: {
-    flex: 1,
-    fontFamily: fonts.display,
-    fontSize: 22,
-    color: colors.ink,
+  stickyKicker: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: colors.inkSoft,
+    textTransform: "uppercase",
+    letterSpacing: 0.4,
   },
   stickyLinks: { flexDirection: "row", alignItems: "center", gap: 14 },
   link: { fontSize: 14, fontWeight: "700", color: colors.brand },
   linkMuted: { fontSize: 13, fontWeight: "600", color: colors.inkSoft },
+  linkWarn: { fontSize: 13, fontWeight: "700", color: "#9a4b2e" },
   chipsWrap: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
+  stepper: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    gap: 4,
+    paddingTop: 2,
+  },
+  stepItem: { flex: 1, alignItems: "center", gap: 4 },
+  stepDot: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    borderWidth: 1.5,
+    borderColor: colors.line,
+    backgroundColor: colors.card,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  stepDotActive: {
+    borderColor: colors.brand,
+    backgroundColor: colors.brand,
+  },
+  stepDotDone: {
+    borderColor: colors.brand,
+    backgroundColor: "rgba(45, 74, 62, 0.12)",
+  },
+  stepDotText: {
+    fontSize: 11,
+    fontWeight: "700",
+    color: colors.inkSoft,
+  },
+  stepDotTextActive: { color: "#fff" },
+  stepLabel: {
+    fontSize: 10,
+    fontWeight: "600",
+    color: colors.inkSoft,
+    textAlign: "center",
+  },
+  stepLabelActive: { color: colors.brand, fontWeight: "700" },
+  stepLabelDone: { color: colors.ink },
   statusRow: {
     flexDirection: "row",
     alignItems: "center",
     gap: 8,
   },
   statusLine: {
-    fontSize: 15,
-    fontWeight: "700",
+    flex: 1,
+    fontSize: 14,
+    fontWeight: "600",
+    color: colors.ink,
+    lineHeight: 19,
+  },
+  statusWarn: { color: "#9a4b2e" },
+  heroCard: {
+    backgroundColor: colors.card,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: colors.line,
+    padding: 16,
+    gap: 10,
+  },
+  heroTitle: {
+    fontFamily: fonts.display,
+    fontSize: 20,
     color: colors.ink,
   },
-  nextStep: {
-    fontSize: 13,
-    lineHeight: 18,
+  heroSub: {
+    fontSize: 14,
+    lineHeight: 20,
+    color: colors.inkSoft,
+  },
+  heroLink: { alignSelf: "flex-start" },
+  toolsToggle: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingVertical: 10,
+    paddingHorizontal: 4,
+  },
+  toolsToggleText: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: colors.inkSoft,
+  },
+  toolsChevron: {
+    fontSize: 14,
+    fontWeight: "700",
     color: colors.inkSoft,
   },
   scroll: { flex: 1 },
