@@ -33,73 +33,72 @@ export default function PhilosophyScreen() {
   return (
     <ScrollView contentContainerStyle={styles.root}>
       <Text style={styles.lead}>
-        Forever tồn tại để nối các thế hệ trong một gia đình, một dòng họ — giữ
-        di sản tinh thần và cho người đang sống cảm giác thuộc về một cội nguồn
-        chung.
+        Forever giúp các thế hệ trong một gia đình, một dòng họ nối với nhau —
+        giữ lại những gì quý nhất, và cho người đang sống biết mình thuộc về đâu.
       </Text>
 
       <Section title="Mục đích">
         <P>
-          Con người sợ bị lãng quên. Gia đình cần biết mình đến từ đâu, học hỏi
-          gì từ cha mẹ, ông bà, tổ tiên — rồi truyền tiếp cho con cháu. Forever
-          là phòng khách riêng tư của dòng họ: nơi ký ức được gom lại, không phân
-          tán, không phai theo thời gian.
+          Ai cũng sợ một ngày bị lãng quên. Gia đình cần biết mình từ đâu mà có,
+          học được gì từ cha mẹ, ông bà, rồi truyền lại cho con cháu. Forever
+          như phòng khách riêng của cả nhà: ký ức được gom một chỗ, không rải
+          rác, không phai dần theo năm tháng.
         </P>
         <P>
-          Không phải mạng xã hội để khoe hay tranh luận. Không phải nghĩa trang
-          số chỉ để nhìn một lần rồi quên. Forever là chỗ ta quay về khi cần
-          hiểu mình thuộc về ai.
+          Đây không phải nơi khoe đời hay cãi nhau trên mạng. Cũng không phải
+          nghĩa trang số để vào xem một lần rồi thôi. Forever là chỗ ta quay về
+          khi muốn nhớ mình là con ai, cháu ai.
         </P>
       </Section>
 
       <Section title="Người sống và người đã mất">
         <P>
-          Trong cùng một không gian, người đang sống trò chuyện, ghi chép, thu
-          giọng nói và câu chuyện. Người đã mất — với sự đồng ý của gia đình —
-          được giữ lại dưới dạng ký ức số: cách nói, cách nghĩ, những gì họ đã
-          trải qua và muốn để lại.
+          Trong cùng một nhà, người đang sống vẫn trò chuyện, ghi chép, thu giọng
+          nói và câu chuyện. Người đã mất — khi gia đình đồng ý — được giữ lại
+          bằng ký ức thật: giọng nói, cách nghĩ, những chuyện đã trải qua và
+          muốn để lại.
         </P>
         <P>
-          Họ không “sống lại” như ngày xưa. Forever không đánh lừa ai. Nhưng cá
-          tính, tri thức và trải nghiệm sống của họ vẫn có thể đồng hành — lắng
-          nghe khi cần an ủi, tham khảo khi cần quyết định, truyền lại khi thế hệ
-          sau hỏi: ông bà, bố mẹ ngày xưa nói thế nào, sống ra sao?
+          Họ không sống lại như xưa. Forever không lừa dối ai. Nhưng tính cách,
+          điều họ biết, điều họ đã sống vẫn có thể ở bên — để nghe khi cần vỗ về,
+          để nhớ khi phải quyết định, để kể lại khi con cháu hỏi: bố mẹ, ông bà
+          ngày trước nói sao, sống thế nào?
         </P>
         <View style={styles.quote}>
           <Text style={styles.quoteText}>
-            Người đã mất không rời hẳn khỏi dòng họ. Họ trở thành một phần của
-            những người còn đi tiếp.
+            Người đã mất không rời hẳn khỏi gia đình yêu thương hay thế giới của
+            những người đang sống.
           </Text>
         </View>
       </Section>
 
       <Section title="Di sản được giữ gìn">
         <P>
-          Mỗi người mang một bản sắc: giá trị, khí chất, cách an ủi, cách khuyên
-          nhủ, ký ức gắn với một thời đại. Forever ghi nhận phần bất biến đó — không
-          bịa thêm, không tự ý “cập nhật” cho hợp thời. Thiếu tư liệu thì thừa nhận
-          thiếu.
+          Mỗi người có một cách riêng: điều tin, cách an ủi, cách khuyên, những
+          kỷ niệm gắn với một thời. Forever ghi nhận đúng phần đó — không bịa
+          thêm, không tự ý sửa cho hợp thời. Thiếu thì nói thẳng là thiếu.
         </P>
         <P>
-          Cuộc sống hiện tại vẫn chảy: con lớn, nhà đổi, tin mới đến. Người sống
-          tiếp tục viết nên dòng họ. Ký ức của người đã mất chiếu sáng bối cảnh mới
-          — như một ngọn đèn phía sau, không phải xiềng xích kéo ta ở lại quá khứ.
+          Cuộc sống vẫn trôi: con lớn, nhà đổi, tin vui tin buồn mới. Người sống
+          vẫn viết tiếp câu chuyện gia đình. Ký ức người đã mất soi sáng những
+          ngày hôm nay — như đèn phía sau lưng, không phải dây trói kéo ta mãi ở
+          quá khứ.
         </P>
       </Section>
 
       <Section title="Cam kết">
         <P>
-          Luôn phân biệt rõ ai đang nói: người sống hay thực thể ký ức. Mọi tư
-          liệu thu thập đều cần sự đồng ý. Forever hỗ trợ gắn kết và tưởng nhớ —
-          không thay tang lễ, không thay chuyên gia tâm lý, không biến người thân
-          thành trò đùa hay deepfake vô căn cứ.
+          App luôn cho biết rõ ai đang nói: người thật hay ký ức được ghi lại từ
+          người đã mất. Mọi thứ thu thập đều cần gia đình đồng ý. Forever giúp
+          nhớ và gắn kết — không thay đám tang, không thay bác sĩ hay nhà tư vấn,
+          không biến người thân thành trò đùa hay giọng giả vô căn cứ.
         </P>
       </Section>
 
       <Text style={styles.closing}>
-        Chúng ta xây Forever để dòng họ không đứt mạch — để người sống bước tiếp
-        có cội, có nguồn, và có những người đã mất đi vẫn ở bên, trong ký ức
-        chân thật của gia đình mình.
+        Ta làm Forever để dòng họ không đứt đoạn — để người sống bước tiếp có cội
+        có nguồn, và để những người đã mất vẫn ở bên, trong ký ức thật của gia
+        đình mình.
       </Text>
     </ScrollView>
   );
