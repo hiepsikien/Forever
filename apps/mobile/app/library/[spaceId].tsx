@@ -1,4 +1,4 @@
-import { MemoryItem } from "@forever/api-client";
+import { IdentityProfile, MemoryItem } from "@forever/api-client";
 import * as ImagePicker from "expo-image-picker";
 import { useLocalSearchParams } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
@@ -16,6 +16,7 @@ import {
 } from "react-native";
 
 import { MemoryCaptionModal } from "@/components/MemoryCaptionModal";
+import { IdentityChipPicker } from "@/components/IdentityChipPicker";
 import { MemoryVideoModal } from "@/components/MemoryVideoModal";
 import { playLocalAudio, stopActivePlayback } from "@/lib/audio";
 import { useAuth } from "@/lib/auth";
@@ -26,6 +27,11 @@ import {
   isGenericMemoryTitle,
   titleFromFileName,
 } from "@/lib/memoryDisplay";
+import {
+  heritageLabelsForMemory,
+  mergeMemoryTags,
+  parseHeritageIdentityIds,
+} from "@/lib/memoryTags";
 import { guessVideoMime, pickVideoMemoryFile } from "@/lib/mediaPick";
 import { useSpaceScreenOptions } from "@/lib/spaceHeader";
 import { colors, fonts } from "@/lib/theme";
@@ -48,8 +54,9 @@ function kindLabel(kind: string): string {
 
 export default function LibraryScreen() {
   const { spaceId } = useLocalSearchParams<{ spaceId: string }>();
-  const { api } = useAuth();
+  const { api, user } = useAuth();
   const [memories, setMemories] = useState<MemoryItem[]>([]);
+  const [identities, setIdentities] = useState<IdentityProfile[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -65,6 +72,9 @@ export default function LibraryScreen() {
   const [pendingUpload, setPendingUpload] = useState<PendingUpload | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [captionKind, setCaptionKind] = useState<"video" | "photo" | "voice">("video");
+  const [captionIdentityIds, setCaptionIdentityIds] = useState<string[]>([]);
+  const [editingBaseTags, setEditingBaseTags] = useState("");
+  const [noteIdentityIds, setNoteIdentityIds] = useState<string[]>([]);
 
   const [photoUris, setPhotoUris] = useState<Record<string, string>>({});
   const [thumbUris, setThumbUris] = useState<Record<string, string>>({});
@@ -87,8 +97,12 @@ export default function LibraryScreen() {
     setLoading(true);
     setError(null);
     try {
-      const res = await api.listMemories(spaceId);
-      setMemories(res.memories);
+      const [memRes, idRes] = await Promise.all([
+        api.listMemories(spaceId),
+        api.listIdentities(spaceId),
+      ]);
+      setMemories(memRes.memories);
+      setIdentities(idRes.identities);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Không tải được thư viện.");
     } finally {
@@ -136,12 +150,30 @@ export default function LibraryScreen() {
     };
   }, [api, memories]);
 
+  const toggleCaptionIdentity = (identityId: string) => {
+    setCaptionIdentityIds((prev) =>
+      prev.includes(identityId)
+        ? prev.filter((id) => id !== identityId)
+        : [...prev, identityId],
+    );
+  };
+
+  const toggleNoteIdentity = (identityId: string) => {
+    setNoteIdentityIds((prev) =>
+      prev.includes(identityId)
+        ? prev.filter((id) => id !== identityId)
+        : [...prev, identityId],
+    );
+  };
+
   const openCaptionForUpload = (pending: PendingUpload) => {
     setPendingUpload(pending);
     setCaptionMode("upload");
     setCaptionKind(pending.kind);
     setCaptionTitle(titleFromFileName(pending.name));
     setCaptionBody("");
+    setCaptionIdentityIds([]);
+    setEditingBaseTags("");
     setEditingId(null);
     setCaptionOpen(true);
   };
@@ -152,6 +184,8 @@ export default function LibraryScreen() {
     setCaptionKind(item.kind as "video" | "photo" | "voice");
     setCaptionTitle(isGenericMemoryTitle(item.kind, item.title) ? "" : item.title);
     setCaptionBody(displayMemoryNote(item.body) ?? "");
+    setCaptionIdentityIds(parseHeritageIdentityIds(item.tags));
+    setEditingBaseTags(item.tags ?? "");
     setEditingId(item.id);
     setCaptionOpen(true);
   };
@@ -160,6 +194,8 @@ export default function LibraryScreen() {
     setCaptionOpen(false);
     setPendingUpload(null);
     setEditingId(null);
+    setCaptionIdentityIds([]);
+    setEditingBaseTags("");
   };
 
   const saveCaption = async () => {
@@ -171,6 +207,7 @@ export default function LibraryScreen() {
     }
     setSaving(true);
     try {
+      const tags = mergeMemoryTags("", captionIdentityIds);
       if (captionMode === "upload" && pendingUpload) {
         await api.uploadMemory(spaceId, {
           kind: pendingUpload.kind,
@@ -179,6 +216,7 @@ export default function LibraryScreen() {
           mimeType: pendingUpload.mimeType,
           title,
           body: captionBody.trim(),
+          tags: tags || undefined,
         });
         closeCaption();
         await load();
@@ -188,6 +226,7 @@ export default function LibraryScreen() {
         await api.updateMemory(editingId, {
           title,
           body: captionBody.trim(),
+          tags: mergeMemoryTags(editingBaseTags, captionIdentityIds),
         });
         closeCaption();
         await load();
@@ -203,13 +242,16 @@ export default function LibraryScreen() {
     if (!spaceId || !noteBody.trim() || saving) return;
     setSaving(true);
     try {
+      const tags = mergeMemoryTags("", noteIdentityIds);
       await api.createNoteMemory(spaceId, {
         title: noteTitle.trim() || "Ghi chú",
         body: noteBody.trim(),
+        tags: tags || undefined,
       });
       setNoteOpen(false);
       setNoteTitle("");
       setNoteBody("");
+      setNoteIdentityIds([]);
       await load();
     } catch (e) {
       Alert.alert("Lỗi", e instanceof Error ? e.message : "Không lưu được.");
@@ -317,6 +359,7 @@ export default function LibraryScreen() {
     const note = displayMemoryNote(item.body);
     const title = displayMemoryTitle(item.kind, item.title);
     const untitled = isGenericMemoryTitle(item.kind, item.title);
+    const people = heritageLabelsForMemory(item.tags, identities, user?.id);
 
     return (
       <View style={styles.card}>
@@ -328,6 +371,16 @@ export default function LibraryScreen() {
         </View>
 
         <Text style={[styles.title, untitled && styles.titleUntitled]}>{title}</Text>
+
+        {people.length > 0 ? (
+          <View style={styles.peopleRow}>
+            {people.map((label) => (
+              <View key={`${item.id}-${label}`} style={styles.personChip}>
+                <Text style={styles.personChipText}>{label}</Text>
+              </View>
+            ))}
+          </View>
+        ) : null}
 
         {note ? <Text style={styles.note}>{note}</Text> : null}
 
@@ -416,9 +469,13 @@ export default function LibraryScreen() {
         mediaKind={captionKind}
         title={captionTitle}
         body={captionBody}
+        identities={identities}
+        selectedIdentityIds={captionIdentityIds}
+        userId={user?.id}
         busy={saving}
         onChangeTitle={setCaptionTitle}
         onChangeBody={setCaptionBody}
+        onToggleIdentity={toggleCaptionIdentity}
         onCancel={closeCaption}
         onSave={saveCaption}
       />
@@ -452,8 +509,24 @@ export default function LibraryScreen() {
               style={[styles.input, styles.inputTall]}
               multiline
             />
+            {identities.length > 0 ? (
+              <>
+                <Text style={styles.noteIdentityLabel}>Ai trong ký ức này?</Text>
+                <IdentityChipPicker
+                  identities={identities}
+                  selectedIds={noteIdentityIds}
+                  onToggle={toggleNoteIdentity}
+                  userId={user?.id}
+                />
+              </>
+            ) : null}
             <View style={styles.modalActions}>
-              <Pressable onPress={() => setNoteOpen(false)}>
+              <Pressable
+                onPress={() => {
+                  setNoteOpen(false);
+                  setNoteIdentityIds([]);
+                }}
+              >
                 <Text style={styles.cancel}>Huỷ</Text>
               </Pressable>
               <Pressable
@@ -526,6 +599,28 @@ const styles = StyleSheet.create({
     color: colors.ink,
     lineHeight: 22,
     fontSize: 15,
+  },
+  peopleRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 6,
+  },
+  personChip: {
+    backgroundColor: colors.bgDeep,
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+  },
+  personChipText: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: colors.brandSoft,
+  },
+  noteIdentityLabel: {
+    marginTop: 4,
+    fontSize: 13,
+    fontWeight: "700",
+    color: colors.inkSoft,
   },
   mediaPreview: {
     width: "100%",

@@ -12,6 +12,9 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { IdentityProfile } from "@forever/api-client";
+
+import { IdentityChipPicker } from "@/components/IdentityChipPicker";
 import { colors, fonts } from "@/lib/theme";
 
 type Props = {
@@ -20,9 +23,13 @@ type Props = {
   mediaKind?: "video" | "photo" | "voice";
   title: string;
   body: string;
+  identities?: IdentityProfile[];
+  selectedIdentityIds?: string[];
+  userId?: string | null;
   busy?: boolean;
   onChangeTitle: (v: string) => void;
   onChangeBody: (v: string) => void;
+  onToggleIdentity?: (identityId: string) => void;
   onCancel: () => void;
   onSave: () => void;
 };
@@ -41,9 +48,13 @@ export function MemoryCaptionModal({
   mediaKind,
   title,
   body,
+  identities = [],
+  selectedIdentityIds = [],
+  userId,
   busy = false,
   onChangeTitle,
   onChangeBody,
+  onToggleIdentity,
   onCancel,
   onSave,
 }: Props) {
@@ -89,6 +100,21 @@ export function MemoryCaptionModal({
                   style={[styles.input, styles.inputTall]}
                   multiline
                 />
+                {identities.length > 0 && onToggleIdentity ? (
+                  <>
+                    <Text style={styles.label}>Ai trong ký ức này?</Text>
+                    <Text style={styles.hintSmall}>
+                      Chọn hồ sơ để Thổi hồn biết ký ức về ai (có thể chọn nhiều
+                      người).
+                    </Text>
+                    <IdentityChipPicker
+                      identities={identities}
+                      selectedIds={selectedIdentityIds}
+                      onToggle={onToggleIdentity}
+                      userId={userId}
+                    />
+                  </>
+                ) : null}
                 <View style={styles.actions}>
                   <Pressable onPress={onCancel} disabled={busy}>
                     <Text style={styles.cancel}>Huỷ</Text>
@@ -148,6 +174,11 @@ const styles = StyleSheet.create({
     marginTop: 4,
     fontSize: 13,
     fontWeight: "700",
+    color: colors.inkSoft,
+  },
+  hintSmall: {
+    fontSize: 13,
+    lineHeight: 18,
     color: colors.inkSoft,
   },
   input: {

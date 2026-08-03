@@ -145,9 +145,15 @@ def test_update_memory(client):
     updated = client.patch(
         f"/api/memories/{memory_id}",
         headers=headers,
-        json={"title": "Tết 2015", "body": "Bố quay cả nhà ăn cơm"},
+        json={
+            "title": "Tết 2015",
+            "body": "Bố quay cả nhà ăn cơm",
+            "tags": "heritage:fake-id,from-chat",
+        },
     )
     assert updated.status_code == 200, updated.text
     data = updated.json()
     assert data["title"] == "Tết 2015"
     assert data["body"] == "Bố quay cả nhà ăn cơm"
+    assert "heritage:fake-id" in data["tags"]
+    assert "from-chat" in data["tags"]
