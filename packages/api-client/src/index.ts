@@ -538,6 +538,18 @@ export function createApiClient({
       }),
     memoryMediaUrl: (memoryId: string) =>
       `${resolveRoot()}/api/memories/${memoryId}/media`,
+    memoryPlaybackUrl: (memoryId: string) =>
+      `${resolveRoot()}/api/memories/${memoryId}/playback`,
+    memoryThumbnailUrl: (memoryId: string) =>
+      `${resolveRoot()}/api/memories/${memoryId}/thumbnail`,
+    updateMemory: (
+      memoryId: string,
+      payload: { title?: string; body?: string; tags?: string },
+    ) =>
+      request<MemoryItem>(`/api/memories/${memoryId}`, {
+        method: "PATCH",
+        body: JSON.stringify(payload),
+      }),
     listInterviewPrompts: (spaceId: string) =>
       request<{ prompts: InterviewPrompt[] }>(
         `/api/spaces/${spaceId}/interview/prompts`,

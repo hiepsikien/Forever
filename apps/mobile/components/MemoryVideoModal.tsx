@@ -1,5 +1,5 @@
 import { useVideoPlayer, VideoView } from "expo-video";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Modal,
@@ -17,29 +17,59 @@ type Props = {
   uri: string | null;
   title?: string;
   loading?: boolean;
+  loadingHint?: string;
   error?: string | null;
   onClose: () => void;
 };
 
-function VideoPlayerBody({ uri, title, onClose }: { uri: string; title?: string; onClose: () => void }) {
+function VideoPlayerBody({
+  uri,
+  title,
+  onClose,
+  onPlaybackError,
+}: {
+  uri: string;
+  title?: string;
+  onClose: () => void;
+  onPlaybackError: (message: string) => void;
+}) {
   const insets = useSafeAreaInsets();
+  const [buffering, setBuffering] = useState(true);
   const player = useVideoPlayer(uri, (p) => {
     p.loop = false;
-    p.play();
   });
 
   useEffect(() => {
+    const subStatus = player.addListener("statusChange", ({ status, error }) => {
+      if (status === "readyToPlay") {
+        setBuffering(false);
+        player.play();
+      }
+      if (status === "error") {
+        setBuffering(false);
+        onPlaybackError(
+          error?.message ||
+            "Không phát được video. Thử mở bằng ứng dụng Files/VLC.",
+        );
+      }
+    });
     return () => {
+      subStatus.remove();
       try {
         player.pause();
       } catch {
         // ignore
       }
     };
-  }, [player]);
+  }, [player, onPlaybackError]);
 
   return (
-    <View style={[styles.playerRoot, { paddingTop: insets.top + 8, paddingBottom: insets.bottom + 12 }]}>
+    <View
+      style={[
+        styles.playerRoot,
+        { paddingTop: insets.top + 8, paddingBottom: insets.bottom + 12 },
+      ]}
+    >
       <View style={styles.header}>
         <Text style={styles.headerTitle} numberOfLines={2}>
           {title || "Video ký ức"}
@@ -48,14 +78,22 @@ function VideoPlayerBody({ uri, title, onClose }: { uri: string; title?: string;
           <Text style={styles.closeText}>Đóng</Text>
         </Pressable>
       </View>
-      <VideoView
-        player={player}
-        style={styles.video}
-        contentFit="contain"
-        nativeControls
-        allowsFullscreen
-        allowsPictureInPicture
-      />
+      <View style={styles.videoWrap}>
+        <VideoView
+          player={player}
+          style={styles.video}
+          contentFit="contain"
+          nativeControls
+          allowsFullscreen
+          allowsPictureInPicture
+        />
+        {buffering ? (
+          <View style={styles.bufferOverlay}>
+            <ActivityIndicator color="#fff" size="large" />
+            <Text style={styles.bufferText}>Đang mở video…</Text>
+          </View>
+        ) : null}
+      </View>
     </View>
   );
 }
@@ -65,26 +103,40 @@ export function MemoryVideoModal({
   uri,
   title,
   loading = false,
+  loadingHint = "Đang tải video…",
   error = null,
   onClose,
 }: Props) {
+  const [playbackError, setPlaybackError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!visible) setPlaybackError(null);
+  }, [visible, uri]);
+
+  const displayError = error || playbackError;
+
   return (
     <Modal visible={visible} animationType="fade" onRequestClose={onClose}>
       <View style={styles.backdrop}>
         {loading ? (
           <View style={styles.center}>
             <ActivityIndicator color={colors.brand} size="large" />
-            <Text style={styles.loadingText}>Đang tải video…</Text>
+            <Text style={styles.loadingText}>{loadingHint}</Text>
           </View>
-        ) : error ? (
+        ) : displayError ? (
           <View style={styles.center}>
-            <Text style={styles.errorText}>{error}</Text>
+            <Text style={styles.errorText}>{displayError}</Text>
             <Pressable style={styles.retryClose} onPress={onClose}>
               <Text style={styles.retryCloseText}>Đóng</Text>
             </Pressable>
           </View>
         ) : uri ? (
-          <VideoPlayerBody uri={uri} title={title} onClose={onClose} />
+          <VideoPlayerBody
+            uri={uri}
+            title={title}
+            onClose={onClose}
+            onPlaybackError={setPlaybackError}
+          />
         ) : null}
       </View>
     </Modal>
@@ -103,7 +155,13 @@ const styles = StyleSheet.create({
     padding: 24,
     gap: 16,
   },
-  loadingText: { color: "#e8e0d4", fontSize: 16 },
+  loadingText: {
+    color: "#e8e0d4",
+    fontSize: 16,
+    textAlign: "center",
+    lineHeight: 24,
+    paddingHorizontal: 16,
+  },
   errorText: {
     color: colors.danger,
     fontSize: 16,
@@ -132,10 +190,22 @@ const styles = StyleSheet.create({
     color: "#f4efe6",
   },
   closeText: { color: colors.brandSoft, fontSize: 16, fontWeight: "600" },
+  videoWrap: {
+    flex: 1,
+    borderRadius: 12,
+    overflow: "hidden",
+    backgroundColor: "#000",
+  },
   video: {
     flex: 1,
     width: "100%",
-    borderRadius: 12,
-    backgroundColor: "#000",
   },
+  bufferOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(0,0,0,0.45)",
+    gap: 12,
+  },
+  bufferText: { color: "#f4efe6", fontSize: 15 },
 });

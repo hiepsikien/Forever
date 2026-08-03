@@ -152,6 +152,7 @@ export async function fetchAuthedMediaUri(
   remoteUrl: string,
   cacheKey: string,
   mimeType?: string | null,
+  fileName?: string | null,
 ): Promise<string> {
   const token = await getStoredToken();
   const dir = FileSystem.cacheDirectory;
@@ -159,19 +160,27 @@ export async function fetchAuthedMediaUri(
     throw new Error("Cache directory unavailable.");
   }
   // iOS AVPlayer needs a real extension (-11828 without one).
-  const ext = extensionForMime(mimeType);
+  const ext = extensionForMime(mimeType, fileName);
   const target = `${dir}forever-media-${cacheKey}${ext}`;
   const existing = await FileSystem.getInfoAsync(target);
+  if (existing.exists && "size" in existing && (existing.size ?? 0) > 512) {
+    return ensureFileUri(existing.uri ?? target);
+  }
   if (existing.exists) {
-    return target;
+    await FileSystem.deleteAsync(target, { idempotent: true });
   }
   const result = await FileSystem.downloadAsync(remoteUrl, target, {
     headers: token ? { Authorization: `Bearer ${token}` } : undefined,
   });
   if (result.status !== 200) {
+    await FileSystem.deleteAsync(target, { idempotent: true });
     throw new Error(`Không tải được media (${result.status}).`);
   }
-  return result.uri;
+  const info = await FileSystem.getInfoAsync(result.uri);
+  if (!info.exists || ("size" in info && (info.size ?? 0) < 512)) {
+    throw new Error("File media tải về không hợp lệ (quá nhỏ).");
+  }
+  return ensureFileUri(result.uri);
 }
 
 /** Write binary audio (e.g. TTS) to cache and return a playable file URI. */

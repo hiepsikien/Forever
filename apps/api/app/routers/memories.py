@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
+from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, HTTPException, UploadFile
 from fastapi.responses import FileResponse
 from nanoid import generate
 from pydantic import BaseModel, Field
@@ -36,6 +36,24 @@ class CreateNoteBody(BaseModel):
 class FromMessageBody(BaseModel):
     message_id: str
     title: str = Field(default="", max_length=200)
+
+
+class UpdateMemoryBody(BaseModel):
+    title: str | None = Field(default=None, max_length=200)
+    body: str | None = Field(default=None, max_length=8000)
+    tags: str | None = Field(default=None, max_length=500)
+
+
+def _warm_video_assets(media_relative: str) -> None:
+    """Best-effort background prep so first playback is faster."""
+    try:
+        from ..services.video_playback import ensure_playback_mp4
+        from ..services.video_thumbnail import ensure_video_thumbnail
+
+        ensure_playback_mp4(media_relative)
+        ensure_video_thumbnail(media_relative)
+    except Exception:
+        pass
 
 
 def _parse_occurred_at(value: str | None) -> datetime | None:
@@ -134,6 +152,7 @@ async def upload_memory(
     space_id: str,
     user: Annotated[User, Depends(get_current_user)],
     db: Annotated[Session, Depends(get_db)],
+    background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
     kind: str = Form(default="voice"),
     title: str = Form(default=""),
@@ -178,6 +197,8 @@ async def upload_memory(
     db.add(item)
     db.commit()
     db.refresh(item)
+    if kind == "video" and item.media_path:
+        background_tasks.add_task(_warm_video_assets, item.media_path)
     return _memory_payload(item, user.name)
 
 
@@ -253,3 +274,79 @@ def get_memory_media(
         media_type=item.media_mime or "application/octet-stream",
         filename=path.name,
     )
+
+
+@router.get("/api/memories/{memory_id}/playback")
+def get_memory_playback(
+    memory_id: str,
+    user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[Session, Depends(get_db)],
+):
+    """MP4 remux for in-app playback (MTS/MOV/MKV → H.264 MP4 cached on disk)."""
+    from ..services.video_playback import VideoPlaybackError, ensure_playback_mp4
+
+    item = db.query(MemoryItem).filter(MemoryItem.id == memory_id).one_or_none()
+    if not item or not item.media_path:
+        raise HTTPException(status_code=404, detail="Media not found.")
+    if item.kind != "video":
+        raise HTTPException(status_code=400, detail="Playback chỉ dành cho ký ức video.")
+    require_membership(db, space_id=item.space_id, user=user)
+    try:
+        path = ensure_playback_mp4(item.media_path)
+    except VideoPlaybackError as exc:
+        raise HTTPException(status_code=503, detail=exc.message) from exc
+    if not path.exists():
+        raise HTTPException(status_code=404, detail="Playback file missing.")
+    return FileResponse(
+        path,
+        media_type="video/mp4",
+        filename=path.name,
+    )
+
+
+@router.get("/api/memories/{memory_id}/thumbnail")
+def get_memory_thumbnail(
+    memory_id: str,
+    user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[Session, Depends(get_db)],
+):
+    from ..services.video_playback import VideoPlaybackError
+    from ..services.video_thumbnail import ensure_video_thumbnail
+
+    item = db.query(MemoryItem).filter(MemoryItem.id == memory_id).one_or_none()
+    if not item or not item.media_path:
+        raise HTTPException(status_code=404, detail="Media not found.")
+    if item.kind != "video":
+        raise HTTPException(status_code=400, detail="Thumbnail chỉ dành cho video.")
+    require_membership(db, space_id=item.space_id, user=user)
+    try:
+        path = ensure_video_thumbnail(item.media_path)
+    except VideoPlaybackError as exc:
+        raise HTTPException(status_code=503, detail=exc.message) from exc
+    return FileResponse(path, media_type="image/jpeg", filename=path.name)
+
+
+@router.patch("/api/memories/{memory_id}")
+def update_memory(
+    memory_id: str,
+    body: UpdateMemoryBody,
+    user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[Session, Depends(get_db)],
+):
+    item = db.query(MemoryItem).filter(MemoryItem.id == memory_id).one_or_none()
+    if not item:
+        raise HTTPException(status_code=404, detail="Memory not found.")
+    require_membership(db, space_id=item.space_id, user=user)
+    if body.title is not None:
+        title = body.title.strip()
+        if not title:
+            raise HTTPException(status_code=400, detail="Title cannot be empty.")
+        item.title = title[:200]
+    if body.body is not None:
+        item.body = body.body.strip()[:8000]
+    if body.tags is not None:
+        item.tags = body.tags.strip()[:500]
+    db.commit()
+    db.refresh(item)
+    creator = db.query(User).filter(User.id == item.created_by).one_or_none()
+    return _memory_payload(item, creator.name if creator else None)

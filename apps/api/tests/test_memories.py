@@ -1,3 +1,6 @@
+import shutil
+
+
 def _login(client, email: str, name: str) -> str:
     res = client.post(
         "/api/auth/dev-login",
@@ -86,3 +89,65 @@ def test_upload_video_memory(client, tmp_path, monkeypatch):
     assert memory["has_media"] is True
 
     get_settings.cache_clear()
+
+
+def test_memory_playback_endpoint(client, tmp_path, monkeypatch):
+    monkeypatch.setenv("UPLOAD_DIR", str(tmp_path))
+    from io import BytesIO
+
+    from app.config import get_settings
+
+    get_settings.cache_clear()
+
+    token = _login(client, "playback@example.com", "Con")
+    headers = {"Authorization": f"Bearer {token}"}
+    space = client.post("/api/spaces", headers=headers, json={"name": "Playback"}).json()
+
+    uploaded = client.post(
+        f"/api/spaces/{space['id']}/memories/upload",
+        headers=headers,
+        data={"kind": "video", "title": "Clip"},
+        files={"file": ("clip.mts", BytesIO(b"fake-mts"), "video/mp2t")},
+    )
+    assert uploaded.status_code == 200, uploaded.text
+    memory_id = uploaded.json()["id"]
+
+    res = client.get(f"/api/memories/{memory_id}/playback", headers=headers)
+    if shutil.which("ffmpeg"):
+        assert res.status_code in (200, 503), res.text
+    else:
+        assert res.status_code == 503
+
+    note = client.post(
+        f"/api/spaces/{space['id']}/memories/note",
+        headers=headers,
+        json={"body": "ghi chú"},
+    )
+    assert note.status_code == 200
+    bad = client.get(f"/api/memories/{note.json()['id']}/playback", headers=headers)
+    assert bad.status_code == 404
+
+    get_settings.cache_clear()
+
+
+def test_update_memory(client):
+    token = _login(client, "update-mem@example.com", "Con")
+    headers = {"Authorization": f"Bearer {token}"}
+    space = client.post("/api/spaces", headers=headers, json={"name": "Nhà"}).json()
+
+    created = client.post(
+        f"/api/spaces/{space['id']}/memories/note",
+        headers=headers,
+        json={"title": "Tạm", "body": "old body"},
+    )
+    memory_id = created.json()["id"]
+
+    updated = client.patch(
+        f"/api/memories/{memory_id}",
+        headers=headers,
+        json={"title": "Tết 2015", "body": "Bố quay cả nhà ăn cơm"},
+    )
+    assert updated.status_code == 200, updated.text
+    data = updated.json()
+    assert data["title"] == "Tết 2015"
+    assert data["body"] == "Bố quay cả nhà ăn cơm"

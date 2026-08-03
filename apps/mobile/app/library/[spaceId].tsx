@@ -15,23 +15,36 @@ import {
   View,
 } from "react-native";
 
+import { MemoryCaptionModal } from "@/components/MemoryCaptionModal";
+import { MemoryVideoModal } from "@/components/MemoryVideoModal";
 import { playLocalAudio, stopActivePlayback } from "@/lib/audio";
 import { useAuth } from "@/lib/auth";
-import { MemoryVideoModal } from "@/components/MemoryVideoModal";
 import { fetchAuthedMediaUri } from "@/lib/media";
+import {
+  displayMemoryNote,
+  displayMemoryTitle,
+  isGenericMemoryTitle,
+  titleFromFileName,
+} from "@/lib/memoryDisplay";
 import { guessVideoMime, pickVideoMemoryFile } from "@/lib/mediaPick";
 import { useSpaceScreenOptions } from "@/lib/spaceHeader";
 import { colors, fonts } from "@/lib/theme";
+
+const MAX_VIDEO_BYTES = 200 * 1024 * 1024;
+
+type PendingUpload = {
+  kind: "video" | "photo";
+  uri: string;
+  name: string;
+  mimeType: string;
+};
 
 function kindLabel(kind: string): string {
   if (kind === "voice") return "Giọng nói";
   if (kind === "video") return "Video";
   if (kind === "photo") return "Ảnh";
-  if (kind === "letter") return "Thư";
   return "Ghi chú";
 }
-
-const MAX_VIDEO_BYTES = 200 * 1024 * 1024;
 
 export default function LibraryScreen() {
   const { spaceId } = useLocalSearchParams<{ spaceId: string }>();
@@ -39,12 +52,24 @@ export default function LibraryScreen() {
   const [memories, setMemories] = useState<MemoryItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+
   const [noteOpen, setNoteOpen] = useState(false);
   const [noteTitle, setNoteTitle] = useState("");
   const [noteBody, setNoteBody] = useState("");
-  const [saving, setSaving] = useState(false);
+
+  const [captionOpen, setCaptionOpen] = useState(false);
+  const [captionMode, setCaptionMode] = useState<"upload" | "edit">("upload");
+  const [captionTitle, setCaptionTitle] = useState("");
+  const [captionBody, setCaptionBody] = useState("");
+  const [pendingUpload, setPendingUpload] = useState<PendingUpload | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [captionKind, setCaptionKind] = useState<"video" | "photo" | "voice">("video");
+
   const [photoUris, setPhotoUris] = useState<Record<string, string>>({});
+  const [thumbUris, setThumbUris] = useState<Record<string, string>>({});
   const [playingId, setPlayingId] = useState<string | null>(null);
+
   const [videoOpen, setVideoOpen] = useState(false);
   const [videoUri, setVideoUri] = useState<string | null>(null);
   const [videoTitle, setVideoTitle] = useState("");
@@ -79,18 +104,30 @@ export default function LibraryScreen() {
     let cancelled = false;
     (async () => {
       for (const item of memories) {
-        if (item.kind !== "photo" || !item.has_media) continue;
+        if (!item.has_media) continue;
         try {
-          const uri = await fetchAuthedMediaUri(
-            api.memoryMediaUrl(item.id),
-            item.id,
-            item.media_mime ?? "image/jpeg",
-          );
-          if (!cancelled) {
-            setPhotoUris((prev) => (prev[item.id] ? prev : { ...prev, [item.id]: uri }));
+          if (item.kind === "photo") {
+            const uri = await fetchAuthedMediaUri(
+              api.memoryMediaUrl(item.id),
+              item.id,
+              item.media_mime ?? "image/jpeg",
+            );
+            if (!cancelled) {
+              setPhotoUris((prev) => (prev[item.id] ? prev : { ...prev, [item.id]: uri }));
+            }
+          }
+          if (item.kind === "video") {
+            const uri = await fetchAuthedMediaUri(
+              api.memoryThumbnailUrl(item.id),
+              `thumb-${item.id}`,
+              "image/jpeg",
+            );
+            if (!cancelled) {
+              setThumbUris((prev) => (prev[item.id] ? prev : { ...prev, [item.id]: uri }));
+            }
           }
         } catch {
-          // ignore single image failures
+          // ignore per-item preview failures
         }
       }
     })();
@@ -98,6 +135,69 @@ export default function LibraryScreen() {
       cancelled = true;
     };
   }, [api, memories]);
+
+  const openCaptionForUpload = (pending: PendingUpload) => {
+    setPendingUpload(pending);
+    setCaptionMode("upload");
+    setCaptionKind(pending.kind);
+    setCaptionTitle(titleFromFileName(pending.name));
+    setCaptionBody("");
+    setEditingId(null);
+    setCaptionOpen(true);
+  };
+
+  const openCaptionForEdit = (item: MemoryItem) => {
+    setPendingUpload(null);
+    setCaptionMode("edit");
+    setCaptionKind(item.kind as "video" | "photo" | "voice");
+    setCaptionTitle(isGenericMemoryTitle(item.kind, item.title) ? "" : item.title);
+    setCaptionBody(displayMemoryNote(item.body) ?? "");
+    setEditingId(item.id);
+    setCaptionOpen(true);
+  };
+
+  const closeCaption = () => {
+    setCaptionOpen(false);
+    setPendingUpload(null);
+    setEditingId(null);
+  };
+
+  const saveCaption = async () => {
+    if (!spaceId || saving) return;
+    const title = captionTitle.trim();
+    if (!title) {
+      Alert.alert("Thiếu tên", "Hãy đặt tên để dễ nhận ra sau này.");
+      return;
+    }
+    setSaving(true);
+    try {
+      if (captionMode === "upload" && pendingUpload) {
+        await api.uploadMemory(spaceId, {
+          kind: pendingUpload.kind,
+          uri: pendingUpload.uri,
+          name: pendingUpload.name,
+          mimeType: pendingUpload.mimeType,
+          title,
+          body: captionBody.trim(),
+        });
+        closeCaption();
+        await load();
+        return;
+      }
+      if (captionMode === "edit" && editingId) {
+        await api.updateMemory(editingId, {
+          title,
+          body: captionBody.trim(),
+        });
+        closeCaption();
+        await load();
+      }
+    } catch (e) {
+      Alert.alert("Lỗi", e instanceof Error ? e.message : "Không lưu được.");
+    } finally {
+      setSaving(false);
+    }
+  };
 
   const saveNote = async () => {
     if (!spaceId || !noteBody.trim() || saving) return;
@@ -131,21 +231,12 @@ export default function LibraryScreen() {
     });
     if (picked.canceled || !picked.assets[0]) return;
     const asset = picked.assets[0];
-    setSaving(true);
-    try {
-      await api.uploadMemory(spaceId, {
-        kind: "photo",
-        uri: asset.uri,
-        name: asset.fileName ?? "photo.jpg",
-        mimeType: asset.mimeType ?? "image/jpeg",
-        title: "Ảnh ký ức",
-      });
-      await load();
-    } catch (e) {
-      Alert.alert("Lỗi", e instanceof Error ? e.message : "Không tải ảnh được.");
-    } finally {
-      setSaving(false);
-    }
+    openCaptionForUpload({
+      kind: "photo",
+      uri: asset.uri,
+      name: asset.fileName ?? "photo.jpg",
+      mimeType: asset.mimeType ?? "image/jpeg",
+    });
   };
 
   const pickVideo = async () => {
@@ -158,22 +249,12 @@ export default function LibraryScreen() {
         return;
       }
       const name = asset.name ?? "video.mts";
-      setSaving(true);
-      try {
-        await api.uploadMemory(spaceId, {
-          kind: "video",
-          uri: asset.uri,
-          name,
-          mimeType: guessVideoMime(name, asset.mimeType),
-          title: "Video ký ức",
-          body: "Có thể dùng cho Giọng từ ký ức (Extract).",
-        });
-        await load();
-      } catch (e) {
-        Alert.alert("Lỗi", e instanceof Error ? e.message : "Không tải video được.");
-      } finally {
-        setSaving(false);
-      }
+      openCaptionForUpload({
+        kind: "video",
+        uri: asset.uri,
+        name,
+        mimeType: guessVideoMime(name, asset.mimeType),
+      });
     } catch (e) {
       Alert.alert("Không chọn được file", e instanceof Error ? e.message : "Thử lại.");
     }
@@ -214,14 +295,15 @@ export default function LibraryScreen() {
     setPlayingId(null);
     setVideoOpen(true);
     setVideoUri(null);
-    setVideoTitle(item.title || "Video ký ức");
+    setVideoTitle(displayMemoryTitle(item.kind, item.title));
     setVideoLoading(true);
     setVideoError(null);
     try {
       const uri = await fetchAuthedMediaUri(
-        api.memoryMediaUrl(item.id),
-        `video-${item.id}`,
-        item.media_mime ?? "video/mp2t",
+        api.memoryPlaybackUrl(item.id),
+        `playback-v2-${item.id}`,
+        "video/mp4",
+        `${item.title || "video"}.mp4`,
       );
       setVideoUri(uri);
     } catch (e) {
@@ -229,6 +311,67 @@ export default function LibraryScreen() {
     } finally {
       setVideoLoading(false);
     }
+  };
+
+  const renderCard = (item: MemoryItem) => {
+    const note = displayMemoryNote(item.body);
+    const title = displayMemoryTitle(item.kind, item.title);
+    const untitled = isGenericMemoryTitle(item.kind, item.title);
+
+    return (
+      <View style={styles.card}>
+        <View style={styles.cardTop}>
+          <Text style={styles.kind}>{kindLabel(item.kind)}</Text>
+          <Pressable onPress={() => openCaptionForEdit(item)} hitSlop={8}>
+            <Text style={styles.editLink}>Sửa</Text>
+          </Pressable>
+        </View>
+
+        <Text style={[styles.title, untitled && styles.titleUntitled]}>{title}</Text>
+
+        {note ? <Text style={styles.note}>{note}</Text> : null}
+
+        {item.kind === "photo" && photoUris[item.id] ? (
+          <Image source={{ uri: photoUris[item.id] }} style={styles.mediaPreview} />
+        ) : null}
+
+        {item.kind === "video" && item.has_media ? (
+          <Pressable style={styles.videoThumbWrap} onPress={() => playVideo(item)}>
+            {thumbUris[item.id] ? (
+              <Image source={{ uri: thumbUris[item.id] }} style={styles.mediaPreview} />
+            ) : (
+              <View style={[styles.mediaPreview, styles.videoPlaceholder]}>
+                <ActivityIndicator color={colors.brand} />
+              </View>
+            )}
+            <View style={styles.playBadge}>
+              <Text style={styles.playBadgeText}>▶ Phát</Text>
+            </View>
+          </Pressable>
+        ) : null}
+
+        {item.kind === "voice" && item.has_media ? (
+          <Pressable style={styles.voiceBtn} onPress={() => playVoice(item)}>
+            <Text style={styles.voiceBtnText}>
+              {playingId === item.id ? "⏸ Đang phát…" : "▶ Nghe lại"}
+            </Text>
+          </Pressable>
+        ) : null}
+
+        {!note && item.kind !== "note" ? (
+          <Pressable onPress={() => openCaptionForEdit(item)}>
+            <Text style={styles.addNoteLink}>+ Thêm ghi chú</Text>
+          </Pressable>
+        ) : null}
+
+        <Text style={styles.meta}>
+          {item.creator_name ?? "Thành viên"}
+          {item.occurred_at
+            ? ` · ${new Date(item.occurred_at).toLocaleDateString("vi-VN")}`
+            : ""}
+        </Text>
+      </View>
+    );
   };
 
   if (loading) {
@@ -262,43 +405,30 @@ export default function LibraryScreen() {
             Chưa có ký ức. Thêm ghi chú, ảnh, video, hoặc trả lời Time-Capsule.
           </Text>
         }
-        renderItem={({ item }) => (
-          <View style={styles.card}>
-            <Text style={styles.kind}>{kindLabel(item.kind)}</Text>
-            <Text style={styles.title}>{item.title || "Không tiêu đề"}</Text>
-            {item.body ? <Text style={styles.body}>{item.body}</Text> : null}
-            {item.kind === "photo" && photoUris[item.id] ? (
-              <Image source={{ uri: photoUris[item.id] }} style={styles.photo} />
-            ) : null}
-            {item.kind === "voice" && item.has_media ? (
-              <Pressable style={styles.playBtn} onPress={() => playVoice(item)}>
-                <Text style={styles.playText}>
-                  {playingId === item.id ? "Đang phát…" : "Nghe lại"}
-                </Text>
-              </Pressable>
-            ) : null}
-            {item.kind === "video" && item.has_media ? (
-              <Pressable style={styles.playBtn} onPress={() => playVideo(item)}>
-                <Text style={styles.playText}>Xem video</Text>
-              </Pressable>
-            ) : null}
-            <Text style={styles.meta}>
-              {item.creator_name ?? "Thành viên"}
-              {item.occurred_at
-                ? ` · ${new Date(item.occurred_at).toLocaleDateString("vi-VN")}`
-                : ""}
-            </Text>
-          </View>
-        )}
+        renderItem={({ item }) => renderCard(item)}
       />
 
       {error ? <Text style={styles.error}>{error}</Text> : null}
+
+      <MemoryCaptionModal
+        visible={captionOpen}
+        mode={captionMode}
+        mediaKind={captionKind}
+        title={captionTitle}
+        body={captionBody}
+        busy={saving}
+        onChangeTitle={setCaptionTitle}
+        onChangeBody={setCaptionBody}
+        onCancel={closeCaption}
+        onSave={saveCaption}
+      />
 
       <MemoryVideoModal
         visible={videoOpen}
         uri={videoUri}
         title={videoTitle}
         loading={videoLoading}
+        loadingHint="Đang mở video… (lần đầu có thể chờ server chuẩn bị)."
         error={videoError}
         onClose={closeVideo}
       />
@@ -366,37 +496,72 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     borderWidth: 1,
     borderColor: colors.line,
+    gap: 8,
+  },
+  cardTop: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
   },
   kind: {
     fontSize: 12,
     color: colors.brandSoft,
     fontWeight: "600",
-    marginBottom: 4,
+  },
+  editLink: {
+    fontSize: 13,
+    color: colors.brand,
+    fontWeight: "600",
   },
   title: {
     fontFamily: fonts.display,
-    fontSize: 20,
+    fontSize: 22,
     color: colors.ink,
-    marginBottom: 6,
   },
-  body: { color: colors.ink, lineHeight: 22, fontSize: 16 },
-  photo: {
-    marginTop: 12,
+  titleUntitled: {
+    color: colors.inkSoft,
+    fontStyle: "italic",
+  },
+  note: {
+    color: colors.ink,
+    lineHeight: 22,
+    fontSize: 15,
+  },
+  mediaPreview: {
     width: "100%",
-    height: 180,
+    height: 200,
     borderRadius: 12,
     backgroundColor: colors.bgDeep,
   },
-  playBtn: {
-    marginTop: 12,
+  videoThumbWrap: { position: "relative" },
+  videoPlaceholder: {
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  playBadge: {
+    position: "absolute",
+    left: 12,
+    bottom: 12,
+    backgroundColor: "rgba(0,0,0,0.55)",
+    borderRadius: 999,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+  },
+  playBadgeText: { color: "#fff", fontWeight: "700", fontSize: 13 },
+  voiceBtn: {
     alignSelf: "flex-start",
     backgroundColor: colors.bgDeep,
     borderRadius: 999,
     paddingHorizontal: 14,
     paddingVertical: 8,
   },
-  playText: { color: colors.brand, fontWeight: "600" },
-  meta: { marginTop: 10, color: colors.inkSoft, fontSize: 13 },
+  voiceBtnText: { color: colors.brand, fontWeight: "600" },
+  addNoteLink: {
+    fontSize: 14,
+    color: colors.brandSoft,
+    fontWeight: "600",
+  },
+  meta: { color: colors.inkSoft, fontSize: 13, marginTop: 4 },
   error: { color: colors.danger, padding: 16 },
   modalBackdrop: {
     flex: 1,
