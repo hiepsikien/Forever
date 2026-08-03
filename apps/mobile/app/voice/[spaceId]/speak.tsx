@@ -52,7 +52,16 @@ const SPEED_MIN = 0.7;
 const SPEED_MAX = 1.2;
 const SPEED_DEFAULT = 0.9;
 
-const PRESET_VALUES = {
+type TtsPreset = {
+  stability: number;
+  similarityBoost: number;
+  style: number;
+  speakerBoost: boolean;
+  speed: number;
+  lengthenPauses: boolean;
+};
+
+const PRESET_VALUES: Record<"similar" | "stable", TtsPreset> = {
   similar: {
     stability: 0.5,
     similarityBoost: 0.95,
@@ -69,7 +78,7 @@ const PRESET_VALUES = {
     speed: SPEED_DEFAULT,
     lengthenPauses: true,
   },
-} as const;
+};
 
 function clampTts(value: number): number {
   return Math.round(Math.max(0, Math.min(1, value)) * 100) / 100;
