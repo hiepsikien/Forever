@@ -48,17 +48,38 @@ type PickerOption = {
 type OpenPicker = "voice" | "model" | "profile" | null;
 
 const TTS_STEP = 0.05;
+const SPEED_MIN = 0.7;
+const SPEED_MAX = 1.2;
+const SPEED_DEFAULT = 0.9;
 
 const PRESET_VALUES = {
-  similar: { stability: 0.4, similarityBoost: 0.9, speakerBoost: true },
-  stable: { stability: 0.7, similarityBoost: 0.7, speakerBoost: true },
+  similar: {
+    stability: 0.5,
+    similarityBoost: 0.95,
+    style: 0.15,
+    speakerBoost: true,
+    speed: SPEED_DEFAULT,
+    lengthenPauses: true,
+  },
+  stable: {
+    stability: 0.7,
+    similarityBoost: 0.8,
+    style: 0.0,
+    speakerBoost: true,
+    speed: SPEED_DEFAULT,
+    lengthenPauses: true,
+  },
 } as const;
 
 function clampTts(value: number): number {
   return Math.round(Math.max(0, Math.min(1, value)) * 100) / 100;
 }
 
-function formatTts(value: number): string {
+function clampSpeed(value: number): number {
+  return Math.round(Math.max(SPEED_MIN, Math.min(SPEED_MAX, value)) * 100) / 100;
+}
+
+function formatTtsLabel(value: number): string {
   return value.toFixed(2);
 }
 
@@ -67,14 +88,20 @@ function TtsStepper({
   hint,
   value,
   onChange,
+  min = 0,
+  max = 1,
+  clamp = clampTts,
 }: {
   label: string;
   hint: string;
   value: number;
   onChange: (next: number) => void;
+  min?: number;
+  max?: number;
+  clamp?: (value: number) => number;
 }) {
-  const dec = () => onChange(clampTts(value - TTS_STEP));
-  const inc = () => onChange(clampTts(value + TTS_STEP));
+  const dec = () => onChange(clamp(value - TTS_STEP));
+  const inc = () => onChange(clamp(value + TTS_STEP));
 
   return (
     <View style={styles.advancedRow}>
@@ -84,18 +111,18 @@ function TtsStepper({
       </View>
       <View style={styles.stepper}>
         <Pressable
-          style={[styles.stepBtn, value <= 0 && styles.stepBtnDisabled]}
+          style={[styles.stepBtn, value <= min && styles.stepBtnDisabled]}
           onPress={dec}
-          disabled={value <= 0}
+          disabled={value <= min}
           hitSlop={6}
         >
           <Text style={styles.stepBtnText}>−</Text>
         </Pressable>
-        <Text style={styles.stepValue}>{formatTts(value)}</Text>
+        <Text style={styles.stepValue}>{formatTtsLabel(value)}</Text>
         <Pressable
-          style={[styles.stepBtn, value >= 1 && styles.stepBtnDisabled]}
+          style={[styles.stepBtn, value >= max && styles.stepBtnDisabled]}
           onPress={inc}
-          disabled={value >= 1}
+          disabled={value >= max}
           hitSlop={6}
         >
           <Text style={styles.stepBtnText}>+</Text>
@@ -170,8 +197,15 @@ export default function VoiceSpeakScreen() {
   const [similarityBoost, setSimilarityBoost] = useState(
     PRESET_VALUES.similar.similarityBoost,
   );
+  const [styleExaggeration, setStyleExaggeration] = useState(
+    PRESET_VALUES.similar.style,
+  );
   const [speakerBoost, setSpeakerBoost] = useState(
     PRESET_VALUES.similar.speakerBoost,
+  );
+  const [speed, setSpeed] = useState(PRESET_VALUES.similar.speed);
+  const [lengthenPauses, setLengthenPauses] = useState(
+    PRESET_VALUES.similar.lengthenPauses,
   );
   const [busy, setBusy] = useState(false);
   const [previewing, setPreviewing] = useState(false);
@@ -275,7 +309,10 @@ export default function VoiceSpeakScreen() {
     setPreset(next);
     setStability(values.stability);
     setSimilarityBoost(values.similarityBoost);
+    setStyleExaggeration(values.style);
     setSpeakerBoost(values.speakerBoost);
+    setSpeed(values.speed);
+    setLengthenPauses(values.lengthenPauses);
   };
 
   const ttsOpts = useMemo(
@@ -285,7 +322,10 @@ export default function VoiceSpeakScreen() {
       provider_voice_name: selectedElVoice?.name,
       stability,
       similarity_boost: similarityBoost,
+      style: styleExaggeration,
       use_speaker_boost: speakerBoost,
+      speed,
+      lengthen_pauses: lengthenPauses,
     }),
     [
       modelId,
@@ -293,7 +333,10 @@ export default function VoiceSpeakScreen() {
       selectedElVoice?.name,
       stability,
       similarityBoost,
+      styleExaggeration,
       speakerBoost,
+      speed,
+      lengthenPauses,
     ],
   );
 
@@ -516,6 +559,11 @@ export default function VoiceSpeakScreen() {
 
         <Text style={styles.section}>Phong cách</Text>
         <View style={styles.card}>
+          <Text style={styles.helper}>
+            Không có chỉnh tuổi/pitch riêng. Giọng nghe trẻ hơn mẫu → tăng
+            Similarity, bật Speaker Boost; nếu vẫn lệch thì chọn lại mẫu trầm hơn
+            rồi clone lại.
+          </Text>
           <View style={styles.presetRow}>
             <Pressable
               style={[styles.chip, preset === "similar" && styles.chipActive]}
@@ -562,8 +610,29 @@ export default function VoiceSpeakScreen() {
           {advancedOpen ? (
             <View style={styles.advancedPanel}>
               <TtsStepper
+                label="Tốc độ"
+                hint="Thấp = chậm hơn · 0.90 gần nhịp nói tự nhiên"
+                value={speed}
+                min={SPEED_MIN}
+                max={SPEED_MAX}
+                clamp={clampSpeed}
+                onChange={(next) => {
+                  setPreset(null);
+                  setSpeed(next);
+                }}
+              />
+              <TtsStepper
+                label="Similarity"
+                hint="Cao = sát chất giọng mẫu hơn (giảm cảm giác trẻ hóa)"
+                value={similarityBoost}
+                onChange={(next) => {
+                  setPreset(null);
+                  setSimilarityBoost(next);
+                }}
+              />
+              <TtsStepper
                 label="Stability"
-                hint="Thấp = biểu cảm · Cao = đều, ổn định"
+                hint="Cao = đều, trầm ổn hơn · Thấp = biểu cảm"
                 value={stability}
                 onChange={(next) => {
                   setPreset(null);
@@ -571,19 +640,36 @@ export default function VoiceSpeakScreen() {
                 }}
               />
               <TtsStepper
-                label="Similarity"
-                hint="Cao = giống bản clone hơn"
-                value={similarityBoost}
+                label="Style"
+                hint="Nhẹ = giữ đúng mẫu · Cao = phóng đại cách nói (dễ lệch)"
+                value={styleExaggeration}
                 onChange={(next) => {
                   setPreset(null);
-                  setSimilarityBoost(next);
+                  setStyleExaggeration(next);
                 }}
               />
               <View style={styles.advancedRow}>
                 <View style={styles.advancedCopy}>
+                  <Text style={styles.advancedLabel}>Nghỉ giữa câu</Text>
+                  <Text style={styles.advancedHint}>
+                    Thêm khoảng nghỉ nhẹ giữa các câu
+                  </Text>
+                </View>
+                <Switch
+                  value={lengthenPauses}
+                  onValueChange={(next) => {
+                    setPreset(null);
+                    setLengthenPauses(next);
+                  }}
+                  trackColor={{ false: colors.line, true: colors.brandSoft }}
+                  thumbColor={lengthenPauses ? colors.brand : "#f4f3f4"}
+                />
+              </View>
+              <View style={styles.advancedRow}>
+                <View style={styles.advancedCopy}>
                   <Text style={styles.advancedLabel}>Speaker Boost</Text>
                   <Text style={styles.advancedHint}>
-                    Tăng độ rõ và giống giọng gốc
+                    Bám sát giọng gốc hơn — nên bật khi nghe trẻ hơn mẫu
                   </Text>
                 </View>
                 <Switch

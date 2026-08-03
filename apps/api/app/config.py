@@ -28,11 +28,16 @@ class Settings(BaseSettings):
     elevenlabs_language_code: str = "vi"
     elevenlabs_api_base: str = "https://api.elevenlabs.io/v1"
     # TTS defaults tuned for Instant Voice Clone similarity (Vietnamese lab).
-    elevenlabs_stability: float = 0.45
-    elevenlabs_similarity_boost: float = 0.85
-    elevenlabs_style: float = 0.0
+    # Higher similarity reduces drift toward a generic (often younger) baseline.
+    elevenlabs_stability: float = 0.5
+    elevenlabs_similarity_boost: float = 0.9
+    elevenlabs_style: float = 0.15
+    # Slightly under 1.0 — Instant Clone TTS often reads a touch faster than natural speech.
+    elevenlabs_speed: float = 0.9
     elevenlabs_speaker_boost: bool = True
     elevenlabs_remove_noise: bool = True
+    # Soften gaps between sentences (model-aware pause markers).
+    elevenlabs_lengthen_pauses: bool = True
 
     # Shared secret for local Extract worker → Forever API claim/complete.
     extract_worker_token: str = "forever-extract-worker"

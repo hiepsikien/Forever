@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from pathlib import Path
 from typing import Any
 
@@ -8,12 +9,57 @@ from fastapi import HTTPException
 
 from ..config import Settings
 
+# Practical range for voice_settings.speed (ElevenLabs REST).
+SPEED_MIN = 0.7
+SPEED_MAX = 1.2
+
+# Sentence end → next clause. Keep Vietnamese / Latin punctuation.
+_SENTENCE_BOUNDARY = re.compile(
+    r"(?<=[.!?。！？])"  # end of sentence (not ellipsis — that already slows delivery)
+    r"(\s+)"
+    r"(?=[\"'“‘(\[]?\S)"
+)
+
+_HAS_EXPLICIT_PAUSE_TAG = re.compile(
+    r"(?i)<\s*break\b|\[(?:short |long )?pause\]"
+)
+
 
 class ElevenLabsError(Exception):
     def __init__(self, message: str, status_code: int = 502):
         super().__init__(message)
         self.message = message
         self.status_code = status_code
+
+
+def soften_sentence_pacing(text: str, *, model_id: str | None = None) -> str:
+    """Insert mild inter-sentence pauses so delivery feels less rushed.
+
+    eleven_v3 uses expressive tags; other models use SSML break tags.
+    Skips text that already has explicit pause tags. Caps insertions to avoid
+    the instability ElevenLabs warns about with excessive breaks.
+    """
+    cleaned = text.strip()
+    if not cleaned or _HAS_EXPLICIT_PAUSE_TAG.search(cleaned):
+        return cleaned
+
+    model = (model_id or "").strip().lower()
+    if model == "eleven_v3":
+        marker = " [short pause] "
+    else:
+        marker = ' <break time="0.45s" /> '
+
+    inserts = 0
+    max_inserts = 8
+
+    def _replace(match: re.Match[str]) -> str:
+        nonlocal inserts
+        if inserts >= max_inserts:
+            return match.group(0)
+        inserts += 1
+        return marker
+
+    return _SENTENCE_BOUNDARY.sub(_replace, cleaned)
 
 
 def resolve_api_key(settings: Settings, space_key: str | None) -> str:
@@ -172,7 +218,9 @@ def text_to_speech(
     stability: float | None = None,
     similarity_boost: float | None = None,
     style: float | None = None,
+    speed: float | None = None,
     use_speaker_boost: bool | None = None,
+    lengthen_pauses: bool | None = None,
 ) -> bytes:
     text = text.strip()
     if not text:
@@ -197,20 +245,40 @@ def text_to_speech(
         0.0,
         1.0,
     )
+    speed = _clamp(
+        speed if speed is not None else settings.elevenlabs_speed,
+        SPEED_MIN,
+        SPEED_MAX,
+    )
     speaker_boost = (
         settings.elevenlabs_speaker_boost
         if use_speaker_boost is None
         else use_speaker_boost
     )
+    do_lengthen = (
+        settings.elevenlabs_lengthen_pauses
+        if lengthen_pauses is None
+        else lengthen_pauses
+    )
 
     resolved_model = (model_id or "").strip() or settings.elevenlabs_tts_model
+    paced_text = (
+        soften_sentence_pacing(text, model_id=resolved_model)
+        if do_lengthen
+        else text
+    )
+    # Pause markers can push past the original char budget slightly.
+    if len(paced_text) > 2500:
+        paced_text = text
+
     body: dict[str, Any] = {
-        "text": text,
+        "text": paced_text,
         "model_id": resolved_model,
         "voice_settings": {
             "stability": stability,
             "similarity_boost": similarity_boost,
             "style": style,
+            "speed": speed,
             "use_speaker_boost": speaker_boost,
         },
     }

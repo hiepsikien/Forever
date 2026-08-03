@@ -126,7 +126,9 @@ class TtsBody(BaseModel):
     stability: float | None = Field(default=None, ge=0, le=1)
     similarity_boost: float | None = Field(default=None, ge=0, le=1)
     style: float | None = Field(default=None, ge=0, le=1)
+    speed: float | None = Field(default=None, ge=0.7, le=1.2)
     use_speaker_boost: bool | None = None
+    lengthen_pauses: bool | None = None
     save: bool = False
 
 
@@ -1452,7 +1454,9 @@ def synthesize_tts(
             stability=body.stability,
             similarity_boost=body.similarity_boost,
             style=body.style,
+            speed=body.speed,
             use_speaker_boost=body.use_speaker_boost,
+            lengthen_pauses=body.lengthen_pauses,
         )
     except el.ElevenLabsError as exc:
         raise HTTPException(status_code=exc.status_code, detail=exc.message) from exc
