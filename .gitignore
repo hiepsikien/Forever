@@ -67,3 +67,6 @@ Extract/.venv/
 Extract/out/
 Extract/.pytest_cache/
 Extract/**/__pycache__/
+
+# Brand concept scratchpad — shipped kit lives in brand/logo/
+brand/.explore/
