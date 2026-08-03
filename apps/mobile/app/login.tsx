@@ -10,6 +10,7 @@ import {
   View,
 } from "react-native";
 
+import { BrandLogo } from "@/components/BrandLogo";
 import { useAuth } from "@/lib/auth";
 import { resolveBaseUrl } from "@/lib/api";
 import { isAuthDevEnabled } from "@/lib/firebase";
@@ -17,7 +18,7 @@ import {
   getSavedLoginCredentials,
   saveLoginCredentials,
 } from "@/lib/loginCredentials";
-import { colors, fonts } from "@/lib/theme";
+import { colors } from "@/lib/theme";
 
 export default function LoginScreen() {
   const { signInDev } = useAuth();
@@ -78,7 +79,13 @@ export default function LoginScreen() {
         keyboardShouldPersistTaps="handled"
       >
         <View style={styles.hero}>
-          <Text style={styles.brand}>Forever</Text>
+          <BrandLogo
+            variant="onDark"
+            layout="stacked"
+            markSize={88}
+            wordmarkSize={42}
+            style={{ alignItems: "flex-start" }}
+          />
           <Text style={styles.tagline}>
             Mái nhà số cho gia đình — kết nối, lưu giữ, trường tồn.
           </Text>
@@ -156,15 +163,9 @@ const styles = StyleSheet.create({
     paddingVertical: 32,
     justifyContent: "center",
   },
-  hero: { marginBottom: 28 },
-  brand: {
-    fontFamily: fonts.display,
-    fontSize: 48,
-    color: "#f4efe6",
-    letterSpacing: 0.5,
-  },
+  hero: { marginBottom: 28, alignItems: "flex-start" },
   tagline: {
-    marginTop: 12,
+    marginTop: 16,
     fontSize: 17,
     lineHeight: 24,
     color: "rgba(244,239,230,0.88)",
