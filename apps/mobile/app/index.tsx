@@ -13,6 +13,7 @@ import {
   View,
 } from "react-native";
 
+import { BrandLogo } from "@/components/BrandLogo";
 import { useAuth } from "@/lib/auth";
 import { colors, fonts } from "@/lib/theme";
 
@@ -28,7 +29,9 @@ export default function HomeScreen() {
 
   useLayoutEffect(() => {
     navigation.setOptions({
-      title: "Forever",
+      headerTitle: () => (
+        <BrandLogo variant="onLight" markSize={28} wordmarkSize={18} />
+      ),
       headerRight: () => (
         <Pressable onPress={() => signOut()} hitSlop={8} style={styles.headerBtn}>
           <Text style={styles.headerBtnText}>Thoát</Text>
