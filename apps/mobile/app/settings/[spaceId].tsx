@@ -1,5 +1,4 @@
 import { FamilySpace, SpaceSettings, StewardshipStatus } from "@forever/api-client";
-import { useNavigation } from "@react-navigation/native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useCallback, useLayoutEffect, useState } from "react";
 import {
@@ -14,13 +13,16 @@ import {
 } from "react-native";
 
 import { useAuth } from "@/lib/auth";
+import { useSpaceScreenOptions } from "@/lib/spaceHeader";
 import { colors, fonts } from "@/lib/theme";
+
+type SettingsTab = "account" | "space";
 
 export default function SettingsScreen() {
   const { spaceId } = useLocalSearchParams<{ spaceId: string }>();
-  const { api, user } = useAuth();
-  const navigation = useNavigation();
+  const { api, user, signOut } = useAuth();
   const router = useRouter();
+  const [tab, setTab] = useState<SettingsTab>("account");
   const [space, setSpace] = useState<FamilySpace | null>(null);
   const [settings, setSettings] = useState<SpaceSettings | null>(null);
   const [stewardship, setStewardship] = useState<StewardshipStatus | null>(null);
@@ -29,9 +31,12 @@ export default function SettingsScreen() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
-  useLayoutEffect(() => {
-    navigation.setOptions({ title: "Cài đặt" });
-  }, [navigation]);
+  useSpaceScreenOptions({
+    spaceId,
+    title: "Cài đặt",
+    showSettings: false,
+    backTitle: "Nhà",
+  });
 
   const load = useCallback(async () => {
     if (!spaceId) return;
@@ -140,6 +145,71 @@ export default function SettingsScreen() {
 
   return (
     <ScrollView contentContainerStyle={styles.root}>
+      <View style={styles.tabs}>
+        <Pressable
+          style={[styles.tab, tab === "account" && styles.tabActive]}
+          onPress={() => setTab("account")}
+        >
+          <Text style={[styles.tabText, tab === "account" && styles.tabTextActive]}>
+            Tài khoản
+          </Text>
+        </Pressable>
+        <Pressable
+          style={[styles.tab, tab === "space" && styles.tabActive]}
+          onPress={() => setTab("space")}
+        >
+          <Text style={[styles.tabText, tab === "space" && styles.tabTextActive]}>
+            Nhà
+          </Text>
+        </Pressable>
+      </View>
+
+      {tab === "account" ? (
+        <>
+          <Text style={styles.section}>Đăng nhập</Text>
+          <View style={styles.card}>
+            <Text style={styles.label}>Tên</Text>
+            <Text style={styles.value}>{user?.name ?? "—"}</Text>
+            <Text style={[styles.label, { marginTop: 12 }]}>Email</Text>
+            <Text style={styles.value}>{user?.email ?? "—"}</Text>
+            {user?.handle ? (
+              <>
+                <Text style={[styles.label, { marginTop: 12 }]}>Handle</Text>
+                <Text style={styles.value}>@{user.handle}</Text>
+              </>
+            ) : null}
+          </View>
+          <Pressable
+            style={styles.btnGhost}
+            onPress={() => {
+              Alert.alert("Thoát?", "Bạn sẽ đăng xuất khỏi Forever.", [
+                { text: "Huỷ", style: "cancel" },
+                {
+                  text: "Thoát",
+                  style: "destructive",
+                  onPress: () => void signOut(),
+                },
+              ]);
+            }}
+          >
+            <Text style={styles.btnGhostText}>Thoát</Text>
+          </Pressable>
+          <Text style={styles.section}>Về Forever</Text>
+          <Pressable
+            style={styles.philosophyLink}
+            onPress={() => router.push("/settings/philosophy")}
+          >
+            <View style={styles.philosophyLinkMain}>
+              <Text style={styles.philosophyLinkTitle}>Triết lý Forever</Text>
+              <Text style={styles.philosophyLinkSub}>
+                Vì sao app này tồn tại, và cam kết với gia đình bạn
+              </Text>
+            </View>
+            <Text style={styles.philosophyChevron}>›</Text>
+          </Pressable>
+        </>
+      ) : (
+        <>
       <Text style={styles.section}>Không gian</Text>
       <View style={styles.card}>
         <Text style={styles.value}>{space?.name ?? "—"}</Text>
@@ -294,20 +364,8 @@ export default function SettingsScreen() {
         Lấy key tại elevenlabs.io → Profile → API Keys. Gói Starter trở lên để
         Instant Voice Clone qua API.
       </Text>
-
-      <Text style={styles.section}>Về Forever</Text>
-      <Pressable
-        style={styles.philosophyLink}
-        onPress={() => router.push("/settings/philosophy")}
-      >
-        <View style={styles.philosophyLinkMain}>
-          <Text style={styles.philosophyLinkTitle}>Triết lý Forever</Text>
-          <Text style={styles.philosophyLinkSub}>
-            Vì sao app này tồn tại, và cam kết với gia đình bạn
-          </Text>
-        </View>
-        <Text style={styles.philosophyChevron}>›</Text>
-      </Pressable>
+        </>
+      )}
     </ScrollView>
   );
 }
@@ -320,6 +378,26 @@ const styles = StyleSheet.create({
     backgroundColor: colors.bg,
   },
   root: { padding: 20, gap: 12, paddingBottom: 40, backgroundColor: colors.bg },
+  tabs: {
+    flexDirection: "row",
+    gap: 8,
+    marginBottom: 8,
+  },
+  tab: {
+    flex: 1,
+    paddingVertical: 10,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: colors.line,
+    alignItems: "center",
+    backgroundColor: colors.card,
+  },
+  tabActive: {
+    borderColor: colors.brand,
+    backgroundColor: "rgba(45, 74, 62, 0.08)",
+  },
+  tabText: { fontSize: 14, fontWeight: "600", color: colors.inkSoft },
+  tabTextActive: { color: colors.brand },
   section: {
     fontFamily: fonts.display,
     fontSize: 22,
@@ -391,6 +469,15 @@ const styles = StyleSheet.create({
   },
   btnDisabled: { opacity: 0.6 },
   btnText: { color: "#fff", fontWeight: "700", fontSize: 15 },
+  btnGhost: {
+    marginTop: 4,
+    borderWidth: 1,
+    borderColor: colors.brand,
+    borderRadius: 10,
+    paddingVertical: 12,
+    alignItems: "center",
+  },
+  btnGhostText: { color: colors.brand, fontWeight: "700", fontSize: 15 },
   locked: { marginTop: 8, fontSize: 14, color: colors.inkSoft, lineHeight: 20 },
   footnote: { fontSize: 12, color: colors.inkSoft, lineHeight: 18, marginTop: 4 },
   philosophyLink: {

@@ -4,8 +4,8 @@ import {
   requestRecordingPermissionsAsync,
   useAudioRecorder,
 } from "expo-audio";
-import { useLocalSearchParams, useNavigation, useRouter } from "expo-router";
-import { useCallback, useEffect, useLayoutEffect, useState } from "react";
+import { useLocalSearchParams, useRouter } from "expo-router";
+import { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -19,12 +19,12 @@ import {
 
 import { preparePlaybackMode, prepareRecordingMode } from "@/lib/audio";
 import { useAuth } from "@/lib/auth";
+import { useSpaceScreenOptions } from "@/lib/spaceHeader";
 import { colors, fonts } from "@/lib/theme";
 
 export default function InterviewScreen() {
   const { spaceId } = useLocalSearchParams<{ spaceId: string }>();
   const { api } = useAuth();
-  const navigation = useNavigation();
   const router = useRouter();
   const recorder = useAudioRecorder(RecordingPresets.HIGH_QUALITY);
   const [prompts, setPrompts] = useState<InterviewPrompt[]>([]);
@@ -34,9 +34,11 @@ export default function InterviewScreen() {
   const [submitting, setSubmitting] = useState(false);
   const [recording, setRecording] = useState(false);
 
-  useLayoutEffect(() => {
-    navigation.setOptions({ title: "Time-Capsule" });
-  }, [navigation]);
+  useSpaceScreenOptions({
+    spaceId,
+    title: "Time-Capsule",
+    backTitle: "Nhà",
+  });
 
   const load = useCallback(async () => {
     if (!spaceId) return;

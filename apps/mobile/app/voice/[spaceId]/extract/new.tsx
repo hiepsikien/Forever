@@ -1,6 +1,6 @@
 import * as DocumentPicker from "expo-document-picker";
-import { useLocalSearchParams, useNavigation, useRouter } from "expo-router";
-import { useLayoutEffect, useState } from "react";
+import { useLocalSearchParams, useRouter } from "expo-router";
+import { useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -13,6 +13,7 @@ import {
 } from "react-native";
 
 import { useAuth } from "@/lib/auth";
+import { useSpaceScreenOptions } from "@/lib/spaceHeader";
 import { colors, fonts } from "@/lib/theme";
 
 export default function ExtractNewScreen() {
@@ -21,7 +22,6 @@ export default function ExtractNewScreen() {
     voiceId?: string;
   }>();
   const { api } = useAuth();
-  const navigation = useNavigation();
   const router = useRouter();
 
   const [numSpeakers, setNumSpeakers] = useState("2");
@@ -32,9 +32,11 @@ export default function ExtractNewScreen() {
   } | null>(null);
   const [busy, setBusy] = useState(false);
 
-  useLayoutEffect(() => {
-    navigation.setOptions({ title: "Giọng từ ký ức" });
-  }, [navigation]);
+  useSpaceScreenOptions({
+    spaceId,
+    title: "Giọng từ ký ức",
+    backTitle: "Nhà",
+  });
 
   const pick = async () => {
     const result = await DocumentPicker.getDocumentAsync({

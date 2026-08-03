@@ -1,8 +1,7 @@
 import * as DocumentPicker from "expo-document-picker";
 import * as FileSystem from "expo-file-system/legacy";
-import { useNavigation } from "@react-navigation/native";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { useEffect, useLayoutEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -26,6 +25,7 @@ import {
 } from "@/lib/audio";
 import { useAuth } from "@/lib/auth";
 import { stageLocalAudioFile } from "@/lib/media";
+import { useSpaceScreenOptions } from "@/lib/spaceHeader";
 import { colors, fonts } from "@/lib/theme";
 
 type Phase = "pick" | "review";
@@ -52,9 +52,11 @@ function stepIndex(phase: Phase, hasFile: boolean): number {
 }
 
 export default function VoiceUploadScreen() {
-  const { voiceId } = useLocalSearchParams<{ spaceId: string; voiceId: string }>();
+  const { spaceId, voiceId } = useLocalSearchParams<{
+    spaceId: string;
+    voiceId: string;
+  }>();
   const { api } = useAuth();
-  const navigation = useNavigation();
   const router = useRouter();
   const insets = useSafeAreaInsets();
 
@@ -69,9 +71,7 @@ export default function VoiceUploadScreen() {
   const hasFile = picked != null;
   const activeStep = stepIndex(phase, hasFile);
 
-  useLayoutEffect(() => {
-    navigation.setOptions({ title: "Tải file audio" });
-  }, [navigation]);
+  useSpaceScreenOptions({ spaceId, title: "Tải file audio", backTitle: "Nhà" });
 
   useEffect(() => {
     return () => {

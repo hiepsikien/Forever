@@ -1,7 +1,6 @@
 import { VoiceSample } from "@forever/api-client";
-import { useNavigation } from "@react-navigation/native";
 import { useLocalSearchParams } from "expo-router";
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -22,6 +21,7 @@ import {
 } from "@/lib/audio";
 import { useAuth } from "@/lib/auth";
 import { fetchAuthedMediaUri } from "@/lib/media";
+import { useSpaceScreenOptions } from "@/lib/spaceHeader";
 import { colors, fonts } from "@/lib/theme";
 
 type Playback = { id: string; paused: boolean } | null;
@@ -64,7 +64,6 @@ export default function VoiceSamplesScreen() {
     stage?: string;
   }>();
   const { api } = useAuth();
-  const navigation = useNavigation();
   const initialTab: TabStage =
     stageParam === "processed" ? "processed" : "unprocessed";
   const [tab, setTab] = useState<TabStage>(initialTab);
@@ -84,9 +83,7 @@ export default function VoiceSamplesScreen() {
 
   const samples = samplesByTab[tab];
 
-  useLayoutEffect(() => {
-    navigation.setOptions({ title: "Mẫu giọng" });
-  }, [navigation]);
+  useSpaceScreenOptions({ spaceId, title: "Mẫu giọng", backTitle: "Nhà" });
 
   const loadTab = useCallback(
     async (stage: TabStage, opts?: { silent?: boolean }) => {

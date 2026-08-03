@@ -286,6 +286,96 @@ def test_heritage_voice_steward_gate(client: TestClient, tmp_path, monkeypatch):
     get_settings.cache_clear()
 
 
+def test_heritage_readiness_and_activation(client: TestClient, tmp_path, monkeypatch):
+    monkeypatch.setenv("UPLOAD_DIR", str(tmp_path))
+    from app.config import get_settings
+
+    get_settings.cache_clear()
+
+    owner_token = _login(client, "heritage-ready-owner@example.com", "Con")
+    owner_h = {"Authorization": f"Bearer {owner_token}"}
+    space_id = _space(client, owner_token, "Thổi hồn")
+
+    identity = client.post(
+        f"/api/spaces/{space_id}/identities",
+        headers=owner_h,
+        json={"display_name": "Hương", "relation_label": "Chị", "status": "remembered"},
+    )
+    assert identity.status_code == 200, identity.text
+    identity_id = identity.json()["id"]
+    thread_id = identity.json()["heritage_thread_id"]
+
+    voice = client.post(
+        f"/api/spaces/{space_id}/voices/heritage",
+        headers=owner_h,
+        json={"identity_profile_id": identity_id, "consent": True},
+    )
+    assert voice.status_code == 200, voice.text
+    voice_id = voice.json()["id"]
+
+    sample = client.post(
+        f"/api/voices/{voice_id}/samples",
+        headers=owner_h,
+        files={"file": ("sample.m4a", BytesIO(b"fake-audio-bytes"), "audio/mp4")},
+        data={"source": "record"},
+    )
+    assert sample.status_code == 200, sample.text
+
+    readiness = client.get(
+        f"/api/spaces/{space_id}/identities/{identity_id}/heritage-readiness",
+        headers=owner_h,
+    )
+    assert readiness.status_code == 200, readiness.text
+    body = readiness.json()
+    assert body["display_name"] == "Hương"
+    assert body["voice_ready"] is True
+    assert body["knowledge_count"] == 0
+    assert body["knowledge_target"] == 5
+    assert body["chat_ready"] is False
+    assert body["can_activate"] is False
+
+    threads = client.get(f"/api/spaces/{space_id}/threads", headers=owner_h).json()
+    heritage_thread = next(t for t in threads["threads"] if t["id"] == thread_id)
+    assert heritage_thread["title"] == "Hương · Chị"
+    assert heritage_thread["heritage"]["entity_status"] in ("dormant", "awakening")
+
+    thread_get = client.get(f"/api/threads/{thread_id}", headers=owner_h)
+    assert thread_get.status_code == 200
+    assert thread_get.json()["heritage"]["identity_id"] == identity_id
+
+    tag = f"heritage:{identity_id}"
+    for i in range(5):
+        note = client.post(
+            f"/api/spaces/{space_id}/memories/note",
+            headers=owner_h,
+            json={"title": f"Ký ức {i}", "body": f"Ghi chú {i}", "tags": tag},
+        )
+        assert note.status_code == 200, note.text
+
+    ready = client.get(
+        f"/api/spaces/{space_id}/identities/{identity_id}/heritage-readiness",
+        headers=owner_h,
+    ).json()
+    assert ready["knowledge_count"] == 5
+    assert ready["can_activate"] is True
+
+    denied = client.post(
+        f"/api/spaces/{space_id}/identities/{identity_id}/activate-heritage",
+        headers={"Authorization": f"Bearer {_login(client, 'heritage-ready-member@example.com', 'Em')}"},
+    )
+    assert denied.status_code in (403, 401)
+
+    activated = client.post(
+        f"/api/spaces/{space_id}/identities/{identity_id}/activate-heritage",
+        headers=owner_h,
+    )
+    assert activated.status_code == 200, activated.text
+    assert activated.json()["chat_ready"] is True
+    assert activated.json()["entity_status"] == "ready"
+
+    get_settings.cache_clear()
+
+
 def test_owner_multi_profile_toi_then_bo(client: TestClient, tmp_path, monkeypatch):
     """Owner creates Tôi then Bố — sample → clone → TTS smoke path."""
     monkeypatch.setenv("UPLOAD_DIR", str(tmp_path))

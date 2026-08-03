@@ -60,6 +60,24 @@ export interface ThreadSummary {
     created_at: string;
     sender_kind: string;
   } | null;
+  heritage?: HeritageReadiness | null;
+}
+
+export interface HeritageReadiness {
+  identity_id: string;
+  display_name: string;
+  relation_label: string;
+  entity_status: "dormant" | "awakening" | "ready" | string;
+  voice_profile_id?: string | null;
+  voice_status?: string | null;
+  processed_count: number;
+  unprocessed_count: number;
+  voice_ready: boolean;
+  knowledge_count: number;
+  knowledge_target: number;
+  knowledge_ready: boolean;
+  chat_ready: boolean;
+  can_activate: boolean;
 }
 
 export interface ChatMessage {
@@ -606,6 +624,15 @@ export function createApiClient({
           method: "PATCH",
           body: JSON.stringify(payload),
         },
+      ),
+    getHeritageReadiness: (spaceId: string, identityId: string) =>
+      request<HeritageReadiness>(
+        `/api/spaces/${spaceId}/identities/${identityId}/heritage-readiness`,
+      ),
+    activateHeritageEntity: (spaceId: string, identityId: string) =>
+      request<HeritageReadiness>(
+        `/api/spaces/${spaceId}/identities/${identityId}/activate-heritage`,
+        { method: "POST" },
       ),
     listVoices: (spaceId: string) =>
       request<{ voices: VoiceProfile[] }>(`/api/spaces/${spaceId}/voices`),

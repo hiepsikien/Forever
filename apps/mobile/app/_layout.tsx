@@ -48,6 +48,10 @@ export default function RootLayout() {
             <Stack.Screen name="login" options={{ headerShown: false }} />
             <Stack.Screen name="invite" options={{ title: "Tham gia gia đình" }} />
             <Stack.Screen name="space/[id]" options={{ title: "Gia đình" }} />
+            <Stack.Screen
+              name="awakening/[spaceId]"
+              options={{ title: "Thổi hồn", headerBackTitle: "Nhà" }}
+            />
             <Stack.Screen name="chat/[threadId]" options={{ title: "Trò chuyện" }} />
             <Stack.Screen name="library/[spaceId]" options={{ title: "Thư viện ký ức" }} />
             <Stack.Screen name="interview/[spaceId]" options={{ title: "Time-Capsule" }} />

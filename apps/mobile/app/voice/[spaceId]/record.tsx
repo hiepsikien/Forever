@@ -3,9 +3,8 @@ import {
   useAudioRecorder,
   useAudioRecorderState,
 } from "expo-audio";
-import { useNavigation } from "@react-navigation/native";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { useCallback, useEffect, useLayoutEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -31,6 +30,7 @@ import {
 import { RecordingLevelMeter } from "@/lib/recordingMeter";
 import { VOICE_RECORDING_OPTIONS } from "@/lib/recordingOptions";
 import { useAuth } from "@/lib/auth";
+import { useSpaceScreenOptions } from "@/lib/spaceHeader";
 import { colors, fonts } from "@/lib/theme";
 
 type Phase = "script" | "recording" | "review";
@@ -49,7 +49,6 @@ export default function VoiceRecordScreen() {
     voiceId: string;
   }>();
   const { api } = useAuth();
-  const navigation = useNavigation();
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const recorder = useAudioRecorder(VOICE_RECORDING_OPTIONS);
@@ -72,9 +71,7 @@ export default function VoiceRecordScreen() {
   const hasScript = script.trim().length > 0;
   const activeStep = stepIndex(phase, hasScript);
 
-  useLayoutEffect(() => {
-    navigation.setOptions({ title: "Ghi mẫu" });
-  }, [navigation]);
+  useSpaceScreenOptions({ spaceId, title: "Ghi mẫu", backTitle: "Nhà" });
 
   const generateScript = useCallback(
     async (nextSeed?: number) => {

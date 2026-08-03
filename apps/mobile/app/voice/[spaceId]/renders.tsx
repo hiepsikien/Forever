@@ -3,9 +3,8 @@ import {
   VoiceRender,
   voiceTtsModelLabel,
 } from "@forever/api-client";
-import { useNavigation } from "@react-navigation/native";
 import { useLocalSearchParams } from "expo-router";
-import { useCallback, useEffect, useLayoutEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -23,16 +22,16 @@ import {
   stopActivePlayback,
 } from "@/lib/audio";
 import { useAuth } from "@/lib/auth";
+import { useSpaceScreenOptions } from "@/lib/spaceHeader";
 import {
   fetchAuthedMediaUri,
   prepareAudioExport,
-  saveLocalAudioToLibrary,
   shareLocalAudio,
 } from "@/lib/media";
 import { colors, fonts } from "@/lib/theme";
 
 type Playback = { id: string; paused: boolean } | null;
-type BusyAction = { id: string; kind: "save" | "share" } | null;
+type BusyAction = { id: string; kind: "share" } | null;
 
 function exportBaseName(item: VoiceRender): string {
   const voice = item.voice_display_name || "Voice-DNA";
@@ -51,7 +50,6 @@ export default function VoiceRendersScreen() {
     voiceId?: string;
   }>();
   const { api } = useAuth();
-  const navigation = useNavigation();
   const [voices, setVoices] = useState<VoiceProfile[]>([]);
   const [filterVoiceId, setFilterVoiceId] = useState<string | null>(
     voiceIdParam || null,
@@ -61,9 +59,11 @@ export default function VoiceRendersScreen() {
   const [playback, setPlayback] = useState<Playback>(null);
   const [busy, setBusy] = useState<BusyAction>(null);
 
-  useLayoutEffect(() => {
-    navigation.setOptions({ title: "Bản TTS đã tạo" });
-  }, [navigation]);
+  useSpaceScreenOptions({
+    spaceId,
+    title: "Bản đã tạo",
+    backTitle: "Nhà",
+  });
 
   const load = useCallback(async () => {
     if (!spaceId) return;
@@ -138,30 +138,6 @@ export default function VoiceRendersScreen() {
     }
   };
 
-  const saveRender = async (item: VoiceRender) => {
-    if (busy) return;
-    setBusy({ id: item.id, kind: "save" });
-    try {
-      const uri = await resolveExportUri(item);
-      const mode = await saveLocalAudioToLibrary(uri, {
-        mimeType: item.media_mime,
-        dialogTitle: exportBaseName(item),
-      });
-      if (mode === "share_sheet") {
-        Alert.alert(
-          "Lưu audio",
-          "Chọn “Lưu vào Files” (hoặc app bạn muốn) trong menu vừa mở.",
-        );
-      } else {
-        Alert.alert("Đã lưu", "File audio đã được lưu vào thư viện thiết bị.");
-      }
-    } catch (e) {
-      Alert.alert("Lỗi", e instanceof Error ? e.message : "Không lưu được.");
-    } finally {
-      setBusy(null);
-    }
-  };
-
   const remove = (item: VoiceRender) => {
     Alert.alert("Xóa bản TTS?", item.text.slice(0, 80), [
       { text: "Huỷ", style: "cancel" },
@@ -218,7 +194,7 @@ export default function VoiceRendersScreen() {
         <View style={styles.header}>
           <Text style={styles.title}>Bản TTS đã tạo</Text>
           <Text style={styles.sub}>
-            Lọc theo Voice DNA — nghe, lưu hoặc chia sẻ từng bản.
+            Lọc theo người — nghe hoặc chia sẻ từng bản.
           </Text>
           <View style={styles.chips}>
             <Pressable
@@ -256,7 +232,7 @@ export default function VoiceRendersScreen() {
       }
       ListEmptyComponent={
         <Text style={styles.empty}>
-          Chưa có bản nào. Vào “Tạo giọng từ text” rồi bấm Lưu.
+          Chưa có bản nào. Vào Tạo câu nói — mỗi lần tạo đều lưu tự động.
         </Text>
       }
       renderItem={({ item }) => {
@@ -264,9 +240,8 @@ export default function VoiceRendersScreen() {
         const paused = active && playback?.paused;
         const when = item.created_at.slice(0, 16).replace("T", " ");
         const voiceName = item.voice_display_name || "Voice DNA";
-        const saving = busy?.id === item.id && busy.kind === "save";
         const sharing = busy?.id === item.id && busy.kind === "share";
-        const itemBusy = saving || sharing;
+        const itemBusy = sharing;
 
         return (
           <View style={styles.card}>
@@ -293,17 +268,6 @@ export default function VoiceRendersScreen() {
                 <Text style={styles.playText}>
                   {!active ? "Nghe" : paused ? "Tiếp tục" : "Tạm dừng"}
                 </Text>
-              </Pressable>
-              <Pressable
-                style={[styles.secondary, itemBusy && styles.disabled]}
-                onPress={() => saveRender(item)}
-                disabled={itemBusy}
-              >
-                {saving ? (
-                  <ActivityIndicator size="small" color={colors.brand} />
-                ) : (
-                  <Text style={styles.secondaryText}>Lưu</Text>
-                )}
               </Pressable>
               <Pressable
                 style={[styles.secondary, itemBusy && styles.disabled]}

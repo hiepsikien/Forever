@@ -31,6 +31,11 @@ from ..models import (
 )
 from ..routers.settings import HERITAGE_CONSENT, SELF_CONSENT
 from ..services import elevenlabs as el
+from ..services.heritage import (
+    heritage_readiness_payload,
+    heritage_thread_title,
+    sync_heritage_thread_title,
+)
 from ..services.audio_combine import AudioCombineError, combine_audio_files
 from ..services.audio_process import normalize_audio_file, normalize_audio_file_inplace
 from ..services.sample_quality import score_voice_sample
@@ -623,9 +628,7 @@ def create_identity(
     now = datetime.now(timezone.utc)
     thread_id = None
     if body.status == "remembered":
-        title = body.display_name
-        if body.relation_label:
-            title = f"Ký ức · {body.display_name}"
+        title = heritage_thread_title(body.display_name, body.relation_label)
         thread = Thread(
             id=generate(),
             space_id=space_id,
@@ -689,9 +692,7 @@ def update_identity(
         row.status = body.status
         if body.status == "remembered" and not row.heritage_thread_id:
             now = datetime.now(timezone.utc)
-            title = row.display_name
-            if row.relation_label:
-                title = f"Ký ức · {row.display_name}"
+            title = heritage_thread_title(row.display_name, row.relation_label)
             thread = Thread(
                 id=generate(),
                 space_id=space_id,
@@ -702,6 +703,8 @@ def update_identity(
             db.add(thread)
             db.flush()
             row.heritage_thread_id = thread.id
+
+    sync_heritage_thread_title(db, row)
 
     # Keep linked Voice DNA label in sync.
     voice = (
@@ -718,6 +721,67 @@ def update_identity(
     db.commit()
     db.refresh(row)
     return _identity_payload(row, voice=voice)
+
+
+@router.get("/api/spaces/{space_id}/identities/{identity_id}/heritage-readiness")
+def get_heritage_readiness(
+    space_id: str,
+    identity_id: str,
+    user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[Session, Depends(get_db)],
+):
+    require_membership(db, space_id=space_id, user=user)
+    row = (
+        db.query(IdentityProfile)
+        .filter(
+            IdentityProfile.id == identity_id,
+            IdentityProfile.space_id == space_id,
+        )
+        .one_or_none()
+    )
+    if not row:
+        raise HTTPException(status_code=404, detail="Identity profile not found.")
+    return heritage_readiness_payload(db, identity=row)
+
+
+@router.post("/api/spaces/{space_id}/identities/{identity_id}/activate-heritage")
+def activate_heritage_entity(
+    space_id: str,
+    identity_id: str,
+    user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[Session, Depends(get_db)],
+):
+    """Steward marks heritage entity ready for chat after voice + knowledge gates."""
+    require_steward_or_owner(db, space_id=space_id, user=user)
+    row = (
+        db.query(IdentityProfile)
+        .filter(
+            IdentityProfile.id == identity_id,
+            IdentityProfile.space_id == space_id,
+        )
+        .one_or_none()
+    )
+    if not row:
+        raise HTTPException(status_code=404, detail="Identity profile not found.")
+    if row.status != "remembered":
+        raise HTTPException(
+            status_code=400,
+            detail="Chỉ hồ sơ Ký ức mới kích hoạt thực thể chat.",
+        )
+    readiness = heritage_readiness_payload(db, identity=row)
+    if not readiness["can_activate"]:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "Cần ít nhất 1 mẫu giọng đã duyệt và "
+                f"{readiness['knowledge_target']} ký ức trong Thư viện "
+                f"(tag heritage:{row.id})."
+            ),
+        )
+    row.heritage_entity_status = "ready"
+    db.commit()
+    db.refresh(row)
+    return heritage_readiness_payload(db, identity=row)
 
 
 # --- Voices ---

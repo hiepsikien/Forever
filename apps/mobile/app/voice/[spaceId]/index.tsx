@@ -4,9 +4,9 @@ import {
   SpaceSettings,
   VoiceProfile,
 } from "@forever/api-client";
-import { useFocusEffect, useNavigation } from "@react-navigation/native";
+import { useFocusEffect } from "@react-navigation/native";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { useCallback, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -19,6 +19,7 @@ import {
 } from "react-native";
 
 import { useAuth } from "@/lib/auth";
+import { useSpaceScreenOptions } from "@/lib/spaceHeader";
 import { colors, fonts } from "@/lib/theme";
 
 type WorkflowStep = 0 | 1 | 2 | 3;
@@ -43,9 +44,11 @@ function extractJobStatusVi(status: string): string {
 }
 
 export default function VoiceDnaScreen() {
-  const { spaceId } = useLocalSearchParams<{ spaceId: string }>();
+  const { spaceId, identityId: identityIdParam } = useLocalSearchParams<{
+    spaceId: string;
+    identityId?: string;
+  }>();
   const { api, user } = useAuth();
-  const navigation = useNavigation();
   const router = useRouter();
 
   const [loading, setLoading] = useState(true);
@@ -69,9 +72,7 @@ export default function VoiceDnaScreen() {
   const loadGen = useRef(0);
   const extractPollRef = useRef(false);
 
-  useLayoutEffect(() => {
-    navigation.setOptions({ title: "Voice DNA" });
-  }, [navigation]);
+  useSpaceScreenOptions({ spaceId, title: "Voice DNA", backTitle: "Nhà" });
 
   const load = useCallback(
     async (opts?: { silent?: boolean }) => {
@@ -98,6 +99,12 @@ export default function VoiceDnaScreen() {
             space.steward_user_id === user?.id,
         );
         setSelectedIdentityId((prev) => {
+          if (
+            identityIdParam &&
+            i.identities.some((x) => x.id === identityIdParam)
+          ) {
+            return identityIdParam;
+          }
           if (prev && i.identities.some((x) => x.id === prev)) return prev;
           const me = i.identities.find((x) => x.linked_user_id === user?.id);
           return me?.id ?? i.identities[0]?.id ?? null;
@@ -131,7 +138,7 @@ export default function VoiceDnaScreen() {
         }
       }
     },
-    [api, spaceId, user?.id],
+    [api, identityIdParam, spaceId, user?.id],
   );
 
   useFocusEffect(
@@ -229,6 +236,9 @@ export default function VoiceDnaScreen() {
     }
     if (activeVoice.status === "failed") {
       return `Clone lần trước thất bại · ${processedCount} mẫu sẵn sàng`;
+    }
+    if (activeVoice.status === "draft" && processedCount >= 1) {
+      return `Có bản clone cũ · cần clone lại · ${processedCount} mẫu`;
     }
     if (activeVoice.status === "ready") {
       return `Giọng sẵn sàng · ${processedCount} mẫu`;

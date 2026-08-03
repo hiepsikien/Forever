@@ -200,6 +200,10 @@ class IdentityProfile(Base):
     heritage_thread_id: Mapped[str | None] = mapped_column(
         ForeignKey("threads.id"), nullable=True
     )
+    # dormant | awakening | ready — heritage chat unlocked at ready
+    heritage_entity_status: Mapped[str] = mapped_column(
+        String(32), default="dormant", index=True
+    )
     created_by: Mapped[str] = mapped_column(ForeignKey("users.id"))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
 

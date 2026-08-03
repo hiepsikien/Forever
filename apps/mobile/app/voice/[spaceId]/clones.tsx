@@ -1,7 +1,6 @@
 import { ElevenLabsVoice } from "@forever/api-client";
-import { useNavigation } from "@react-navigation/native";
 import { useLocalSearchParams } from "expo-router";
-import { useCallback, useEffect, useLayoutEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -14,6 +13,7 @@ import {
 
 import { useAuth } from "@/lib/auth";
 import { elVoiceSortKey, formatElVoiceWhen } from "@/lib/elVoice";
+import { useSpaceScreenOptions } from "@/lib/spaceHeader";
 import { colors, fonts } from "@/lib/theme";
 
 export default function VoiceClonesScreen() {
@@ -22,15 +22,12 @@ export default function VoiceClonesScreen() {
     voiceId?: string;
   }>();
   const { api } = useAuth();
-  const navigation = useNavigation();
   const [voices, setVoices] = useState<ElevenLabsVoice[]>([]);
   const [activeProviderId, setActiveProviderId] = useState<string | null>(null);
   const [profileName, setProfileName] = useState("");
   const [loading, setLoading] = useState(true);
 
-  useLayoutEffect(() => {
-    navigation.setOptions({ title: "Lịch sử clone" });
-  }, [navigation]);
+  useSpaceScreenOptions({ spaceId, title: "Lịch sử clone", backTitle: "Nhà" });
 
   const load = useCallback(async () => {
     if (!spaceId) return;

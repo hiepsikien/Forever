@@ -1,5 +1,4 @@
 import { FamilySpace, ThreadSummary } from "@forever/api-client";
-import { useNavigation } from "@react-navigation/native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useCallback, useLayoutEffect, useMemo, useState } from "react";
 import {
@@ -13,6 +12,7 @@ import {
 } from "react-native";
 
 import { useAuth } from "@/lib/auth";
+import { useSpaceScreenOptions } from "@/lib/spaceHeader";
 import { colors, fonts } from "@/lib/theme";
 
 function threadPreview(item: ThreadSummary): string {
@@ -27,11 +27,42 @@ function threadKindLabel(kind: string): string | null {
   return null;
 }
 
+function threadRowMeta(item: ThreadSummary): { preview: string; cta: string } {
+  if (item.kind === "heritage" && item.heritage) {
+    const h = item.heritage;
+    if (h.chat_ready) {
+      if (item.last_message) {
+        return {
+          preview: threadPreview(item),
+          cta: "Vào trò chuyện →",
+        };
+      }
+      return {
+        preview: "Sẵn sàng trò chuyện — gửi lời chào",
+        cta: "Bắt đầu chat →",
+      };
+    }
+    return {
+      preview: `Giọng ${h.voice_ready ? "✓" : "…"} · Ký ức ${h.knowledge_count}/${h.knowledge_target} — chưa thể chat`,
+      cta:
+        h.entity_status === "dormant"
+          ? "Bắt đầu thổi hồn →"
+          : "Tiếp tục thổi hồn →",
+    };
+  }
+  if (!item.last_message) {
+    return {
+      preview: "Chưa có tin nhắn — gửi lời chào",
+      cta: "Bắt đầu chat →",
+    };
+  }
+  return { preview: threadPreview(item), cta: "Vào trò chuyện →" };
+}
+
 export default function SpaceScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { api } = useAuth();
   const router = useRouter();
-  const navigation = useNavigation();
   const [space, setSpace] = useState<FamilySpace | null>(null);
   const [threads, setThreads] = useState<ThreadSummary[]>([]);
   const [loading, setLoading] = useState(true);
@@ -66,20 +97,11 @@ export default function SpaceScreen() {
     load();
   }, [load]);
 
-  useLayoutEffect(() => {
-    navigation.setOptions({
-      title: space?.name ?? "Gia đình",
-      headerRight: () => (
-        <Pressable
-          onPress={() => id && router.push(`/settings/${id}`)}
-          hitSlop={8}
-          style={styles.headerBtn}
-        >
-          <Text style={styles.headerBtnText}>Cài đặt</Text>
-        </Pressable>
-      ),
-    });
-  }, [navigation, space?.name, id, router]);
+  useSpaceScreenOptions({
+    spaceId: id,
+    title: space?.name ?? "Gia đình",
+    backTitle: "Forever",
+  });
 
   const familyThread = useMemo(
     () => threads.find((t) => t.kind === "family") ?? null,
@@ -94,8 +116,19 @@ export default function SpaceScreen() {
     [threads, familyThread],
   );
 
-  const openThread = (threadId: string) => {
-    router.push(`/chat/${threadId}`);
+  const openThread = (item: ThreadSummary) => {
+    if (
+      item.kind === "heritage" &&
+      item.heritage &&
+      !item.heritage.chat_ready &&
+      id
+    ) {
+      router.push(
+        `/awakening/${id}?identityId=${item.heritage.identity_id}` as never,
+      );
+      return;
+    }
+    router.push(`/chat/${item.id}`);
   };
 
   const renderHeader = () => (
@@ -108,7 +141,7 @@ export default function SpaceScreen() {
       {familyThread ? (
         <Pressable
           style={styles.hero}
-          onPress={() => openThread(familyThread.id)}
+          onPress={() => openThread(familyThread)}
         >
           <Text style={styles.heroKicker}>Phòng khách</Text>
           <Text style={styles.heroPreview} numberOfLines={2}>
@@ -183,8 +216,9 @@ export default function SpaceScreen() {
       }
       renderItem={({ item }) => {
         const badge = threadKindLabel(item.kind);
+        const meta = threadRowMeta(item);
         return (
-          <Pressable style={styles.thread} onPress={() => openThread(item.id)}>
+          <Pressable style={styles.thread} onPress={() => openThread(item)}>
             <View style={styles.threadTop}>
               <Text style={styles.threadTitle}>{item.title}</Text>
               {badge ? (
@@ -194,8 +228,9 @@ export default function SpaceScreen() {
               ) : null}
             </View>
             <Text style={styles.threadPreview} numberOfLines={2}>
-              {threadPreview(item)}
+              {meta.preview}
             </Text>
+            <Text style={styles.threadCta}>{meta.cta}</Text>
           </Pressable>
         );
       }}
@@ -348,6 +383,12 @@ const styles = StyleSheet.create({
     color: colors.accent,
   },
   threadPreview: { marginTop: 6, color: colors.inkSoft, lineHeight: 20 },
+  threadCta: {
+    marginTop: 8,
+    fontSize: 14,
+    fontWeight: "700",
+    color: colors.brand,
+  },
   empty: { color: colors.inkSoft, lineHeight: 22, marginTop: 4 },
   error: { color: colors.danger, marginTop: 12 },
 });

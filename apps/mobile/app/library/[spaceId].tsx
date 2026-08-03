@@ -1,7 +1,7 @@
 import { MemoryItem } from "@forever/api-client";
 import * as ImagePicker from "expo-image-picker";
-import { useLocalSearchParams, useNavigation } from "expo-router";
-import { useCallback, useEffect, useLayoutEffect, useState } from "react";
+import { useLocalSearchParams } from "expo-router";
+import { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -18,6 +18,7 @@ import {
 import { playLocalAudio, stopActivePlayback } from "@/lib/audio";
 import { useAuth } from "@/lib/auth";
 import { fetchAuthedMediaUri } from "@/lib/media";
+import { useSpaceScreenOptions } from "@/lib/spaceHeader";
 import { colors, fonts } from "@/lib/theme";
 
 function kindLabel(kind: string): string {
@@ -30,7 +31,6 @@ function kindLabel(kind: string): string {
 export default function LibraryScreen() {
   const { spaceId } = useLocalSearchParams<{ spaceId: string }>();
   const { api } = useAuth();
-  const navigation = useNavigation();
   const [memories, setMemories] = useState<MemoryItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -41,9 +41,11 @@ export default function LibraryScreen() {
   const [photoUris, setPhotoUris] = useState<Record<string, string>>({});
   const [playingId, setPlayingId] = useState<string | null>(null);
 
-  useLayoutEffect(() => {
-    navigation.setOptions({ title: "Thư viện ký ức" });
-  }, [navigation]);
+  useSpaceScreenOptions({
+    spaceId,
+    title: "Thư viện ký ức",
+    backTitle: "Nhà",
+  });
 
   const load = useCallback(async () => {
     if (!spaceId) return;

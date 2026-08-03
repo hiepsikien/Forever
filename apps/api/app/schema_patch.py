@@ -150,6 +150,11 @@ def ensure_schema() -> None:
         "speaker_assignments_json",
         "ALTER TABLE extract_jobs ADD COLUMN speaker_assignments_json TEXT DEFAULT '{}'",
     )
+    _add_column_if_missing(
+        "identity_profiles",
+        "heritage_entity_status",
+        "ALTER TABLE identity_profiles ADD COLUMN heritage_entity_status VARCHAR(32) DEFAULT 'dormant'",
+    )
     try:
         with engine.begin() as conn:
             conn.execute(

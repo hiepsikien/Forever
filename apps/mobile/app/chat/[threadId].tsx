@@ -1,11 +1,10 @@
-import { ChatMessage } from "@forever/api-client";
+import { ChatMessage, ThreadSummary } from "@forever/api-client";
 import {
   requestRecordingPermissionsAsync,
   useAudioRecorder,
   useAudioRecorderState,
 } from "expo-audio";
-import { useNavigation } from "@react-navigation/native";
-import { useLocalSearchParams } from "expo-router";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
@@ -31,6 +30,7 @@ import { RecordingLevelMeter } from "@/lib/recordingMeter";
 import { VOICE_RECORDING_OPTIONS } from "@/lib/recordingOptions";
 import { useAuth } from "@/lib/auth";
 import { fetchAuthedMediaUri } from "@/lib/media";
+import { useSpaceScreenOptions } from "@/lib/spaceHeader";
 import { colors } from "@/lib/theme";
 
 function uniqueById(items: ChatMessage[]): ChatMessage[] {
@@ -51,7 +51,7 @@ function isVoiceMessage(item: ChatMessage): boolean {
 export default function ChatScreen() {
   const { threadId } = useLocalSearchParams<{ threadId: string }>();
   const { api, user } = useAuth();
-  const navigation = useNavigation();
+  const router = useRouter();
   const insets = useSafeAreaInsets();
   const recorder = useAudioRecorder(VOICE_RECORDING_OPTIONS);
   const recorderState = useAudioRecorderState(recorder, 80);
@@ -62,6 +62,7 @@ export default function ChatScreen() {
   const [recording, setRecording] = useState(false);
   const [playingId, setPlayingId] = useState<string | null>(null);
   const [spaceId, setSpaceId] = useState<string | null>(null);
+  const [threadMeta, setThreadMeta] = useState<ThreadSummary | null>(null);
   const listRef = useRef<FlatList<ChatMessage>>(null);
   const sendingRef = useRef(false);
   const recordingRef = useRef(false);
@@ -73,13 +74,19 @@ export default function ChatScreen() {
         api.getThread(threadId),
         api.listMessages(threadId, { limit: 100 }),
       ]);
-      navigation.setOptions({ title: thread.title });
+      setThreadMeta(thread);
       setSpaceId(thread.space_id);
       setMessages(uniqueById(res.messages));
     } finally {
       setLoading(false);
     }
-  }, [api, navigation, threadId]);
+  }, [api, threadId]);
+
+  useSpaceScreenOptions({
+    spaceId: spaceId ?? undefined,
+    title: threadMeta?.title ?? "Trò chuyện",
+    backTitle: "Nhà",
+  });
 
   useLayoutEffect(() => {
     load();
@@ -244,6 +251,11 @@ export default function ChatScreen() {
     );
   }
 
+  const heritageBlocked =
+    threadMeta?.kind === "heritage" &&
+    threadMeta.heritage &&
+    !threadMeta.heritage.chat_ready;
+
   return (
     <KeyboardAvoidingView
       style={styles.root}
@@ -321,10 +333,36 @@ export default function ChatScreen() {
         }}
       />
       <Text style={styles.hint}>
-        {recording
-          ? "Nói vào micro — nhấn Dừng & gửi khi xong"
-          : "Giữ tin nhắn để lưu vào thư viện"}
+        {heritageBlocked
+          ? "Cần thổi hồn trước khi trò chuyện Ký ức"
+          : recording
+            ? "Nói vào micro — nhấn Dừng & gửi khi xong"
+            : "Giữ tin nhắn để lưu vào thư viện"}
       </Text>
+      {heritageBlocked ? (
+        <View
+          style={[
+            styles.blockedBar,
+            { paddingBottom: Math.max(insets.bottom, 12) },
+          ]}
+        >
+          <Text style={styles.blockedText}>
+            Giọng {threadMeta!.heritage!.voice_ready ? "✓" : "…"} · Ký ức{" "}
+            {threadMeta!.heritage!.knowledge_count}/
+            {threadMeta!.heritage!.knowledge_target}
+          </Text>
+          <Pressable
+            style={styles.blockedBtn}
+            onPress={() =>
+              router.push(
+                `/awakening/${spaceId}?identityId=${threadMeta!.heritage!.identity_id}` as never,
+              )
+            }
+          >
+            <Text style={styles.blockedBtnText}>Mở Thổi hồn →</Text>
+          </Pressable>
+        </View>
+      ) : (
       <View
         style={[
           styles.composer,
@@ -382,6 +420,7 @@ export default function ChatScreen() {
           </>
         )}
       </View>
+      )}
     </KeyboardAvoidingView>
   );
 }
@@ -504,4 +543,25 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
   },
   sendText: { color: "#f4efe6", fontWeight: "600" },
+  blockedBar: {
+    borderTopWidth: 1,
+    borderTopColor: colors.line,
+    backgroundColor: colors.card,
+    paddingHorizontal: 16,
+    paddingTop: 14,
+    gap: 10,
+  },
+  blockedText: {
+    fontSize: 14,
+    lineHeight: 20,
+    color: colors.inkSoft,
+    textAlign: "center",
+  },
+  blockedBtn: {
+    backgroundColor: colors.brand,
+    borderRadius: 12,
+    paddingVertical: 12,
+    alignItems: "center",
+  },
+  blockedBtnText: { color: "#fff", fontWeight: "700", fontSize: 15 },
 });

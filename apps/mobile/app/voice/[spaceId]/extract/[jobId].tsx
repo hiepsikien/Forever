@@ -1,7 +1,7 @@
 import { ExtractJob, ExtractSegment, IdentityProfile, VoiceProfile } from "@forever/api-client";
-import { useFocusEffect, useNavigation } from "@react-navigation/native";
+import { useFocusEffect } from "@react-navigation/native";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -16,6 +16,7 @@ import {
 import { playLocalAudio, stopActivePlayback } from "@/lib/audio";
 import { useAuth } from "@/lib/auth";
 import { fetchAuthedMediaUri } from "@/lib/media";
+import { useSpaceScreenOptions } from "@/lib/spaceHeader";
 import { colors, fonts } from "@/lib/theme";
 
 function identityChipLabel(
@@ -53,7 +54,6 @@ export default function ExtractJobScreen() {
     voiceId?: string;
   }>();
   const { api, user } = useAuth();
-  const navigation = useNavigation();
   const router = useRouter();
 
   const [job, setJob] = useState<ExtractJob | null>(null);
@@ -81,9 +81,11 @@ export default function ExtractJobScreen() {
   const playLockRef = useRef(false);
   const [playBusyId, setPlayBusyId] = useState<string | null>(null);
 
-  useLayoutEffect(() => {
-    navigation.setOptions({ title: "Pool tách giọng" });
-  }, [navigation]);
+  useSpaceScreenOptions({
+    spaceId,
+    title: "Pool tách giọng",
+    backTitle: "Nhà",
+  });
 
   useEffect(() => {
     return () => {

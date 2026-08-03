@@ -2,11 +2,11 @@ import {
   ElevenLabsVoice,
   VOICE_TTS_MODELS,
   VoiceProfile,
+  VoiceRender,
   type VoiceTtsModelId,
 } from "@forever/api-client";
-import { useNavigation } from "@react-navigation/native";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { useCallback, useEffect, useLayoutEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -31,7 +31,12 @@ import {
 } from "@/lib/audio";
 import { useAuth } from "@/lib/auth";
 import { elVoiceSortKey, formatElVoiceWhen } from "@/lib/elVoice";
-import { writeCacheAudio } from "@/lib/media";
+import {
+  fetchAuthedMediaUri,
+  prepareAudioExport,
+  shareLocalAudio,
+} from "@/lib/media";
+import { useSpaceScreenOptions } from "@/lib/spaceHeader";
 import { colors, fonts } from "@/lib/theme";
 
 type PickerOption = {
@@ -148,7 +153,6 @@ export default function VoiceSpeakScreen() {
     voiceId: string;
   }>();
   const { api } = useAuth();
-  const navigation = useNavigation();
   const router = useRouter();
 
   const [profiles, setProfiles] = useState<VoiceProfile[]>([]);
@@ -172,11 +176,14 @@ export default function VoiceSpeakScreen() {
   const [busy, setBusy] = useState(false);
   const [previewing, setPreviewing] = useState(false);
   const [paused, setPaused] = useState(false);
+  const [lastRender, setLastRender] = useState<VoiceRender | null>(null);
   const [openPicker, setOpenPicker] = useState<OpenPicker>(null);
 
-  useLayoutEffect(() => {
-    navigation.setOptions({ title: "Tạo giọng từ text" });
-  }, [navigation]);
+  useSpaceScreenOptions({
+    spaceId,
+    title: "Tạo câu nói",
+    backTitle: "Nhà",
+  });
 
   const sortedElVoices = useMemo(
     () =>
@@ -308,7 +315,7 @@ export default function VoiceSpeakScreen() {
     setSelectedElVoiceId(id);
   };
 
-  const preview = async () => {
+  const createAndPlay = async () => {
     if (!selectedProfileId || !selectedElVoiceId || !text.trim() || busy) return;
     if (previewing) {
       if (paused) {
@@ -320,12 +327,18 @@ export default function VoiceSpeakScreen() {
     }
     setBusy(true);
     try {
-      const bytes = await api.synthesizeVoiceTts(
+      const render = await api.saveVoiceRender(
         selectedProfileId,
         text.trim(),
         ttsOpts,
       );
-      const uri = await writeCacheAudio(bytes, `speak-${Date.now()}`);
+      setLastRender(render);
+      const url = api.voiceRenderMediaUrl(render.voice_profile_id, render.id);
+      const uri = await fetchAuthedMediaUri(
+        url,
+        `speak-render-${render.id}`,
+        render.media_mime,
+      );
       setPreviewing(true);
       setPaused(false);
       await playLocalAudio(uri, () => {
@@ -334,32 +347,35 @@ export default function VoiceSpeakScreen() {
       });
     } catch (e) {
       setPreviewing(false);
-      Alert.alert("TTS lỗi", e instanceof Error ? e.message : "Không phát được.");
+      Alert.alert("TTS lỗi", e instanceof Error ? e.message : "Không tạo được.");
     } finally {
       setBusy(false);
     }
   };
 
-  const save = async () => {
-    if (!selectedProfileId || !selectedElVoiceId || !text.trim() || busy) return;
+  const shareLast = async () => {
+    if (!lastRender || busy) return;
     setBusy(true);
     try {
-      await stopActivePlayback();
-      setPreviewing(false);
-      await api.saveVoiceRender(selectedProfileId, text.trim(), ttsOpts);
-      Alert.alert("Đã lưu", "Bản TTS đã vào lịch sử.", [
-        {
-          text: "Xem bản đã tạo",
-          onPress: () =>
-            spaceId &&
-            router.push(
-              `/voice/${spaceId}/renders?voiceId=${selectedProfileId}`,
-            ),
-        },
-        { text: "OK" },
-      ]);
+      const url = api.voiceRenderMediaUrl(
+        lastRender.voice_profile_id,
+        lastRender.id,
+      );
+      const cached = await fetchAuthedMediaUri(
+        url,
+        `share-render-${lastRender.id}`,
+        lastRender.media_mime,
+      );
+      const voiceName = selectedProfile?.display_name || "Voice-DNA";
+      const stamp = lastRender.created_at.slice(0, 16).replace("T", "-");
+      const base = `Forever-TTS-${voiceName}-${stamp}-${lastRender.id.slice(-6)}`;
+      const uri = await prepareAudioExport(cached, base, lastRender.media_mime);
+      await shareLocalAudio(uri, {
+        mimeType: lastRender.media_mime,
+        dialogTitle: base,
+      });
     } catch (e) {
-      Alert.alert("Lỗi", e instanceof Error ? e.message : "Không lưu được.");
+      Alert.alert("Lỗi", e instanceof Error ? e.message : "Không chia sẻ được.");
     } finally {
       setBusy(false);
     }
@@ -596,29 +612,32 @@ export default function VoiceSpeakScreen() {
           />
         </View>
 
-        <Text style={styles.section}>Nghe & lưu</Text>
+        <Text style={styles.section}>Tạo giọng</Text>
         <View style={styles.card}>
+          <Text style={styles.hint}>
+            Mỗi lần tạo đều lưu tự động vào Bản đã tạo.
+          </Text>
           <Pressable
             style={[
               styles.btn,
               (busy || !selectedElVoiceId) && styles.disabled,
             ]}
-            onPress={preview}
+            onPress={createAndPlay}
             disabled={(busy && !previewing) || !selectedElVoiceId}
           >
             <Text style={styles.btnText}>
-              {!previewing ? "Nghe thử" : paused ? "Tiếp tục" : "Tạm dừng"}
+              {!previewing ? "Tạo & nghe" : paused ? "Tiếp tục" : "Tạm dừng"}
             </Text>
           </Pressable>
           <Pressable
             style={[
               styles.btnGhost,
-              (busy || !selectedElVoiceId) && styles.disabled,
+              (busy || !lastRender) && styles.disabled,
             ]}
-            onPress={save}
-            disabled={busy || !selectedElVoiceId}
+            onPress={shareLast}
+            disabled={busy || !lastRender}
           >
-            <Text style={styles.btnGhostText}>Lưu bản TTS</Text>
+            <Text style={styles.btnGhostText}>Chia sẻ</Text>
           </Pressable>
           <Pressable
             onPress={() =>
@@ -719,6 +738,11 @@ const styles = StyleSheet.create({
     color: colors.inkSoft,
     textTransform: "uppercase",
     letterSpacing: 0.4,
+  },
+  hint: {
+    fontSize: 13,
+    lineHeight: 18,
+    color: colors.inkSoft,
   },
   dropdown: {
     flexDirection: "row",
