@@ -16,7 +16,9 @@ Canonical plan: `docs/PROJECT.md`.
 
 - `apps/api` — FastAPI + Postgres
 - `apps/mobile` — Expo / expo-router
+- `apps/web` — Vite landing (philosophy-led)
 - `packages/api-client` — typed client
+- `packages/philosophy` — shared Triết lý / landing copy (keep web + mobile in sync)
 
 ## Local auth
 

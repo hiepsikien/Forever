@@ -22,7 +22,9 @@ Full product plan: [docs/PROJECT.md](./docs/PROJECT.md)
 |-----|------|------|
 | API | `apps/api` | FastAPI + PostgreSQL — auth, family spaces, chat, memories |
 | Mobile | `apps/mobile` | Expo (iOS + Android) — primary client |
+| Web | `apps/web` | Vite landing — philosophy-led early access site |
 | Client | `packages/api-client` | Typed fetch client shared by mobile |
+| Philosophy | `packages/philosophy` | Shared copy for mobile Triết lý screen + web landing |
 
 ## Demo accounts (local)
 
@@ -72,7 +74,16 @@ npx expo start
 
 Set `EXPO_PUBLIC_API_URL` to your machine LAN IP when testing on a physical device.
 
-### 4. Extract worker (Voice DNA từ ký ức)
+### 4. Landing (web)
+
+```bash
+npm install
+npm run dev:web
+```
+
+Open http://localhost:5173 — philosophy copy comes from `packages/philosophy` (same source as in-app *Triết lý Forever*). Optional waitlist: copy `apps/web/.env.example` → `.env` and set `VITE_FORMSPREE_ID` or `VITE_WAITLIST_ENDPOINT`.
+
+### 5. Extract worker (Voice DNA từ ký ức)
 
 Local diarization worker — polls Forever API for jobs created from **Voice DNA → Giọng từ ký ức**:
 

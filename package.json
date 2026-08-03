@@ -3,11 +3,14 @@
   "private": true,
   "version": "0.1.0",
   "workspaces": [
-    "packages/*"
+    "packages/*",
+    "apps/web"
   ],
   "scripts": {
     "api:test": "cd apps/api && .venv/bin/pytest -q",
     "dev:api": "cd apps/api && .venv/bin/uvicorn app.main:app --reload --host 0.0.0.0 --port 8001",
-    "dev:mobile": "npm --prefix apps/mobile start"
+    "dev:mobile": "npm --prefix apps/mobile start",
+    "dev:web": "npm --prefix apps/web run dev",
+    "build:web": "npm --prefix apps/web run build"
   }
 }

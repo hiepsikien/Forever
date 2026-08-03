@@ -1,0 +1,490 @@
+:root {
+  --bg: #f4efe6;
+  --bg-deep: #e8dfd0;
+  --brand: #2d4a3e;
+  --brand-soft: #3f6353;
+  --accent: #c4a574;
+  --ink: #1c241f;
+  --ink-soft: #4a564f;
+  --card: #fffaf2;
+  --line: rgba(28, 36, 31, 0.12);
+  --display: Georgia, "Times New Roman", serif;
+  --body: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --max: 40rem;
+  --pad: clamp(1.25rem, 4vw, 2.5rem);
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  margin: 0;
+  font-family: var(--body);
+  font-size: 1.05rem;
+  line-height: 1.65;
+  color: var(--ink-soft);
+  background: var(--bg);
+  -webkit-font-smoothing: antialiased;
+}
+
+img {
+  max-width: 100%;
+  display: block;
+}
+
+a {
+  color: var(--brand);
+  text-underline-offset: 0.15em;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.skip {
+  position: absolute;
+  left: -999px;
+  top: 0;
+  background: var(--brand);
+  color: var(--bg);
+  padding: 0.75rem 1rem;
+  z-index: 100;
+}
+
+.skip:focus {
+  left: var(--pad);
+  top: 0.5rem;
+}
+
+/* —— Nav —— */
+.nav {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1rem var(--pad);
+  mix-blend-mode: normal;
+}
+
+.nav-brand img {
+  height: 28px;
+  width: auto;
+  filter: brightness(0) invert(1);
+  opacity: 0.95;
+}
+
+.nav-links {
+  display: flex;
+  gap: 1.25rem;
+}
+
+.nav-links a {
+  color: rgba(244, 239, 230, 0.9);
+  text-decoration: none;
+  font-size: 0.95rem;
+  letter-spacing: 0.02em;
+}
+
+.nav-links a:hover {
+  color: var(--accent);
+}
+
+/* —— Hero —— */
+.hero {
+  position: relative;
+  min-height: 100svh;
+  display: flex;
+  align-items: flex-end;
+  color: var(--bg);
+  overflow: hidden;
+}
+
+.hero-media {
+  position: absolute;
+  inset: 0;
+}
+
+.hero-photo {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center 40%;
+}
+
+.hero-scrim {
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(
+      180deg,
+      rgba(28, 36, 31, 0.45) 0%,
+      rgba(45, 74, 62, 0.55) 40%,
+      rgba(28, 36, 31, 0.82) 100%
+    );
+  animation: scrimSettle 1.6s ease-out both;
+}
+
+.hero-content {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  max-width: 42rem;
+  padding: calc(5rem + env(safe-area-inset-top)) var(--pad) 3.5rem;
+}
+
+.hero-lockup {
+  width: min(180px, 42vw);
+  height: auto;
+  margin-bottom: 1.75rem;
+}
+
+.hero h1 {
+  font-family: var(--display);
+  font-size: clamp(1.85rem, 5.5vw, 2.75rem);
+  font-weight: 400;
+  line-height: 1.25;
+  color: var(--bg);
+  margin: 0 0 1rem;
+  letter-spacing: 0.01em;
+}
+
+.hero-supporting {
+  font-size: clamp(1rem, 2.4vw, 1.15rem);
+  line-height: 1.55;
+  color: rgba(244, 239, 230, 0.88);
+  margin: 0 0 1.75rem;
+  max-width: 34rem;
+}
+
+.hero-cta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 1rem 1.5rem;
+}
+
+.btn-primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.85rem 1.4rem;
+  background: var(--accent);
+  color: var(--ink);
+  text-decoration: none;
+  font-size: 0.98rem;
+  border: none;
+  cursor: pointer;
+  transition: background 0.2s ease, transform 0.2s ease;
+}
+
+.btn-primary:hover {
+  background: #d4b88a;
+}
+
+.btn-text {
+  color: rgba(244, 239, 230, 0.92);
+  text-decoration: none;
+  font-size: 0.98rem;
+  border-bottom: 1px solid rgba(196, 165, 116, 0.55);
+  padding-bottom: 0.1rem;
+}
+
+.btn-text:hover {
+  color: var(--accent);
+  border-bottom-color: var(--accent);
+}
+
+/* —— Sections —— */
+.section {
+  padding: clamp(3.5rem, 8vw, 5.5rem) var(--pad);
+  background: var(--bg);
+}
+
+.section-alt {
+  background: var(--bg-deep);
+}
+
+.section-inner {
+  max-width: var(--max);
+  margin: 0 auto;
+}
+
+.section-inner.narrow {
+  max-width: 28rem;
+}
+
+.section-inner.with-mark {
+  display: grid;
+  gap: 1.5rem;
+}
+
+@media (min-width: 640px) {
+  .section-inner.with-mark {
+    grid-template-columns: auto 1fr;
+    align-items: start;
+    gap: 2rem;
+  }
+}
+
+.section-mark {
+  opacity: 0.9;
+  margin-top: 0.25rem;
+}
+
+.eyebrow {
+  font-family: var(--display);
+  font-size: 0.95rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--accent);
+  margin: 0 auto 1.25rem;
+  max-width: var(--max);
+}
+
+.section-lead .lead,
+.section-lead .eyebrow {
+  max-width: var(--max);
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.lead {
+  font-family: var(--display);
+  font-size: clamp(1.2rem, 2.8vw, 1.45rem);
+  line-height: 1.55;
+  color: var(--ink);
+  margin: 0;
+}
+
+.section h2 {
+  font-family: var(--display);
+  font-size: clamp(1.45rem, 3.2vw, 1.75rem);
+  font-weight: 400;
+  line-height: 1.3;
+  color: var(--ink);
+  margin: 0 0 1.15rem;
+}
+
+.section p {
+  margin: 0 0 1rem;
+}
+
+.section p:last-child {
+  margin-bottom: 0;
+}
+
+.identity-note {
+  margin-top: 1.5rem !important;
+  padding-top: 1.25rem;
+  border-top: 1px solid var(--line);
+  font-family: var(--display);
+  font-size: 1.05rem;
+  line-height: 1.55;
+  color: var(--ink);
+}
+
+.quote {
+  margin: 1.75rem 0 0;
+  padding: 0.35rem 0 0.35rem 1rem;
+  border-left: 3px solid var(--brand);
+  animation: quoteIn 1s ease-out both;
+}
+
+.quote p {
+  font-family: var(--display);
+  font-size: 1.15rem;
+  line-height: 1.5;
+  font-style: italic;
+  color: var(--ink);
+  margin: 0;
+}
+
+.section-close {
+  text-align: center;
+  padding-top: clamp(4rem, 10vw, 6rem);
+  padding-bottom: clamp(4rem, 10vw, 6rem);
+}
+
+.closing {
+  font-family: var(--display);
+  font-size: clamp(1.15rem, 2.6vw, 1.35rem);
+  line-height: 1.55;
+  color: var(--brand);
+  max-width: 36rem;
+  margin: 0 auto;
+}
+
+.section-cta {
+  background: var(--brand);
+  color: rgba(244, 239, 230, 0.9);
+}
+
+.section-cta h2 {
+  color: var(--bg);
+}
+
+.cta-sub {
+  margin-bottom: 1.5rem !important;
+  color: rgba(244, 239, 230, 0.82);
+}
+
+/* —— Waitlist —— */
+.waitlist {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.waitlist input[type="email"] {
+  width: 100%;
+  padding: 0.85rem 1rem;
+  border: 1px solid rgba(244, 239, 230, 0.25);
+  background: rgba(28, 36, 31, 0.35);
+  color: var(--bg);
+  font: inherit;
+  outline: none;
+}
+
+.waitlist input::placeholder {
+  color: rgba(244, 239, 230, 0.45);
+}
+
+.waitlist input:focus {
+  border-color: var(--accent);
+}
+
+.waitlist button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.85rem 1.4rem;
+  background: var(--accent);
+  color: var(--ink);
+  border: none;
+  font: inherit;
+  font-size: 0.98rem;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+.waitlist button:hover:not(:disabled) {
+  background: #d4b88a;
+}
+
+.waitlist button:disabled {
+  opacity: 0.7;
+  cursor: wait;
+}
+
+.waitlist-msg {
+  margin: 0.25rem 0 0;
+  font-size: 0.95rem;
+}
+
+.waitlist-msg.is-ok {
+  color: var(--accent);
+}
+
+.waitlist-msg.is-error {
+  color: #e8b4b4;
+}
+
+/* —— Footer —— */
+.footer {
+  padding: 2rem var(--pad) 2.5rem;
+  background: var(--ink);
+  color: rgba(244, 239, 230, 0.65);
+  font-size: 0.9rem;
+  text-align: center;
+}
+
+.footer p {
+  margin: 0 0 0.5rem;
+}
+
+.footer a {
+  color: rgba(244, 239, 230, 0.85);
+  text-decoration: none;
+}
+
+.footer a:hover {
+  color: var(--accent);
+}
+
+/* —— Motion —— */
+@keyframes fadeUp {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes scrimSettle {
+  from {
+    opacity: 0.65;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes quoteIn {
+  from {
+    opacity: 0;
+    border-left-color: transparent;
+  }
+  to {
+    opacity: 1;
+    border-left-color: var(--brand);
+  }
+}
+
+.reveal {
+  animation: fadeUp 0.9s ease-out both;
+}
+
+.reveal.delay-1 {
+  animation-delay: 0.12s;
+}
+
+.reveal.delay-2 {
+  animation-delay: 0.24s;
+}
+
+.reveal.delay-3 {
+  animation-delay: 0.36s;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  .reveal,
+  .hero-scrim,
+  .quote {
+    animation: none !important;
+  }
+}
