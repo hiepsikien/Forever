@@ -812,7 +812,9 @@ export function createApiClient({
         stability?: number;
         similarity_boost?: number;
         style?: number;
+        speed?: number;
         use_speaker_boost?: boolean;
+        lengthen_pauses?: boolean;
       },
     ) =>
       request<VoiceRender>(`/api/voices/${voiceId}/tts`, {
@@ -829,7 +831,9 @@ export function createApiClient({
         stability?: number;
         similarity_boost?: number;
         style?: number;
+        speed?: number;
         use_speaker_boost?: boolean;
+        lengthen_pauses?: boolean;
       },
     ) => {
       const root = resolveRoot();
