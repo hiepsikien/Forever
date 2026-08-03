@@ -49,15 +49,17 @@ const SPEED_DEFAULT = 0.9;
 
 const PRESET_VALUES = {
   similar: {
-    stability: 0.4,
-    similarityBoost: 0.9,
+    stability: 0.5,
+    similarityBoost: 0.95,
+    style: 0.15,
     speakerBoost: true,
     speed: SPEED_DEFAULT,
     lengthenPauses: true,
   },
   stable: {
     stability: 0.7,
-    similarityBoost: 0.7,
+    similarityBoost: 0.8,
+    style: 0.0,
     speakerBoost: true,
     speed: SPEED_DEFAULT,
     lengthenPauses: true,
@@ -191,6 +193,9 @@ export default function VoiceSpeakScreen() {
   const [similarityBoost, setSimilarityBoost] = useState(
     PRESET_VALUES.similar.similarityBoost,
   );
+  const [styleExaggeration, setStyleExaggeration] = useState(
+    PRESET_VALUES.similar.style,
+  );
   const [speakerBoost, setSpeakerBoost] = useState(
     PRESET_VALUES.similar.speakerBoost,
   );
@@ -297,6 +302,7 @@ export default function VoiceSpeakScreen() {
     setPreset(next);
     setStability(values.stability);
     setSimilarityBoost(values.similarityBoost);
+    setStyleExaggeration(values.style);
     setSpeakerBoost(values.speakerBoost);
     setSpeed(values.speed);
     setLengthenPauses(values.lengthenPauses);
@@ -309,6 +315,7 @@ export default function VoiceSpeakScreen() {
       provider_voice_name: selectedElVoice?.name,
       stability,
       similarity_boost: similarityBoost,
+      style: styleExaggeration,
       use_speaker_boost: speakerBoost,
       speed,
       lengthen_pauses: lengthenPauses,
@@ -319,6 +326,7 @@ export default function VoiceSpeakScreen() {
       selectedElVoice?.name,
       stability,
       similarityBoost,
+      styleExaggeration,
       speakerBoost,
       speed,
       lengthenPauses,
@@ -535,6 +543,11 @@ export default function VoiceSpeakScreen() {
 
         <Text style={styles.section}>Phong cách</Text>
         <View style={styles.card}>
+          <Text style={styles.helper}>
+            Không có chỉnh tuổi/pitch riêng. Giọng nghe trẻ hơn mẫu → tăng
+            Similarity, bật Speaker Boost; nếu vẫn lệch thì chọn lại mẫu trầm hơn
+            rồi clone lại.
+          </Text>
           <View style={styles.presetRow}>
             <Pressable
               style={[styles.chip, preset === "similar" && styles.chipActive]}
@@ -593,8 +606,17 @@ export default function VoiceSpeakScreen() {
                 }}
               />
               <TtsStepper
+                label="Similarity"
+                hint="Cao = sát chất giọng mẫu hơn (giảm cảm giác trẻ hóa)"
+                value={similarityBoost}
+                onChange={(next) => {
+                  setPreset(null);
+                  setSimilarityBoost(next);
+                }}
+              />
+              <TtsStepper
                 label="Stability"
-                hint="Thấp = biểu cảm · Cao = đều, ổn định"
+                hint="Cao = đều, trầm ổn hơn · Thấp = biểu cảm"
                 value={stability}
                 onChange={(next) => {
                   setPreset(null);
@@ -602,12 +624,12 @@ export default function VoiceSpeakScreen() {
                 }}
               />
               <TtsStepper
-                label="Similarity"
-                hint="Cao = giống bản clone hơn"
-                value={similarityBoost}
+                label="Style"
+                hint="Nhẹ = giữ đúng mẫu · Cao = phóng đại cách nói (dễ lệch)"
+                value={styleExaggeration}
                 onChange={(next) => {
                   setPreset(null);
-                  setSimilarityBoost(next);
+                  setStyleExaggeration(next);
                 }}
               />
               <View style={styles.advancedRow}>
@@ -631,7 +653,7 @@ export default function VoiceSpeakScreen() {
                 <View style={styles.advancedCopy}>
                   <Text style={styles.advancedLabel}>Speaker Boost</Text>
                   <Text style={styles.advancedHint}>
-                    Tăng độ rõ và giống giọng gốc
+                    Bám sát giọng gốc hơn — nên bật khi nghe trẻ hơn mẫu
                   </Text>
                 </View>
                 <Switch
