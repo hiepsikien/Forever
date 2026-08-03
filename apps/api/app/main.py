@@ -17,7 +17,7 @@ from .seed import seed_if_empty, seed_interview_prompts
 settings = get_settings()
 Path(settings.upload_dir).mkdir(parents=True, exist_ok=True)
 
-# Synced from brand/logo/app via scripts/generate-logo-kit.py
+# Synced from brand/logo/app via scripts/generate-brand-kit.py
 _STATIC_BRAND = Path(__file__).resolve().parents[1] / "static" / "brand"
 _FAVICON_ICO = _STATIC_BRAND / "favicon.ico"
 

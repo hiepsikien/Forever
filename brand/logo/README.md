@@ -1,108 +1,117 @@
 # Forever — Brand Logo Kit
 
-> **The Living Loop** — vault ring · infinity · heritage spark
+> **Vòng Ký Ức** (The Memory Rings) — vòng người đang sống · mạch di sản · nhân bất biến
+
+![Forever brand kit](specimen.png)
 
 ## Concept
 
+Hai vòng cung đồng tâm mở về hai hướng đối nhau, ôm lấy một nhân vàng.
+
 | Element | Meaning |
 |---------|---------|
-| Outer ring | Protective family circle / vault |
-| Lemniscate ∞ | Continuity across generations — *forever* |
-| Gold spark | Living heritage core (Identity Lock) |
+| Vòng ngoài (hở phía trên) | Người đang sống — mái nhà bảo vệ, còn chừa chỗ cho thế hệ sau bước vào |
+| Vòng trong (hở phía dưới) | Mạch di sản — hướng về cội nguồn, đối thoại từ phía bên kia |
+| Nhân vàng | Bản sắc bất biến — Identity Lock |
 
-Not a social network mark. Not a book. Distinct from the Read book product.
+Đọc được theo bốn lớp, tất cả đều đúng với sản phẩm: **mặt số két sắt** (két sắt ký ức gia tộc) · **vòng năm của cây** (cội nguồn) · **sóng giọng nói lan từ tâm** (Voice DNA) · **hai vòng tay ôm** (gia đình).
+
+Không phải mạng xã hội. Không phải quyển sách — tách biệt hoàn toàn với sản phẩm Read. Không phải nghĩa trang số.
+
+**Vì sao không dùng ∞:** bộ mark cũ (`The Living Loop`) đặt lemniscate trong vòng tròn — cách diễn đạt "forever" hiển nhiên nhất, đã quá phổ biến, và ở kích thước nhỏ hai thùy ∞ dính vào nhau. Vòng Ký Ức giữ lại vòng bảo vệ và nhân vàng, bỏ ∞.
+
+**Vì sao nhân vàng nhỏ:** nhân to hơn biến hai vòng đồng tâm thành **con mắt / khẩu độ ống kính** — tín hiệu "bị theo dõi", sai hoàn toàn với một sản phẩm lấy riêng tư làm gốc.
 
 ## Palette
 
-Aligned with `apps/mobile/lib/theme.ts`:
+Khớp `apps/mobile/lib/theme.ts`:
 
 | Token | Hex | Use |
 |-------|-----|-----|
-| Brand | `#2d4a3e` | Primary field, dark surfaces, splash |
-| Accent | `#c4a574` | Heritage spark, taglines |
-| Cream | `#f4efe6` | Light fields, mark on dark |
-| Ink | `#1c241f` | Mono / print |
+| `brand` | `#2d4a3e` | Nét chính trên nền sáng, nền icon/splash |
+| `accent` | `#c4a574` | Nhân vàng, tagline |
+| `bg` | `#f4efe6` | Nền sáng, nét mark trên nền tối |
+| `ink` | `#1c241f` | Bản mono / in ấn |
+
+Nhân **luôn** là accent gold, trừ bản mono (một màu duy nhất).
 
 ## Typography
 
-- **Wordmark:** Noto Serif Display (app UI already uses Georgia as display)
-- Tracking: ~0.06–0.10em on lockups
-- Tagline (splash): *Két sắt ký ức gia tộc*
+- **Wordmark:** Georgia — chính là `fonts.display` của app, nên wordmark khớp tuyệt đối với heading trong UI.
+- Tracking: ~0.07em (lockup ngang) → 0.10em (lockup dọc, splash).
+- Tagline: *Két sắt ký ức gia tộc* · Subline: *Mái nhà số cho gia đình — kết nối, lưu giữ, trường tồn.*
 
 ## Files
 
 ```
 brand/logo/
-  svg/          source marks, wordmarks, vector lockups
-  png/          1024px marks, wordmarks, lockups
-  app/          icon, adaptive FG, splash, favicons, favicon.ico, OG banner
+  specimen.png  bảng tổng quan cả hệ thống
+  svg/          mark, wordmark, lockup (vector)
+  png/          mark/wordmark 1024px, lockup
+  app/          icon, adaptive FG, splash, favicon (+ .ico), OG banner
 apps/mobile/assets/
-  icon.png              Expo app icon (brand field — primary)
-  icon-light.png        Alt cream-field icon (marketing; not wired in Expo)
+  icon.png              Expo app icon (nền brand)
   adaptive-icon.png     Android adaptive foreground
   splash.png            Launch screen
-  logo-mark.png         Transparent mark (cream stroke) for dark UI
-  logo-mark-brand.png   Transparent mark (brand stroke) for light UI
-apps/api/static/brand/  Favicon + OG served by API (/favicon.ico, /brand/*)
+  logo-mark.png         Mark trong suốt, nét cream — dùng trên nền tối
+  logo-mark-brand.png   Mark trong suốt, nét brand — dùng trên nền sáng
+  favicon.png           Expo web
+apps/api/static/brand/  Favicon + OG do API phục vụ (/favicon.ico, /brand/*)
 ```
 
 ### Key assets
 
 | Asset | Path |
 |-------|------|
-| Mark (transparent) | `svg/mark.svg`, `png/mark.png` |
-| Mark on brand | `png/mark-on-brand.png` |
-| Mark on cream | `png/mark-on-cream.png` |
-| Loop only (tiny) | `svg/mark-loop-only.svg` |
-| Mono | `svg/mark-mono.svg` |
-| Wordmark | `svg/wordmark.svg`, `wordmark-on-dark.svg`, `wordmark-on-cream.svg` |
-| Horizontal lockup (vector) | `svg/lockup-horizontal*.svg` |
-| Horizontal lockup (raster) | `png/lockup-horizontal*.png` |
-| Stacked lockup (vector) | `svg/lockup-stacked*.svg` |
-| Stacked lockup (raster) | `png/lockup-stacked*.png` |
-| App icon | `app/icon.png` (+ `icon-light.png` for cream field) |
+| Mark (trong suốt) | `svg/mark.svg`, `png/mark.png` |
+| Mark trên nền tối | `svg/mark-on-dark.svg`, `png/mark-on-dark.png` |
+| Mark có nền | `png/mark-on-brand.png`, `png/mark-on-cream.png` |
+| Mark compact (≤32px) | `svg/mark-compact.svg`, `png/mark-compact.png` |
+| Mono / mono đảo | `svg/mark-mono.svg`, `svg/mark-mono-reversed.svg` |
+| Wordmark | `{svg,png}/wordmark{,-reversed,-on-cream,-on-dark}` (`-reversed` = nét cream, nền trong suốt) |
+| Lockup ngang | `{svg,png}/lockup-horizontal{,-on-cream,-on-dark}` |
+| Lockup dọc | `{svg,png}/lockup-stacked{,-on-cream,-on-dark}` |
+| App icon | `app/icon.png` (+ `icon-light.png` cho nền cream) |
 | Adaptive FG | `app/adaptive-icon.png` |
 | Splash | `app/splash.png` |
-| Favicons | `app/favicon-{16,32,48,180,192,512}.png`, `app/favicon.ico` |
+| Favicon | `app/favicon-{16,32,48,180,192,512}.png`, `app/favicon.ico` |
 | OG / social | `app/og-banner.png` |
 
 ### In-app usage
 
-- `apps/mobile/components/BrandLogo.tsx` — mark + wordmark
-- Login hero: stacked lockup on brand green
-- Home header: horizontal lockup on cream
+- `apps/mobile/components/BrandLogo.tsx` — mark + wordmark, đọc `logo-mark.png` / `logo-mark-brand.png`.
+- Login hero: lockup dọc trên nền brand green.
+- Header: lockup ngang trên nền cream.
 
 ### API / docs
 
-With no separate web frontend, the API serves brand assets for docs and share previews:
+Chưa có web frontend riêng, nên API phục vụ luôn asset thương hiệu cho docs và share preview:
 
 | URL | Asset |
 |-----|-------|
-| `GET /favicon.ico` | Multi-size ICO |
+| `GET /favicon.ico` | ICO đa kích thước (16/32/48/64) |
 | `GET /brand/og-banner.png` | Open Graph banner |
-| `GET /brand/*` | Other synced files (`icon.png`, PNG favicons, …) |
+| `GET /brand/*` | Các file đã sync (`icon.png`, PNG favicon, …) |
 
-Swagger UI uses `/favicon.ico` when present.
-
-### `icon-light.png`
-
-Cream-field variant for marketing / light store listings. Expo `app.config.js` uses the brand-field `icon.png` only (standard for iOS/Android).
+Swagger UI dùng `/favicon.ico` khi file tồn tại.
 
 ## Clear space & sizing
 
-- Keep clear space ≥ ¼ of mark diameter on all sides.
-- Prefer full mark (ring + ∞ + spark) at ≥ 48px.
-- Below 48px use `mark-loop-only` (no ring) or solid brand tile favicon.
-- Do not recolor the spark away from accent gold on primary lockups.
-- Do not stretch; scale uniformly.
-- Do not place the mark over busy photography without a solid scrim.
-- Vector lockups use system/web fonts (`Georgia` / Noto Serif Display) — convert text to outlines before sending to a printer that lacks those faces.
+- Clear space ≥ ¼ đường kính mark ở cả bốn phía.
+- Mark đầy đủ (hai vòng + nhân) dùng từ **40px** trở lên.
+- Dưới 40px dùng `mark-compact` (một vòng kín + nhân, nét đậm hơn) — favicon 16/32 đã tự động dùng bản này.
+- Nhân vàng không đổi màu trên lockup chính; chỉ bản mono cho phép nhân một màu với nét.
+- Không kéo méo; scale đều. Không thêm viền, đổ bóng, gradient.
+- Không đặt mark lên ảnh nhiều chi tiết mà thiếu lớp scrim đặc.
+- Lockup vector dùng font hệ thống (Georgia). Trước khi gửi nhà in không có font này, convert text sang outline.
 
 ## Regenerate
 
 ```bash
-python3 -m pip install pillow cairosvg
-python3 scripts/generate-logo-kit.py
+python3 -m pip install pillow
+python3 scripts/generate-brand-kit.py
 ```
 
-Rewrites `brand/logo/**`, syncs `apps/mobile/assets/{icon,adaptive-icon,splash,logo-mark*}.png`, and `apps/api/static/brand/`.
+Hình học của mark được định nghĩa **một lần** trong `Mark` (hộp 128×128) rồi xuất ra cả SVG và PNG, nên vector và raster không thể lệch nhau. Script ghi lại `brand/logo/{svg,png,app}`, đồng bộ `apps/mobile/assets/` và `apps/api/static/brand/`.
+
+Bản nháp concept (không commit) đặt ở `brand/.explore/` — đã có trong `.gitignore`.
