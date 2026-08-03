@@ -21,6 +21,7 @@ SVG_DIR = LOGO_ROOT / "svg"
 PNG_DIR = LOGO_ROOT / "png"
 APP_DIR = LOGO_ROOT / "app"
 MOBILE_ASSETS = ROOT / "apps" / "mobile" / "assets"
+API_STATIC_BRAND = ROOT / "apps" / "api" / "static" / "brand"
 
 COL_BRAND = "#2d4a3e"
 COL_ACCENT = "#c4a574"
@@ -112,12 +113,77 @@ def mark_svg(
 </svg>'''
 
 
-def wordmark_svg(*, fill: str, width: int = 520, height: int = 120, font_size: int = 72) -> str:
+def wordmark_svg(
+    *,
+    fill: str,
+    width: int = 520,
+    height: int = 120,
+    font_size: int = 72,
+    bg: str | None = None,
+) -> str:
+    bg_el = f'<rect width="{width}" height="{height}" fill="{bg}"/>' if bg else ""
     return f'''<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {width} {height}" role="img" aria-label="Forever">
   <title>Forever</title>
+  {bg_el}
   <text x="50%" y="58%" text-anchor="middle" dominant-baseline="middle"
         font-family="Georgia, 'Noto Serif Display', 'Noto Serif', serif"
         font-size="{font_size}" fill="{fill}" letter-spacing="0.08em">Forever</text>
+</svg>'''
+
+
+def mark_inner(*, stroke: str, spark: str, ring: bool = True) -> str:
+    """Mark geometry for embedding inside lockup SVGs (128×128 space)."""
+    path = INFINITY if ring else INFINITY_COMPACT
+    stroke_w = 5.25 if ring else 7.0
+    spark_r = 4.75 if ring else 6.0
+    ring_el = (
+        '<circle cx="64" cy="64" r="54" stroke="{stroke}" stroke-width="3.25" fill="none"/>'.format(
+            stroke=stroke
+        )
+        if ring
+        else ""
+    )
+    return f'''{ring_el}
+  <path d="{path}" stroke="{stroke}" stroke-width="{stroke_w}" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+  <circle cx="64" cy="64" r="{spark_r}" fill="{spark}"/>'''
+
+
+def lockup_horizontal_svg(
+    *,
+    stroke: str,
+    spark: str,
+    text: str,
+    bg: str | None = None,
+) -> str:
+    bg_el = f'<rect width="720" height="160" fill="{bg}"/>' if bg else ""
+    return f'''<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 160" fill="none" role="img" aria-label="Forever">
+  <title>Forever</title>
+  {bg_el}
+  <g transform="translate(16,16)">
+    {mark_inner(stroke=stroke, spark=spark, ring=True)}
+  </g>
+  <text x="180" y="102" font-family="Georgia, 'Noto Serif Display', 'Noto Serif', serif"
+        font-size="64" fill="{text}" letter-spacing="0.06em">Forever</text>
+</svg>'''
+
+
+def lockup_stacked_svg(
+    *,
+    stroke: str,
+    spark: str,
+    text: str,
+    bg: str | None = None,
+) -> str:
+    bg_el = f'<rect width="360" height="360" fill="{bg}"/>' if bg else ""
+    return f'''<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 360" fill="none" role="img" aria-label="Forever">
+  <title>Forever</title>
+  {bg_el}
+  <g transform="translate(116,48)">
+    {mark_inner(stroke=stroke, spark=spark, ring=True)}
+  </g>
+  <text x="180" y="260" text-anchor="middle"
+        font-family="Georgia, 'Noto Serif Display', 'Noto Serif', serif"
+        font-size="48" fill="{text}" letter-spacing="0.08em">Forever</text>
 </svg>'''
 
 
@@ -419,6 +485,19 @@ def make_favicon(size: int) -> Image.Image:
     ).convert("RGB")
 
 
+def make_favicon_ico(out: Path) -> None:
+    """Multi-resolution favicon.ico (16 / 32 / 48)."""
+    sizes = (16, 32, 48)
+    frames = [make_favicon(s) for s in sizes]
+    out.parent.mkdir(parents=True, exist_ok=True)
+    frames[-1].save(
+        out,
+        format="ICO",
+        sizes=[(s, s) for s in sizes],
+        append_images=frames[:-1],
+    )
+
+
 def write_all_svgs() -> None:
     write(SVG_DIR / "mark.svg", mark_svg(stroke=COL_BRAND, spark=COL_ACCENT, ring=True))
     write(SVG_DIR / "mark-on-dark.svg", mark_svg(stroke=COL_CREAM, spark=COL_ACCENT, ring=True))
@@ -434,6 +513,42 @@ def write_all_svgs() -> None:
     write(SVG_DIR / "mark-mono.svg", mark_svg(stroke=COL_INK, spark=COL_INK, ring=True))
     write(SVG_DIR / "wordmark.svg", wordmark_svg(fill=COL_BRAND))
     write(SVG_DIR / "wordmark-on-dark.svg", wordmark_svg(fill=COL_CREAM))
+    write(
+        SVG_DIR / "wordmark-on-cream.svg",
+        wordmark_svg(fill=COL_BRAND, bg=COL_CREAM),
+    )
+    write(
+        SVG_DIR / "lockup-horizontal.svg",
+        lockup_horizontal_svg(stroke=COL_BRAND, spark=COL_ACCENT, text=COL_BRAND),
+    )
+    write(
+        SVG_DIR / "lockup-horizontal-on-cream.svg",
+        lockup_horizontal_svg(
+            stroke=COL_BRAND, spark=COL_ACCENT, text=COL_BRAND, bg=COL_CREAM
+        ),
+    )
+    write(
+        SVG_DIR / "lockup-horizontal-on-dark.svg",
+        lockup_horizontal_svg(
+            stroke=COL_CREAM, spark=COL_ACCENT, text=COL_CREAM, bg=COL_BRAND
+        ),
+    )
+    write(
+        SVG_DIR / "lockup-stacked.svg",
+        lockup_stacked_svg(stroke=COL_BRAND, spark=COL_ACCENT, text=COL_BRAND),
+    )
+    write(
+        SVG_DIR / "lockup-stacked-on-cream.svg",
+        lockup_stacked_svg(
+            stroke=COL_BRAND, spark=COL_ACCENT, text=COL_BRAND, bg=COL_CREAM
+        ),
+    )
+    write(
+        SVG_DIR / "lockup-stacked-on-dark.svg",
+        lockup_stacked_svg(
+            stroke=COL_CREAM, spark=COL_ACCENT, text=COL_CREAM, bg=COL_BRAND
+        ),
+    )
 
 
 def rasterize_kit() -> None:
@@ -543,11 +658,44 @@ def rasterize_kit() -> None:
 
     for s in (16, 32, 48, 180, 192, 512):
         make_favicon(s).save(APP_DIR / f"favicon-{s}.png", "PNG")
+    make_favicon_ico(APP_DIR / "favicon.ico")
 
     MOBILE_ASSETS.mkdir(parents=True, exist_ok=True)
     make_app_icon(1024, dark=True).save(MOBILE_ASSETS / "icon.png", "PNG")
     make_adaptive_foreground(1024).save(MOBILE_ASSETS / "adaptive-icon.png", "PNG")
     make_splash().save(MOBILE_ASSETS / "splash.png", "PNG")
+    # In-app marks (transparent) — cream stroke for dark UI, brand stroke for light UI
+    render_mark_png(
+        MOBILE_ASSETS / "logo-mark.png",
+        stroke=COL_CREAM,
+        spark=COL_ACCENT,
+        bg=None,
+        size=512,
+        ring=True,
+    )
+    render_mark_png(
+        MOBILE_ASSETS / "logo-mark-brand.png",
+        stroke=COL_BRAND,
+        spark=COL_ACCENT,
+        bg=None,
+        size=512,
+        ring=True,
+    )
+
+    # API static brand (favicon + OG for docs / share previews)
+    API_STATIC_BRAND.mkdir(parents=True, exist_ok=True)
+    for name in (
+        "favicon.ico",
+        "favicon-32.png",
+        "favicon-180.png",
+        "favicon-192.png",
+        "favicon-512.png",
+        "og-banner.png",
+        "icon.png",
+    ):
+        src = APP_DIR / name
+        if src.exists():
+            (API_STATIC_BRAND / name).write_bytes(src.read_bytes())
 
     for p in APP_DIR.glob("_*.png"):
         p.unlink(missing_ok=True)
@@ -561,6 +709,7 @@ def main() -> None:
     print(f"  PNG  → {PNG_DIR}")
     print(f"  App  → {APP_DIR}")
     print(f"  Expo → {MOBILE_ASSETS}")
+    print(f"  API  → {API_STATIC_BRAND}")
 
 
 if __name__ == "__main__":
