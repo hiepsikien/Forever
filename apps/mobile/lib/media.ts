@@ -17,6 +17,14 @@ const EXT_BY_MIME: Record<string, string> = {
   "image/webp": ".webp",
   "image/heic": ".heic",
   "image/heif": ".heif",
+  "video/mp4": ".mp4",
+  "video/quicktime": ".mov",
+  "video/mp2t": ".mts",
+  "video/x-matroska": ".mkv",
+  "video/x-msvideo": ".avi",
+  "video/x-ms-wmv": ".wmv",
+  "video/webm": ".webm",
+  "video/3gpp": ".3gp",
 };
 
 const MIME_ALIASES: Record<string, string> = {
@@ -47,6 +55,19 @@ function extensionForName(name?: string | null): string | null {
       return ".webm";
     case "3gp":
       return ".3gp";
+    case "mp4":
+      return ".mp4";
+    case "mov":
+      return ".mov";
+    case "mts":
+    case "m2ts":
+      return ".mts";
+    case "mkv":
+      return ".mkv";
+    case "avi":
+      return ".avi";
+    case "wmv":
+      return ".wmv";
     default:
       return null;
   }
@@ -96,10 +117,13 @@ export function normalizeAudioMime(
 }
 
 function extensionForMime(mime?: string | null, name?: string | null): string {
-  const normalized = normalizeAudioMime(mime, name);
-  if (EXT_BY_MIME[normalized]) return EXT_BY_MIME[normalized];
+  const lower = mime?.toLowerCase().split(";")[0].trim() ?? "";
+  if (EXT_BY_MIME[lower]) return EXT_BY_MIME[lower];
   const fromName = extensionForName(name);
   if (fromName) return fromName;
+  if (lower.startsWith("video/")) return ".mp4";
+  const normalized = normalizeAudioMime(mime, name);
+  if (EXT_BY_MIME[normalized]) return EXT_BY_MIME[normalized];
   return ".m4a";
 }
 

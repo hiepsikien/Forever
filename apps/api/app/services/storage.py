@@ -9,20 +9,39 @@ from nanoid import generate
 from ..config import get_settings
 
 MAX_UPLOAD_BYTES = 25 * 1024 * 1024
+MAX_MEMORY_MEDIA_BYTES = 200 * 1024 * 1024
+MAX_EXTRACT_UPLOAD_BYTES = 200 * 1024 * 1024
 
-ALLOWED_MIME = {
+AUDIO_MIME = {
     "audio/mpeg",
     "audio/mp4",
     "audio/aac",
     "audio/wav",
     "audio/webm",
     "audio/3gpp",
+}
+
+VIDEO_MIME = {
+    "video/mp4",
+    "video/quicktime",
+    "video/mp2t",
+    "video/x-matroska",
+    "video/x-msvideo",
+    "video/x-ms-wmv",
+    "video/webm",
+    "video/3gpp",
+}
+
+IMAGE_MIME = {
     "image/jpeg",
     "image/png",
     "image/webp",
     "image/heic",
     "image/heif",
 }
+
+ALLOWED_MIME = AUDIO_MIME | VIDEO_MIME | IMAGE_MIME
+EXTRACTABLE_MIME = AUDIO_MIME | VIDEO_MIME
 
 EXT_BY_MIME = {
     "audio/mpeg": ".mp3",
@@ -31,6 +50,14 @@ EXT_BY_MIME = {
     "audio/wav": ".wav",
     "audio/webm": ".webm",
     "audio/3gpp": ".3gp",
+    "video/mp4": ".mp4",
+    "video/quicktime": ".mov",
+    "video/mp2t": ".mts",
+    "video/x-matroska": ".mkv",
+    "video/x-msvideo": ".avi",
+    "video/x-ms-wmv": ".wmv",
+    "video/webm": ".webm",
+    "video/3gpp": ".3gp",
     "image/jpeg": ".jpg",
     "image/png": ".png",
     "image/webp": ".webp",
@@ -47,7 +74,46 @@ MIME_ALIASES = {
     "audio/vnd.wave": "audio/wav",
     "audio/vnd.wav": "audio/wav",
     "audio/3gp": "audio/3gpp",
+    "video/mpeg": "video/mp2t",
+    "video/x-matroska": "video/x-matroska",
+    "video/x-ms-wmv": "video/x-ms-wmv",
+    "video/x-msvideo": "video/x-msvideo",
+    "application/vnd.apple.mpegurl": "video/mp2t",
 }
+
+EXT_TO_MIME = {
+    ".mp3": "audio/mpeg",
+    ".m4a": "audio/mp4",
+    ".wav": "audio/wav",
+    ".aac": "audio/aac",
+    ".webm": "audio/webm",
+    ".3gp": "audio/3gpp",
+    ".mp4": "video/mp4",
+    ".mov": "video/quicktime",
+    ".mts": "video/mp2t",
+    ".m2ts": "video/mp2t",
+    ".mkv": "video/x-matroska",
+    ".avi": "video/x-msvideo",
+    ".wmv": "video/x-ms-wmv",
+}
+
+
+def is_audio_mime(mime: str) -> bool:
+    return mime.startswith("audio/")
+
+
+def is_video_mime(mime: str) -> bool:
+    return mime.startswith("video/")
+
+
+def is_extractable_mime(mime: str) -> bool:
+    return mime in EXTRACTABLE_MIME or is_audio_mime(mime) or is_video_mime(mime)
+
+
+def max_bytes_for_mime(mime: str) -> int:
+    if is_video_mime(mime):
+        return MAX_MEMORY_MEDIA_BYTES
+    return MAX_UPLOAD_BYTES
 
 
 def _normalize_mime(mime: str, filename: str = "") -> str:
@@ -70,17 +136,27 @@ def _normalize_mime(mime: str, filename: str = "") -> str:
             return "audio/webm"
         if "3gp" in sub:
             return "audio/3gpp"
+    if lower.startswith("video/"):
+        sub = lower[len("video/") :]
+        if "mp2t" in sub or sub in {"mts", "m2ts"}:
+            return "video/mp2t"
+        if "quicktime" in lower or sub == "mov":
+            return "video/quicktime"
+        if "matroska" in lower or "mkv" in sub:
+            return "video/x-matroska"
+        if sub == "mp4":
+            return "video/mp4"
+        if "webm" in sub:
+            return "video/webm"
+        if "3gp" in sub:
+            return "video/3gpp"
+        if "msvideo" in lower or sub == "avi":
+            return "video/x-msvideo"
+        if "wmv" in sub:
+            return "video/x-ms-wmv"
     ext = Path(filename or "").suffix.lower()
-    ext_map = {
-        ".mp3": "audio/mpeg",
-        ".m4a": "audio/mp4",
-        ".wav": "audio/wav",
-        ".aac": "audio/aac",
-        ".webm": "audio/webm",
-        ".3gp": "audio/3gpp",
-    }
-    if ext in ext_map:
-        return ext_map[ext]
+    if ext in EXT_TO_MIME:
+        return EXT_TO_MIME[ext]
     return lower
 
 
@@ -93,7 +169,12 @@ def guess_mime(upload: UploadFile) -> str:
     return _normalize_mime(guessed or "application/octet-stream", name)
 
 
-def save_upload(space_id: str, upload: UploadFile) -> tuple[str, str]:
+def save_upload(
+    space_id: str,
+    upload: UploadFile,
+    *,
+    max_bytes: int | None = None,
+) -> tuple[str, str]:
     """Save upload under upload_dir/space_id/. Returns (relative_path, mime)."""
     settings = get_settings()
     mime = guess_mime(upload)
@@ -106,12 +187,19 @@ def save_upload(space_id: str, upload: UploadFile) -> tuple[str, str]:
     data = upload.file.read()
     if not data:
         raise HTTPException(status_code=400, detail="Empty file.")
-    if len(data) > MAX_UPLOAD_BYTES:
-        raise HTTPException(status_code=400, detail="File too large (max 25MB).")
+    limit = max_bytes if max_bytes is not None else max_bytes_for_mime(mime)
+    if len(data) > limit:
+        cap_mb = limit // (1024 * 1024)
+        raise HTTPException(status_code=400, detail=f"File too large (max {cap_mb}MB).")
 
     ext = EXT_BY_MIME.get(mime) or Path(upload.filename or "").suffix.lower()
     if not ext or ext == ".bin":
-        ext = ".m4a" if mime.startswith("audio/") else ".jpg"
+        if mime.startswith("audio/"):
+            ext = ".m4a"
+        elif mime.startswith("video/"):
+            ext = ".mp4"
+        else:
+            ext = ".jpg"
     relative = f"{space_id}/{generate()}{ext}"
     dest = Path(settings.upload_dir) / relative
     dest.parent.mkdir(parents=True, exist_ok=True)

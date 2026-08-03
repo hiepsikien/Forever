@@ -4,13 +4,22 @@ module.exports = ({ config }) => {
   const apiUrl = process.env.EXPO_PUBLIC_API_URL?.trim() || "http://localhost:8001";
   const allowCleartext = apiUrl.startsWith("http://");
 
+  // dev → home-screen label "Forever (Dev)" + separate bundle id for side-by-side installs
+  const variant = (process.env.APP_VARIANT || "dev").trim().toLowerCase();
+  const isDev = variant !== "production";
+  const appName = isDev ? "Forever (Dev)" : "Forever";
+  const bundleId = isDev
+    ? "com.nguyendinhanh.forever.dev"
+    : "com.nguyendinhanh.forever";
+  const urlScheme = isDev ? "forever-dev" : "forever";
+
   return {
     ...config,
-    name: "Forever",
+    name: appName,
     slug: "forever",
     version: "0.1.0",
     orientation: "portrait",
-    scheme: "forever",
+    scheme: urlScheme,
     userInterfaceStyle: "light",
     newArchEnabled: true,
     icon: "./assets/icon.png",
@@ -21,10 +30,10 @@ module.exports = ({ config }) => {
     },
     ios: {
       supportsTablet: true,
-      bundleIdentifier: "com.nguyendinhanh.forever",
+      bundleIdentifier: bundleId,
     },
     android: {
-      package: "com.nguyendinhanh.forever",
+      package: bundleId,
       versionCode: 2,
       adaptiveIcon: {
         foregroundImage: "./assets/adaptive-icon.png",
@@ -35,6 +44,7 @@ module.exports = ({ config }) => {
         "RECORD_AUDIO",
         "READ_MEDIA_IMAGES",
         "READ_MEDIA_AUDIO",
+        "READ_MEDIA_VIDEO",
         "CAMERA",
       ],
       allowBackup: false,
@@ -49,6 +59,7 @@ module.exports = ({ config }) => {
       "expo-secure-store",
       "expo-asset",
       "expo-font",
+      "expo-video",
       [
         "expo-image-picker",
         {
@@ -90,6 +101,7 @@ module.exports = ({ config }) => {
     extra: {
       apiUrl,
       authDev: process.env.EXPO_PUBLIC_AUTH_DEV !== "false",
+      appVariant: variant,
       firebaseApiKey: process.env.EXPO_PUBLIC_FIREBASE_API_KEY || "",
       firebaseAuthDomain: process.env.EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN || "",
       firebaseProjectId: process.env.EXPO_PUBLIC_FIREBASE_PROJECT_ID || "",

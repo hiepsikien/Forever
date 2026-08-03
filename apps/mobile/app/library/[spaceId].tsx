@@ -17,16 +17,21 @@ import {
 
 import { playLocalAudio, stopActivePlayback } from "@/lib/audio";
 import { useAuth } from "@/lib/auth";
+import { MemoryVideoModal } from "@/components/MemoryVideoModal";
 import { fetchAuthedMediaUri } from "@/lib/media";
+import { guessVideoMime, pickVideoMemoryFile } from "@/lib/mediaPick";
 import { useSpaceScreenOptions } from "@/lib/spaceHeader";
 import { colors, fonts } from "@/lib/theme";
 
 function kindLabel(kind: string): string {
   if (kind === "voice") return "Giọng nói";
+  if (kind === "video") return "Video";
   if (kind === "photo") return "Ảnh";
   if (kind === "letter") return "Thư";
   return "Ghi chú";
 }
+
+const MAX_VIDEO_BYTES = 200 * 1024 * 1024;
 
 export default function LibraryScreen() {
   const { spaceId } = useLocalSearchParams<{ spaceId: string }>();
@@ -40,6 +45,11 @@ export default function LibraryScreen() {
   const [saving, setSaving] = useState(false);
   const [photoUris, setPhotoUris] = useState<Record<string, string>>({});
   const [playingId, setPlayingId] = useState<string | null>(null);
+  const [videoOpen, setVideoOpen] = useState(false);
+  const [videoUri, setVideoUri] = useState<string | null>(null);
+  const [videoTitle, setVideoTitle] = useState("");
+  const [videoLoading, setVideoLoading] = useState(false);
+  const [videoError, setVideoError] = useState<string | null>(null);
 
   useSpaceScreenOptions({
     spaceId,
@@ -138,6 +148,37 @@ export default function LibraryScreen() {
     }
   };
 
+  const pickVideo = async () => {
+    if (!spaceId) return;
+    try {
+      const asset = await pickVideoMemoryFile();
+      if (!asset) return;
+      if (asset.size != null && asset.size > MAX_VIDEO_BYTES) {
+        Alert.alert("File quá lớn", "Video tối đa 200 MB.");
+        return;
+      }
+      const name = asset.name ?? "video.mts";
+      setSaving(true);
+      try {
+        await api.uploadMemory(spaceId, {
+          kind: "video",
+          uri: asset.uri,
+          name,
+          mimeType: guessVideoMime(name, asset.mimeType),
+          title: "Video ký ức",
+          body: "Có thể dùng cho Giọng từ ký ức (Extract).",
+        });
+        await load();
+      } catch (e) {
+        Alert.alert("Lỗi", e instanceof Error ? e.message : "Không tải video được.");
+      } finally {
+        setSaving(false);
+      }
+    } catch (e) {
+      Alert.alert("Không chọn được file", e instanceof Error ? e.message : "Thử lại.");
+    }
+  };
+
   const playVoice = async (item: MemoryItem) => {
     if (!item.has_media) return;
     try {
@@ -159,6 +200,37 @@ export default function LibraryScreen() {
     }
   };
 
+  const closeVideo = () => {
+    setVideoOpen(false);
+    setVideoUri(null);
+    setVideoTitle("");
+    setVideoLoading(false);
+    setVideoError(null);
+  };
+
+  const playVideo = async (item: MemoryItem) => {
+    if (!item.has_media) return;
+    await stopActivePlayback();
+    setPlayingId(null);
+    setVideoOpen(true);
+    setVideoUri(null);
+    setVideoTitle(item.title || "Video ký ức");
+    setVideoLoading(true);
+    setVideoError(null);
+    try {
+      const uri = await fetchAuthedMediaUri(
+        api.memoryMediaUrl(item.id),
+        `video-${item.id}`,
+        item.media_mime ?? "video/mp2t",
+      );
+      setVideoUri(uri);
+    } catch (e) {
+      setVideoError(e instanceof Error ? e.message : "Không phát được video.");
+    } finally {
+      setVideoLoading(false);
+    }
+  };
+
   if (loading) {
     return (
       <View style={styles.center}>
@@ -176,6 +248,9 @@ export default function LibraryScreen() {
         <Pressable style={styles.actionBtn} onPress={pickPhoto} disabled={saving}>
           <Text style={styles.actionText}>Thêm ảnh</Text>
         </Pressable>
+        <Pressable style={styles.actionBtn} onPress={pickVideo} disabled={saving}>
+          <Text style={styles.actionText}>Thêm video</Text>
+        </Pressable>
       </View>
 
       <FlatList
@@ -184,7 +259,7 @@ export default function LibraryScreen() {
         contentContainerStyle={styles.list}
         ListEmptyComponent={
           <Text style={styles.empty}>
-            Chưa có ký ức. Thêm ghi chú, ảnh, hoặc trả lời Time-Capsule.
+            Chưa có ký ức. Thêm ghi chú, ảnh, video, hoặc trả lời Time-Capsule.
           </Text>
         }
         renderItem={({ item }) => (
@@ -202,6 +277,11 @@ export default function LibraryScreen() {
                 </Text>
               </Pressable>
             ) : null}
+            {item.kind === "video" && item.has_media ? (
+              <Pressable style={styles.playBtn} onPress={() => playVideo(item)}>
+                <Text style={styles.playText}>Xem video</Text>
+              </Pressable>
+            ) : null}
             <Text style={styles.meta}>
               {item.creator_name ?? "Thành viên"}
               {item.occurred_at
@@ -213,6 +293,15 @@ export default function LibraryScreen() {
       />
 
       {error ? <Text style={styles.error}>{error}</Text> : null}
+
+      <MemoryVideoModal
+        visible={videoOpen}
+        uri={videoUri}
+        title={videoTitle}
+        loading={videoLoading}
+        error={videoError}
+        onClose={closeVideo}
+      />
 
       <Modal visible={noteOpen} animationType="slide" transparent>
         <View style={styles.modalBackdrop}>
@@ -260,7 +349,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     backgroundColor: colors.bg,
   },
-  actions: { flexDirection: "row", gap: 10, padding: 16, paddingBottom: 8 },
+  actions: { flexDirection: "row", flexWrap: "wrap", gap: 10, padding: 16, paddingBottom: 8 },
   actionBtn: {
     backgroundColor: colors.brand,
     borderRadius: 999,

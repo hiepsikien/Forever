@@ -147,6 +147,11 @@ def ensure_schema() -> None:
     )
     _add_column_if_missing(
         "extract_jobs",
+        "source_memory_id",
+        "ALTER TABLE extract_jobs ADD COLUMN source_memory_id VARCHAR(32)",
+    )
+    _add_column_if_missing(
+        "extract_jobs",
         "speaker_assignments_json",
         "ALTER TABLE extract_jobs ADD COLUMN speaker_assignments_json TEXT DEFAULT '{}'",
     )

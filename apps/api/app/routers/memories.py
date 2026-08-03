@@ -14,7 +14,14 @@ from ..access import require_membership
 from ..auth import get_current_user
 from ..db import get_db
 from ..models import MemoryItem, Message, Thread, User
-from ..services.storage import absolute_media_path, copy_media, save_upload
+from ..services.storage import (
+    MAX_MEMORY_MEDIA_BYTES,
+    absolute_media_path,
+    copy_media,
+    is_audio_mime,
+    is_video_mime,
+    save_upload,
+)
 
 router = APIRouter(tags=["memories"])
 
@@ -135,14 +142,23 @@ async def upload_memory(
 ):
     require_membership(db, space_id=space_id, user=user)
     kind = kind.strip().lower()
-    if kind not in {"voice", "photo"}:
-        raise HTTPException(status_code=400, detail="kind must be voice or photo.")
+    if kind not in {"voice", "photo", "video"}:
+        raise HTTPException(status_code=400, detail="kind must be voice, photo, or video.")
 
-    relative, mime = save_upload(space_id, file)
-    if kind == "voice" and not mime.startswith("audio/"):
+    max_bytes = MAX_MEMORY_MEDIA_BYTES if kind in {"voice", "video"} else None
+    relative, mime = save_upload(space_id, file, max_bytes=max_bytes)
+    if kind == "voice" and not is_audio_mime(mime):
         raise HTTPException(status_code=400, detail="Voice upload must be an audio file.")
+    if kind == "video" and not is_video_mime(mime):
+        raise HTTPException(status_code=400, detail="Video upload must be a video file.")
     if kind == "photo" and not mime.startswith("image/"):
         raise HTTPException(status_code=400, detail="Photo upload must be an image file.")
+
+    default_title = {
+        "voice": "Voice note",
+        "video": "Video ký ức",
+        "photo": "Ảnh ký ức",
+    }[kind]
 
     now = datetime.now(timezone.utc)
     item = MemoryItem(
@@ -150,8 +166,7 @@ async def upload_memory(
         space_id=space_id,
         created_by=user.id,
         kind=kind,
-        title=(title or "").strip()
-        or ("Voice note" if kind == "voice" else "Ảnh ký ức"),
+        title=(title or "").strip() or default_title,
         body=(body or "").strip(),
         media_path=relative,
         media_mime=mime,

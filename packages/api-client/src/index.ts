@@ -99,7 +99,7 @@ export interface MemoryItem {
   space_id: string;
   created_by: string;
   creator_name?: string | null;
-  kind: "note" | "voice" | "photo" | "letter" | string;
+  kind: "note" | "voice" | "photo" | "video" | "letter" | string;
   title: string;
   body: string;
   has_media: boolean;
@@ -191,6 +191,7 @@ export interface ExtractJob {
   /** Optional UI context only — pool is not locked to one Voice DNA. */
   voice_profile_id?: string | null;
   source_kind: string;
+  source_memory_id?: string | null;
   original_filename?: string | null;
   input_mime?: string | null;
   num_speakers: number;
@@ -505,7 +506,7 @@ export function createApiClient({
     uploadMemory: async (
       spaceId: string,
       payload: {
-        kind: "voice" | "photo";
+        kind: "voice" | "photo" | "video";
         uri: string;
         name: string;
         mimeType: string;
@@ -911,6 +912,22 @@ export function createApiClient({
         { json: false },
       );
     },
+    createExtractJobFromMemory: (
+      spaceId: string,
+      payload: {
+        memoryId: string;
+        numSpeakers: number;
+        voiceProfileId?: string;
+      },
+    ) =>
+      request<ExtractJob>(`/api/spaces/${spaceId}/extract/jobs/from-memory`, {
+        method: "POST",
+        body: JSON.stringify({
+          memory_id: payload.memoryId,
+          num_speakers: payload.numSpeakers,
+          voice_profile_id: payload.voiceProfileId,
+        }),
+      }),
     listExtractJobs: (spaceId: string, voiceId?: string) => {
       const q = voiceId ? `?voice_id=${encodeURIComponent(voiceId)}` : "";
       return request<{ jobs: ExtractJob[] }>(

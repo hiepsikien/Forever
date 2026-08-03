@@ -23,6 +23,7 @@ def normalize_audio(input_path: Path, output_wav: Path, sample_rate: int = 16000
         "-y",
         "-i",
         str(input_path),
+        "-vn",
         "-ac",
         "1",
         "-ar",

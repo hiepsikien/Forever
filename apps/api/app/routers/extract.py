@@ -20,6 +20,7 @@ from ..models import (
     ExtractJob,
     ExtractSegment,
     IdentityProfile,
+    MemoryItem,
     User,
     VoiceProfile,
     VoiceSample,
@@ -29,14 +30,14 @@ from ..services.sample_quality import score_voice_sample
 from ..services.storage import (
     ALLOWED_MIME,
     EXT_BY_MIME,
+    MAX_EXTRACT_UPLOAD_BYTES,
     absolute_media_path,
     guess_mime,
+    is_extractable_mime,
 )
 
 router = APIRouter(tags=["extract"])
 internal_router = APIRouter(tags=["extract-internal"])
-
-MAX_EXTRACT_UPLOAD_BYTES = 80 * 1024 * 1024
 
 DEFAULT_OPTIONS = {
     "pad": 0.05,
@@ -57,6 +58,12 @@ class CreateIdentityBody(BaseModel):
     relation_label: str = Field(default="", max_length=80)
     status: str = Field(default="remembered", pattern="^(living|remembered)$")
     consent: bool = True
+
+
+class CreateExtractFromMemoryBody(BaseModel):
+    memory_id: str = Field(min_length=1, max_length=32)
+    num_speakers: int = Field(ge=1, le=20)
+    voice_profile_id: str | None = None
 
 
 class AssignSpeakerBody(BaseModel):
@@ -320,6 +327,7 @@ def _job_payload(
         "space_id": job.space_id,
         "voice_profile_id": job.voice_profile_id,
         "source_kind": job.source_kind,
+        "source_memory_id": getattr(job, "source_memory_id", None) or None,
         "original_filename": job.original_filename or None,
         "input_mime": job.input_mime or None,
         "num_speakers": job.num_speakers,
@@ -347,16 +355,16 @@ def _job_payload(
 
 def _save_extract_upload(space_id: str, job_id: str, upload: UploadFile) -> tuple[str, str]:
     mime = guess_mime(upload)
-    if mime not in ALLOWED_MIME or not mime.startswith("audio/"):
+    if mime not in ALLOWED_MIME or not is_extractable_mime(mime):
         raise HTTPException(
             status_code=400,
-            detail=f"Unsupported audio type: {mime or 'unknown'}.",
+            detail=f"Unsupported media type: {mime or 'unknown'}. Chọn audio hoặc video.",
         )
     data = upload.file.read()
     if not data:
         raise HTTPException(status_code=400, detail="Empty file.")
     if len(data) > MAX_EXTRACT_UPLOAD_BYTES:
-        raise HTTPException(status_code=400, detail="File too large (max 80MB).")
+        raise HTTPException(status_code=400, detail="File too large (max 200MB).")
 
     ext = EXT_BY_MIME.get(mime) or Path(upload.filename or "").suffix.lower() or ".bin"
     relative = f"{space_id}/extract/{job_id}/input{ext}"
@@ -364,6 +372,82 @@ def _save_extract_upload(space_id: str, job_id: str, upload: UploadFile) -> tupl
     dest.parent.mkdir(parents=True, exist_ok=True)
     dest.write_bytes(data)
     return relative.replace("\\", "/"), mime
+
+
+def _copy_memory_to_extract_input(
+    space_id: str, job_id: str, memory: MemoryItem
+) -> tuple[str, str]:
+    if not memory.media_path:
+        raise HTTPException(status_code=400, detail="Ký ức không có file media.")
+    mime = (memory.media_mime or "").strip()
+    if not mime or not is_extractable_mime(mime):
+        raise HTTPException(
+            status_code=400,
+            detail="Chỉ chọn ký ức audio hoặc video để tách giọng.",
+        )
+    src = absolute_media_path(memory.media_path)
+    if not src.exists():
+        raise HTTPException(status_code=404, detail="File ký ức không còn trên máy chủ.")
+    size = src.stat().st_size
+    if size > MAX_EXTRACT_UPLOAD_BYTES:
+        raise HTTPException(status_code=400, detail="File quá lớn (tối đa 200MB).")
+
+    ext = EXT_BY_MIME.get(mime) or src.suffix.lower() or ".bin"
+    relative = f"{space_id}/extract/{job_id}/input{ext}"
+    dest = Path(get_settings().upload_dir) / relative
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(src, dest)
+    return relative.replace("\\", "/"), mime
+
+
+def _resolve_hint_voice(
+    db: Session, space_id: str, voice_profile_id: str | None
+) -> str | None:
+    if not voice_profile_id:
+        return None
+    voice = _get_voice_or_404(db, voice_profile_id.strip())
+    if voice.space_id != space_id:
+        raise HTTPException(status_code=400, detail="Voice DNA không thuộc space này.")
+    return voice.id
+
+
+def _create_extract_job_record(
+    db: Session,
+    *,
+    job_id: str,
+    space_id: str,
+    user: User,
+    input_path: str,
+    mime: str,
+    original_filename: str,
+    num_speakers: int,
+    hint_voice_id: str | None,
+    source_kind: str,
+    source_memory_id: str | None = None,
+) -> ExtractJob:
+    now = datetime.now(timezone.utc)
+    artifact_dir = f"{space_id}/extract/{job_id}"
+    job = ExtractJob(
+        id=job_id,
+        space_id=space_id,
+        voice_profile_id=hint_voice_id,
+        source_kind=source_kind,
+        source_memory_id=source_memory_id,
+        input_path=input_path,
+        input_mime=mime,
+        original_filename=original_filename[:260],
+        num_speakers=num_speakers,
+        status="queued",
+        artifact_dir=artifact_dir,
+        options_json=json.dumps(DEFAULT_OPTIONS),
+        speaker_assignments_json="{}",
+        created_by=user.id,
+        created_at=now,
+    )
+    db.add(job)
+    db.commit()
+    db.refresh(job)
+    return job
 
 
 @router.post("/api/spaces/{space_id}/extract/jobs")
@@ -380,37 +464,66 @@ async def create_extract_job(
     if num_speakers < 1 or num_speakers > 20:
         raise HTTPException(status_code=400, detail="num_speakers must be 1–20.")
 
-    hint_voice_id: str | None = None
-    if voice_profile_id:
-        voice = _get_voice_or_404(db, voice_profile_id.strip())
-        if voice.space_id != space_id:
-            raise HTTPException(status_code=400, detail="Voice DNA không thuộc space này.")
-        hint_voice_id = voice.id
+    hint_voice_id = _resolve_hint_voice(db, space_id, voice_profile_id)
 
     job_id = generate()
-    now = datetime.now(timezone.utc)
     input_path, mime = _save_extract_upload(space_id, job_id, file)
-    artifact_dir = f"{space_id}/extract/{job_id}"
 
-    job = ExtractJob(
-        id=job_id,
+    job = _create_extract_job_record(
+        db,
+        job_id=job_id,
         space_id=space_id,
-        voice_profile_id=hint_voice_id,
-        source_kind="upload",
+        user=user,
         input_path=input_path,
-        input_mime=mime,
-        original_filename=(file.filename or "")[:260],
+        mime=mime,
+        original_filename=file.filename or "",
         num_speakers=num_speakers,
-        status="queued",
-        artifact_dir=artifact_dir,
-        options_json=json.dumps(DEFAULT_OPTIONS),
-        speaker_assignments_json="{}",
-        created_by=user.id,
-        created_at=now,
+        hint_voice_id=hint_voice_id,
+        source_kind="upload",
     )
-    db.add(job)
-    db.commit()
-    db.refresh(job)
+    return _job_payload(job, segments=[], include_segments=True)
+
+
+@router.post("/api/spaces/{space_id}/extract/jobs/from-memory")
+def create_extract_job_from_memory(
+    space_id: str,
+    body: CreateExtractFromMemoryBody,
+    user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[Session, Depends(get_db)],
+):
+    """Queue Extract from an existing library memory (audio or video)."""
+    require_steward_or_owner(db, space_id=space_id, user=user)
+    memory = (
+        db.query(MemoryItem)
+        .filter(MemoryItem.id == body.memory_id.strip(), MemoryItem.space_id == space_id)
+        .one_or_none()
+    )
+    if not memory:
+        raise HTTPException(status_code=404, detail="Không tìm thấy ký ức.")
+    if memory.kind not in {"voice", "video"}:
+        raise HTTPException(
+            status_code=400,
+            detail="Chỉ chọn ký ức giọng nói hoặc video.",
+        )
+
+    hint_voice_id = _resolve_hint_voice(db, space_id, body.voice_profile_id)
+    job_id = generate()
+    input_path, mime = _copy_memory_to_extract_input(space_id, job_id, memory)
+    label = memory.title or ("Video ký ức" if memory.kind == "video" else "Giọng ký ức")
+
+    job = _create_extract_job_record(
+        db,
+        job_id=job_id,
+        space_id=space_id,
+        user=user,
+        input_path=input_path,
+        mime=mime,
+        original_filename=label,
+        num_speakers=body.num_speakers,
+        hint_voice_id=hint_voice_id,
+        source_kind="memory",
+        source_memory_id=memory.id,
+    )
     return _job_payload(job, segments=[], include_segments=True)
 
 

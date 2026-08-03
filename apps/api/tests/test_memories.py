@@ -59,3 +59,30 @@ def test_memory_from_message(client):
     assert memory["source_message_id"] == message_id
     assert memory["body"] == "Lưu tin này vào thư viện nhé"
     assert memory["tags"] == "from-chat"
+
+
+def test_upload_video_memory(client, tmp_path, monkeypatch):
+    monkeypatch.setenv("UPLOAD_DIR", str(tmp_path))
+    from app.config import get_settings
+
+    get_settings.cache_clear()
+
+    token = _login(client, "vidmem@example.com", "Con")
+    headers = {"Authorization": f"Bearer {token}"}
+    space = client.post("/api/spaces", headers=headers, json={"name": "Nhà video"}).json()
+
+    from io import BytesIO
+
+    uploaded = client.post(
+        f"/api/spaces/{space['id']}/memories/upload",
+        headers=headers,
+        data={"kind": "video", "title": "Máy quay bố"},
+        files={"file": ("clip.mts", BytesIO(b"fake-mts"), "video/mp2t")},
+    )
+    assert uploaded.status_code == 200, uploaded.text
+    memory = uploaded.json()
+    assert memory["kind"] == "video"
+    assert memory["media_mime"] == "video/mp2t"
+    assert memory["has_media"] is True
+
+    get_settings.cache_clear()

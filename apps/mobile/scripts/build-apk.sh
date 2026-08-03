@@ -16,6 +16,8 @@ if [[ -f "$ROOT/.env" ]]; then
   set +a
 fi
 
+export APP_VARIANT=dev
+
 API_URL="${EXPO_PUBLIC_API_URL:-}"
 WEB_CLIENT="${EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID:-}"
 ALLOW_MISSING_GOOGLE="${FOREVER_ALLOW_MISSING_GOOGLE:-}"
@@ -137,11 +139,11 @@ echo "→ gradle assembleRelease"
 )
 
 APK_SRC="$ROOT/android/app/build/outputs/apk/release/app-release.apk"
-APK_DST="$ROOT/dist/forever-0.1.0.apk"
+APK_DST="$ROOT/dist/forever-dev-0.1.0.apk"
 cp "$APK_SRC" "$APK_DST"
 
 echo ""
-echo "APK ready: $APK_DST"
+echo "APK ready: $APK_DST (Forever Dev)"
 ls -lh "$APK_DST"
 echo "Install: adb install -r \"$APK_DST\""
 echo "Or share the file — recipients enable Install unknown apps."

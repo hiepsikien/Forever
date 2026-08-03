@@ -294,3 +294,91 @@ def test_stale_running_job_requeued(client: TestClient, tmp_path, monkeypatch):
     assert reclaim_claim.json()["job"]["id"] == job_id
 
     get_settings.cache_clear()
+
+
+def test_extract_accepts_video_mts(client: TestClient, tmp_path, monkeypatch):
+    monkeypatch.setenv("UPLOAD_DIR", str(tmp_path))
+    from app.config import get_settings
+
+    get_settings.cache_clear()
+
+    token = _login(client, "extract-video@example.com", "Con")
+    headers = {"Authorization": f"Bearer {token}"}
+    space_id = _space(client, token)
+
+    created = client.post(
+        f"/api/spaces/{space_id}/extract/jobs",
+        headers=headers,
+        data={"num_speakers": "2"},
+        files={
+            "file": (
+                "camcorder.mts",
+                BytesIO(b"\x00" * 128),
+                "video/mp2t",
+            )
+        },
+    )
+    assert created.status_code == 200, created.text
+    job = created.json()
+    assert job["input_mime"] == "video/mp2t"
+    assert job["source_kind"] == "upload"
+
+    get_settings.cache_clear()
+
+
+def test_extract_from_memory_video(client: TestClient, tmp_path, monkeypatch):
+    monkeypatch.setenv("UPLOAD_DIR", str(tmp_path))
+    from datetime import datetime, timezone
+
+    from app.config import get_settings
+    from app.db import SessionLocal
+    from app.models import MemoryItem, User
+    from nanoid import generate
+
+    get_settings.cache_clear()
+
+    token = _login(client, "extract-mem@example.com", "Con")
+    headers = {"Authorization": f"Bearer {token}"}
+    space_id = _space(client, token)
+
+    upload_dir = tmp_path / space_id
+    upload_dir.mkdir(parents=True)
+    video_path = upload_dir / "family.mts"
+    video_path.write_bytes(b"fake-mts-bytes")
+
+    memory_id = generate()
+    with SessionLocal() as db:
+        user = db.query(User).filter(User.email == "extract-mem@example.com").one()
+        db.add(
+            MemoryItem(
+                id=memory_id,
+                space_id=space_id,
+                created_by=user.id,
+                kind="video",
+                title="Bố quay Tết",
+                body="",
+                media_path=f"{space_id}/family.mts",
+                media_mime="video/mp2t",
+                source_message_id=None,
+                tags="",
+                occurred_at=datetime.now(timezone.utc),
+                created_at=datetime.now(timezone.utc),
+            )
+        )
+        db.commit()
+
+    created = client.post(
+        f"/api/spaces/{space_id}/extract/jobs/from-memory",
+        headers=headers,
+        json={"memory_id": memory_id, "num_speakers": 3},
+    )
+    assert created.status_code == 200, created.text
+    job = created.json()
+    assert job["source_kind"] == "memory"
+    assert job["source_memory_id"] == memory_id
+    assert job["input_mime"] == "video/mp2t"
+
+    input_file = tmp_path / space_id / "extract" / job["id"] / "input.mts"
+    assert input_file.exists()
+
+    get_settings.cache_clear()

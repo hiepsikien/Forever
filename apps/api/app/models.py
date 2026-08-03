@@ -107,7 +107,7 @@ class MemoryItem(Base):
     id: Mapped[str] = mapped_column(String(32), primary_key=True)
     space_id: Mapped[str] = mapped_column(ForeignKey("family_spaces.id"), index=True)
     created_by: Mapped[str] = mapped_column(ForeignKey("users.id"), index=True)
-    kind: Mapped[str] = mapped_column(String(32), default="note")  # note | voice | photo | letter
+    kind: Mapped[str] = mapped_column(String(32), default="note")  # note | voice | photo | video | letter
     title: Mapped[str] = mapped_column(String(200), default="")
     body: Mapped[str] = mapped_column(Text, default="")
     media_path: Mapped[str | None] = mapped_column(String(512), nullable=True)
@@ -302,8 +302,11 @@ class ExtractJob(Base):
     voice_profile_id: Mapped[str | None] = mapped_column(
         ForeignKey("voice_profiles.id"), nullable=True, index=True
     )
-    # upload (v1); memory reserved
+    # upload | memory
     source_kind: Mapped[str] = mapped_column(String(32), default="upload")
+    source_memory_id: Mapped[str | None] = mapped_column(
+        ForeignKey("memory_items.id"), nullable=True, index=True
+    )
     input_path: Mapped[str] = mapped_column(String(512))
     input_mime: Mapped[str] = mapped_column(String(120), default="")
     original_filename: Mapped[str] = mapped_column(String(260), default="")
