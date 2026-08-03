@@ -1,7 +1,7 @@
 import { IdentityProfile, MemoryItem } from "@forever/api-client";
 import * as ImagePicker from "expo-image-picker";
 import { useLocalSearchParams } from "expo-router";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -9,6 +9,7 @@ import {
   Image,
   Modal,
   Pressable,
+  RefreshControl,
   StyleSheet,
   Text,
   TextInput,
@@ -37,6 +38,8 @@ import { useSpaceScreenOptions } from "@/lib/spaceHeader";
 import { colors, fonts } from "@/lib/theme";
 
 const MAX_VIDEO_BYTES = 200 * 1024 * 1024;
+const THUMB_RETRY_DELAYS_MS = [3000, 5000, 10000, 15000, 30000];
+const MAX_THUMB_ATTEMPTS = 10;
 
 type PendingUpload = {
   kind: "video" | "photo";
@@ -78,7 +81,13 @@ export default function LibraryScreen() {
 
   const [photoUris, setPhotoUris] = useState<Record<string, string>>({});
   const [thumbUris, setThumbUris] = useState<Record<string, string>>({});
+  const [thumbLoading, setThumbLoading] = useState<Record<string, boolean>>({});
+  const [thumbErrors, setThumbErrors] = useState<Record<string, boolean>>({});
+  const [refreshing, setRefreshing] = useState(false);
   const [playingId, setPlayingId] = useState<string | null>(null);
+  const thumbRetryTimers = useRef<ReturnType<typeof setTimeout>[]>([]);
+  const thumbLoadedRef = useRef<Set<string>>(new Set());
+  const loadVideoThumbRef = useRef<(item: MemoryItem, attempt?: number) => void>(() => {});
 
   const [videoOpen, setVideoOpen] = useState(false);
   const [videoUri, setVideoUri] = useState<string | null>(null);
@@ -116,6 +125,57 @@ export default function LibraryScreen() {
 
   useEffect(() => {
     let cancelled = false;
+    thumbRetryTimers.current.forEach(clearTimeout);
+    thumbRetryTimers.current = [];
+
+    const scheduleRetry = (fn: () => void, delayMs: number) => {
+      const timer = setTimeout(fn, delayMs);
+      thumbRetryTimers.current.push(timer);
+    };
+
+    const loadVideoThumb = async (item: MemoryItem, attempt = 0) => {
+      if (cancelled || thumbLoadedRef.current.has(item.id)) return;
+      setThumbLoading((prev) => ({ ...prev, [item.id]: true }));
+      setThumbErrors((prev) => {
+        if (!prev[item.id]) return prev;
+        const next = { ...prev };
+        delete next[item.id];
+        return next;
+      });
+      try {
+        const uri = await fetchAuthedMediaUri(
+          api.memoryThumbnailUrl(item.id),
+          `thumb-${item.id}`,
+          "image/jpeg",
+        );
+        if (!cancelled) {
+          thumbLoadedRef.current.add(item.id);
+          setThumbUris((prev) => (prev[item.id] ? prev : { ...prev, [item.id]: uri }));
+        }
+      } catch (e) {
+        if (cancelled) return;
+        const msg = e instanceof Error ? e.message : "";
+        const retryable = msg.includes("503") || msg.includes("502") || msg.includes("504");
+        if (retryable && attempt < MAX_THUMB_ATTEMPTS) {
+          const delay =
+            THUMB_RETRY_DELAYS_MS[Math.min(attempt, THUMB_RETRY_DELAYS_MS.length - 1)];
+          scheduleRetry(() => loadVideoThumb(item, attempt + 1), delay);
+          return;
+        }
+        if (attempt < 2) {
+          scheduleRetry(() => loadVideoThumb(item, attempt + 1), 2000);
+          return;
+        }
+        setThumbErrors((prev) => ({ ...prev, [item.id]: true }));
+      } finally {
+        if (!cancelled) {
+          setThumbLoading((prev) => ({ ...prev, [item.id]: false }));
+        }
+      }
+    };
+
+    loadVideoThumbRef.current = loadVideoThumb;
+
     (async () => {
       for (const item of memories) {
         if (!item.has_media) continue;
@@ -130,23 +190,19 @@ export default function LibraryScreen() {
               setPhotoUris((prev) => (prev[item.id] ? prev : { ...prev, [item.id]: uri }));
             }
           }
-          if (item.kind === "video") {
-            const uri = await fetchAuthedMediaUri(
-              api.memoryThumbnailUrl(item.id),
-              `thumb-${item.id}`,
-              "image/jpeg",
-            );
-            if (!cancelled) {
-              setThumbUris((prev) => (prev[item.id] ? prev : { ...prev, [item.id]: uri }));
-            }
+          if (item.kind === "video" && !thumbLoadedRef.current.has(item.id)) {
+            void loadVideoThumb(item);
           }
         } catch {
-          // ignore per-item preview failures
+          // ignore per-item photo preview failures
         }
       }
     })();
+
     return () => {
       cancelled = true;
+      thumbRetryTimers.current.forEach(clearTimeout);
+      thumbRetryTimers.current = [];
     };
   }, [api, memories]);
 
@@ -260,6 +316,80 @@ export default function LibraryScreen() {
     }
   };
 
+  const onRefresh = async () => {
+    setRefreshing(true);
+    try {
+      setThumbErrors({});
+      await load();
+    } finally {
+      setRefreshing(false);
+    }
+  };
+
+  const retryVideoThumb = (item: MemoryItem) => {
+    thumbLoadedRef.current.delete(item.id);
+    setThumbUris((prev) => {
+      const next = { ...prev };
+      delete next[item.id];
+      return next;
+    });
+    setThumbErrors((prev) => {
+      const next = { ...prev };
+      delete next[item.id];
+      return next;
+    });
+    loadVideoThumbRef.current(item);
+  };
+
+  const confirmDelete = (item: MemoryItem) => {
+    const title = displayMemoryTitle(item.kind, item.title);
+    Alert.alert(
+      "Xoá ký ức?",
+      `"${title}" sẽ bị xoá khỏi thư viện. Không thể hoàn tác.`,
+      [
+        { text: "Huỷ", style: "cancel" },
+        {
+          text: "Xoá",
+          style: "destructive",
+          onPress: () => void deleteMemory(item),
+        },
+      ],
+    );
+  };
+
+  const deleteMemory = async (item: MemoryItem) => {
+    if (saving) return;
+    setSaving(true);
+    try {
+      await api.deleteMemory(item.id);
+      thumbLoadedRef.current.delete(item.id);
+      setThumbUris((prev) => {
+        const next = { ...prev };
+        delete next[item.id];
+        return next;
+      });
+      setPhotoUris((prev) => {
+        const next = { ...prev };
+        delete next[item.id];
+        return next;
+      });
+      setThumbErrors((prev) => {
+        const next = { ...prev };
+        delete next[item.id];
+        return next;
+      });
+      if (playingId === item.id) {
+        await stopActivePlayback();
+        setPlayingId(null);
+      }
+      await load();
+    } catch (e) {
+      Alert.alert("Lỗi", e instanceof Error ? e.message : "Không xoá được.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const pickPhoto = async () => {
     if (!spaceId) return;
     const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -365,9 +495,14 @@ export default function LibraryScreen() {
       <View style={styles.card}>
         <View style={styles.cardTop}>
           <Text style={styles.kind}>{kindLabel(item.kind)}</Text>
-          <Pressable onPress={() => openCaptionForEdit(item)} hitSlop={8}>
-            <Text style={styles.editLink}>Sửa</Text>
-          </Pressable>
+          <View style={styles.cardActions}>
+            <Pressable onPress={() => openCaptionForEdit(item)} hitSlop={8}>
+              <Text style={styles.editLink}>Sửa</Text>
+            </Pressable>
+            <Pressable onPress={() => confirmDelete(item)} hitSlop={8} disabled={saving}>
+              <Text style={styles.deleteLink}>Xoá</Text>
+            </Pressable>
+          </View>
         </View>
 
         <Text style={[styles.title, untitled && styles.titleUntitled]}>{title}</Text>
@@ -392,9 +527,27 @@ export default function LibraryScreen() {
           <Pressable style={styles.videoThumbWrap} onPress={() => playVideo(item)}>
             {thumbUris[item.id] ? (
               <Image source={{ uri: thumbUris[item.id] }} style={styles.mediaPreview} />
+            ) : thumbErrors[item.id] ? (
+              <View style={[styles.mediaPreview, styles.videoPlaceholder]}>
+                <Text style={styles.thumbErrorText}>Chưa có ảnh xem trước</Text>
+                <Pressable
+                  style={styles.thumbRetryBtn}
+                  onPress={(e) => {
+                    e.stopPropagation?.();
+                    retryVideoThumb(item);
+                  }}
+                >
+                  <Text style={styles.thumbRetryText}>Thử lại</Text>
+                </Pressable>
+              </View>
             ) : (
               <View style={[styles.mediaPreview, styles.videoPlaceholder]}>
                 <ActivityIndicator color={colors.brand} />
+                <Text style={styles.thumbLoadingHint}>
+                  {thumbLoading[item.id] !== false
+                    ? "Đang chuẩn bị xem trước…"
+                    : "Đang tải…"}
+                </Text>
               </View>
             )}
             <View style={styles.playBadge}>
@@ -453,6 +606,9 @@ export default function LibraryScreen() {
         data={memories}
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.list}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.brand} />
+        }
         ListEmptyComponent={
           <Text style={styles.empty}>
             Chưa có ký ức. Thêm ghi chú, ảnh, video, hoặc trả lời Time-Capsule.
@@ -576,6 +732,11 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     alignItems: "center",
   },
+  cardActions: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 14,
+  },
   kind: {
     fontSize: 12,
     color: colors.brandSoft,
@@ -584,6 +745,11 @@ const styles = StyleSheet.create({
   editLink: {
     fontSize: 13,
     color: colors.brand,
+    fontWeight: "600",
+  },
+  deleteLink: {
+    fontSize: 13,
+    color: colors.danger,
     fontWeight: "600",
   },
   title: {
@@ -632,6 +798,29 @@ const styles = StyleSheet.create({
   videoPlaceholder: {
     alignItems: "center",
     justifyContent: "center",
+    gap: 8,
+  },
+  thumbLoadingHint: {
+    fontSize: 13,
+    color: colors.inkSoft,
+    textAlign: "center",
+    paddingHorizontal: 16,
+  },
+  thumbErrorText: {
+    fontSize: 14,
+    color: colors.inkSoft,
+    textAlign: "center",
+  },
+  thumbRetryBtn: {
+    backgroundColor: colors.bgDeep,
+    borderRadius: 999,
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+  },
+  thumbRetryText: {
+    color: colors.brand,
+    fontWeight: "600",
+    fontSize: 13,
   },
   playBadge: {
     position: "absolute",

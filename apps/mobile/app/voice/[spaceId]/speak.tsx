@@ -6,7 +6,7 @@ import {
   type VoiceTtsModelId,
 } from "@forever/api-client";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -38,6 +38,20 @@ import {
 } from "@/lib/media";
 import { useSpaceScreenOptions } from "@/lib/spaceHeader";
 import { colors, fonts } from "@/lib/theme";
+import {
+  activeTtsValues,
+  clampSpeed,
+  clampTts,
+  DEFAULT_TTS_PROFILE_SETTINGS,
+  loadTtsSettings,
+  saveTtsSettings,
+  SPEED_MAX,
+  SPEED_MIN,
+  TTS_STEP,
+  type TtsPresetName,
+  type TtsProfileSettings,
+  type TtsValues,
+} from "@/lib/ttsSettings";
 
 type PickerOption = {
   id: string;
@@ -46,47 +60,6 @@ type PickerOption = {
 };
 
 type OpenPicker = "voice" | "model" | "profile" | null;
-
-const TTS_STEP = 0.05;
-const SPEED_MIN = 0.7;
-const SPEED_MAX = 1.2;
-const SPEED_DEFAULT = 0.9;
-
-type TtsPreset = {
-  stability: number;
-  similarityBoost: number;
-  style: number;
-  speakerBoost: boolean;
-  speed: number;
-  lengthenPauses: boolean;
-};
-
-const PRESET_VALUES: Record<"similar" | "stable", TtsPreset> = {
-  similar: {
-    stability: 0.5,
-    similarityBoost: 0.95,
-    style: 0.15,
-    speakerBoost: true,
-    speed: SPEED_DEFAULT,
-    lengthenPauses: true,
-  },
-  stable: {
-    stability: 0.7,
-    similarityBoost: 0.8,
-    style: 0.0,
-    speakerBoost: true,
-    speed: SPEED_DEFAULT,
-    lengthenPauses: true,
-  },
-};
-
-function clampTts(value: number): number {
-  return Math.round(Math.max(0, Math.min(1, value)) * 100) / 100;
-}
-
-function clampSpeed(value: number): number {
-  return Math.round(Math.max(SPEED_MIN, Math.min(SPEED_MAX, value)) * 100) / 100;
-}
 
 function formatTtsLabel(value: number): string {
   return value.toFixed(2);
@@ -200,27 +173,75 @@ export default function VoiceSpeakScreen() {
   const [loading, setLoading] = useState(true);
   const [text, setText] = useState("Con nhớ bố lắm.");
   const [modelId, setModelId] = useState<VoiceTtsModelId>("eleven_v3");
-  const [preset, setPreset] = useState<"similar" | "stable" | null>("similar");
+  const [preset, setPreset] = useState<TtsPresetName | null>(
+    DEFAULT_TTS_PROFILE_SETTINGS.mode === "custom"
+      ? null
+      : DEFAULT_TTS_PROFILE_SETTINGS.mode,
+  );
   const [advancedOpen, setAdvancedOpen] = useState(false);
-  const [stability, setStability] = useState(PRESET_VALUES.similar.stability);
+  const [stability, setStability] = useState(
+    activeTtsValues(DEFAULT_TTS_PROFILE_SETTINGS).stability,
+  );
   const [similarityBoost, setSimilarityBoost] = useState(
-    PRESET_VALUES.similar.similarityBoost,
+    activeTtsValues(DEFAULT_TTS_PROFILE_SETTINGS).similarityBoost,
   );
   const [styleExaggeration, setStyleExaggeration] = useState(
-    PRESET_VALUES.similar.style,
+    activeTtsValues(DEFAULT_TTS_PROFILE_SETTINGS).style,
   );
   const [speakerBoost, setSpeakerBoost] = useState(
-    PRESET_VALUES.similar.speakerBoost,
+    activeTtsValues(DEFAULT_TTS_PROFILE_SETTINGS).speakerBoost,
   );
-  const [speed, setSpeed] = useState(PRESET_VALUES.similar.speed);
+  const [speed, setSpeed] = useState(
+    activeTtsValues(DEFAULT_TTS_PROFILE_SETTINGS).speed,
+  );
   const [lengthenPauses, setLengthenPauses] = useState(
-    PRESET_VALUES.similar.lengthenPauses,
+    activeTtsValues(DEFAULT_TTS_PROFILE_SETTINGS).lengthenPauses,
   );
   const [busy, setBusy] = useState(false);
   const [previewing, setPreviewing] = useState(false);
   const [paused, setPaused] = useState(false);
   const [lastRender, setLastRender] = useState<VoiceRender | null>(null);
   const [openPicker, setOpenPicker] = useState<OpenPicker>(null);
+  const [settingsReady, setSettingsReady] = useState(false);
+
+  const selectedProfileIdRef = useRef<string | null>(selectedProfileId);
+  selectedProfileIdRef.current = selectedProfileId;
+
+  const settingsRef = useRef<TtsProfileSettings>(DEFAULT_TTS_PROFILE_SETTINGS);
+
+  const applyValues = useCallback((values: TtsValues, mode: TtsProfileSettings["mode"]) => {
+    setPreset(mode === "custom" ? null : mode);
+    setStability(values.stability);
+    setSimilarityBoost(values.similarityBoost);
+    setStyleExaggeration(values.style);
+    setSpeakerBoost(values.speakerBoost);
+    setSpeed(values.speed);
+    setLengthenPauses(values.lengthenPauses);
+  }, []);
+
+  const commitProfileSettings = useCallback(
+    (next: TtsProfileSettings) => {
+      settingsRef.current = next;
+      applyValues(activeTtsValues(next), next.mode);
+      const profileId = selectedProfileIdRef.current;
+      if (profileId) {
+        void saveTtsSettings(profileId, next);
+      }
+    },
+    [applyValues],
+  );
+
+  const hydrateSettings = useCallback(
+    async (profileId: string) => {
+      const saved =
+        (await loadTtsSettings(profileId)) ?? DEFAULT_TTS_PROFILE_SETTINGS;
+      settingsRef.current = saved;
+      applyValues(activeTtsValues(saved), saved.mode);
+      setAdvancedOpen(saved.mode === "custom");
+      setSettingsReady(true);
+    },
+    [applyValues],
+  );
 
   useSpaceScreenOptions({
     spaceId,
@@ -291,37 +312,71 @@ export default function VoiceSpeakScreen() {
   const load = useCallback(async () => {
     if (!spaceId) return;
     setLoading(true);
+    setSettingsReady(false);
     try {
       const v = await api.listVoices(spaceId);
       setProfiles(v.voices);
 
-      const nextProfile =
-        (voiceIdParam && v.voices.find((x) => x.id === voiceIdParam)) ||
+      const prev = selectedProfileIdRef.current;
+      const resolved =
+        (prev && v.voices.find((x) => x.id === prev)) ||
+        (voiceIdParam ? v.voices.find((x) => x.id === voiceIdParam) : null) ||
         v.voices.find((x) => x.status === "ready") ||
         v.voices[0] ||
         null;
-      setSelectedProfileId(nextProfile?.id ?? null);
-      await loadElVoicesForProfile(nextProfile);
+
+      setSelectedProfileId(resolved?.id ?? null);
+      await loadElVoicesForProfile(resolved);
+      if (resolved?.id) {
+        await hydrateSettings(resolved.id);
+      } else {
+        setSettingsReady(true);
+      }
     } catch (e) {
       Alert.alert("Lỗi", e instanceof Error ? e.message : "Không tải voices.");
     } finally {
       setLoading(false);
     }
-  }, [api, spaceId, voiceIdParam, loadElVoicesForProfile]);
+  }, [api, spaceId, voiceIdParam, loadElVoicesForProfile, hydrateSettings]);
 
   useEffect(() => {
     void load();
   }, [load]);
 
-  const applyPreset = (next: "similar" | "stable") => {
-    const values = PRESET_VALUES[next];
-    setPreset(next);
-    setStability(values.stability);
-    setSimilarityBoost(values.similarityBoost);
-    setStyleExaggeration(values.style);
-    setSpeakerBoost(values.speakerBoost);
-    setSpeed(values.speed);
-    setLengthenPauses(values.lengthenPauses);
+  useEffect(() => {
+    return () => {
+      const profileId = selectedProfileIdRef.current;
+      if (profileId) {
+        void saveTtsSettings(profileId, settingsRef.current);
+      }
+    };
+  }, []);
+
+  const applyPreset = (next: TtsPresetName) => {
+    setAdvancedOpen(false);
+    commitProfileSettings({
+      mode: next,
+      custom: settingsRef.current.custom,
+    });
+  };
+
+  const selectCustom = () => {
+    if (preset === null) {
+      setAdvancedOpen((open) => !open);
+      return;
+    }
+    setAdvancedOpen(true);
+    commitProfileSettings({
+      mode: "custom",
+      custom: settingsRef.current.custom,
+    });
+  };
+
+  const patchCustom = (patch: Partial<TtsValues>) => {
+    commitProfileSettings({
+      mode: "custom",
+      custom: { ...settingsRef.current.custom, ...patch },
+    });
   };
 
   const ttsOpts = useMemo(
@@ -354,9 +409,21 @@ export default function VoiceSpeakScreen() {
     void stopActivePlayback();
     setPreviewing(false);
     setPaused(false);
+    setSettingsReady(false);
+    const leavingId = selectedProfileId;
+    if (leavingId) {
+      void saveTtsSettings(leavingId, settingsRef.current);
+    }
     setSelectedProfileId(id);
     const profile = profiles.find((p) => p.id === id) ?? null;
-    void loadElVoicesForProfile(profile);
+    void (async () => {
+      await loadElVoicesForProfile(profile);
+      if (profile) {
+        await hydrateSettings(profile.id);
+      } else {
+        setSettingsReady(true);
+      }
+    })();
   };
 
   const selectElVoice = (id: string) => {
@@ -487,7 +554,7 @@ export default function VoiceSpeakScreen() {
     setOpenPicker(null);
   };
 
-  if (loading) {
+  if (loading || (selectedProfileId && !settingsReady)) {
     return (
       <View style={styles.center}>
         <ActivityIndicator color={colors.brand} />
@@ -600,24 +667,24 @@ export default function VoiceSpeakScreen() {
                 Ổn định
               </Text>
             </Pressable>
-            {preset === null ? (
-              <View style={styles.customChip}>
-                <Text style={styles.customChipText}>Tùy chỉnh</Text>
-              </View>
-            ) : null}
+            <Pressable
+              style={[styles.chip, preset === null && styles.chipActive]}
+              onPress={selectCustom}
+            >
+              <Text
+                style={[
+                  styles.chipText,
+                  preset === null && styles.chipTextActive,
+                ]}
+              >
+                Tùy chỉnh
+              </Text>
+            </Pressable>
           </View>
-
-          <Pressable
-            style={styles.advancedToggle}
-            onPress={() => setAdvancedOpen((v) => !v)}
-            hitSlop={4}
-          >
-            <Text style={styles.advancedToggleText}>Nâng cao</Text>
-            <Text style={styles.advancedChevron}>{advancedOpen ? "▴" : "▾"}</Text>
-          </Pressable>
 
           {advancedOpen ? (
             <View style={styles.advancedPanel}>
+              <Text style={styles.advancedHeading}>Nâng cao</Text>
               <TtsStepper
                 label="Tốc độ"
                 hint="Thấp = chậm hơn · 0.90 gần nhịp nói tự nhiên"
@@ -625,37 +692,25 @@ export default function VoiceSpeakScreen() {
                 min={SPEED_MIN}
                 max={SPEED_MAX}
                 clamp={clampSpeed}
-                onChange={(next) => {
-                  setPreset(null);
-                  setSpeed(next);
-                }}
+                onChange={(next) => patchCustom({ speed: next })}
               />
               <TtsStepper
                 label="Similarity"
                 hint="Cao = sát chất giọng mẫu hơn (giảm cảm giác trẻ hóa)"
                 value={similarityBoost}
-                onChange={(next) => {
-                  setPreset(null);
-                  setSimilarityBoost(next);
-                }}
+                onChange={(next) => patchCustom({ similarityBoost: next })}
               />
               <TtsStepper
                 label="Stability"
                 hint="Cao = đều, trầm ổn hơn · Thấp = biểu cảm"
                 value={stability}
-                onChange={(next) => {
-                  setPreset(null);
-                  setStability(next);
-                }}
+                onChange={(next) => patchCustom({ stability: next })}
               />
               <TtsStepper
                 label="Style"
                 hint="Nhẹ = giữ đúng mẫu · Cao = phóng đại cách nói (dễ lệch)"
                 value={styleExaggeration}
-                onChange={(next) => {
-                  setPreset(null);
-                  setStyleExaggeration(next);
-                }}
+                onChange={(next) => patchCustom({ style: next })}
               />
               <View style={styles.advancedRow}>
                 <View style={styles.advancedCopy}>
@@ -666,10 +721,7 @@ export default function VoiceSpeakScreen() {
                 </View>
                 <Switch
                   value={lengthenPauses}
-                  onValueChange={(next) => {
-                    setPreset(null);
-                    setLengthenPauses(next);
-                  }}
+                  onValueChange={(next) => patchCustom({ lengthenPauses: next })}
                   trackColor={{ false: colors.line, true: colors.brandSoft }}
                   thumbColor={lengthenPauses ? colors.brand : "#f4f3f4"}
                 />
@@ -683,14 +735,14 @@ export default function VoiceSpeakScreen() {
                 </View>
                 <Switch
                   value={speakerBoost}
-                  onValueChange={(next) => {
-                    setPreset(null);
-                    setSpeakerBoost(next);
-                  }}
+                  onValueChange={(next) => patchCustom({ speakerBoost: next })}
                   trackColor={{ false: colors.line, true: colors.brandSoft }}
                   thumbColor={speakerBoost ? colors.brand : "#f4f3f4"}
                 />
               </View>
+              <Text style={styles.advancedNote}>
+                Thiết lập được ghi nhớ riêng cho từng giọng.
+              </Text>
             </View>
           ) : null}
         </View>
@@ -899,35 +951,15 @@ const styles = StyleSheet.create({
   chipActive: { backgroundColor: colors.brand, borderColor: colors.brand },
   chipText: { fontSize: 13, fontWeight: "600", color: colors.inkSoft },
   chipTextActive: { color: "#fff" },
-  customChip: {
-    paddingHorizontal: 10,
-    paddingVertical: 8,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: colors.line,
-    backgroundColor: "#f7f3ee",
-  },
-  customChipText: { fontSize: 12, fontWeight: "600", color: colors.inkSoft },
-  advancedToggle: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingTop: 4,
-    borderTopWidth: 1,
-    borderTopColor: colors.line,
-    marginTop: 2,
-  },
-  advancedToggleText: {
+  advancedPanel: { gap: 12, paddingTop: 4 },
+  advancedHeading: {
     fontSize: 14,
     fontWeight: "700",
     color: colors.ink,
+    borderTopWidth: 1,
+    borderTopColor: colors.line,
+    paddingTop: 12,
   },
-  advancedChevron: {
-    fontSize: 14,
-    color: colors.inkSoft,
-    fontWeight: "700",
-  },
-  advancedPanel: { gap: 12, paddingTop: 4 },
   advancedRow: {
     flexDirection: "row",
     alignItems: "center",
@@ -937,6 +969,14 @@ const styles = StyleSheet.create({
   advancedCopy: { flex: 1, gap: 2 },
   advancedLabel: { fontSize: 14, fontWeight: "700", color: colors.ink },
   advancedHint: { fontSize: 12, lineHeight: 16, color: colors.inkSoft },
+  advancedNote: {
+    fontSize: 12,
+    lineHeight: 16,
+    color: colors.inkSoft,
+    borderTopWidth: 1,
+    borderTopColor: colors.line,
+    paddingTop: 10,
+  },
   stepper: {
     flexDirection: "row",
     alignItems: "center",

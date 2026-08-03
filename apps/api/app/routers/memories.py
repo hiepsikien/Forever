@@ -18,6 +18,7 @@ from ..services.storage import (
     MAX_MEMORY_MEDIA_BYTES,
     absolute_media_path,
     copy_media,
+    delete_media_artifacts,
     is_audio_mime,
     is_video_mime,
     save_upload,
@@ -324,6 +325,27 @@ def get_memory_thumbnail(
     except VideoPlaybackError as exc:
         raise HTTPException(status_code=503, detail=exc.message) from exc
     return FileResponse(path, media_type="image/jpeg", filename=path.name)
+
+
+@router.delete("/api/memories/{memory_id}")
+def delete_memory(
+    memory_id: str,
+    user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[Session, Depends(get_db)],
+):
+    item = db.query(MemoryItem).filter(MemoryItem.id == memory_id).one_or_none()
+    if not item:
+        raise HTTPException(status_code=404, detail="Memory not found.")
+    require_membership(db, space_id=item.space_id, user=user)
+    media_path = item.media_path
+    db.delete(item)
+    db.commit()
+    if media_path:
+        try:
+            delete_media_artifacts(media_path)
+        except Exception:
+            pass
+    return {"ok": True}
 
 
 @router.patch("/api/memories/{memory_id}")

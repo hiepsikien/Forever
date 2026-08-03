@@ -41,6 +41,36 @@ def _run_ffmpeg(cmd: list[str]) -> subprocess.CompletedProcess[str]:
     return subprocess.run(cmd, capture_output=True, text=True)
 
 
+def _ffprobe_path() -> str | None:
+    return shutil.which("ffprobe")
+
+
+def is_playable_video(path: Path) -> bool:
+    """True when ffprobe finds a video stream (guards against bad remux caches)."""
+    if not path.exists() or path.stat().st_size < 1024:
+        return False
+    ffprobe = _ffprobe_path()
+    if not ffprobe:
+        return True
+    proc = subprocess.run(
+        [
+            ffprobe,
+            "-v",
+            "error",
+            "-select_streams",
+            "v:0",
+            "-show_entries",
+            "stream=codec_type",
+            "-of",
+            "csv=p=0",
+            str(path),
+        ],
+        capture_output=True,
+        text=True,
+    )
+    return proc.returncode == 0 and proc.stdout.strip() == "video"
+
+
 def _transcode_playback(
     ffmpeg: str, src: Path, tmp: Path, *, deinterlace: bool
 ) -> None:
@@ -119,12 +149,10 @@ def ensure_playback_mp4(media_relative: str) -> Path:
     if legacy.exists() and legacy != dest:
         legacy.unlink(missing_ok=True)
 
-    if (
-        dest.exists()
-        and dest.stat().st_size > 1024
-        and dest.stat().st_mtime >= src.stat().st_mtime
-    ):
-        return dest
+    if dest.exists() and dest.stat().st_mtime >= src.stat().st_mtime:
+        if is_playable_video(dest):
+            return dest
+        dest.unlink(missing_ok=True)
 
     ffmpeg = require_ffmpeg()
     dest.parent.mkdir(parents=True, exist_ok=True)
@@ -135,10 +163,16 @@ def ensure_playback_mp4(media_relative: str) -> Path:
     if _needs_deinterlace_transcode(src):
         _transcode_playback(ffmpeg, src, tmp, deinterlace=True)
     else:
-        if not _try_remux_copy(ffmpeg, src, tmp):
+        remuxed = _try_remux_copy(ffmpeg, src, tmp)
+        if not remuxed or not is_playable_video(tmp):
             if tmp.exists():
                 tmp.unlink()
             _transcode_playback(ffmpeg, src, tmp, deinterlace=False)
+
+    if not is_playable_video(tmp):
+        if tmp.exists():
+            tmp.unlink()
+        raise VideoPlaybackError("Không chuyển được video để phát.")
 
     tmp.replace(dest)
     return dest

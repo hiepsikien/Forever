@@ -229,6 +229,23 @@ def copy_media(space_id: str, relative: str) -> str:
     return new_relative.replace("\\", "/")
 
 
+def delete_media_artifacts(media_relative: str) -> None:
+    """Remove original upload and derived video cache files (thumbnail, playback)."""
+    src = absolute_media_path(media_relative)
+    if not src.exists():
+        return
+    parent = src.parent
+    stem = src.stem
+    src.unlink(missing_ok=True)
+    for pattern in (
+        f"{stem}.thumb.*.jpg",
+        f"{stem}.playback.*.mp4",
+        f"{stem}.playback.mp4",
+    ):
+        for path in parent.glob(pattern):
+            path.unlink(missing_ok=True)
+
+
 def save_bytes(space_id: str, data: bytes, *, ext: str = ".mp3") -> str:
     """Write raw bytes under upload_dir/space_id/. Returns relative path."""
     if not data:

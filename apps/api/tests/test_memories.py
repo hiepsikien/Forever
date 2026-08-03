@@ -157,3 +157,38 @@ def test_update_memory(client):
     assert data["body"] == "Bố quay cả nhà ăn cơm"
     assert "heritage:fake-id" in data["tags"]
     assert "from-chat" in data["tags"]
+
+
+def test_delete_memory(client, tmp_path, monkeypatch):
+    monkeypatch.setenv("UPLOAD_DIR", str(tmp_path))
+    from io import BytesIO
+
+    from app.config import get_settings
+
+    get_settings.cache_clear()
+
+    token = _login(client, "delete-mem@example.com", "Con")
+    headers = {"Authorization": f"Bearer {token}"}
+    space = client.post("/api/spaces", headers=headers, json={"name": "Nhà"}).json()
+
+    uploaded = client.post(
+        f"/api/spaces/{space['id']}/memories/upload",
+        headers=headers,
+        data={"kind": "video", "title": "Clip xoá"},
+        files={"file": ("clip.mts", BytesIO(b"fake-mts"), "video/mp2t")},
+    )
+    assert uploaded.status_code == 200, uploaded.text
+    memory_id = uploaded.json()["id"]
+
+    deleted = client.delete(f"/api/memories/{memory_id}", headers=headers)
+    assert deleted.status_code == 200, deleted.text
+    assert deleted.json()["ok"] is True
+
+    listed = client.get(f"/api/spaces/{space['id']}/memories", headers=headers)
+    assert listed.status_code == 200
+    assert not any(m["id"] == memory_id for m in listed.json()["memories"])
+
+    missing = client.delete(f"/api/memories/{memory_id}", headers=headers)
+    assert missing.status_code == 404
+
+    get_settings.cache_clear()

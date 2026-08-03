@@ -550,6 +550,10 @@ export function createApiClient({
         method: "PATCH",
         body: JSON.stringify(payload),
       }),
+    deleteMemory: (memoryId: string) =>
+      request<{ ok: boolean }>(`/api/memories/${memoryId}`, {
+        method: "DELETE",
+      }),
     listInterviewPrompts: (spaceId: string) =>
       request<{ prompts: InterviewPrompt[] }>(
         `/api/spaces/${spaceId}/interview/prompts`,
