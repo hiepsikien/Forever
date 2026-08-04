@@ -423,8 +423,8 @@ export default function VoiceDnaScreen() {
       return {
         label: isHeritageProfile ? "Tải file" : "Ghi mẫu giọng",
         subtext: isHeritageProfile
-          ? "Chọn ghi âm hoặc video từ điện thoại"
-          : "Đọc theo đoạn AI gợi ý — khoảng 30 giây",
+          ? "Ưu tiên đoạn ngắn sạch — băng dài thường clone kém hơn"
+          : "Đọc ~30–60s trên điện thoại — chất lượng quan trọng hơn độ dài",
         onPress: () => go(isHeritageProfile ? "upload" : "record"),
         kind: "nav" as const,
       };
@@ -866,7 +866,7 @@ export default function VoiceDnaScreen() {
                     <Pressable style={styles.action} onPress={() => go("upload")}>
                       <Text style={styles.actionTitle}>Tải file</Text>
                       <Text style={styles.actionSub}>
-                        Audio hoặc video — video chỉ lấy tiếng nói
+                        Đoạn ngắn sạch tốt hơn băng dài — video chỉ lấy tiếng
                       </Text>
                     </Pressable>
                     {canManage ? (
@@ -890,7 +890,7 @@ export default function VoiceDnaScreen() {
                   <Pressable style={styles.action} onPress={() => go("record")}>
                     <Text style={styles.actionTitle}>Ghi mẫu</Text>
                     <Text style={styles.actionSub}>
-                      Đọc theo đoạn gợi ý, nghe lại rồi lưu
+                      Đọc ~30–60s trên điện thoại — sạch hơn băng cũ dài
                     </Text>
                   </Pressable>
                 )}

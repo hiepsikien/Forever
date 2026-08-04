@@ -211,6 +211,7 @@ def _enrich_sample_quality(sample: VoiceSample) -> None:
     score, label, tip = score_voice_sample(
         duration_ms=sample.duration_ms,
         file_size_bytes=size,
+        source=sample.source,
     )
     sample.quality_score = score
     sample.quality_label = label
@@ -304,6 +305,7 @@ def _create_derived_sample(
     score, label, tip = score_voice_sample(
         duration_ms=duration_ms,
         file_size_bytes=file_size,
+        source=source,
     )
     row = VoiceSample(
         id=generate(),
@@ -1105,11 +1107,16 @@ async def add_sample(
     dur = duration_ms if duration_ms is not None and duration_ms > 0 else None
     if dur is None:
         dur = probe_duration_ms(path)
-    score, label, tip = score_voice_sample(duration_ms=dur, file_size_bytes=file_size)
+    score, label, tip = score_voice_sample(
+        duration_ms=dur,
+        file_size_bytes=file_size,
+        source=source,
+    )
     if from_video and dur and dur > 180_000:
         tip = (
-            "Video hơi dài cho 1 mẫu clone — cân nhắc Tách giọng từ băng dài "
-            "nếu có nhiều người / đoạn."
+            "Video dài cho 1 mẫu clone — ElevenLabs thường kém hơn so với đoạn "
+            "ngắn sạch (~30–60s). Cân nhắc Tách giọng từ băng dài hoặc cắt đoạn "
+            "rõ lời trước khi clone."
         )
 
     # Video-derived and extract stay in inbox for human listen/approve.

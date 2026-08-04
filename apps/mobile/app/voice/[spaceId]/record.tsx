@@ -276,8 +276,9 @@ export default function VoiceRecordScreen() {
           <View style={styles.setupCard}>
             <Text style={styles.setupTitle}>Tạo đoạn đọc</Text>
             <Text style={styles.setupHint}>
-              AI sẽ viết một đoạn ngắn để bạn đọc to, tự nhiên — không cần diễn
-              xuất.
+              AI viết đoạn ngắn để bạn đọc to, tự nhiên. Ghi mới trên điện thoại
+              (~30–60s, phòng yên) thường cho clone ElevenLabs tốt hơn nhiều so
+              với băng cũ dài.
             </Text>
             <TextInput
               style={styles.themeInput}
@@ -324,8 +325,8 @@ export default function VoiceRecordScreen() {
 
             {phase === "script" && hasScript ? (
               <Text style={styles.tip}>
-                Micro gần miệng, giọng tự nhiên là đủ. Bấm ghi âm ở dưới khi sẵn
-                sàng.
+                Micro gần miệng, giọng tự nhiên, phòng yên — khoảng 30–60 giây là
+                đủ. Không cần đọc dài: chất lượng bản ghi quan trọng hơn độ dài.
               </Text>
             ) : null}
 
