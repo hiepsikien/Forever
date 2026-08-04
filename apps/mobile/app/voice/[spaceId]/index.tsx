@@ -405,7 +405,6 @@ export default function VoiceDnaScreen() {
 
   const ready = activeVoice?.status === "ready";
   const cloneFailed = activeVoice?.status === "failed";
-  const canUseTts = !!activeVoice;
   const canClone = !!activeVoice && processedCount >= 1;
 
   const primaryAction = useMemo(() => {
@@ -854,19 +853,20 @@ export default function VoiceDnaScreen() {
               onPress={() => setShowTools((v) => !v)}
             >
               <Text style={styles.toolsToggleText}>
-                {showTools ? "Ẩn công cụ khác" : "Công cụ khác"}
+                {showTools ? "Ẩn thêm & lịch sử" : "Thêm & lịch sử"}
               </Text>
               <Text style={styles.toolsChevron}>{showTools ? "▾" : "▸"}</Text>
             </Pressable>
 
             {showTools ? (
               <View style={styles.group}>
+                <Text style={styles.kicker}>Thêm mẫu</Text>
                 {isHeritageProfile ? (
                   <>
                     <Pressable style={styles.action} onPress={() => go("upload")}>
                       <Text style={styles.actionTitle}>Tải file</Text>
                       <Text style={styles.actionSub}>
-                        Audio hoặc video — video chỉ lấy tiếng nói
+                        Thêm đoạn mới cho người này
                       </Text>
                     </Pressable>
                     {canManage ? (
@@ -879,9 +879,11 @@ export default function VoiceDnaScreen() {
                           );
                         }}
                       >
-                        <Text style={styles.actionTitle}>Tách giọng từ băng dài</Text>
+                        <Text style={styles.actionTitle}>
+                          Tách giọng từ băng dài
+                        </Text>
                         <Text style={styles.actionSub}>
-                          Một băng ghi — gán cho nhiều người trong nhà
+                          Một băng dài → nhiều người trong nhà
                         </Text>
                       </Pressable>
                     ) : null}
@@ -890,28 +892,12 @@ export default function VoiceDnaScreen() {
                   <Pressable style={styles.action} onPress={() => go("record")}>
                     <Text style={styles.actionTitle}>Ghi mẫu</Text>
                     <Text style={styles.actionSub}>
-                      Đọc theo đoạn gợi ý, nghe lại rồi lưu
+                      Thêm đoạn mới cho người này
                     </Text>
                   </Pressable>
                 )}
-                <Pressable style={styles.action} onPress={() => goSamples()}>
-                  <Text style={styles.actionTitle}>Mẫu giọng</Text>
-                  <Text style={styles.actionSub}>
-                    Nghe lại, duyệt, ghép đoạn
-                    {archivedCount > 0 ? ` · ${archivedCount} đã loại` : ""}
-                  </Text>
-                </Pressable>
-                {archivedCount > 0 ? (
-                  <Pressable
-                    style={styles.action}
-                    onPress={() => goSamples("archived")}
-                  >
-                    <Text style={styles.actionTitle}>Mẫu đã loại</Text>
-                    <Text style={styles.actionSub}>
-                      {archivedCount} mẫu — khôi phục khi cần
-                    </Text>
-                  </Pressable>
-                ) : null}
+
+                <Text style={styles.kicker}>Lịch sử & chỉnh lại</Text>
                 {ready ? (
                   <Pressable
                     style={styles.action}
@@ -920,32 +906,33 @@ export default function VoiceDnaScreen() {
                   >
                     <Text style={styles.actionTitle}>Clone lại</Text>
                     <Text style={styles.actionSub}>
-                      Làm mới bản giọng sau khi đổi mẫu
+                      Làm bản giọng mới từ mẫu đã chọn
                     </Text>
                   </Pressable>
                 ) : null}
                 <Pressable style={styles.action} onPress={() => go("clones")}>
-                  <Text style={styles.actionTitle}>Lịch sử clone</Text>
+                  <Text style={styles.actionTitle}>Các bản clone</Text>
                   <Text style={styles.actionSub}>
-                    Các lần tạo bản giọng trước
-                  </Text>
-                </Pressable>
-                <Pressable
-                  style={[styles.action, !canUseTts && styles.actionDisabled]}
-                  onPress={() => go("speak")}
-                  disabled={!canUseTts}
-                >
-                  <Text style={styles.actionTitle}>Tạo câu nói</Text>
-                  <Text style={styles.actionSub}>
-                    Nhập text, nghe thử, lưu lại
+                    Chọn bản mặc định hoặc xoá bản cũ
                   </Text>
                 </Pressable>
                 <Pressable style={styles.action} onPress={() => go("renders")}>
-                  <Text style={styles.actionTitle}>Bản đã tạo</Text>
+                  <Text style={styles.actionTitle}>Câu đã tạo</Text>
                   <Text style={styles.actionSub}>
-                    Lịch sử các câu nói từ text
+                    Nghe / chia sẻ các lần TTS trước
                   </Text>
                 </Pressable>
+                {archivedCount > 0 ? (
+                  <Pressable
+                    style={styles.action}
+                    onPress={() => goSamples("archived")}
+                  >
+                    <Text style={styles.actionTitle}>Mẫu không dùng</Text>
+                    <Text style={styles.actionSub}>
+                      {archivedCount} mẫu đã loại — khôi phục nếu cần
+                    </Text>
+                  </Pressable>
+                ) : null}
               </View>
             ) : null}
           </>

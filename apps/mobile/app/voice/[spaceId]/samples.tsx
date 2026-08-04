@@ -44,20 +44,20 @@ const TAB_META: Record<
   { label: string; sub: string; empty: string }
 > = {
   unprocessed: {
-    label: "Chưa xử lý",
-    sub: "Chọn mẫu → Cân bằng âm lượng, Ghép (2+), hoặc Chia đôi (1 file dài). File gốc luôn giữ nguyên.",
+    label: "Chờ duyệt",
+    sub: "Chọn đoạn sạch rồi Duyệt để đưa vào bộ clone.",
     empty:
-      "Không còn mẫu chưa xử lý. Import từ pool hoặc chuyển sang tab Sẵn sàng clone.",
+      "Không còn mẫu chờ duyệt. Import từ pool hoặc mở tab Dùng để clone.",
   },
   processed: {
-    label: "Sẵn sàng clone",
-    sub: "Chỉ mẫu đã duyệt mới được dùng khi Clone (tối đa 3 file, ~1–2 phút). File quá dài/lớn: chọn 1 → Chia đôi.",
-    empty: "Chưa có mẫu sẵn clone. Duyệt mẫu tốt từ tab Chưa xử lý.",
+    label: "Dùng để clone",
+    sub: "Chỉ các mẫu ở đây được chọn khi Clone.",
+    empty: "Chưa có mẫu để clone. Duyệt mẫu tốt từ tab Chờ duyệt.",
   },
   archived: {
-    label: "Đã loại",
-    sub: "Mẫu đã loại khỏi clone. Bấm Khôi phục rồi chọn đưa về Chưa xử lý hoặc Sẵn sàng clone.",
-    empty: "Chưa có mẫu đã loại.",
+    label: "Không dùng",
+    sub: "Đã loại khỏi clone. Bấm Khôi phục nếu muốn dùng lại.",
+    empty: "Chưa có mẫu không dùng.",
   },
 };
 
@@ -126,7 +126,7 @@ export default function VoiceSamplesScreen() {
   const [audioInfoTarget, setAudioInfoTarget] = useState<AudioInfoTarget | null>(null);
 
   const samples = samplesByTab[tab];
-  // "Đã loại" is not a primary tab: it only appears while you are looking at it,
+  // "Không dùng" is not a primary tab: it only appears while you are looking at it,
   // reached from Công cụ khác or the link under the count row.
   const visibleTabs: TabStage[] =
     tab === "archived"
@@ -232,18 +232,18 @@ export default function VoiceSamplesScreen() {
     const targetVoiceId = resolveTargetVoiceId(ids);
     if (!targetVoiceId || !ids.length || bulkBusy) return;
     const labels: Record<typeof pipelineStage, string> = {
-      unprocessed: "khôi phục về Chưa xử lý",
-      processed: "duyệt sang Sẵn sàng clone",
+      unprocessed: "khôi phục về Chờ duyệt",
+      processed: "đưa về Dùng để clone",
       archived: "loại khỏi danh sách đang dùng",
     };
     const titles: Record<typeof pipelineStage, string> = {
       unprocessed: "Khôi phục mẫu?",
-      processed: "Duyệt mẫu?",
+      processed: "Đưa về dùng để clone?",
       archived: "Loại mẫu?",
     };
     const confirmLabels: Record<typeof pipelineStage, string> = {
       unprocessed: "Khôi phục",
-      processed: "Duyệt",
+      processed: "Về dùng clone",
       archived: "Loại",
     };
     const dur = formatDurationMs(
@@ -305,7 +305,7 @@ export default function VoiceSamplesScreen() {
     const dur = formatDurationMs(selectedDuration);
     Alert.alert(
       "Ghép mẫu?",
-      `Ghép ${ids.length} đoạn (tổng ${dur}) thành 1 file mới. Các đoạn gốc vẫn giữ ở Chưa xử lý.`,
+      `Ghép ${ids.length} đoạn (tổng ${dur}) thành 1 file mới. Các đoạn gốc vẫn giữ ở Chờ duyệt.`,
       [
         { text: "Huỷ", style: "cancel" },
         {
@@ -379,8 +379,8 @@ export default function VoiceSamplesScreen() {
     Alert.alert(
       "Chia đôi mẫu?",
       fromProcessed
-        ? `Tách “${durLabel}” thành 2 nửa (~1/2 thời lượng mỗi file). File gốc sẽ bị Loại khỏi Sẵn sàng clone để tránh clone trùng.`
-        : `Tách “${durLabel}” thành 2 nửa (~1/2 thời lượng). File gốc vẫn giữ ở Chưa xử lý.`,
+        ? `Tách “${durLabel}” thành 2 nửa (~1/2 thời lượng mỗi file). File gốc sẽ bị Loại khỏi Dùng để clone để tránh clone trùng.`
+        : `Tách “${durLabel}” thành 2 nửa (~1/2 thời lượng). File gốc vẫn giữ ở Chờ duyệt.`,
       [
         { text: "Huỷ", style: "cancel" },
         {
@@ -402,7 +402,7 @@ export default function VoiceSamplesScreen() {
                 labels
                   ? `Hai nửa: ${labels}.${
                       res.archived_original
-                        ? " File gốc đã loại khỏi Sẵn sàng clone."
+                        ? " File gốc đã loại khỏi Dùng để clone."
                         : " Nghe lại rồi Duyệt nếu ổn."
                     }`
                   : res.archived_original
@@ -655,7 +655,7 @@ export default function VoiceSamplesScreen() {
                   [
                     { text: "Huỷ", style: "cancel" },
                     {
-                      text: "Chưa xử lý",
+                      text: "Chờ duyệt",
                       onPress: async () => {
                         try {
                           await api.updateVoiceSampleStage(
@@ -675,7 +675,7 @@ export default function VoiceSamplesScreen() {
                       },
                     },
                     {
-                      text: "Sẵn sàng clone",
+                      text: "Dùng để clone",
                       onPress: async () => {
                         try {
                           await api.updateVoiceSampleStage(
@@ -839,7 +839,7 @@ export default function VoiceSamplesScreen() {
                   onPress={() => bulkStage("processed")}
                   disabled={bulkBusy}
                 >
-                  <Text style={styles.actionBtnText}>Duyệt</Text>
+                  <Text style={styles.actionBtnText}>Về dùng clone</Text>
                 </Pressable>
               </>
             ) : (
