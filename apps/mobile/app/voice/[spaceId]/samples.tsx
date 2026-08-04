@@ -333,7 +333,7 @@ export default function VoiceSamplesScreen() {
     const dur = formatDurationMs(selectedDuration);
     Alert.alert(
       "Ghép êm?",
-      `Ghép ${ids.length} đoạn (tổng ${dur}) với cân âm lượng, fade nhẹ và khoảng lặng ngắn giữa đoạn — giảm ngắt hơi / nhảy nền. Thứ tự theo thời gian trên băng gốc nếu có.`,
+      `Ghép ${ids.length} đoạn (tổng ${dur}) với cân âm lượng, fade cong và khoảng nghỉ có room tone nhẹ — giảm cảm giác cắt thô. Thứ tự theo thời gian trên băng gốc nếu có.`,
       [
         { text: "Huỷ", style: "cancel" },
         {

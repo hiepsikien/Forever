@@ -39,6 +39,7 @@ from ..services.heritage import (
 from ..services.audio_combine import (
     DEFAULT_SMART_FADE_MS,
     DEFAULT_SMART_GAP_MS,
+    DEFAULT_SMART_GAP_NOISE_DB,
     AudioCombineError,
     combine_audio_files,
     probe_duration_ms,
@@ -1402,6 +1403,7 @@ def smart_combine_samples(
         "normalize": True,
         "gap_ms": DEFAULT_SMART_GAP_MS,
         "fade_ms": DEFAULT_SMART_FADE_MS,
+        "gap_noise_db": DEFAULT_SMART_GAP_NOISE_DB,
         "denoise": "off",
     }
     auto_note = (

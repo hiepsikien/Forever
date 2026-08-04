@@ -45,8 +45,11 @@ def probe_duration_ms(path: Path) -> int | None:
 
 
 LOUDNORM_FILTER = "loudnorm=I=-16:TP=-1.5:LRA=11"
+# Pause length stays conversational; softness comes from curved fades + room-tone bed.
 DEFAULT_SMART_GAP_MS = 220
-DEFAULT_SMART_FADE_MS = 40
+DEFAULT_SMART_FADE_MS = 90
+# Soft pink bed during the gap (~−45 dBFS) — avoids digital-zero “hard cut to void”.
+DEFAULT_SMART_GAP_NOISE_DB = -45.0
 
 
 def _concat_demuxer(ffmpeg: str, list_path: Path, output_path: Path) -> None:
@@ -118,21 +121,25 @@ def _prepare_smart_clip(
     *,
     fade_ms: int,
 ) -> int:
-    """Mono WAV + loudness + short edge fades. Returns duration_ms."""
+    """Mono WAV + loudness + curved edge fades. Returns duration_ms."""
     fade_s = max(fade_ms, 0) / 1000.0
     duration_ms = probe_duration_ms(input_path) or 0
     duration_s = duration_ms / 1000.0
 
+    # Gentle high-pass reduces rumble jumps between phone / room sources.
+    base_filters = ["highpass=f=70"]
     fade_filters: list[str] = []
     if fade_s > 0 and duration_s > fade_s * 2.5:
         fade_out_start = max(duration_s - fade_s, 0.0)
+        # hsin ≈ natural breath-edge; linear afade feels clicky / abrupt.
         fade_filters = [
-            f"afade=t=in:st=0:d={fade_s:.3f}",
-            f"afade=t=out:st={fade_out_start:.3f}:d={fade_s:.3f}",
+            f"afade=t=in:st=0:d={fade_s:.3f}:curve=hsin",
+            f"afade=t=out:st={fade_out_start:.3f}:d={fade_s:.3f}:curve=hsin",
         ]
 
     attempts: list[list[str]] = [
-        [LOUDNORM_FILTER, *fade_filters],
+        [LOUDNORM_FILTER, *base_filters, *fade_filters],
+        [*base_filters, *fade_filters],
         list(fade_filters),
         [],
     ]
@@ -166,17 +173,37 @@ def _prepare_smart_clip(
     raise AudioCombineError(f"ffmpeg chuẩn bị clip thất bại: {last_detail[:500]}")
 
 
-def _make_silence_wav(ffmpeg: str, output_path: Path, duration_ms: int) -> None:
+def _make_soft_gap_wav(
+    ffmpeg: str,
+    output_path: Path,
+    duration_ms: int,
+    *,
+    noise_db: float = DEFAULT_SMART_GAP_NOISE_DB,
+    fade_ms: int = 50,
+) -> None:
+    """Quiet pink-noise bed with soft edges — not digital silence."""
     seconds = max(duration_ms, 1) / 1000.0
+    fade_s = min(max(fade_ms, 0) / 1000.0, seconds / 2.5)
+    fade_out_start = max(seconds - fade_s, 0.0)
+    # Generate pink noise then duck to target dB so joins keep a faint floor.
+    af = (
+        f"volume={noise_db:.1f}dB,"
+        f"afade=t=in:st=0:d={fade_s:.3f}:curve=hsin,"
+        f"afade=t=out:st={fade_out_start:.3f}:d={fade_s:.3f}:curve=hsin"
+    )
     cmd = [
         ffmpeg,
         "-y",
         "-f",
         "lavfi",
         "-i",
-        f"anullsrc=r=44100:cl=mono",
+        "anoisesrc=color=pink:amplitude=1:sample_rate=44100",
         "-t",
         f"{seconds:.3f}",
+        "-af",
+        af,
+        "-ac",
+        "1",
         "-c:a",
         "pcm_s16le",
         str(output_path),
@@ -184,7 +211,7 @@ def _make_silence_wav(ffmpeg: str, output_path: Path, duration_ms: int) -> None:
     proc = subprocess.run(cmd, capture_output=True, text=True)
     if proc.returncode != 0 or not output_path.exists():
         detail = proc.stderr.strip() or proc.stdout.strip() or "unknown error"
-        raise AudioCombineError(f"ffmpeg tạo silence thất bại: {detail[:500]}")
+        raise AudioCombineError(f"ffmpeg tạo khoảng nghỉ thất bại: {detail[:500]}")
 
 
 def smart_combine_audio_files(
@@ -193,8 +220,9 @@ def smart_combine_audio_files(
     *,
     gap_ms: int = DEFAULT_SMART_GAP_MS,
     fade_ms: int = DEFAULT_SMART_FADE_MS,
+    gap_noise_db: float = DEFAULT_SMART_GAP_NOISE_DB,
 ) -> tuple[int, int]:
-    """Combine clips with per-clip loudness, edge fades, and silence gaps.
+    """Combine clips with loudness match, curved fades, and soft room-tone gaps.
 
     Softens hard joins that make extract harvests sound choppy for IVC.
     Returns (duration_ms, file_size_bytes).
@@ -216,16 +244,22 @@ def smart_combine_audio_files(
             _prepare_smart_clip(ffmpeg, path, out, fade_ms=fade_ms)
             prepared.append(out)
 
-        silence_path: Path | None = None
+        gap_path: Path | None = None
         if gap_ms > 0:
-            silence_path = tmp_dir / "gap.wav"
-            _make_silence_wav(ffmpeg, silence_path, gap_ms)
+            gap_path = tmp_dir / "gap.wav"
+            _make_soft_gap_wav(
+                ffmpeg,
+                gap_path,
+                gap_ms,
+                noise_db=gap_noise_db,
+                fade_ms=min(50, max(fade_ms // 2, 30)),
+            )
 
         sequence: list[Path] = []
         for idx, clip in enumerate(prepared):
             sequence.append(clip)
-            if silence_path is not None and idx < len(prepared) - 1:
-                sequence.append(silence_path)
+            if gap_path is not None and idx < len(prepared) - 1:
+                sequence.append(gap_path)
 
         list_path = tmp_dir / "concat.txt"
         _write_concat_list(sequence, list_path)
