@@ -136,7 +136,8 @@ Done: ≥2 người chat ổn trên điện thoại thật.
 - Audio clean → Instant Voice Clone (ElevenLabs); API key trong **Cài đặt không gian**
 - Hai luồng: giọng sống (self) + giọng ký ức (steward/owner + Identity Profile)
 - TTS optional, **không auto-play**
-- Voice DNA thường vài chục MB–<1GB (raw + model)  
+- Voice DNA thường vài chục MB–<1GB (raw + model)
+- **Chất lượng thu quan trọng hơn độ dài:** ghi mới đọc text trên điện thoại (~30–60s, phòng yên) thường cho kết quả clone tốt hơn nhiều so với băng cũ dài (vd. ~6 phút / ~6 MB). Heuristic `sample_quality` và copy UX ưu tiên đoạn ngắn sạch; băng dài → cắt/tách đoạn rõ lời trước khi clone.  
 
 ### Phase 5 — Micro-rituals & Bridge soft features
 - Nghi thức tuần (1 câu hỏi / 1 ảnh cũ)  

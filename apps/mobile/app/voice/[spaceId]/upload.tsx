@@ -270,6 +270,11 @@ export default function VoiceUploadScreen() {
           Audio ≤25 MB · Video ≤100 MB (mp4/mov…) · băng dài nhiều người → Tách giọng từ
           băng dài
         </Text>
+        <Text style={styles.qualityNote}>
+          ElevenLabs rất nhạy với chất lượng thu: đoạn ngắn sạch (~30–60s) thường clone tốt
+          hơn băng cũ dài (vd. ~6 phút). Với file dài, hãy cắt/tách đoạn rõ lời trước khi
+          clone — hoặc ưu tiên ghi mới đọc text nếu còn làm được.
+        </Text>
 
         {phase === "pick" ? (
           <Pressable
@@ -426,6 +431,12 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: colors.inkSoft,
     lineHeight: 18,
+  },
+  qualityNote: {
+    fontSize: 13,
+    color: colors.inkSoft,
+    lineHeight: 19,
+    marginTop: 4,
   },
   pickBtn: {
     backgroundColor: colors.brand,

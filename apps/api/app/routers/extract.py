@@ -709,7 +709,9 @@ def accept_segments(
         shutil.copy2(src, dest)
         file_size = dest.stat().st_size
         score, label, tip = score_voice_sample(
-            duration_ms=seg.duration_ms, file_size_bytes=file_size
+            duration_ms=seg.duration_ms,
+            file_size_bytes=file_size,
+            source="extract",
         )
         sample = VoiceSample(
             id=generate(),
