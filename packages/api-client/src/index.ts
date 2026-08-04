@@ -273,6 +273,13 @@ export interface ElevenLabsVoice {
   created_at_unix?: number | null;
 }
 
+/** HD synthesis takes tens of seconds, and cloning uploads minutes of audio.
+ * Aborting early is worse than waiting: the provider still charges for work it
+ * finished, and the steward would be tempted to pay for a second attempt. */
+export const VOICE_TTS_TIMEOUT_MS = 180_000;
+export const VOICE_CLONE_TIMEOUT_MS = 300_000;
+export const VOICE_PROVIDER_TIMEOUT_MS = 60_000;
+
 export type VoiceProvider = "elevenlabs" | "minimax";
 
 export const VOICE_PROVIDERS = [
@@ -779,6 +786,8 @@ export function createApiClient({
       if (opts?.provider) params.set("provider", opts.provider);
       return request<{ voices: ElevenLabsVoice[] }>(
         `/api/spaces/${spaceId}/elevenlabs-voices?${params.toString()}`,
+        {},
+        { timeoutMs: VOICE_PROVIDER_TIMEOUT_MS },
       );
     },
     deleteElevenLabsVoice: (
@@ -790,6 +799,7 @@ export function createApiClient({
       return request<{ ok: boolean; detached_voice_ids: string[] }>(
         `/api/spaces/${spaceId}/elevenlabs-voices/${encodeURIComponent(providerVoiceId)}${q}`,
         { method: "DELETE" },
+        { timeoutMs: VOICE_PROVIDER_TIMEOUT_MS },
       );
     },
     createSelfVoice: (spaceId: string, consent = true) =>
@@ -968,10 +978,11 @@ export function createApiClient({
         provider?: VoiceProvider;
       },
     ) =>
-      request<VoiceProfile>(`/api/voices/${voiceId}/clone`, {
-        method: "POST",
-        body: JSON.stringify(opts ?? {}),
-      }),
+      request<VoiceProfile>(
+        `/api/voices/${voiceId}/clone`,
+        { method: "POST", body: JSON.stringify(opts ?? {}) },
+        { timeoutMs: VOICE_CLONE_TIMEOUT_MS },
+      ),
     pauseVoice: (voiceId: string) =>
       request<VoiceProfile>(`/api/voices/${voiceId}/pause`, { method: "POST" }),
     selectVoiceClone: (
@@ -979,13 +990,17 @@ export function createApiClient({
       providerVoiceId: string,
       provider?: VoiceProvider,
     ) =>
-      request<VoiceProfile>(`/api/voices/${voiceId}/select-clone`, {
-        method: "POST",
-        body: JSON.stringify({
-          provider_voice_id: providerVoiceId,
-          ...(provider ? { provider } : {}),
-        }),
-      }),
+      request<VoiceProfile>(
+        `/api/voices/${voiceId}/select-clone`,
+        {
+          method: "POST",
+          body: JSON.stringify({
+            provider_voice_id: providerVoiceId,
+            ...(provider ? { provider } : {}),
+          }),
+        },
+        { timeoutMs: VOICE_PROVIDER_TIMEOUT_MS },
+      ),
     listVoiceRenders: (voiceId: string) =>
       request<{ renders: VoiceRender[] }>(`/api/voices/${voiceId}/renders`),
     listSpaceVoiceRenders: (
@@ -1023,10 +1038,11 @@ export function createApiClient({
         lengthen_pauses?: boolean;
       },
     ) =>
-      request<VoiceRender>(`/api/voices/${voiceId}/tts`, {
-        method: "POST",
-        body: JSON.stringify({ text, save: true, ...opts }),
-      }),
+      request<VoiceRender>(
+        `/api/voices/${voiceId}/tts`,
+        { method: "POST", body: JSON.stringify({ text, save: true, ...opts }) },
+        { timeoutMs: VOICE_TTS_TIMEOUT_MS },
+      ),
     synthesizeVoiceTts: async (
       voiceId: string,
       text: string,
@@ -1047,10 +1063,8 @@ export function createApiClient({
       const headers = new Headers({ "Content-Type": "application/json" });
       if (token) headers.set("Authorization", `Bearer ${token}`);
       const signal =
-        timeoutMs > 0 &&
-        typeof AbortSignal !== "undefined" &&
-        "timeout" in AbortSignal
-          ? AbortSignal.timeout(timeoutMs)
+        typeof AbortSignal !== "undefined" && "timeout" in AbortSignal
+          ? AbortSignal.timeout(VOICE_TTS_TIMEOUT_MS)
           : undefined;
       const res = await fetch(`${root}/api/voices/${voiceId}/tts`, {
         method: "POST",

@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import binascii
 import re
+import time
+from collections.abc import Callable
 from datetime import datetime, timezone
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -44,6 +46,13 @@ LANGUAGE_BOOST = "Vietnamese"
 LOCK_TEXT = "Xin chào, đây là giọng của gia đình mình."
 
 MAX_TTS_CHARS = 2500
+
+# Fail fast when the host is unreachable instead of hanging on the full budget.
+CONNECT_TIMEOUT = 10.0
+CONNECT_ATTEMPTS = 3
+# Only connect-phase failures are retried: the request never reached MiniMax, so
+# nothing was synthesized or billed. A read timeout may already have been charged.
+_RETRYABLE = (httpx.ConnectTimeout, httpx.ConnectError)
 
 _VOICE_ID_UNSAFE = re.compile(r"[^A-Za-z0-9_-]")
 
@@ -218,16 +227,19 @@ def upload_file(
 ) -> int:
     """Upload audio and return its file_id."""
     url = f"{_base(settings)}/files/upload"
-    with path.open("rb") as handle:
-        files = {"file": (path.name, handle, "audio/mpeg")}
-        with httpx.Client(timeout=180.0) as client:
-            res = client.post(
-                url,
-                headers={"Authorization": f"Bearer {api_key}"},
-                data={"purpose": purpose},
-                files=files,
-            )
 
+    def _send() -> httpx.Response:
+        # Reopened per attempt: a retry cannot reuse a consumed file handle.
+        with path.open("rb") as handle:
+            with httpx.Client(timeout=_timeout(180.0)) as client:
+                return client.post(
+                    url,
+                    headers={"Authorization": f"Bearer {api_key}"},
+                    data={"purpose": purpose},
+                    files={"file": (path.name, handle, "audio/mpeg")},
+                )
+
+    res = _with_retry(_send, action="upload mẫu")
     payload = _payload_or_raise(res, action="upload mẫu")
     file_id = (payload.get("file") or {}).get("file_id")
     if not file_id:
@@ -369,16 +381,56 @@ def _post_json(
     timeout: float,
     action: str,
 ) -> dict[str, Any]:
-    with httpx.Client(timeout=timeout) as client:
-        res = client.post(
-            f"{_base(settings)}{path}",
-            headers={
-                "Authorization": f"Bearer {api_key}",
-                "Content-Type": "application/json",
-            },
-            json=payload,
-        )
+    def _send() -> httpx.Response:
+        with httpx.Client(timeout=_timeout(timeout)) as client:
+            return client.post(
+                f"{_base(settings)}{path}",
+                headers={
+                    "Authorization": f"Bearer {api_key}",
+                    "Content-Type": "application/json",
+                },
+                json=payload,
+            )
+
+    res = _with_retry(_send, action=action)
     return _payload_or_raise(res, action=action)
+
+
+def _timeout(read: float) -> httpx.Timeout:
+    return httpx.Timeout(read, connect=CONNECT_TIMEOUT)
+
+
+def _with_retry(
+    send: Callable[[], httpx.Response],
+    *,
+    action: str,
+) -> httpx.Response:
+    """Retry only when the connection never landed, so nothing is billed twice."""
+    last: Exception | None = None
+    for attempt in range(CONNECT_ATTEMPTS):
+        try:
+            return send()
+        except _RETRYABLE as exc:
+            last = exc
+            if attempt + 1 < CONNECT_ATTEMPTS:
+                time.sleep(0.8 * (attempt + 1))
+        except httpx.TimeoutException as exc:
+            raise MinimaxError(
+                f"MiniMax {action}: quá thời gian chờ phản hồi. "
+                "Kiểm tra lại trước khi thử lần nữa — lần này có thể đã bị tính phí.",
+                status_code=504,
+            ) from exc
+        except httpx.HTTPError as exc:
+            raise MinimaxError(
+                f"MiniMax {action}: lỗi kết nối ({type(exc).__name__}).",
+                status_code=502,
+            ) from exc
+
+    raise MinimaxError(
+        f"Không kết nối được tới MiniMax ({action}) sau {CONNECT_ATTEMPTS} lần thử. "
+        "Kiểm tra mạng rồi thử lại — chưa có gì bị tính phí.",
+        status_code=503,
+    ) from last
 
 
 def _payload_or_raise(res: httpx.Response, *, action: str) -> dict[str, Any]:

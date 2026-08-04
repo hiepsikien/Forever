@@ -1,5 +1,6 @@
 from unittest.mock import MagicMock, patch
 
+import httpx
 import pytest
 
 from app.config import Settings
@@ -127,6 +128,81 @@ def test_insufficient_balance_points_at_pay_as_you_go():
             )
 
     assert "pay-as-you-go" in excinfo.value.message
+
+
+def test_connect_timeout_is_retried_then_succeeds():
+    """The request never reached MiniMax, so retrying cannot double bill."""
+    ok = _json_response({"data": {"audio": b"x".hex()}, "base_resp": {"status_code": 0}})
+
+    with (
+        patch("app.services.minimax.time.sleep"),
+        patch("app.services.minimax.httpx.Client") as client_cls,
+    ):
+        client = client_cls.return_value.__enter__.return_value
+        client.post.side_effect = [httpx.ConnectTimeout("timed out"), ok]
+        audio = mm.text_to_speech(
+            settings=_settings(),
+            api_key="mm_test",
+            voice_id="fvabc-1",
+            text="Xin chào.",
+        )
+
+    assert audio == b"x"
+    assert client.post.call_count == 2
+
+
+def test_connect_failures_give_up_with_a_clear_message():
+    with (
+        patch("app.services.minimax.time.sleep"),
+        patch("app.services.minimax.httpx.Client") as client_cls,
+    ):
+        client = client_cls.return_value.__enter__.return_value
+        client.post.side_effect = httpx.ConnectTimeout("timed out")
+        with pytest.raises(mm.MinimaxError) as excinfo:
+            mm.text_to_speech(
+                settings=_settings(),
+                api_key="mm_test",
+                voice_id="fvabc-1",
+                text="Xin chào.",
+            )
+
+    assert client.post.call_count == mm.CONNECT_ATTEMPTS
+    assert excinfo.value.status_code == 503
+    assert "chưa có gì bị tính phí" in excinfo.value.message
+
+
+def test_read_timeout_is_not_retried_because_it_may_be_billed():
+    with patch("app.services.minimax.httpx.Client") as client_cls:
+        client = client_cls.return_value.__enter__.return_value
+        client.post.side_effect = httpx.ReadTimeout("slow")
+        with pytest.raises(mm.MinimaxError) as excinfo:
+            mm.text_to_speech(
+                settings=_settings(),
+                api_key="mm_test",
+                voice_id="fvabc-1",
+                text="Xin chào.",
+            )
+
+    assert client.post.call_count == 1
+    assert excinfo.value.status_code == 504
+
+
+def test_network_failures_never_reach_the_router_as_a_crash():
+    with patch(
+        "app.services.minimax.text_to_speech",
+        side_effect=httpx.ConnectError("unreachable"),
+    ):
+        with pytest.raises(vp.VoiceProviderError) as excinfo:
+            vp.text_to_speech(
+                vp.MINIMAX,
+                settings=_settings(),
+                api_key="mm_test",
+                voice_id="fvabc-1",
+                text="Xin chào.",
+            )
+
+    assert excinfo.value.status_code == 503
+    assert "MiniMax" in excinfo.value.message
 
 
 def test_voice_id_follows_the_provider_rules():

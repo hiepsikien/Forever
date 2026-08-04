@@ -9,6 +9,8 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
+import httpx
+
 from ..config import Settings
 from . import elevenlabs as el
 from . import minimax as mm
@@ -90,7 +92,7 @@ def create_clone(
     remove_background_noise: bool,
     voice_id_seed: str,
 ) -> str:
-    with _translated():
+    with _translated(provider):
         if normalize(provider) == MINIMAX:
             return mm.create_instant_voice_clone(
                 settings=settings,
@@ -125,7 +127,7 @@ def text_to_speech(
     use_speaker_boost: bool | None = None,
     lengthen_pauses: bool | None = None,
 ) -> bytes:
-    with _translated():
+    with _translated(provider):
         if normalize(provider) == MINIMAX:
             # MiniMax exposes speed and pacing only — the ElevenLabs voice
             # settings have no counterpart and are dropped, not faked.
@@ -160,7 +162,7 @@ def list_voices(
     api_key: str,
     cloned_only: bool = True,
 ) -> list[dict[str, Any]]:
-    with _translated():
+    with _translated(provider):
         if normalize(provider) == MINIMAX:
             return mm.list_voices(
                 settings=settings, api_key=api_key, cloned_only=cloned_only
@@ -171,7 +173,7 @@ def list_voices(
 
 
 def delete_voice(provider: str, *, settings: Settings, api_key: str, voice_id: str) -> None:
-    with _translated():
+    with _translated(provider):
         if normalize(provider) == MINIMAX:
             mm.delete_voice(settings=settings, api_key=api_key, voice_id=voice_id)
             return
@@ -179,7 +181,10 @@ def delete_voice(provider: str, *, settings: Settings, api_key: str, voice_id: s
 
 
 class _translated:
-    """Turn vendor exceptions into one error type for the routers."""
+    """Turn vendor and network failures into one error type for the routers."""
+
+    def __init__(self, provider: str) -> None:
+        self.provider = provider
 
     def __enter__(self) -> None:
         return None
@@ -187,4 +192,12 @@ class _translated:
     def __exit__(self, exc_type, exc, tb) -> bool:
         if isinstance(exc, (el.ElevenLabsError, mm.MinimaxError)):
             raise VoiceProviderError(exc.message, status_code=exc.status_code) from exc
+        if isinstance(exc, httpx.HTTPError):
+            # A blip reaching the vendor is not a Forever bug; say so plainly
+            # instead of letting it surface as a 500.
+            raise VoiceProviderError(
+                f"Không kết nối được tới {label(self.provider)}. "
+                "Kiểm tra mạng rồi thử lại.",
+                status_code=503,
+            ) from exc
         return False
