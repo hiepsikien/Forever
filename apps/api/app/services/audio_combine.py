@@ -2,8 +2,13 @@ from __future__ import annotations
 
 import shutil
 import subprocess
-import tempfile
 from pathlib import Path
+
+
+# Voice cloning wants 44.1/48 kHz; above that adds size without adding detail.
+MAX_SAMPLE_RATE = 48000
+FALLBACK_SAMPLE_RATE = 44100
+MIN_SAMPLE_RATE = 8000
 
 
 class AudioCombineError(Exception):
@@ -44,6 +49,41 @@ def probe_duration_ms(path: Path) -> int | None:
         return None
 
 
+def probe_sample_rate(path: Path) -> int | None:
+    """Return the first audio stream's sample rate via ffprobe, else None."""
+    ffprobe = shutil.which("ffprobe")
+    if not ffprobe:
+        return None
+    cmd = [
+        ffprobe,
+        "-v",
+        "error",
+        "-select_streams",
+        "a:0",
+        "-show_entries",
+        "stream=sample_rate",
+        "-of",
+        "default=noprint_wrappers=1:nokey=1",
+        str(path),
+    ]
+    proc = subprocess.run(cmd, capture_output=True, text=True)
+    if proc.returncode != 0:
+        return None
+    try:
+        rate = int(proc.stdout.strip().splitlines()[0])
+    except (ValueError, IndexError):
+        return None
+    return rate if rate > 0 else None
+
+
+def target_sample_rate(input_paths: list[Path]) -> int:
+    """Highest input rate, capped — never upsample just to hit a round number."""
+    rates = [rate for rate in (probe_sample_rate(p) for p in input_paths) if rate]
+    if not rates:
+        return FALLBACK_SAMPLE_RATE
+    return max(MIN_SAMPLE_RATE, min(max(rates), MAX_SAMPLE_RATE))
+
+
 def combine_audio_files(input_paths: list[Path], output_path: Path) -> tuple[int, int]:
     """Concatenate audio files in order. Returns (duration_ms, file_size_bytes)."""
     if len(input_paths) < 2:
@@ -54,39 +94,32 @@ def combine_audio_files(input_paths: list[Path], output_path: Path) -> tuple[int
 
     ffmpeg = require_ffmpeg()
     output_path.parent.mkdir(parents=True, exist_ok=True)
+    rate = target_sample_rate(input_paths)
 
-    list_path: Path | None = None
-    try:
-        with tempfile.NamedTemporaryFile(mode="w", suffix=".txt", delete=False) as handle:
-            list_path = Path(handle.name)
-            for path in input_paths:
-                escaped = str(path.resolve()).replace("'", "'\\''")
-                handle.write(f"file '{escaped}'\n")
+    # The concat filter (not the concat demuxer) so mixed codecs / rates / layouts
+    # are resampled per input instead of relying on identical stream params.
+    cmd = [ffmpeg, "-y"]
+    for path in input_paths:
+        cmd += ["-i", str(path)]
 
-        cmd = [
-            ffmpeg,
-            "-y",
-            "-f",
-            "concat",
-            "-safe",
-            "0",
-            "-i",
-            str(list_path),
-            "-ac",
-            "1",
-            "-ar",
-            "44100",
-            "-c:a",
-            "pcm_s16le",
-            str(output_path),
-        ]
-        proc = subprocess.run(cmd, capture_output=True, text=True)
-        if proc.returncode != 0:
-            detail = proc.stderr.strip() or proc.stdout.strip() or "unknown error"
-            raise AudioCombineError(f"ffmpeg ghép thất bại: {detail[:500]}")
-    finally:
-        if list_path is not None:
-            list_path.unlink(missing_ok=True)
+    aformat = f"aformat=sample_fmts=s16:sample_rates={rate}:channel_layouts=mono"
+    chains = "".join(f"[{i}:a]{aformat}[a{i}];" for i in range(len(input_paths)))
+    inputs = "".join(f"[a{i}]" for i in range(len(input_paths)))
+    filter_complex = f"{chains}{inputs}concat=n={len(input_paths)}:v=0:a=1[out]"
+
+    cmd += [
+        "-filter_complex",
+        filter_complex,
+        "-map",
+        "[out]",
+        "-c:a",
+        "pcm_s16le",
+        str(output_path),
+    ]
+    proc = subprocess.run(cmd, capture_output=True, text=True)
+    if proc.returncode != 0:
+        detail = proc.stderr.strip() or proc.stdout.strip() or "unknown error"
+        raise AudioCombineError(f"ffmpeg ghép thất bại: {detail[:500]}")
 
     if not output_path.exists():
         raise AudioCombineError("Không tạo được file ghép.")

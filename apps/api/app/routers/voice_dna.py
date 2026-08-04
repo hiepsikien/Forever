@@ -37,10 +37,11 @@ from ..services.heritage import (
     sync_heritage_thread_title,
 )
 from ..services.audio_combine import AudioCombineError, combine_audio_files, probe_duration_ms
+from ..services.audio_info import probe_audio_info
 from ..services.audio_extract import extract_audio_from_video
 from ..services.audio_process import normalize_audio_file, normalize_audio_file_inplace
 from ..services.audio_split import split_audio_file
-from ..services.sample_quality import score_voice_sample
+from ..services.sample_quality import score_voice_sample_file
 from ..services.storage import (
     MAX_UPLOAD_BYTES,
     MAX_VOICE_VIDEO_BYTES,
@@ -203,12 +204,12 @@ def _enrich_sample_quality(sample: VoiceSample) -> None:
     if sample.quality_score is not None and sample.quality_label:
         return
     size = sample.file_size_bytes or 0
-    if size <= 0 and sample.media_path:
-        path = absolute_media_path(sample.media_path)
-        if path.exists():
-            size = path.stat().st_size
-            sample.file_size_bytes = size
-    score, label, tip = score_voice_sample(
+    path = absolute_media_path(sample.media_path) if sample.media_path else None
+    if size <= 0 and path is not None and path.exists():
+        size = path.stat().st_size
+        sample.file_size_bytes = size
+    score, label, tip = score_voice_sample_file(
+        path,
         duration_ms=sample.duration_ms,
         file_size_bytes=size,
     )
@@ -301,7 +302,8 @@ def _create_derived_sample(
 ) -> VoiceSample:
     if pipeline_stage not in PIPELINE_STAGES:
         raise ValueError(f"Invalid pipeline_stage: {pipeline_stage}")
-    score, label, tip = score_voice_sample(
+    score, label, tip = score_voice_sample_file(
+        absolute_media_path(relative_path),
         duration_ms=duration_ms,
         file_size_bytes=file_size,
     )
@@ -1073,7 +1075,7 @@ async def add_sample(
 
     if from_video:
         video_path = absolute_media_path(media_path)
-        relative_audio = f"{voice.space_id}/{generate()}.m4a"
+        relative_audio = f"{voice.space_id}/{generate()}.wav"
         audio_path = Path(settings.upload_dir) / relative_audio
         try:
             dur_extracted, file_size = extract_audio_from_video(video_path, audio_path)
@@ -1087,12 +1089,12 @@ async def add_sample(
             raise HTTPException(
                 status_code=400,
                 detail=(
-                    "Phần âm thanh sau khi tách vẫn quá lớn (tối đa 25MB). "
+                    "Phần âm thanh sau khi tách vượt 25MB (WAV không nén ~4–5 phút). "
                     "Dùng Tách giọng từ băng dài cho video dài hơn."
                 ),
             )
         media_path = relative_audio.replace("\\", "/")
-        mime = "audio/mp4"
+        mime = "audio/wav"
         duration_ms = dur_extracted or duration_ms
         processing = {"from_video": True}
         if not user_note and original_name:
@@ -1105,7 +1107,9 @@ async def add_sample(
     dur = duration_ms if duration_ms is not None and duration_ms > 0 else None
     if dur is None:
         dur = probe_duration_ms(path)
-    score, label, tip = score_voice_sample(duration_ms=dur, file_size_bytes=file_size)
+    score, label, tip = score_voice_sample_file(
+        path, duration_ms=dur, file_size_bytes=file_size
+    )
     if from_video and dur and dur > 180_000:
         tip = (
             "Video hơi dài cho 1 mẫu clone — cân nhắc Tách giọng từ băng dài "
@@ -1571,6 +1575,55 @@ def get_sample_media(
         media_type=sample.media_mime or "application/octet-stream",
         filename=path.name,
     )
+
+
+@router.get("/api/voices/{voice_id}/samples/{sample_id}/audio-info")
+def get_sample_audio_info(
+    voice_id: str,
+    sample_id: str,
+    user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[Session, Depends(get_db)],
+):
+    voice = _get_voice_or_404(db, voice_id)
+    require_membership(db, space_id=voice.space_id, user=user)
+    sample = (
+        db.query(VoiceSample)
+        .filter(VoiceSample.id == sample_id, VoiceSample.voice_profile_id == voice.id)
+        .one_or_none()
+    )
+    if not sample or not sample.media_path:
+        raise HTTPException(status_code=404, detail="Sample not found.")
+    path = absolute_media_path(sample.media_path)
+    if not path.exists():
+        raise HTTPException(status_code=404, detail="Sample file missing.")
+    info = probe_audio_info(path, media_mime=sample.media_mime)
+    info["source"] = sample.source
+    info["pipeline_stage"] = _effective_stage(sample)
+    return info
+
+
+@router.get("/api/voices/{voice_id}/renders/{render_id}/audio-info")
+def get_render_audio_info(
+    voice_id: str,
+    render_id: str,
+    user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[Session, Depends(get_db)],
+):
+    voice = _get_voice_or_404(db, voice_id)
+    require_membership(db, space_id=voice.space_id, user=user)
+    render = (
+        db.query(VoiceRender)
+        .filter(VoiceRender.id == render_id, VoiceRender.voice_profile_id == voice.id)
+        .one_or_none()
+    )
+    if not render or not render.media_path:
+        raise HTTPException(status_code=404, detail="Render not found.")
+    path = absolute_media_path(render.media_path)
+    if not path.exists():
+        raise HTTPException(status_code=404, detail="Render file missing.")
+    info = probe_audio_info(path, media_mime=render.media_mime)
+    info["model_id"] = render.model_id or None
+    return info
 
 
 @router.post("/api/voices/{voice_id}/clone")

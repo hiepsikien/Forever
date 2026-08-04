@@ -796,3 +796,96 @@ def test_split_rejects_short_sample(client: TestClient, monkeypatch, tmp_path):
     )
     assert split.status_code == 400
     assert "ngắn" in split.json()["error"].lower()
+
+
+def _make_wav(path, *, rate: int, seconds: float = 1.0) -> bytes:
+    import subprocess
+
+    subprocess.run(
+        [
+            "ffmpeg", "-y", "-f", "lavfi",
+            "-i", f"sine=frequency=300:sample_rate={rate}:duration={seconds}",
+            "-ac", "1", "-c:a", "pcm_s16le", str(path),
+        ],
+        capture_output=True,
+        check=True,
+    )
+    return path.read_bytes()
+
+
+def test_sample_audio_info_reports_rate_and_narrow_band(
+    client: TestClient, monkeypatch, tmp_path
+):
+    import shutil
+
+    if not shutil.which("ffmpeg") or not shutil.which("ffprobe"):
+        import pytest
+
+        pytest.skip("needs ffmpeg + ffprobe")
+
+    monkeypatch.setenv("UPLOAD_DIR", str(tmp_path / "uploads"))
+
+    token = _login(client, "audioinfo@forever.family", "AudioInfo")
+    headers = {"Authorization": f"Bearer {token}"}
+    space_id = _space(client, token)
+
+    created = client.post(
+        f"/api/spaces/{space_id}/voices/self",
+        headers=headers,
+        json={"consent": True},
+    )
+    assert created.status_code == 200, created.text
+    voice_id = created.json()["id"]
+
+    narrow = _make_wav(tmp_path / "narrow.wav", rate=16000)
+    wide = _make_wav(tmp_path / "wide.wav", rate=48000)
+
+    ids = {}
+    for label, blob in (("narrow", narrow), ("wide", wide)):
+        res = client.post(
+            f"/api/voices/{voice_id}/samples",
+            headers=headers,
+            files={"file": (f"{label}.wav", BytesIO(blob), "audio/wav")},
+            data={"source": "upload"},
+        )
+        assert res.status_code == 200, res.text
+        ids[label] = res.json()["sample_id"]
+
+    got_narrow = client.get(
+        f"/api/voices/{voice_id}/samples/{ids['narrow']}/audio-info",
+        headers=headers,
+    )
+    assert got_narrow.status_code == 200, got_narrow.text
+    info = got_narrow.json()
+    assert info["sample_rate"] == 16000
+    assert info["narrow_band"] is True
+    assert info["channels"] == 1
+    assert info["codec"] == "pcm_s16le"
+    assert info["bit_depth"] == 16
+    assert info["size_bytes"] > 0
+    assert info["pipeline_stage"] == "processed"
+
+    got_wide = client.get(
+        f"/api/voices/{voice_id}/samples/{ids['wide']}/audio-info",
+        headers=headers,
+    )
+    assert got_wide.status_code == 200, got_wide.text
+    assert got_wide.json()["sample_rate"] == 48000
+    assert got_wide.json()["narrow_band"] is False
+
+
+def test_sample_audio_info_404_for_unknown_sample(client: TestClient, tmp_path, monkeypatch):
+    monkeypatch.setenv("UPLOAD_DIR", str(tmp_path))
+    token = _login(client, "audioinfo404@forever.family", "AudioInfo404")
+    headers = {"Authorization": f"Bearer {token}"}
+    space_id = _space(client, token)
+    voice_id = client.post(
+        f"/api/spaces/{space_id}/voices/self",
+        headers=headers,
+        json={"consent": True},
+    ).json()["id"]
+
+    res = client.get(
+        f"/api/voices/{voice_id}/samples/nope/audio-info", headers=headers
+    )
+    assert res.status_code == 404

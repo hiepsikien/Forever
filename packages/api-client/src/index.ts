@@ -16,7 +16,8 @@ export interface StewardPerson {
 export interface StewardSuccession {
   id: string;
   space_id: string;
-  status: "pending" | "accepted" | "declined" | "activated" | "revoked" | string;
+  status:
+    "pending" | "accepted" | "declined" | "activated" | "revoked" | string;
   note: string;
   nominee: StewardPerson;
   nominated_by: StewardPerson;
@@ -243,6 +244,25 @@ export interface VoiceRender {
   voice_subject_kind?: string | null;
 }
 
+export interface AudioFileInfo {
+  file_name: string;
+  media_mime?: string | null;
+  size_bytes?: number | null;
+  container?: string | null;
+  codec?: string | null;
+  sample_rate?: number | null;
+  channels?: number | null;
+  channel_layout?: string | null;
+  bit_depth?: number | null;
+  bitrate_bps?: number | null;
+  duration_ms?: number | null;
+  /** True when sample rate is low enough to cost voice identity on clone. */
+  narrow_band?: boolean | null;
+  source?: string | null;
+  pipeline_stage?: string | null;
+  model_id?: string | null;
+}
+
 export interface ElevenLabsVoice {
   voice_id: string;
   name: string;
@@ -420,10 +440,13 @@ export function createApiClient({
     getStewardship: (spaceId: string) =>
       request<StewardshipStatus>(`/api/spaces/${spaceId}/stewardship`),
     nominateSuccessor: (spaceId: string, userId: string, note?: string) =>
-      request<StewardSuccession>(`/api/spaces/${spaceId}/stewardship/nominate`, {
-        method: "POST",
-        body: JSON.stringify({ user_id: userId, note }),
-      }),
+      request<StewardSuccession>(
+        `/api/spaces/${spaceId}/stewardship/nominate`,
+        {
+          method: "POST",
+          body: JSON.stringify({ user_id: userId, note }),
+        },
+      ),
     acceptSuccession: (spaceId: string) =>
       request<StewardSuccession>(`/api/spaces/${spaceId}/stewardship/accept`, {
         method: "POST",
@@ -447,7 +470,8 @@ export function createApiClient({
         method: "POST",
         body: JSON.stringify({ name }),
       }),
-    getSpace: (spaceId: string) => request<FamilySpace>(`/api/spaces/${spaceId}`),
+    getSpace: (spaceId: string) =>
+      request<FamilySpace>(`/api/spaces/${spaceId}`),
     createInvite: (spaceId: string) =>
       request<{ id: string; code: string; expires_at: string | null }>(
         `/api/spaces/${spaceId}/invites`,
@@ -462,7 +486,10 @@ export function createApiClient({
       request<{ threads: ThreadSummary[] }>(`/api/spaces/${spaceId}/threads`),
     getThread: (threadId: string) =>
       request<ThreadSummary>(`/api/threads/${threadId}`),
-    listMessages: (threadId: string, opts?: { limit?: number; before?: string }) => {
+    listMessages: (
+      threadId: string,
+      opts?: { limit?: number; before?: string },
+    ) => {
       const params = new URLSearchParams();
       if (opts?.limit) params.set("limit", String(opts.limit));
       if (opts?.before) params.set("before", opts.before);
@@ -504,7 +531,12 @@ export function createApiClient({
       request<{ memories: MemoryItem[] }>(`/api/spaces/${spaceId}/memories`),
     createNoteMemory: (
       spaceId: string,
-      payload: { title?: string; body: string; tags?: string; occurred_at?: string },
+      payload: {
+        title?: string;
+        body: string;
+        tags?: string;
+        occurred_at?: string;
+      },
     ) =>
       request<MemoryItem>(`/api/spaces/${spaceId}/memories/note`, {
         method: "POST",
@@ -671,10 +703,7 @@ export function createApiClient({
       },
     ) => {
       const params = new URLSearchParams();
-      params.set(
-        "cloned_only",
-        (opts?.clonedOnly ?? true) ? "true" : "false",
-      );
+      params.set("cloned_only", (opts?.clonedOnly ?? true) ? "true" : "false");
       if (opts?.nameContains) params.set("name_contains", opts.nameContains);
       if (opts?.voiceId) params.set("voice_id", opts.voiceId);
       return request<{ voices: ElevenLabsVoice[] }>(
@@ -952,6 +981,20 @@ export function createApiClient({
     },
     voiceSampleMediaUrl: (voiceId: string, sampleId: string) =>
       `${resolveRoot()}/api/voices/${voiceId}/samples/${sampleId}/media`,
+    // Short timeout: this only feeds an info panel, so failing fast beats
+    // leaving the user on a spinner for the default upload-sized window.
+    voiceSampleAudioInfo: (voiceId: string, sampleId: string) =>
+      request<AudioFileInfo>(
+        `/api/voices/${voiceId}/samples/${sampleId}/audio-info`,
+        {},
+        { timeoutMs: 15_000 },
+      ),
+    voiceRenderAudioInfo: (voiceId: string, renderId: string) =>
+      request<AudioFileInfo>(
+        `/api/voices/${voiceId}/renders/${renderId}/audio-info`,
+        {},
+        { timeoutMs: 15_000 },
+      ),
 
     createExtractJob: async (
       spaceId: string,

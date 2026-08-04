@@ -17,6 +17,7 @@ from typing import Any
 
 import requests
 
+from extract.normalize import DIARIZE_SAMPLE_RATE
 from extract.pipeline import run_extract_pipeline
 from extract.refine import (
     DEFAULT_EDGE_TRIM,
@@ -113,7 +114,10 @@ def process_claim(api_url: str, token: str, claim: dict[str, Any]) -> None:
             purity_min=float(opts.get("purity_min", DEFAULT_PURITY_MIN)),
             exclusive_only=bool(opts.get("exclusive_only", True)),
             keep_mixed=bool(opts.get("keep_mixed", False)),
-            sample_rate=int(opts.get("sample_rate", 16000)),
+            sample_rate=int(opts.get("sample_rate", DIARIZE_SAMPLE_RATE)),
+            clip_sample_rate=(
+                int(opts["clip_sample_rate"]) if opts.get("clip_sample_rate") else None
+            ),
         )
     except Exception as exc:  # noqa: BLE001
         print(f"[worker] job={job_id} FAILED: {exc}", file=sys.stderr)

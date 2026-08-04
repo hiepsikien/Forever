@@ -14,6 +14,10 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import {
+  AudioInfoSheet,
+  AudioInfoTarget,
+} from "@/components/AudioInfoSheet";
+import {
   pauseActivePlayback,
   playLocalAudio,
   resumeActivePlayback,
@@ -119,8 +123,15 @@ export default function VoiceSamplesScreen() {
   const [saving, setSaving] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [bulkBusy, setBulkBusy] = useState(false);
+  const [audioInfoTarget, setAudioInfoTarget] = useState<AudioInfoTarget | null>(null);
 
   const samples = samplesByTab[tab];
+  // "Đã loại" is not a primary tab: it only appears while you are looking at it,
+  // reached from Công cụ khác or the link under the count row.
+  const visibleTabs: TabStage[] =
+    tab === "archived"
+      ? ["unprocessed", "processed", "archived"]
+      : ["unprocessed", "processed"];
 
   const selectedDuration = useMemo(
     () =>
@@ -510,6 +521,17 @@ export default function VoiceSamplesScreen() {
     );
   }
 
+  const openAudioInfo = (item: VoiceSample) => {
+    const vid = item.voice_profile_id;
+    if (!vid) return;
+    setAudioInfoTarget({
+      label: `${item.voice_display_name ?? "Voice"} · ${sourceLabel(item.source)} · ${
+        item.duration_label ?? "—:—"
+      }`,
+      load: () => api.voiceSampleAudioInfo(vid, item.id),
+    });
+  };
+
   const renderItem = (item: VoiceSample, index: number) => {
     const scoreColor =
       (item.quality_score ?? 0) >= 75
@@ -604,6 +626,9 @@ export default function VoiceSamplesScreen() {
                     : "Tạm dừng"}
             </Text>
           </Pressable>
+          <Pressable onPress={() => openAudioInfo(item)} hitSlop={6}>
+            <Text style={styles.infoLink}>Thông số</Text>
+          </Pressable>
           {tab === "unprocessed" ? (
             <Pressable
               onPress={async () => {
@@ -681,7 +706,7 @@ export default function VoiceSamplesScreen() {
             <Text style={styles.headerTitle}>Mẫu giọng</Text>
             <Text style={styles.headerSub}>{TAB_META[tab].sub}</Text>
             <View style={styles.tabs}>
-              {(["unprocessed", "processed", "archived"] as TabStage[]).map((stage) => (
+              {visibleTabs.map((stage) => (
                 <Pressable
                   key={stage}
                   style={[styles.tab, tab === stage && styles.tabActive]}
@@ -698,13 +723,22 @@ export default function VoiceSamplesScreen() {
               {voiceId ? " · lọc theo Voice DNA" : ""}
               {tabRefreshing === tab ? " · đang cập nhật…" : ""}
             </Text>
-            {samples.length > 0 ? (
-              <Pressable onPress={selectAll} hitSlop={6}>
-                <Text style={styles.selectAll}>
-                  {selected.size === samples.length ? "Bỏ chọn tất cả" : "Chọn tất cả"}
-                </Text>
-              </Pressable>
-            ) : null}
+            <View style={styles.headerLinks}>
+              {samples.length > 0 ? (
+                <Pressable onPress={selectAll} hitSlop={6}>
+                  <Text style={styles.selectAll}>
+                    {selected.size === samples.length ? "Bỏ chọn tất cả" : "Chọn tất cả"}
+                  </Text>
+                </Pressable>
+              ) : null}
+              {tab !== "archived" && samplesByTab.archived.length > 0 ? (
+                <Pressable onPress={() => switchTab("archived")} hitSlop={6}>
+                  <Text style={styles.archivedLink}>
+                    Xem đã loại ({samplesByTab.archived.length})
+                  </Text>
+                </Pressable>
+              ) : null}
+            </View>
           </View>
         }
         ListEmptyComponent={
@@ -806,6 +840,11 @@ export default function VoiceSamplesScreen() {
           </View>
         </View>
       ) : null}
+
+      <AudioInfoSheet
+        target={audioInfoTarget}
+        onClose={() => setAudioInfoTarget(null)}
+      />
     </View>
   );
 }
@@ -839,7 +878,14 @@ const styles = StyleSheet.create({
   tabText: { fontSize: 12, fontWeight: "600", color: colors.inkSoft, textAlign: "center" },
   tabTextActive: { color: colors.brand },
   count: { fontSize: 13, fontWeight: "600", color: colors.brand, marginTop: 4 },
+  headerLinks: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 12,
+  },
   selectAll: { fontSize: 13, fontWeight: "700", color: colors.brand, marginTop: 4 },
+  archivedLink: { fontSize: 13, fontWeight: "600", color: colors.inkSoft, marginTop: 4 },
   stickyBar: {
     position: "absolute",
     left: 0,
@@ -926,6 +972,7 @@ const styles = StyleSheet.create({
   playBtnBusy: { opacity: 0.7 },
   playText: { color: "#fff", fontWeight: "700", fontSize: 13 },
   approve: { color: colors.brand, fontWeight: "700", fontSize: 13 },
+  infoLink: { color: colors.inkSoft, fontWeight: "600", fontSize: 13 },
   delete: { color: colors.danger, fontWeight: "700", fontSize: 13 },
   btn: {
     backgroundColor: colors.brand,

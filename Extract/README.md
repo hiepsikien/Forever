@@ -78,7 +78,8 @@ Steward tạo job từ app: Voice DNA → **Giọng từ ký ức**.
 
 ```text
 out/car_chat/
-  source.wav
+  source.wav        # 16 kHz mono — diarization input only
+  source.clip.wav   # source bandwidth (≤48 kHz) — what clips are cut from
   diarization.json
   speakers/
     SPEAKER_00/
@@ -87,6 +88,8 @@ out/car_chat/
     SPEAKER_01/
       ...
 ```
+
+Clips are cut from `source.clip.wav`, not the 16 kHz diarization file: above 8 kHz sit the breath, sibilance and upper formants that voice cloning needs to keep a speaker's age and identity. `source.clip.wav` is skipped when the source is already at or below the diarization rate. Override with `--clip-sample-rate` if needed.
 
 Rename `SPEAKER_xx` folders manually after listening (enrollment / naming comes later).
 

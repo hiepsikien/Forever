@@ -10,7 +10,12 @@ from typing import Any
 from extract import __version__
 from extract.cut import cut_segments
 from extract.diarize import DEFAULT_MODEL, diarize_file
-from extract.normalize import normalize_audio, probe_duration_seconds
+from extract.normalize import (
+    DIARIZE_SAMPLE_RATE,
+    normalize_audio,
+    probe_duration_seconds,
+    resolve_clip_sample_rate,
+)
 from extract.refine import (
     DEFAULT_EDGE_TRIM,
     DEFAULT_MAX_GAP,
@@ -36,7 +41,8 @@ def run_extract_pipeline(
     purity_min: float = DEFAULT_PURITY_MIN,
     exclusive_only: bool = True,
     keep_mixed: bool = False,
-    sample_rate: int = 16000,
+    sample_rate: int = DIARIZE_SAMPLE_RATE,
+    clip_sample_rate: int | None = None,
     pipeline=None,
 ) -> dict[str, Any]:
     """Run full extract pipeline into out_dir; return diarization payload."""
@@ -45,6 +51,16 @@ def run_extract_pipeline(
 
     normalize_audio(input_path, source_wav, sample_rate=sample_rate)
     duration = probe_duration_seconds(source_wav)
+
+    # Clips are cut from a full-bandwidth copy: the 16 kHz diarization file
+    # loses the upper formants that voice cloning needs to keep identity.
+    clip_rate = clip_sample_rate or resolve_clip_sample_rate(input_path)
+    if clip_rate > sample_rate:
+        clip_wav = out_dir / "source.clip.wav"
+        normalize_audio(input_path, clip_wav, sample_rate=clip_rate)
+    else:
+        clip_wav = source_wav
+        clip_rate = sample_rate
 
     raw_segments, device_used = diarize_file(
         source_wav,
@@ -67,7 +83,7 @@ def run_extract_pipeline(
     )
 
     written = cut_segments(
-        source_wav,
+        clip_wav,
         raw_segments,
         out_dir,
         pad=pad,
@@ -88,6 +104,7 @@ def run_extract_pipeline(
         "created_at": datetime.now(timezone.utc).isoformat(),
         "input": str(input_path),
         "source_wav": "source.wav",
+        "clip_wav": clip_wav.name,
         "num_speakers": num_speakers,
         "detected_speakers": speakers,
         "model": model_id,
@@ -104,6 +121,7 @@ def run_extract_pipeline(
             "exclusive_only": exclusive_only,
             "keep_mixed": keep_mixed,
             "sample_rate": sample_rate,
+            "clip_sample_rate": clip_rate,
         },
         "segments": [s.to_dict() for s in written],
     }

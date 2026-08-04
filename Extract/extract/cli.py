@@ -6,6 +6,7 @@ from pathlib import Path
 
 from extract import __version__
 from extract.diarize import DEFAULT_MODEL
+from extract.normalize import DIARIZE_SAMPLE_RATE
 from extract.pipeline import run_extract_pipeline
 from extract.refine import (
     DEFAULT_EDGE_TRIM,
@@ -93,8 +94,14 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument(
         "--sample-rate",
         type=int,
-        default=16000,
-        help="Normalize sample rate (default: 16000)",
+        default=DIARIZE_SAMPLE_RATE,
+        help=f"Diarization sample rate (default: {DIARIZE_SAMPLE_RATE})",
+    )
+    p.add_argument(
+        "--clip-sample-rate",
+        type=int,
+        default=None,
+        help="Clip sample rate for clone-ready cuts (default: follow the source)",
     )
     p.add_argument("--version", action="version", version=f"extract {__version__}")
     return p
@@ -136,6 +143,7 @@ def main(argv: list[str] | None = None) -> int:
             exclusive_only=not args.no_exclusive,
             keep_mixed=args.keep_mixed,
             sample_rate=args.sample_rate,
+            clip_sample_rate=args.clip_sample_rate,
         )
     except Exception as exc:  # noqa: BLE001 — CLI surface
         print(f"error: {exc}", file=sys.stderr)

@@ -1,20 +1,23 @@
 import {
   VoiceProfile,
   VoiceRender,
+  VoiceSample,
   voiceTtsModelLabel,
 } from "@forever/api-client";
 import { useLocalSearchParams } from "expo-router";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
   FlatList,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   View,
 } from "react-native";
 
+import { AudioInfoSheet, AudioInfoTarget } from "@/components/AudioInfoSheet";
 import {
   pauseActivePlayback,
   playLocalAudio,
@@ -32,7 +35,8 @@ import {
 } from "@/lib/media";
 import { colors, fonts } from "@/lib/theme";
 
-type Playback = { id: string; paused: boolean } | null;
+type PlaybackKind = "render" | "sample";
+type Playback = { id: string; kind: PlaybackKind; paused: boolean } | null;
 type BusyAction = { id: string; kind: "share" } | null;
 
 function exportBaseName(item: VoiceRender): string {
@@ -45,34 +49,48 @@ function exportBaseName(item: VoiceRender): string {
   return `Forever-TTS-${voice}-${stamp}-${suffix}`;
 }
 
-function renderParamLines(item: VoiceRender): string[] {
-  const lines: string[] = [
-    `Model: ${voiceTtsModelLabel(item.model_id)}`,
+type ParamRow = { label: string; value: string };
+
+function renderParamRows(item: VoiceRender): ParamRow[] {
+  const rows: ParamRow[] = [
+    { label: "Model", value: voiceTtsModelLabel(item.model_id) },
   ];
   if (item.provider_voice_name) {
-    lines.push(`Bản clone: ${item.provider_voice_name}`);
+    rows.push({ label: "Bản clone", value: item.provider_voice_name });
   }
-  if (item.stability != null || item.similarity_boost != null) {
-    lines.push(
-      `Ổn định ${formatPct(item.stability)} · Giống giọng ${formatPct(item.similarity_boost)}`,
-    );
+  if (item.stability != null) {
+    rows.push({ label: "Ổn định", value: formatPct(item.stability) });
   }
-  if (item.style != null || item.speed != null) {
-    lines.push(
-      `Phong cách ${formatPct(item.style)} · Tốc độ ${
-        item.speed != null ? item.speed.toFixed(2) : "—"
-      }`,
-    );
+  if (item.similarity_boost != null) {
+    rows.push({
+      label: "Giống giọng",
+      value: formatPct(item.similarity_boost),
+    });
   }
-  const flags: string[] = [];
+  if (item.style != null) {
+    rows.push({ label: "Phong cách", value: formatPct(item.style) });
+  }
+  if (item.speed != null) {
+    rows.push({ label: "Tốc độ", value: item.speed.toFixed(2) });
+  }
   if (item.use_speaker_boost != null) {
-    flags.push(item.use_speaker_boost ? "Speaker boost bật" : "Speaker boost tắt");
+    rows.push({
+      label: "Speaker boost",
+      value: item.use_speaker_boost ? "Bật" : "Tắt",
+    });
   }
   if (item.lengthen_pauses != null) {
-    flags.push(item.lengthen_pauses ? "Kéo dài nghỉ câu" : "Nghỉ câu mặc định");
+    rows.push({
+      label: "Nghỉ câu",
+      value: item.lengthen_pauses ? "Kéo dài" : "Mặc định",
+    });
   }
-  if (flags.length) lines.push(flags.join(" · "));
-  return lines;
+  return rows;
+}
+
+function sampleChipLabel(sample: VoiceSample): string {
+  const who = sample.voice_display_name ?? "Voice";
+  return `${who} · ${sample.duration_label ?? "—:—"}`;
 }
 
 export default function VoiceRendersScreen() {
@@ -103,6 +121,15 @@ export default function VoiceRendersScreen() {
   const [playback, setPlayback] = useState<Playback>(null);
   const [busy, setBusy] = useState<BusyAction>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [cleanSamples, setCleanSamples] = useState<VoiceSample[]>([]);
+  const [compareSampleId, setCompareSampleId] = useState<string | null>(null);
+  const [audioInfoTarget, setAudioInfoTarget] =
+    useState<AudioInfoTarget | null>(null);
+
+  const compareSample = useMemo(
+    () => cleanSamples.find((s) => s.id === compareSampleId) ?? null,
+    [cleanSamples, compareSampleId],
+  );
 
   useSpaceScreenOptions({
     spaceId,
@@ -114,15 +141,21 @@ export default function VoiceRendersScreen() {
     if (!spaceId) return;
     setLoading(true);
     try {
-      const [v, r] = await Promise.all([
+      const [v, r, s] = await Promise.all([
         api.listVoices(spaceId),
         api.listSpaceVoiceRenders(spaceId, {
           voiceId: filterVoiceId || undefined,
           providerVoiceId: providerVoiceId || undefined,
         }),
+        api.listSpaceVoiceSamples(
+          spaceId,
+          filterVoiceId || undefined,
+          "processed",
+        ),
       ]);
       setVoices(v.voices);
       setRenders(r.renders);
+      setCleanSamples(s.samples);
     } catch (e) {
       Alert.alert("Lỗi", e instanceof Error ? e.message : "Không tải lịch sử.");
     } finally {
@@ -137,13 +170,15 @@ export default function VoiceRendersScreen() {
     };
   }, [load]);
 
+  useEffect(() => {
+    setCompareSampleId((current) =>
+      current && cleanSamples.some((s) => s.id === current) ? current : null,
+    );
+  }, [cleanSamples]);
+
   const getPlayUri = async (item: VoiceRender): Promise<string> => {
     const url = api.voiceRenderMediaUrl(item.voice_profile_id, item.id);
-    return fetchAuthedMediaUri(
-      url,
-      `voice-render-${item.id}`,
-      item.media_mime,
-    );
+    return fetchAuthedMediaUri(url, `voice-render-${item.id}`, item.media_mime);
   };
 
   const resolveExportUri = async (item: VoiceRender): Promise<string> => {
@@ -151,23 +186,60 @@ export default function VoiceRendersScreen() {
     return prepareAudioExport(cached, exportBaseName(item), item.media_mime);
   };
 
-  const togglePlay = async (item: VoiceRender) => {
-    if (playback?.id === item.id) {
+  const togglePlayback = async (
+    id: string,
+    kind: PlaybackKind,
+    resolveUri: () => Promise<string>,
+  ) => {
+    if (playback?.id === id && playback.kind === kind) {
       if (playback.paused) {
-        if (resumeActivePlayback()) setPlayback({ id: item.id, paused: false });
+        if (resumeActivePlayback()) setPlayback({ id, kind, paused: false });
         return;
       }
-      if (pauseActivePlayback()) setPlayback({ id: item.id, paused: true });
+      if (pauseActivePlayback()) setPlayback({ id, kind, paused: true });
       return;
     }
     try {
-      const uri = await getPlayUri(item);
-      setPlayback({ id: item.id, paused: false });
+      const uri = await resolveUri();
+      setPlayback({ id, kind, paused: false });
       await playLocalAudio(uri, () => setPlayback(null));
     } catch (e) {
       setPlayback(null);
       Alert.alert("Lỗi", e instanceof Error ? e.message : "Không phát được.");
     }
+  };
+
+  const togglePlay = (item: VoiceRender) =>
+    togglePlayback(item.id, "render", () => getPlayUri(item));
+
+  const toggleSamplePlay = (sample: VoiceSample) => {
+    const vid = sample.voice_profile_id;
+    if (!vid) return;
+    void togglePlayback(sample.id, "sample", () =>
+      fetchAuthedMediaUri(
+        api.voiceSampleMediaUrl(vid, sample.id),
+        `voice-sample-${sample.id}`,
+        sample.media_mime,
+      ),
+    );
+  };
+
+  const openRenderInfo = (item: VoiceRender) => {
+    setAudioInfoTarget({
+      label: `Bản TTS · ${voiceTtsModelLabel(item.model_id)} · ${
+        item.voice_display_name || "Voice DNA"
+      }`,
+      load: () => api.voiceRenderAudioInfo(item.voice_profile_id, item.id),
+    });
+  };
+
+  const openSampleInfo = (sample: VoiceSample) => {
+    const vid = sample.voice_profile_id;
+    if (!vid) return;
+    setAudioInfoTarget({
+      label: `Mẫu gốc · ${sampleChipLabel(sample)}`,
+      load: () => api.voiceSampleAudioInfo(vid, sample.id),
+    });
   };
 
   const shareRender = async (item: VoiceRender) => {
@@ -180,7 +252,10 @@ export default function VoiceRendersScreen() {
         dialogTitle: exportBaseName(item),
       });
     } catch (e) {
-      Alert.alert("Lỗi", e instanceof Error ? e.message : "Không chia sẻ được.");
+      Alert.alert(
+        "Lỗi",
+        e instanceof Error ? e.message : "Không chia sẻ được.",
+      );
     } finally {
       setBusy(null);
     }
@@ -195,13 +270,16 @@ export default function VoiceRendersScreen() {
         onPress: async () => {
           try {
             await api.deleteVoiceRender(item.voice_profile_id, item.id);
-            if (playback?.id === item.id) {
+            if (playback?.id === item.id && playback.kind === "render") {
               await stopActivePlayback();
               setPlayback(null);
             }
             await load();
           } catch (e) {
-            Alert.alert("Lỗi", e instanceof Error ? e.message : "Không xóa được.");
+            Alert.alert(
+              "Lỗi",
+              e instanceof Error ? e.message : "Không xóa được.",
+            );
           }
         },
       },
@@ -233,135 +311,224 @@ export default function VoiceRendersScreen() {
       );
 
   return (
-    <FlatList
-      style={styles.root}
-      contentContainerStyle={styles.content}
-      data={renders}
-      keyExtractor={(item) => item.id}
-      ListHeaderComponent={
-        <View style={styles.header}>
-          <Text style={styles.title}>
-            {providerVoiceId ? "TTS theo clone" : "Bản TTS đã tạo"}
-          </Text>
-          <Text style={styles.sub}>
-            {providerVoiceId
-              ? `Các câu nói tạo từ “${cloneName || "bản clone này"}”.`
-              : "Lọc theo người — nghe, xem thông số, hoặc chia sẻ từng bản."}
-          </Text>
-          {!providerVoiceId ? (
-          <View style={styles.chips}>
-            <Pressable
-              style={[styles.chip, !filterVoiceId && styles.chipActive]}
-              onPress={() => setFilterVoiceId(null)}
-            >
-              <Text
-                style={[
-                  styles.chipText,
-                  !filterVoiceId && styles.chipTextActive,
-                ]}
-              >
-                Tất cả
-              </Text>
-            </Pressable>
-            {filterVoices.map((v) => {
-              const active = filterVoiceId === v.id;
-              return (
+    <>
+      <FlatList
+        style={styles.root}
+        contentContainerStyle={styles.content}
+        data={renders}
+        keyExtractor={(item) => item.id}
+        ListHeaderComponent={
+          <View style={styles.header}>
+            <Text style={styles.title}>
+              {providerVoiceId ? "TTS theo clone" : "Bản TTS đã tạo"}
+            </Text>
+            <Text style={styles.sub}>
+              {providerVoiceId
+                ? `Các câu nói tạo từ “${cloneName || "bản clone này"}”.`
+                : "Lọc theo người — nghe, xem thông số, hoặc chia sẻ từng bản."}
+            </Text>
+            {!providerVoiceId ? (
+              <View style={styles.chips}>
                 <Pressable
-                  key={v.id}
-                  style={[styles.chip, active && styles.chipActive]}
-                  onPress={() => setFilterVoiceId(v.id)}
+                  style={[styles.chip, !filterVoiceId && styles.chipActive]}
+                  onPress={() => setFilterVoiceId(null)}
                 >
                   <Text
-                    style={[styles.chipText, active && styles.chipTextActive]}
-                    numberOfLines={1}
+                    style={[
+                      styles.chipText,
+                      !filterVoiceId && styles.chipTextActive,
+                    ]}
                   >
-                    {v.display_name}
+                    Tất cả
                   </Text>
                 </Pressable>
-              );
-            })}
-          </View>
-          ) : null}
-        </View>
-      }
-      ListEmptyComponent={
-        <Text style={styles.empty}>
-          {providerVoiceId
-            ? "Chưa có câu nói từ bản clone này."
-            : "Chưa có bản nào. Vào Tạo câu nói — mỗi lần tạo đều lưu tự động."}
-        </Text>
-      }
-      renderItem={({ item }) => {
-        const active = playback?.id === item.id;
-        const paused = active && playback?.paused;
-        const when = formatLocalDateTime(item.created_at);
-        const voiceName = item.voice_display_name || "Voice DNA";
-        const sharing = busy?.id === item.id && busy.kind === "share";
-        const itemBusy = sharing;
-        const expanded = expandedId === item.id;
-        const params = renderParamLines(item);
-
-        return (
-          <View style={styles.card}>
-            <Text style={styles.voiceName}>{voiceName}</Text>
-            {item.provider_voice_name ? (
-              <Text style={styles.cloneName} numberOfLines={2}>
-                {item.provider_voice_name}
-              </Text>
-            ) : null}
-            <Text style={styles.body} numberOfLines={4}>
-              {item.text}
-            </Text>
-            <Text style={styles.meta}>
-              {when}
-              {" · "}
-              {voiceTtsModelLabel(item.model_id)}
-              {" · "}
-              <Text
-                style={styles.detailLink}
-                onPress={() => setExpandedId(expanded ? null : item.id)}
-              >
-                {expanded ? "Ẩn" : "Chi tiết"}
-              </Text>
-            </Text>
-            {expanded ? (
-              <View style={styles.detailBox}>
-                {params.map((line) => (
-                  <Text key={line} style={styles.detailLine}>
-                    {line}
-                  </Text>
-                ))}
+                {filterVoices.map((v) => {
+                  const active = filterVoiceId === v.id;
+                  return (
+                    <Pressable
+                      key={v.id}
+                      style={[styles.chip, active && styles.chipActive]}
+                      onPress={() => setFilterVoiceId(v.id)}
+                    >
+                      <Text
+                        style={[
+                          styles.chipText,
+                          active && styles.chipTextActive,
+                        ]}
+                        numberOfLines={1}
+                      >
+                        {v.display_name}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
               </View>
             ) : null}
-            <View style={styles.row}>
-              <Pressable
-                style={styles.play}
-                onPress={() => togglePlay(item)}
-                disabled={itemBusy}
-              >
-                <Text style={styles.playText}>
-                  {!active ? "Nghe" : paused ? "Tiếp tục" : "Tạm dừng"}
+
+            {cleanSamples.length ? (
+              <View style={styles.compareBox}>
+                <Text style={styles.compareTitle}>Mẫu đối chiếu</Text>
+                <Text style={styles.compareHint}>
+                  Chọn một mẫu đã sẵn sàng clone để nghe giọng gốc, rồi nghe bản
+                  TTS bên dưới và so sánh.
                 </Text>
-              </Pressable>
-              <Pressable
-                style={[styles.secondary, itemBusy && styles.disabled]}
-                onPress={() => shareRender(item)}
-                disabled={itemBusy}
-              >
-                {sharing ? (
-                  <ActivityIndicator size="small" color={colors.brand} />
-                ) : (
-                  <Text style={styles.secondaryText}>Chia sẻ</Text>
-                )}
-              </Pressable>
-              <Pressable onPress={() => remove(item)} disabled={itemBusy}>
-                <Text style={styles.delete}>Xóa</Text>
-              </Pressable>
-            </View>
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  contentContainerStyle={styles.compareChips}
+                >
+                  {cleanSamples.map((sample) => {
+                    const active = compareSampleId === sample.id;
+                    return (
+                      <Pressable
+                        key={sample.id}
+                        style={[styles.chip, active && styles.chipActive]}
+                        onPress={() =>
+                          setCompareSampleId(active ? null : sample.id)
+                        }
+                      >
+                        <Text
+                          style={[
+                            styles.chipText,
+                            active && styles.chipTextActive,
+                          ]}
+                          numberOfLines={1}
+                        >
+                          {sampleChipLabel(sample)}
+                        </Text>
+                      </Pressable>
+                    );
+                  })}
+                </ScrollView>
+                {compareSample ? (
+                  <View style={styles.compareRow}>
+                    <Pressable
+                      style={styles.compareBtn}
+                      onPress={() => toggleSamplePlay(compareSample)}
+                    >
+                      <Text style={styles.compareBtnText}>
+                        {playback?.id === compareSample.id &&
+                        playback.kind === "sample"
+                          ? playback.paused
+                            ? "Tiếp tục mẫu gốc"
+                            : "Tạm dừng mẫu gốc"
+                          : "Nghe mẫu gốc"}
+                      </Text>
+                    </Pressable>
+                    <Pressable
+                      style={styles.compareInfoBtn}
+                      onPress={() => openSampleInfo(compareSample)}
+                    >
+                      <Text style={styles.compareInfoText}>Thông số audio</Text>
+                    </Pressable>
+                  </View>
+                ) : null}
+              </View>
+            ) : null}
           </View>
-        );
-      }}
-    />
+        }
+        ListEmptyComponent={
+          <Text style={styles.empty}>
+            {providerVoiceId
+              ? "Chưa có câu nói từ bản clone này."
+              : "Chưa có bản nào. Vào Tạo câu nói — mỗi lần tạo đều lưu tự động."}
+          </Text>
+        }
+        renderItem={({ item }) => {
+          const active = playback?.id === item.id && playback.kind === "render";
+          const paused = active && playback?.paused;
+          const when = formatLocalDateTime(item.created_at);
+          const voiceName = item.voice_display_name || "Voice DNA";
+          const sharing = busy?.id === item.id && busy.kind === "share";
+          const itemBusy = sharing;
+          const expanded = expandedId === item.id;
+          const params = renderParamRows(item);
+
+          return (
+            <View style={styles.card}>
+              <Text style={styles.voiceName}>{voiceName}</Text>
+              {item.provider_voice_name ? (
+                <Text style={styles.cloneName} numberOfLines={2}>
+                  {item.provider_voice_name}
+                </Text>
+              ) : null}
+              <Text
+                style={styles.body}
+                numberOfLines={expanded ? undefined : 4}
+              >
+                {item.text}
+              </Text>
+              <View style={styles.metaRow}>
+                <Text style={styles.meta} numberOfLines={2}>
+                  {when}
+                  {" · "}
+                  {voiceTtsModelLabel(item.model_id)}
+                </Text>
+                <Pressable
+                  style={styles.detailBtn}
+                  onPress={() => setExpandedId(expanded ? null : item.id)}
+                  hitSlop={8}
+                >
+                  <Text style={styles.detailLink}>
+                    {expanded ? "Thu gọn" : "Xem chi tiết"}
+                  </Text>
+                </Pressable>
+              </View>
+              {expanded ? (
+                <View style={styles.detailBox}>
+                  {params.map((row) => (
+                    <View key={row.label} style={styles.detailRow}>
+                      <Text style={styles.detailLabel}>{row.label}</Text>
+                      <Text style={styles.detailValue}>{row.value}</Text>
+                    </View>
+                  ))}
+                  <Pressable
+                    style={styles.detailInfoBtn}
+                    onPress={() => openRenderInfo(item)}
+                  >
+                    <Text style={styles.detailInfoText}>Thông số audio</Text>
+                  </Pressable>
+                </View>
+              ) : null}
+              <View style={styles.row}>
+                <Pressable
+                  style={styles.play}
+                  onPress={() => togglePlay(item)}
+                  disabled={itemBusy}
+                >
+                  <Text style={styles.playText}>
+                    {!active ? "Nghe" : paused ? "Tiếp tục" : "Tạm dừng"}
+                  </Text>
+                </Pressable>
+                <Pressable
+                  style={[styles.secondary, itemBusy && styles.disabled]}
+                  onPress={() => shareRender(item)}
+                  disabled={itemBusy}
+                >
+                  {sharing ? (
+                    <ActivityIndicator size="small" color={colors.brand} />
+                  ) : (
+                    <Text style={styles.secondaryText}>Chia sẻ</Text>
+                  )}
+                </Pressable>
+                <Pressable
+                  style={styles.deleteBtn}
+                  onPress={() => remove(item)}
+                  disabled={itemBusy}
+                  hitSlop={6}
+                >
+                  <Text style={styles.delete}>Xóa</Text>
+                </Pressable>
+              </View>
+            </View>
+          );
+        }}
+      />
+      <AudioInfoSheet
+        target={audioInfoTarget}
+        onClose={() => setAudioInfoTarget(null)}
+      />
+    </>
   );
 }
 
@@ -414,15 +581,80 @@ const styles = StyleSheet.create({
     lineHeight: 24,
     color: colors.ink,
   },
-  meta: { fontSize: 12, color: colors.inkSoft },
-  detailLink: { fontSize: 12, fontWeight: "600", color: colors.brand },
+  metaRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 8,
+  },
+  meta: { fontSize: 12, color: colors.inkSoft, flexShrink: 1 },
+  detailBtn: { paddingVertical: 6, paddingLeft: 10 },
+  detailLink: { fontSize: 13, fontWeight: "700", color: colors.brand },
   detailBox: {
     backgroundColor: colors.bgDeep,
     borderRadius: 10,
-    padding: 10,
-    gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
   },
-  detailLine: { fontSize: 12, lineHeight: 17, color: colors.inkSoft },
+  detailRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 12,
+    paddingVertical: 7,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.line,
+  },
+  detailLabel: { fontSize: 12, color: colors.inkSoft },
+  detailValue: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: colors.ink,
+    flexShrink: 1,
+    textAlign: "right",
+  },
+  detailInfoBtn: {
+    marginTop: 8,
+    marginBottom: 6,
+    alignSelf: "flex-start",
+    borderWidth: 1,
+    borderColor: colors.line,
+    backgroundColor: "#fff",
+    borderRadius: 8,
+    paddingVertical: 7,
+    paddingHorizontal: 12,
+  },
+  detailInfoText: { fontSize: 12, fontWeight: "700", color: colors.inkSoft },
+  compareBox: {
+    marginTop: 12,
+    backgroundColor: colors.card,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: colors.line,
+    padding: 12,
+    gap: 8,
+  },
+  compareTitle: { fontSize: 13, fontWeight: "700", color: colors.ink },
+  compareHint: { fontSize: 12, lineHeight: 17, color: colors.inkSoft },
+  compareChips: { gap: 8, paddingVertical: 2 },
+  compareRow: { flexDirection: "row", alignItems: "center", gap: 8 },
+  compareBtn: {
+    borderWidth: 1,
+    borderColor: colors.brand,
+    borderRadius: 8,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+  },
+  compareBtnText: { color: colors.brand, fontWeight: "700", fontSize: 13 },
+  compareInfoBtn: {
+    borderWidth: 1,
+    borderColor: colors.line,
+    backgroundColor: "#fff",
+    borderRadius: 8,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+  },
+  compareInfoText: { fontSize: 13, fontWeight: "700", color: colors.inkSoft },
   row: {
     flexDirection: "row",
     alignItems: "center",
@@ -447,5 +679,7 @@ const styles = StyleSheet.create({
   },
   secondaryText: { color: colors.brand, fontWeight: "700", fontSize: 13 },
   disabled: { opacity: 0.5 },
+  // Keeps the destructive action away from Nghe / Chia sẻ.
+  deleteBtn: { marginLeft: "auto", paddingVertical: 8, paddingHorizontal: 8 },
   delete: { color: colors.danger, fontWeight: "700", fontSize: 13 },
 });

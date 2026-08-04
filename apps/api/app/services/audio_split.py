@@ -3,7 +3,12 @@ from __future__ import annotations
 import subprocess
 from pathlib import Path
 
-from .audio_combine import AudioCombineError, probe_duration_ms, require_ffmpeg
+from .audio_combine import (
+    AudioCombineError,
+    probe_duration_ms,
+    require_ffmpeg,
+    target_sample_rate,
+)
 
 
 def split_audio_file(
@@ -30,6 +35,7 @@ def split_audio_file(
     ffmpeg = require_ffmpeg()
     output_a.parent.mkdir(parents=True, exist_ok=True)
     output_b.parent.mkdir(parents=True, exist_ok=True)
+    rate = str(target_sample_rate([input_path]))
 
     cut_sec = cut_ms / 1000.0
     total_sec = total_ms / 1000.0
@@ -51,7 +57,7 @@ def split_audio_file(
             "-ac",
             "1",
             "-ar",
-            "44100",
+            rate,
             "-c:a",
             "pcm_s16le",
             str(output_a),
@@ -71,7 +77,7 @@ def split_audio_file(
             "-ac",
             "1",
             "-ar",
-            "44100",
+            rate,
             "-c:a",
             "pcm_s16le",
             str(output_b),

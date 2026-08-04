@@ -26,7 +26,7 @@ from ..models import (
     VoiceSample,
 )
 from ..routers.settings import HERITAGE_CONSENT, SELF_CONSENT
-from ..services.sample_quality import score_voice_sample
+from ..services.sample_quality import score_voice_sample_file
 from ..services.storage import (
     ALLOWED_MIME,
     EXT_BY_MIME,
@@ -47,7 +47,9 @@ DEFAULT_OPTIONS = {
     "purity_min": 0.9,
     "exclusive_only": True,
     "keep_mixed": False,
+    # Diarization runs at 16 kHz; clips follow the source so clone keeps bandwidth.
     "sample_rate": 16000,
+    "clip_sample_rate": None,
     "device": "auto",
     "model": "pyannote/speaker-diarization-community-1",
 }
@@ -708,8 +710,8 @@ def accept_segments(
         dest.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(src, dest)
         file_size = dest.stat().st_size
-        score, label, tip = score_voice_sample(
-            duration_ms=seg.duration_ms, file_size_bytes=file_size
+        score, label, tip = score_voice_sample_file(
+            dest, duration_ms=seg.duration_ms, file_size_bytes=file_size
         )
         sample = VoiceSample(
             id=generate(),

@@ -5,6 +5,12 @@ import subprocess
 from pathlib import Path
 
 
+# pyannote resamples to 16 kHz internally, so diarization gains nothing above it.
+DIARIZE_SAMPLE_RATE = 16000
+# Clone clips keep the source bandwidth; 48 kHz is where extra rate stops helping.
+MAX_CLIP_SAMPLE_RATE = 48000
+
+
 def require_ffmpeg() -> str:
     path = shutil.which("ffmpeg")
     if not path:
@@ -38,6 +44,42 @@ def normalize_audio(input_path: Path, output_wav: Path, sample_rate: int = 16000
             f"ffmpeg failed normalizing {input_path}:\n{proc.stderr.strip()}"
         )
     return output_wav
+
+
+def probe_sample_rate(path: Path) -> int | None:
+    """Return the first audio stream's sample rate via ffprobe, else None."""
+    ffprobe = shutil.which("ffprobe")
+    if not ffprobe:
+        return None
+    cmd = [
+        ffprobe,
+        "-v",
+        "error",
+        "-select_streams",
+        "a:0",
+        "-show_entries",
+        "stream=sample_rate",
+        "-of",
+        "default=noprint_wrappers=1:nokey=1",
+        str(path),
+    ]
+    proc = subprocess.run(cmd, capture_output=True, text=True)
+    if proc.returncode != 0:
+        return None
+    try:
+        rate = int(proc.stdout.strip().splitlines()[0])
+    except (ValueError, IndexError):
+        return None
+    return rate if rate > 0 else None
+
+
+def resolve_clip_sample_rate(input_path: Path) -> int:
+    """Pick the clip rate that keeps source bandwidth without upsampling."""
+    native = probe_sample_rate(input_path)
+    if native is None:
+        # Unknown source: assume CD rate rather than silently band-limiting.
+        return 44100
+    return max(DIARIZE_SAMPLE_RATE, min(native, MAX_CLIP_SAMPLE_RATE))
 
 
 def probe_duration_seconds(wav_path: Path) -> float:

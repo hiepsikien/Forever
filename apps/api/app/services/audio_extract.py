@@ -3,11 +3,20 @@ from __future__ import annotations
 import subprocess
 from pathlib import Path
 
-from .audio_combine import AudioCombineError, probe_duration_ms, require_ffmpeg
+from .audio_combine import (
+    AudioCombineError,
+    probe_duration_ms,
+    require_ffmpeg,
+    target_sample_rate,
+)
 
 
 def extract_audio_from_video(input_path: Path, output_path: Path) -> tuple[int, int]:
-    """Extract mono AAC audio from a video file. Returns (duration_ms, file_size_bytes)."""
+    """Extract mono PCM audio from a video file. Returns (duration_ms, file_size_bytes).
+
+    Lossless: these clips become clone samples and get re-processed downstream,
+    so a lossy intermediate would stack generations of artefacts.
+    """
     if not input_path.exists():
         raise AudioCombineError(f"File video bị thiếu: {input_path.name}")
 
@@ -23,11 +32,9 @@ def extract_audio_from_video(input_path: Path, output_path: Path) -> tuple[int, 
         "-ac",
         "1",
         "-ar",
-        "44100",
+        str(target_sample_rate([input_path])),
         "-c:a",
-        "aac",
-        "-b:a",
-        "128k",
+        "pcm_s16le",
         str(output_path),
     ]
     proc = subprocess.run(cmd, capture_output=True, text=True)

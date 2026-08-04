@@ -40,7 +40,7 @@ Extract giải bài toán:
 ### In scope (v0)
 
 - Input audio (wav/mp3/m4a/…)  
-- Normalize 16 kHz mono  
+- Normalize 16 kHz mono cho diarization; clip xuất theo sample rate gốc (≤48 kHz) để clone không mất chất giọng  
 - Diarization: `pyannote/speaker-diarization-community-1`  
 - `--num-speakers` (hoặc tương đương API) bắt buộc theo từng file  
 - Merge gap / pad / drop fragment ngắn  
