@@ -202,7 +202,7 @@ export default function VoiceDnaScreen() {
 
   const processedCount = activeVoice?.processed_count ?? 0;
   const unprocessedCount = activeVoice?.unprocessed_count ?? 0;
-  const processedDurationMs = activeVoice?.processed_duration_ms ?? 0;
+  const archivedCount = activeVoice?.archived_count ?? 0;
 
   const workflowStep = useMemo((): WorkflowStep => {
     if (!activeVoice) return 0;
@@ -243,10 +243,7 @@ export default function VoiceDnaScreen() {
     if (activeVoice.status === "ready") {
       return `Giọng sẵn sàng · ${processedCount} mẫu`;
     }
-    if (processedCount > 3) {
-      return `${processedCount} mẫu — giữ tối đa 3 trước khi clone`;
-    }
-    return `${processedCount} mẫu sẵn sàng — chưa clone`;
+    return `${processedCount} mẫu sẵn sàng — chọn để clone`;
   }, [
     selectedIdentity,
     activeVoice,
@@ -350,7 +347,7 @@ export default function VoiceDnaScreen() {
     }
   };
 
-  const clone = async () => {
+  const clone = () => {
     if (!activeVoice || busy) return;
     if (!settings?.elevenlabs_api_key_set) {
       Alert.alert(
@@ -370,38 +367,9 @@ export default function VoiceDnaScreen() {
       );
       return;
     }
-    if (processedCount > 3) {
-      Alert.alert(
-        "Quá nhiều mẫu",
-        "Giữ tối đa 3 mẫu đã duyệt (~1–2 phút). Archive bớt trong Mẫu giọng.",
-      );
-      return;
-    }
-    if (processedDurationMs > 150_000) {
-      Alert.alert(
-        "Quá dài",
-        "Tổng mẫu sẵn clone quá ~2.5 phút. Archive bớt rồi clone lại.",
-      );
-      return;
-    }
-    setBusy(true);
-    try {
-      const res = await api.cloneVoice(activeVoice.id, {
-        remove_background_noise: true,
-      });
-      await load({ silent: true });
-      Alert.alert(
-        res.status === "ready" ? "Voice DNA sẵn sàng" : "Clone xong",
-        res.status === "ready"
-          ? "Bạn có thể tạo giọng từ text."
-          : res.error_message || res.status,
-      );
-    } catch (e) {
-      await load({ silent: true });
-      Alert.alert("Clone thất bại", e instanceof Error ? e.message : "Lỗi ElevenLabs.");
-    } finally {
-      setBusy(false);
-    }
+    router.push(
+      `/voice/${spaceId}/clone?voiceId=${activeVoice.id}` as never,
+    );
   };
 
   const go = (path: string) => {
@@ -426,7 +394,9 @@ export default function VoiceDnaScreen() {
     router.push(`/voice/${spaceId}/${path}?voiceId=${activeVoice.id}` as never);
   };
 
-  const goSamples = (stage: "unprocessed" | "processed" = "unprocessed") => {
+  const goSamples = (
+    stage: "unprocessed" | "processed" | "archived" = "unprocessed",
+  ) => {
     if (!spaceId || !activeVoice) return;
     router.push(
       `/voice/${spaceId}/samples?voiceId=${activeVoice.id}&stage=${stage}` as never,
@@ -436,11 +406,7 @@ export default function VoiceDnaScreen() {
   const ready = activeVoice?.status === "ready";
   const cloneFailed = activeVoice?.status === "failed";
   const canUseTts = !!activeVoice;
-  const canClone =
-    !!activeVoice &&
-    processedCount >= 1 &&
-    processedCount <= 3 &&
-    processedDurationMs <= 150_000;
+  const canClone = !!activeVoice && processedCount >= 1;
 
   const primaryAction = useMemo(() => {
     if (!selectedIdentity) return null;
@@ -455,9 +421,9 @@ export default function VoiceDnaScreen() {
     }
     if (processedCount < 1 && unprocessedCount < 1) {
       return {
-        label: isHeritageProfile ? "Tải file audio" : "Ghi mẫu giọng",
+        label: isHeritageProfile ? "Tải file" : "Ghi mẫu giọng",
         subtext: isHeritageProfile
-          ? "Chọn ghi âm cũ từ điện thoại hoặc máy tính"
+          ? "Chọn ghi âm hoặc video từ điện thoại"
           : "Đọc theo đoạn AI gợi ý — khoảng 30 giây",
         onPress: () => go(isHeritageProfile ? "upload" : "record"),
         kind: "nav" as const,
@@ -466,16 +432,8 @@ export default function VoiceDnaScreen() {
     if (processedCount < 1 && unprocessedCount > 0) {
       return {
         label: "Duyệt mẫu",
-        subtext: `${unprocessedCount} đoạn chờ — chọn 1–3 đoạn sạch để clone`,
+        subtext: `${unprocessedCount} đoạn chờ — chọn đoạn sạch để clone`,
         onPress: () => goSamples("unprocessed"),
-        kind: "nav" as const,
-      };
-    }
-    if (processedCount > 3) {
-      return {
-        label: "Giảm số mẫu",
-        subtext: "Giữ tối đa 3 mẫu (~1–2 phút) trước khi clone",
-        onPress: () => goSamples("processed"),
         kind: "nav" as const,
       };
     }
@@ -483,8 +441,8 @@ export default function VoiceDnaScreen() {
       return {
         label: cloneFailed ? "Thử clone lại" : "Clone giọng",
         subtext: cloneFailed
-          ? `Lần trước không thành công · ${processedCount} mẫu sẵn sàng`
-          : `${processedCount} mẫu sẵn sàng — tạo bản giọng AI`,
+          ? `Lần trước không thành công · chọn lại mẫu`
+          : `${processedCount} mẫu sẵn sàng — chọn bộ để clone`,
         onPress: clone,
         disabled: !canClone || busy,
         kind: "clone" as const,
@@ -906,9 +864,9 @@ export default function VoiceDnaScreen() {
                 {isHeritageProfile ? (
                   <>
                     <Pressable style={styles.action} onPress={() => go("upload")}>
-                      <Text style={styles.actionTitle}>Tải file audio</Text>
+                      <Text style={styles.actionTitle}>Tải file</Text>
                       <Text style={styles.actionSub}>
-                        Ghi âm cũ từ Zalo, cuộc gọi, video
+                        Audio hoặc video — video chỉ lấy tiếng nói
                       </Text>
                     </Pressable>
                     {canManage ? (
@@ -940,8 +898,20 @@ export default function VoiceDnaScreen() {
                   <Text style={styles.actionTitle}>Mẫu giọng</Text>
                   <Text style={styles.actionSub}>
                     Nghe lại, duyệt, ghép đoạn
+                    {archivedCount > 0 ? ` · ${archivedCount} đã loại` : ""}
                   </Text>
                 </Pressable>
+                {archivedCount > 0 ? (
+                  <Pressable
+                    style={styles.action}
+                    onPress={() => goSamples("archived")}
+                  >
+                    <Text style={styles.actionTitle}>Mẫu đã loại</Text>
+                    <Text style={styles.actionSub}>
+                      {archivedCount} mẫu — khôi phục khi cần
+                    </Text>
+                  </Pressable>
+                ) : null}
                 {ready ? (
                   <Pressable
                     style={styles.action}

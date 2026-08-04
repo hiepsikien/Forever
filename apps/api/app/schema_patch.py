@@ -146,6 +146,36 @@ def ensure_schema() -> None:
         "ALTER TABLE voice_samples ADD COLUMN processing_applied TEXT DEFAULT ''",
     )
     _add_column_if_missing(
+        "voice_renders",
+        "stability",
+        "ALTER TABLE voice_renders ADD COLUMN stability FLOAT",
+    )
+    _add_column_if_missing(
+        "voice_renders",
+        "similarity_boost",
+        "ALTER TABLE voice_renders ADD COLUMN similarity_boost FLOAT",
+    )
+    _add_column_if_missing(
+        "voice_renders",
+        "style",
+        "ALTER TABLE voice_renders ADD COLUMN style FLOAT",
+    )
+    _add_column_if_missing(
+        "voice_renders",
+        "speed",
+        "ALTER TABLE voice_renders ADD COLUMN speed FLOAT",
+    )
+    _add_column_if_missing(
+        "voice_renders",
+        "use_speaker_boost",
+        "ALTER TABLE voice_renders ADD COLUMN use_speaker_boost BOOLEAN",
+    )
+    _add_column_if_missing(
+        "voice_renders",
+        "lengthen_pauses",
+        "ALTER TABLE voice_renders ADD COLUMN lengthen_pauses BOOLEAN",
+    )
+    _add_column_if_missing(
         "extract_jobs",
         "source_memory_id",
         "ALTER TABLE extract_jobs ADD COLUMN source_memory_id VARCHAR(32)",

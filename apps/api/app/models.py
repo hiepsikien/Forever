@@ -263,7 +263,7 @@ class VoiceSample(Base):
     )
     media_path: Mapped[str] = mapped_column(String(512))
     media_mime: Mapped[str] = mapped_column(String(120))
-    # record | upload | memory | extract | combine
+    # record | upload | memory | extract | combine | process | split
     source: Mapped[str] = mapped_column(String(32), default="upload")
     note: Mapped[str] = mapped_column(Text, default="")
     duration_ms: Mapped[int | None] = mapped_column(Integer, nullable=True)
@@ -378,6 +378,10 @@ class VoiceRender(Base):
     provider_voice_name: Mapped[str] = mapped_column(String(200), default="")
     stability: Mapped[float | None] = mapped_column(Float, nullable=True)
     similarity_boost: Mapped[float | None] = mapped_column(Float, nullable=True)
+    style: Mapped[float | None] = mapped_column(Float, nullable=True)
+    speed: Mapped[float | None] = mapped_column(Float, nullable=True)
+    use_speaker_boost: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
+    lengthen_pauses: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
     created_by: Mapped[str] = mapped_column(ForeignKey("users.id"))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
 

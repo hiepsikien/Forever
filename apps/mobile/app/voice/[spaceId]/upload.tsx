@@ -30,20 +30,27 @@ import { colors, fonts } from "@/lib/theme";
 
 type Phase = "pick" | "review";
 
-const STEPS = ["Chọn file", "Nghe thử", "Lưu"] as const;
-const MAX_UPLOAD_BYTES = 25 * 1024 * 1024;
+const STEPS = ["Chọn file", "Xem lại", "Lưu"] as const;
+const MAX_AUDIO_BYTES = 25 * 1024 * 1024;
+const MAX_VIDEO_BYTES = 100 * 1024 * 1024;
 
 type PickedFile = {
   uri: string;
   name: string;
   mimeType: string;
   sizeBytes: number;
+  isVideo: boolean;
 };
 
 function formatBytes(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function guessIsVideo(mime: string, name: string): boolean {
+  if ((mime || "").startsWith("video/")) return true;
+  return /\.(mp4|mov|m4v|mkv|webm|avi|3gp)$/i.test(name);
 }
 
 function stepIndex(phase: Phase, hasFile: boolean): number {
@@ -71,7 +78,11 @@ export default function VoiceUploadScreen() {
   const hasFile = picked != null;
   const activeStep = stepIndex(phase, hasFile);
 
-  useSpaceScreenOptions({ spaceId, title: "Tải file audio", backTitle: "Nhà" });
+  useSpaceScreenOptions({
+    spaceId,
+    title: "Tải file",
+    backTitle: "Nhà",
+  });
 
   useEffect(() => {
     return () => {
@@ -86,7 +97,7 @@ export default function VoiceUploadScreen() {
       await stopActivePlayback();
       setPreviewing(false);
       const result = await DocumentPicker.getDocumentAsync({
-        type: "audio/*",
+        type: ["audio/*", "video/*"],
         copyToCacheDirectory: true,
         multiple: false,
       });
@@ -95,24 +106,44 @@ export default function VoiceUploadScreen() {
       const asset = result.assets[0];
       const sourceUri = asset.uri;
       const sourceName = asset.name || "sample.wav";
+      const mimeType = asset.mimeType || "application/octet-stream";
+      const isVideo = guessIsVideo(mimeType, sourceName);
 
       const info = await FileSystem.getInfoAsync(sourceUri);
       const sizeBytes = info.exists && "size" in info ? info.size ?? 0 : 0;
-      if (sizeBytes > MAX_UPLOAD_BYTES) {
+      const maxBytes = isVideo ? MAX_VIDEO_BYTES : MAX_AUDIO_BYTES;
+      if (sizeBytes > maxBytes) {
         Alert.alert(
           "File quá lớn",
-          `Tối đa 25 MB. File này: ${formatBytes(sizeBytes)}.`,
+          isVideo
+            ? `Video tối đa 100 MB. File này: ${formatBytes(sizeBytes)}. Băng dài hơn hãy dùng Tách giọng từ băng dài.`
+            : `Audio tối đa 25 MB. File này: ${formatBytes(sizeBytes)}.`,
         );
         return;
       }
 
-      const staged = await stageLocalAudioFile(sourceUri, {
-        name: sourceName,
-        mimeType: asset.mimeType,
-        cacheKey: `${Date.now()}`,
-      });
-
-      setPicked({ uri: staged.uri, name: staged.name, mimeType: staged.mimeType, sizeBytes });
+      if (isVideo) {
+        setPicked({
+          uri: sourceUri,
+          name: sourceName,
+          mimeType: mimeType.startsWith("video/") ? mimeType : "video/mp4",
+          sizeBytes,
+          isVideo: true,
+        });
+      } else {
+        const staged = await stageLocalAudioFile(sourceUri, {
+          name: sourceName,
+          mimeType,
+          cacheKey: `${Date.now()}`,
+        });
+        setPicked({
+          uri: staged.uri,
+          name: staged.name,
+          mimeType: staged.mimeType,
+          sizeBytes,
+          isVideo: false,
+        });
+      }
       setPhase("review");
     } catch (e) {
       Alert.alert("Lỗi", e instanceof Error ? e.message : "Không chọn được file.");
@@ -122,7 +153,7 @@ export default function VoiceUploadScreen() {
   };
 
   const togglePreview = async () => {
-    if (!picked) return;
+    if (!picked || picked.isVideo) return;
     if (previewing) {
       if (previewPaused) {
         if (resumeActivePlayback()) setPreviewPaused(false);
@@ -158,22 +189,32 @@ export default function VoiceUploadScreen() {
     try {
       await stopActivePlayback();
       setPreviewing(false);
-      await api.addVoiceSample(voiceId, {
+      const res = await api.addVoiceSample(voiceId, {
         uri: picked.uri,
         name: picked.name,
         mimeType: picked.mimeType,
         source: "upload",
         note: note.trim() || undefined,
       });
+      const fromVideo = res.from_video || picked.isVideo;
       if (uploadAnother) {
         setPicked(null);
         setNote("");
         setPhase("pick");
-        Alert.alert("Đã lưu", "Chọn file tiếp theo khi sẵn sàng.");
+        Alert.alert(
+          "Đã lưu",
+          fromVideo
+            ? "Đã tách tiếng. Mẫu ở tab Chưa xử lý — nghe rồi Duyệt. Chọn file tiếp khi sẵn sàng."
+            : "Chọn file tiếp theo khi sẵn sàng.",
+        );
       } else {
-        Alert.alert("Đã lưu mẫu giọng", "Quay lại Voice DNA để xem điểm và Clone.", [
-          { text: "OK", onPress: () => router.back() },
-        ]);
+        Alert.alert(
+          fromVideo ? "Đã tách tiếng" : "Đã lưu mẫu giọng",
+          fromVideo
+            ? "Mẫu vào tab Chưa xử lý — nghe lại rồi Duyệt trước khi clone."
+            : "Quay lại Voice DNA để xem điểm và Clone.",
+          [{ text: "OK", onPress: () => router.back() }],
+        );
       }
     } catch (e) {
       Alert.alert("Lỗi", e instanceof Error ? e.message : "Không lưu được.");
@@ -222,10 +263,13 @@ export default function VoiceUploadScreen() {
         keyboardShouldPersistTaps="handled"
       >
         <Text style={styles.lead}>
-          Tải ghi âm cũ của người thân — tin nhắn thoại Zalo, cuộc gọi, video đã trích
-          audio…
+          Tải ghi âm hoặc video của người thân — Zalo, cuộc gọi, clip điện thoại. Video chỉ
+          lấy tiếng nói (hình không lưu vào mẫu giọng).
         </Text>
-        <Text style={styles.formats}>mp3 · m4a · wav · aac · webm · 3gp · tối đa 25 MB</Text>
+        <Text style={styles.formats}>
+          Audio ≤25 MB · Video ≤100 MB (mp4/mov…) · băng dài nhiều người → Tách giọng từ
+          băng dài
+        </Text>
 
         {phase === "pick" ? (
           <Pressable
@@ -236,7 +280,7 @@ export default function VoiceUploadScreen() {
             {picking ? (
               <ActivityIndicator color="#fff" />
             ) : (
-              <Text style={styles.pickBtnText}>Chọn file audio</Text>
+              <Text style={styles.pickBtnText}>Chọn file audio / video</Text>
             )}
           </Pressable>
         ) : null}
@@ -248,7 +292,14 @@ export default function VoiceUploadScreen() {
             </Text>
             <Text style={styles.fileMeta}>
               {formatBytes(picked.sizeBytes)} · {picked.mimeType}
+              {picked.isVideo ? " · sẽ tách tiếng khi lưu" : ""}
             </Text>
+            {picked.isVideo ? (
+              <Text style={styles.videoHint}>
+                Không nghe thử video tại đây — sau khi lưu, nghe bản tiếng ở Mẫu giọng →
+                Chưa xử lý.
+              </Text>
+            ) : null}
 
             <Text style={styles.noteLabel}>Ghi chú (tuỳ chọn)</Text>
             <TextInput
@@ -267,18 +318,26 @@ export default function VoiceUploadScreen() {
         {phase === "review" && picked ? (
           <>
             <View style={styles.footerRow}>
-              <Pressable style={[styles.btnPrimary, styles.btnFlex]} onPress={togglePreview}>
-                <Text style={styles.btnPrimaryText}>
-                  {!previewing ? "Nghe thử" : previewPaused ? "Tiếp tục" : "Tạm dừng"}
-                </Text>
-              </Pressable>
+              {!picked.isVideo ? (
+                <Pressable style={[styles.btnPrimary, styles.btnFlex]} onPress={togglePreview}>
+                  <Text style={styles.btnPrimaryText}>
+                    {!previewing ? "Nghe thử" : previewPaused ? "Tiếp tục" : "Tạm dừng"}
+                  </Text>
+                </Pressable>
+              ) : null}
               <Pressable
                 style={[styles.btnPrimary, styles.btnFlex, saving && styles.disabled]}
                 onPress={() => saveSample(false)}
                 disabled={saving}
               >
                 <Text style={styles.btnPrimaryText}>
-                  {saving ? "Đang lưu…" : "Lưu mẫu"}
+                  {saving
+                    ? picked.isVideo
+                      ? "Đang tách tiếng…"
+                      : "Đang lưu…"
+                    : picked.isVideo
+                      ? "Tách tiếng & lưu"
+                      : "Lưu mẫu"}
                 </Text>
               </Pressable>
             </View>
@@ -396,6 +455,12 @@ const styles = StyleSheet.create({
   fileMeta: {
     fontSize: 12,
     color: colors.inkSoft,
+  },
+  videoHint: {
+    fontSize: 13,
+    lineHeight: 18,
+    color: colors.inkSoft,
+    marginTop: 4,
   },
   noteLabel: {
     fontSize: 11,

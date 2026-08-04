@@ -11,6 +11,8 @@ from ..config import get_settings
 MAX_UPLOAD_BYTES = 25 * 1024 * 1024
 MAX_MEMORY_MEDIA_BYTES = 200 * 1024 * 1024
 MAX_EXTRACT_UPLOAD_BYTES = 200 * 1024 * 1024
+# Voice DNA video → audio extract (Zalo / phone clips). Larger than sample audio.
+MAX_VOICE_VIDEO_BYTES = 100 * 1024 * 1024
 
 AUDIO_MIME = {
     "audio/mpeg",
@@ -113,6 +115,13 @@ def is_extractable_mime(mime: str) -> bool:
 def max_bytes_for_mime(mime: str) -> int:
     if is_video_mime(mime):
         return MAX_MEMORY_MEDIA_BYTES
+    return MAX_UPLOAD_BYTES
+
+
+def max_bytes_for_voice_sample(mime: str) -> int:
+    """Limits for Voice DNA sample upload (audio small; video larger then stripped)."""
+    if is_video_mime(mime):
+        return MAX_VOICE_VIDEO_BYTES
     return MAX_UPLOAD_BYTES
 
 

@@ -21,7 +21,11 @@ export type TtsValues = {
 export type TtsProfileSettings = {
   mode: TtsMode;
   custom: TtsValues;
+  /** Last TTS input text for this Voice DNA profile. */
+  draftText?: string;
 };
+
+export const DEFAULT_DRAFT_TEXT = "Con nhớ bố lắm.";
 
 export const PRESET_VALUES: Record<TtsPresetName, TtsValues> = {
   similar: {
@@ -104,9 +108,13 @@ function normalizeV2(raw: Record<string, unknown>): TtsProfileSettings | null {
       ? (raw.custom as Record<string, unknown>)
       : raw;
 
+  const draftText =
+    typeof raw.draftText === "string" ? raw.draftText : undefined;
+
   return {
     mode,
     custom: normalizeValues(customRaw, DEFAULT_CUSTOM_VALUES),
+    draftText,
   };
 }
 
@@ -115,12 +123,14 @@ function migrateV1(raw: Record<string, unknown>): TtsProfileSettings {
   const preset =
     raw.preset === "similar" || raw.preset === "stable" ? raw.preset : null;
   const values = normalizeValues(raw, DEFAULT_CUSTOM_VALUES);
+  const draftText =
+    typeof raw.draftText === "string" ? raw.draftText : undefined;
 
   if (preset === null) {
-    return { mode: "custom", custom: values };
+    return { mode: "custom", custom: values, draftText };
   }
 
-  return { mode: preset, custom: { ...DEFAULT_CUSTOM_VALUES } };
+  return { mode: preset, custom: { ...DEFAULT_CUSTOM_VALUES }, draftText };
 }
 
 function normalize(raw: unknown): TtsProfileSettings | null {

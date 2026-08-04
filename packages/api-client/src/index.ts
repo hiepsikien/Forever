@@ -233,6 +233,10 @@ export interface VoiceRender {
   provider_voice_name?: string | null;
   stability?: number | null;
   similarity_boost?: number | null;
+  style?: number | null;
+  speed?: number | null;
+  use_speaker_boost?: boolean | null;
+  lengthen_pauses?: boolean | null;
   created_by: string;
   created_at: string;
   voice_display_name?: string | null;
@@ -355,7 +359,7 @@ export function createApiClient({
   async function request<T>(
     path: string,
     init: RequestInit = {},
-    opts?: { json?: boolean },
+    opts?: { json?: boolean; timeoutMs?: number },
   ): Promise<T> {
     const root = resolveRoot();
     const token = await getToken();
@@ -366,10 +370,13 @@ export function createApiClient({
     }
     if (token) headers.set("Authorization", `Bearer ${token}`);
 
+    const effectiveTimeout = opts?.timeoutMs ?? timeoutMs;
     const signal =
       init.signal ??
-      (timeoutMs > 0 && typeof AbortSignal !== "undefined" && "timeout" in AbortSignal
-        ? AbortSignal.timeout(timeoutMs)
+      (effectiveTimeout > 0 &&
+      typeof AbortSignal !== "undefined" &&
+      "timeout" in AbortSignal
+        ? AbortSignal.timeout(effectiveTimeout)
         : undefined);
 
     try {
@@ -674,6 +681,11 @@ export function createApiClient({
         `/api/spaces/${spaceId}/elevenlabs-voices?${params.toString()}`,
       );
     },
+    deleteElevenLabsVoice: (spaceId: string, providerVoiceId: string) =>
+      request<{ ok: boolean; detached_voice_ids: string[] }>(
+        `/api/spaces/${spaceId}/elevenlabs-voices/${encodeURIComponent(providerVoiceId)}`,
+        { method: "DELETE" },
+      ),
     createSelfVoice: (spaceId: string, consent = true) =>
       request<VoiceProfile>(`/api/spaces/${spaceId}/voices/self`, {
         method: "POST",
@@ -725,10 +737,15 @@ export function createApiClient({
         name: payload.name,
         type: payload.mimeType,
       } as unknown as Blob);
-      return request<{ sample_id: string; voice: VoiceProfile }>(
+      const isVideo = (payload.mimeType || "").startsWith("video/");
+      return request<{
+        sample_id: string;
+        from_video?: boolean;
+        voice: VoiceProfile;
+      }>(
         `/api/voices/${voiceId}/samples`,
         { method: "POST", body: form as unknown as BodyInit },
-        { json: false },
+        { json: false, timeoutMs: isVideo ? 180_000 : 60_000 },
       );
     },
     listSpaceVoiceSamples: (
@@ -816,13 +833,33 @@ export function createApiClient({
           }),
         },
       ),
+    splitVoiceSample: (
+      voiceId: string,
+      sampleId: string,
+      opts?: { at_ms?: number; note?: string },
+    ) =>
+      request<{
+        sample_ids: string[];
+        archived_original: boolean;
+        voice: VoiceProfile;
+      }>(`/api/voices/${voiceId}/samples/split`, {
+        method: "POST",
+        body: JSON.stringify({
+          sample_id: sampleId,
+          at_ms: opts?.at_ms,
+          note: opts?.note ?? "",
+        }),
+      }),
     deleteVoiceSample: (voiceId: string, sampleId: string) =>
       request<VoiceProfile>(`/api/voices/${voiceId}/samples/${sampleId}`, {
         method: "DELETE",
       }),
     cloneVoice: (
       voiceId: string,
-      opts?: { remove_background_noise?: boolean },
+      opts?: {
+        remove_background_noise?: boolean;
+        sample_ids?: string[];
+      },
     ) =>
       request<VoiceProfile>(`/api/voices/${voiceId}/clone`, {
         method: "POST",
@@ -830,12 +867,23 @@ export function createApiClient({
       }),
     pauseVoice: (voiceId: string) =>
       request<VoiceProfile>(`/api/voices/${voiceId}/pause`, { method: "POST" }),
+    selectVoiceClone: (voiceId: string, providerVoiceId: string) =>
+      request<VoiceProfile>(`/api/voices/${voiceId}/select-clone`, {
+        method: "POST",
+        body: JSON.stringify({ provider_voice_id: providerVoiceId }),
+      }),
     listVoiceRenders: (voiceId: string) =>
       request<{ renders: VoiceRender[] }>(`/api/voices/${voiceId}/renders`),
-    listSpaceVoiceRenders: (spaceId: string, voiceId?: string) => {
-      const q = voiceId
-        ? `?voice_id=${encodeURIComponent(voiceId)}`
-        : "";
+    listSpaceVoiceRenders: (
+      spaceId: string,
+      opts?: { voiceId?: string; providerVoiceId?: string },
+    ) => {
+      const params = new URLSearchParams();
+      if (opts?.voiceId) params.set("voice_id", opts.voiceId);
+      if (opts?.providerVoiceId) {
+        params.set("provider_voice_id", opts.providerVoiceId);
+      }
+      const q = params.toString() ? `?${params.toString()}` : "";
       return request<{ renders: VoiceRender[] }>(
         `/api/spaces/${spaceId}/voice-renders${q}`,
       );

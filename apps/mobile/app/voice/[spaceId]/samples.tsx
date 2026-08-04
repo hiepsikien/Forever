@@ -7,11 +7,11 @@ import {
   FlatList,
   Pressable,
   StyleSheet,
-  Switch,
   Text,
   TextInput,
   View,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import {
   pauseActivePlayback,
@@ -20,15 +20,42 @@ import {
   stopActivePlayback,
 } from "@/lib/audio";
 import { useAuth } from "@/lib/auth";
+import { formatLocalDateTime } from "@/lib/datetime";
 import { fetchAuthedMediaUri } from "@/lib/media";
 import { useSpaceScreenOptions } from "@/lib/spaceHeader";
 import { colors, fonts } from "@/lib/theme";
 
 type Playback = { id: string; paused: boolean } | null;
-type TabStage = "unprocessed" | "processed";
+type TabStage = "unprocessed" | "processed" | "archived";
 type SamplesByTab = Record<TabStage, VoiceSample[]>;
 
-const EMPTY_SAMPLES: SamplesByTab = { unprocessed: [], processed: [] };
+const EMPTY_SAMPLES: SamplesByTab = {
+  unprocessed: [],
+  processed: [],
+  archived: [],
+};
+
+const TAB_META: Record<
+  TabStage,
+  { label: string; sub: string; empty: string }
+> = {
+  unprocessed: {
+    label: "Chưa xử lý",
+    sub: "Chọn mẫu → Cân bằng âm lượng, Ghép (2+), hoặc Chia đôi (1 file dài). File gốc luôn giữ nguyên.",
+    empty:
+      "Không còn mẫu chưa xử lý. Import từ pool hoặc chuyển sang tab Sẵn sàng clone.",
+  },
+  processed: {
+    label: "Sẵn sàng clone",
+    sub: "Chỉ mẫu đã duyệt mới được dùng khi Clone (tối đa 3 file, ~1–2 phút). File quá dài/lớn: chọn 1 → Chia đôi.",
+    empty: "Chưa có mẫu sẵn clone. Duyệt mẫu tốt từ tab Chưa xử lý.",
+  },
+  archived: {
+    label: "Đã loại",
+    sub: "Mẫu đã loại khỏi clone. Khôi phục về Chưa xử lý hoặc Sẵn sàng clone khi cần.",
+    empty: "Chưa có mẫu đã loại.",
+  },
+};
 
 function sourceLabel(source: string): string {
   switch (source) {
@@ -44,6 +71,8 @@ function sourceLabel(source: string): string {
       return "Ghép clip";
     case "process":
       return "Đã normalize";
+    case "split":
+      return "Chia đôi";
     default:
       return source;
   }
@@ -52,8 +81,14 @@ function sourceLabel(source: string): string {
 function formatDurationMs(ms: number | null | undefined): string {
   if (ms == null || ms < 0) return "—:—";
   const totalSec = Math.round(ms / 1000);
-  const minutes = Math.floor(totalSec / 60);
+  const hours = Math.floor(totalSec / 3600);
+  const minutes = Math.floor((totalSec % 3600) / 60);
   const seconds = totalSec % 60;
+  if (hours > 0) {
+    return `${hours}:${minutes.toString().padStart(2, "0")}:${seconds
+      .toString()
+      .padStart(2, "0")}`;
+  }
   return `${minutes}:${seconds.toString().padStart(2, "0")}`;
 }
 
@@ -64,8 +99,13 @@ export default function VoiceSamplesScreen() {
     stage?: string;
   }>();
   const { api } = useAuth();
+  const insets = useSafeAreaInsets();
   const initialTab: TabStage =
-    stageParam === "processed" ? "processed" : "unprocessed";
+    stageParam === "processed"
+      ? "processed"
+      : stageParam === "archived"
+        ? "archived"
+        : "unprocessed";
   const [tab, setTab] = useState<TabStage>(initialTab);
   const [samplesByTab, setSamplesByTab] = useState<SamplesByTab>(EMPTY_SAMPLES);
   const [initialLoading, setInitialLoading] = useState(true);
@@ -79,9 +119,16 @@ export default function VoiceSamplesScreen() {
   const [saving, setSaving] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [bulkBusy, setBulkBusy] = useState(false);
-  const [normalizeEnabled, setNormalizeEnabled] = useState(true);
 
   const samples = samplesByTab[tab];
+
+  const selectedDuration = useMemo(
+    () =>
+      samples
+        .filter((s) => selected.has(s.id))
+        .reduce((sum, s) => sum + (s.duration_ms ?? 0), 0),
+    [samples, selected],
+  );
 
   useSpaceScreenOptions({ spaceId, title: "Mẫu giọng", backTitle: "Nhà" });
 
@@ -117,6 +164,7 @@ export default function VoiceSamplesScreen() {
     await Promise.all([
       loadTab("unprocessed", { silent: true }),
       loadTab("processed", { silent: true }),
+      loadTab("archived", { silent: true }),
     ]);
     setSelected(new Set());
   }, [loadTab]);
@@ -129,8 +177,11 @@ export default function VoiceSamplesScreen() {
     void stopActivePlayback();
     setPlayback(null);
     void loadTab(tab);
-    const other: TabStage = tab === "unprocessed" ? "processed" : "unprocessed";
-    void loadTab(other, { silent: true });
+    (["unprocessed", "processed", "archived"] as TabStage[])
+      .filter((s) => s !== tab)
+      .forEach((s) => {
+        void loadTab(s, { silent: true });
+      });
   }, [spaceId, voiceId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
@@ -163,18 +214,39 @@ export default function VoiceSamplesScreen() {
   const resolveTargetVoiceId = (ids: string[]) =>
     voiceId || samples.find((s) => ids.includes(s.id))?.voice_profile_id;
 
-  const bulkStage = async (pipelineStage: "processed" | "archived") => {
+  const bulkStage = async (
+    pipelineStage: "unprocessed" | "processed" | "archived",
+  ) => {
     const ids = [...selected];
     const targetVoiceId = resolveTargetVoiceId(ids);
     if (!targetVoiceId || !ids.length || bulkBusy) return;
-    const label = pipelineStage === "processed" ? "duyệt sang Sẵn sàng clone" : "loại (archive)";
+    const labels: Record<typeof pipelineStage, string> = {
+      unprocessed: "khôi phục về Chưa xử lý",
+      processed: "duyệt sang Sẵn sàng clone",
+      archived: "loại khỏi danh sách đang dùng",
+    };
+    const titles: Record<typeof pipelineStage, string> = {
+      unprocessed: "Khôi phục mẫu?",
+      processed: "Duyệt mẫu?",
+      archived: "Loại mẫu?",
+    };
+    const confirmLabels: Record<typeof pipelineStage, string> = {
+      unprocessed: "Khôi phục",
+      processed: "Duyệt",
+      archived: "Loại",
+    };
+    const dur = formatDurationMs(
+      samples
+        .filter((s) => ids.includes(s.id))
+        .reduce((sum, s) => sum + (s.duration_ms ?? 0), 0),
+    );
     Alert.alert(
-      pipelineStage === "processed" ? "Duyệt mẫu?" : "Loại mẫu?",
-      `${ids.length} mẫu sẽ được ${label}.`,
+      titles[pipelineStage],
+      `${ids.length} mẫu (${dur}) sẽ được ${labels[pipelineStage]}.`,
       [
         { text: "Huỷ", style: "cancel" },
         {
-          text: pipelineStage === "processed" ? "Duyệt" : "Loại",
+          text: confirmLabels[pipelineStage],
           style: pipelineStage === "archived" ? "destructive" : "default",
           onPress: async () => {
             setBulkBusy(true);
@@ -192,6 +264,21 @@ export default function VoiceSamplesScreen() {
     );
   };
 
+  const clearSelection = () => {
+    if (!selected.size) return;
+    Alert.alert(
+      "Trở về?",
+      `Bỏ chọn ${selected.size} mẫu đang chọn.`,
+      [
+        { text: "Huỷ", style: "cancel" },
+        {
+          text: "Trở về",
+          onPress: () => setSelected(new Set()),
+        },
+      ],
+    );
+  };
+
   const selectAll = () => {
     if (selected.size === samples.length) {
       setSelected(new Set());
@@ -204,9 +291,10 @@ export default function VoiceSamplesScreen() {
     const ids = [...selected];
     const targetVoiceId = resolveTargetVoiceId(ids);
     if (!targetVoiceId || ids.length < 2 || bulkBusy) return;
+    const dur = formatDurationMs(selectedDuration);
     Alert.alert(
       "Ghép mẫu?",
-      `Ghép ${ids.length} đoạn thành 1 file mới${normalizeEnabled ? " (có normalize)" : ""}. Các đoạn gốc vẫn giữ ở Chưa xử lý.`,
+      `Ghép ${ids.length} đoạn (tổng ${dur}) thành 1 file mới. Các đoạn gốc vẫn giữ ở Chưa xử lý.`,
       [
         { text: "Huỷ", style: "cancel" },
         {
@@ -215,7 +303,7 @@ export default function VoiceSamplesScreen() {
             setBulkBusy(true);
             try {
               const res = await api.combineVoiceSamples(targetVoiceId, ids, {
-                normalize: normalizeEnabled,
+                normalize: false,
               });
               await refreshCurrentTab();
               const combined = res.voice.samples?.find((s) => s.id === res.sample_id);
@@ -239,14 +327,15 @@ export default function VoiceSamplesScreen() {
   const processSelected = async () => {
     const ids = [...selected];
     const targetVoiceId = resolveTargetVoiceId(ids);
-    if (!targetVoiceId || !ids.length || bulkBusy || !normalizeEnabled) return;
+    if (!targetVoiceId || !ids.length || bulkBusy) return;
+    const dur = formatDurationMs(selectedDuration);
     Alert.alert(
-      "Normalize mẫu?",
-      `Tạo ${ids.length} bản mới đã cân bằng âm lượng. File gốc giữ nguyên.`,
+      "Cân bằng âm lượng?",
+      `Tạo ${ids.length} bản mới (${dur}) đã cân bằng âm lượng. File gốc giữ nguyên.`,
       [
         { text: "Huỷ", style: "cancel" },
         {
-          text: "Xử lý",
+          text: "Cân bằng",
           onPress: async () => {
             setBulkBusy(true);
             try {
@@ -255,11 +344,62 @@ export default function VoiceSamplesScreen() {
               });
               await refreshCurrentTab();
               Alert.alert(
-                "Đã xử lý",
+                "Đã cân bằng",
                 `Tạo ${res.created_sample_ids.length} bản mới. Nghe lại rồi Duyệt nếu ổn.`,
               );
             } catch (e) {
-              Alert.alert("Lỗi", e instanceof Error ? e.message : "Không xử lý được.");
+              Alert.alert("Lỗi", e instanceof Error ? e.message : "Không cân bằng được.");
+            } finally {
+              setBulkBusy(false);
+            }
+          },
+        },
+      ],
+    );
+  };
+
+  const splitSelected = async () => {
+    const ids = [...selected];
+    const targetVoiceId = resolveTargetVoiceId(ids);
+    if (!targetVoiceId || ids.length !== 1 || bulkBusy) return;
+    const sample = samples.find((s) => s.id === ids[0]);
+    const durLabel = sample?.duration_label ?? "—:—";
+    const fromProcessed = tab === "processed";
+    Alert.alert(
+      "Chia đôi mẫu?",
+      fromProcessed
+        ? `Tách “${durLabel}” thành 2 nửa (~1/2 thời lượng mỗi file). File gốc sẽ bị Loại khỏi Sẵn sàng clone để tránh clone trùng.`
+        : `Tách “${durLabel}” thành 2 nửa (~1/2 thời lượng). File gốc vẫn giữ ở Chưa xử lý.`,
+      [
+        { text: "Huỷ", style: "cancel" },
+        {
+          text: "Chia đôi",
+          onPress: async () => {
+            setBulkBusy(true);
+            try {
+              const res = await api.splitVoiceSample(targetVoiceId, ids[0]);
+              await refreshAllTabs();
+              const halves = (res.voice.samples ?? []).filter((s) =>
+                res.sample_ids.includes(s.id),
+              );
+              const labels = halves
+                .map((s) => s.duration_label)
+                .filter(Boolean)
+                .join(" + ");
+              Alert.alert(
+                "Đã chia đôi",
+                labels
+                  ? `Hai nửa: ${labels}.${
+                      res.archived_original
+                        ? " File gốc đã loại khỏi Sẵn sàng clone."
+                        : " Nghe lại rồi Duyệt nếu ổn."
+                    }`
+                  : res.archived_original
+                    ? "Hai nửa đã sẵn sàng clone. File gốc đã loại."
+                    : "Hai nửa đã tạo. Nghe lại rồi Duyệt nếu ổn.",
+              );
+            } catch (e) {
+              Alert.alert("Lỗi", e instanceof Error ? e.message : "Không chia được.");
             } finally {
               setBulkBusy(false);
             }
@@ -356,7 +496,13 @@ export default function VoiceSamplesScreen() {
     [samples],
   );
 
-  if (initialLoading && !samples.length && !samplesByTab.unprocessed.length && !samplesByTab.processed.length) {
+  if (
+    initialLoading &&
+    !samples.length &&
+    !samplesByTab.unprocessed.length &&
+    !samplesByTab.processed.length &&
+    !samplesByTab.archived.length
+  ) {
     return (
       <View style={styles.center}>
         <ActivityIndicator color={colors.brand} />
@@ -393,8 +539,9 @@ export default function VoiceSamplesScreen() {
           {item.parent_sample_ids?.length
             ? ` · từ ${item.parent_sample_ids.length} đoạn`
             : ""}
-          {item.processing_applied?.normalize ? " · normalize" : ""}{" "}
-          · {item.created_at.slice(0, 16).replace("T", " ")}
+          {item.processing_applied?.normalize ? " · normalize" : ""}
+          {item.processing_applied?.from_video ? " · từ video" : ""}{" "}
+          · {formatLocalDateTime(item.created_at)}
         </Text>
         <Text style={[styles.score, { color: scoreColor }]}>
           {item.quality_score != null
@@ -473,6 +620,44 @@ export default function VoiceSamplesScreen() {
               <Text style={styles.approve}>Duyệt</Text>
             </Pressable>
           ) : null}
+          {tab === "archived" ? (
+            <>
+              <Pressable
+                onPress={async () => {
+                  const vid = item.voice_profile_id;
+                  if (!vid) return;
+                  try {
+                    await api.updateVoiceSampleStage(vid, item.id, "unprocessed");
+                    await refreshAllTabs();
+                  } catch (e) {
+                    Alert.alert(
+                      "Lỗi",
+                      e instanceof Error ? e.message : "Không khôi phục được.",
+                    );
+                  }
+                }}
+              >
+                <Text style={styles.approve}>Khôi phục</Text>
+              </Pressable>
+              <Pressable
+                onPress={async () => {
+                  const vid = item.voice_profile_id;
+                  if (!vid) return;
+                  try {
+                    await api.updateVoiceSampleStage(vid, item.id, "processed");
+                    await refreshAllTabs();
+                  } catch (e) {
+                    Alert.alert(
+                      "Lỗi",
+                      e instanceof Error ? e.message : "Không khôi phục được.",
+                    );
+                  }
+                }}
+              >
+                <Text style={styles.approve}>→ Sẵn sàng clone</Text>
+              </Pressable>
+            </>
+          ) : null}
           <Pressable onPress={() => remove(item)}>
             <Text style={styles.delete}>Xóa</Text>
           </Pressable>
@@ -482,127 +667,154 @@ export default function VoiceSamplesScreen() {
   };
 
   return (
-    <FlatList
-      style={styles.root}
-      contentContainerStyle={styles.content}
-      data={samples}
-      keyExtractor={(s) => s.id}
-      ListHeaderComponent={
-        <View style={styles.header}>
-          <Text style={styles.headerTitle}>Mẫu giọng</Text>
-          <Text style={styles.headerSub}>
-            {tab === "unprocessed"
-              ? "Chọn mẫu → Normalize hoặc Ghép (2+). File gốc luôn giữ nguyên."
-              : "Chỉ mẫu đã duyệt mới được dùng khi Clone (tối đa 3 file, ~1–2 phút)."}
-          </Text>
-          <View style={styles.tabs}>
-            <Pressable
-              style={[styles.tab, tab === "unprocessed" && styles.tabActive]}
-              onPress={() => switchTab("unprocessed")}
-            >
-              <Text style={[styles.tabText, tab === "unprocessed" && styles.tabTextActive]}>
-                Chưa xử lý
-              </Text>
-            </Pressable>
-            <Pressable
-              style={[styles.tab, tab === "processed" && styles.tabActive]}
-              onPress={() => switchTab("processed")}
-            >
-              <Text style={[styles.tabText, tab === "processed" && styles.tabTextActive]}>
-                Sẵn sàng clone
-              </Text>
-            </Pressable>
-          </View>
-          <Text style={styles.count}>
-            {samples.length} mẫu · {formatDurationMs(totalDuration)} tổng
-            {voiceId ? " · lọc theo Voice DNA" : ""}
-            {tabRefreshing === tab ? " · đang cập nhật…" : ""}
-          </Text>
-          {tab === "unprocessed" ? (
-            <View style={styles.normalizeRow}>
-              <View style={styles.normalizeCopy}>
-                <Text style={styles.normalizeLabel}>Cân bằng âm lượng</Text>
-                <Text style={styles.normalizeHint}>
-                  Normalize trước khi Ghép hoặc Xử lý từng mẫu
-                </Text>
-              </View>
-              <Switch
-                value={normalizeEnabled}
-                onValueChange={setNormalizeEnabled}
-                trackColor={{ false: colors.line, true: colors.brandSoft }}
-                thumbColor={normalizeEnabled ? colors.brand : "#f4f3f4"}
-              />
+    <View style={styles.root}>
+      <FlatList
+        style={styles.list}
+        contentContainerStyle={[
+          styles.content,
+          selected.size > 0 ? styles.contentWithBar : null,
+        ]}
+        data={samples}
+        keyExtractor={(s) => s.id}
+        ListHeaderComponent={
+          <View style={styles.header}>
+            <Text style={styles.headerTitle}>Mẫu giọng</Text>
+            <Text style={styles.headerSub}>{TAB_META[tab].sub}</Text>
+            <View style={styles.tabs}>
+              {(["unprocessed", "processed", "archived"] as TabStage[]).map((stage) => (
+                <Pressable
+                  key={stage}
+                  style={[styles.tab, tab === stage && styles.tabActive]}
+                  onPress={() => switchTab(stage)}
+                >
+                  <Text style={[styles.tabText, tab === stage && styles.tabTextActive]}>
+                    {TAB_META[stage].label}
+                  </Text>
+                </Pressable>
+              ))}
             </View>
-          ) : null}
-          {tab === "unprocessed" && samples.length > 0 ? (
-            <Pressable onPress={selectAll} hitSlop={6}>
-              <Text style={styles.selectAll}>
-                {selected.size === samples.length ? "Bỏ chọn tất cả" : "Chọn tất cả"}
-              </Text>
-            </Pressable>
-          ) : null}
-          {selected.size > 0 ? (
-            <View style={styles.bulkRow}>
-              <Text style={styles.bulkLabel}>{selected.size} đã chọn</Text>
-              {tab === "unprocessed" && normalizeEnabled ? (
+            <Text style={styles.count}>
+              {samples.length} mẫu · {formatDurationMs(totalDuration)} tổng
+              {voiceId ? " · lọc theo Voice DNA" : ""}
+              {tabRefreshing === tab ? " · đang cập nhật…" : ""}
+            </Text>
+            {samples.length > 0 ? (
+              <Pressable onPress={selectAll} hitSlop={6}>
+                <Text style={styles.selectAll}>
+                  {selected.size === samples.length ? "Bỏ chọn tất cả" : "Chọn tất cả"}
+                </Text>
+              </Pressable>
+            ) : null}
+          </View>
+        }
+        ListEmptyComponent={
+          <Text style={styles.empty}>{TAB_META[tab].empty}</Text>
+        }
+        renderItem={({ item, index }) => renderItem(item, index + 1)}
+      />
+
+      {selected.size > 0 ? (
+        <View
+          style={[
+            styles.stickyBar,
+            { paddingBottom: Math.max(insets.bottom, 12) },
+          ]}
+        >
+          <Text style={styles.stickyCount}>
+            Đã chọn {selected.size} - tổng thời lượng {formatDurationMs(selectedDuration)}
+          </Text>
+          <View style={styles.bulkRow}>
+            {tab === "unprocessed" ? (
+              <Pressable
+                style={[styles.actionBtn, bulkBusy && styles.disabled]}
+                onPress={processSelected}
+                disabled={bulkBusy}
+              >
+                <Text style={styles.actionBtnText}>
+                  {bulkBusy ? "Đang xử lý…" : "Cân bằng âm lượng"}
+                </Text>
+              </Pressable>
+            ) : null}
+            {tab === "unprocessed" && selected.size >= 2 ? (
+              <Pressable
+                style={[styles.actionBtn, bulkBusy && styles.disabled]}
+                onPress={combineSelected}
+                disabled={bulkBusy}
+              >
+                <Text style={styles.actionBtnText}>
+                  {bulkBusy ? "Đang ghép…" : "Ghép"}
+                </Text>
+              </Pressable>
+            ) : null}
+            {tab !== "archived" && selected.size === 1 ? (
+              <Pressable
+                style={[styles.actionBtn, bulkBusy && styles.disabled]}
+                onPress={splitSelected}
+                disabled={bulkBusy}
+              >
+                <Text style={styles.actionBtnText}>
+                  {bulkBusy ? "Đang chia…" : "Chia đôi"}
+                </Text>
+              </Pressable>
+            ) : null}
+            {tab === "unprocessed" ? (
+              <Pressable
+                style={[styles.actionBtn, bulkBusy && styles.disabled]}
+                onPress={() => bulkStage("processed")}
+                disabled={bulkBusy}
+              >
+                <Text style={styles.actionBtnText}>
+                  {bulkBusy ? "Đang lưu…" : "Duyệt"}
+                </Text>
+              </Pressable>
+            ) : null}
+            {tab === "archived" ? (
+              <>
                 <Pressable
-                  style={[styles.btnSecondary, bulkBusy && styles.disabled]}
-                  onPress={processSelected}
+                  style={[styles.actionBtn, bulkBusy && styles.disabled]}
+                  onPress={() => bulkStage("unprocessed")}
                   disabled={bulkBusy}
                 >
-                  <Text style={styles.btnSecondaryText}>
-                    {bulkBusy ? "Đang xử lý…" : "Xử lý"}
+                  <Text style={styles.actionBtnText}>
+                    {bulkBusy ? "Đang lưu…" : "Khôi phục"}
                   </Text>
                 </Pressable>
-              ) : null}
-              {tab === "unprocessed" && selected.size >= 2 ? (
                 <Pressable
-                  style={[styles.btnSecondary, bulkBusy && styles.disabled]}
-                  onPress={combineSelected}
-                  disabled={bulkBusy}
-                >
-                  <Text style={styles.btnSecondaryText}>
-                    {bulkBusy ? "Đang ghép…" : "Ghép"}
-                  </Text>
-                </Pressable>
-              ) : null}
-              {tab === "unprocessed" ? (
-                <Pressable
-                  style={[styles.btn, bulkBusy && styles.disabled]}
+                  style={[styles.actionBtn, bulkBusy && styles.disabled]}
                   onPress={() => bulkStage("processed")}
                   disabled={bulkBusy}
                 >
-                  <Text style={styles.btnText}>
-                    {bulkBusy ? "Đang lưu…" : "Duyệt → Sẵn sàng clone"}
-                  </Text>
+                  <Text style={styles.actionBtnText}>Duyệt</Text>
                 </Pressable>
-              ) : null}
+              </>
+            ) : (
               <Pressable
-                style={styles.btnGhost}
+                style={[styles.actionBtn, bulkBusy && styles.disabled]}
                 onPress={() => bulkStage("archived")}
                 disabled={bulkBusy}
               >
-                <Text style={styles.btnGhostText}>Loại</Text>
+                <Text style={styles.actionBtnText}>Loại</Text>
               </Pressable>
-            </View>
-          ) : null}
+            )}
+            <Pressable
+              style={[styles.actionBtn, bulkBusy && styles.disabled]}
+              onPress={clearSelection}
+              disabled={bulkBusy}
+            >
+              <Text style={styles.actionBtnText}>Trở về</Text>
+            </Pressable>
+          </View>
         </View>
-      }
-      ListEmptyComponent={
-        <Text style={styles.empty}>
-          {tab === "unprocessed"
-            ? "Không còn mẫu chưa xử lý. Import từ pool hoặc chuyển sang tab Sẵn sàng clone."
-            : "Chưa có mẫu sẵn clone. Duyệt mẫu tốt từ tab Chưa xử lý."}
-        </Text>
-      }
-      renderItem={({ item, index }) => renderItem(item, index + 1)}
-    />
+      ) : null}
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.bg },
+  list: { flex: 1 },
   content: { padding: 20, paddingBottom: 40, gap: 8 },
+  contentWithBar: { paddingBottom: 140 },
   center: {
     flex: 1,
     alignItems: "center",
@@ -618,32 +830,44 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     borderWidth: 1,
     borderColor: colors.line,
-    paddingVertical: 10,
+    paddingVertical: 9,
+    paddingHorizontal: 4,
     alignItems: "center",
     backgroundColor: colors.card,
   },
   tabActive: { borderColor: colors.brand, backgroundColor: colors.bgDeep },
-  tabText: { fontSize: 13, fontWeight: "600", color: colors.inkSoft },
+  tabText: { fontSize: 12, fontWeight: "600", color: colors.inkSoft, textAlign: "center" },
   tabTextActive: { color: colors.brand },
   count: { fontSize: 13, fontWeight: "600", color: colors.brand, marginTop: 4 },
   selectAll: { fontSize: 13, fontWeight: "700", color: colors.brand, marginTop: 4 },
-  normalizeRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: 12,
-    marginTop: 8,
-    padding: 12,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: colors.line,
+  stickyBar: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    bottom: 0,
     backgroundColor: colors.card,
+    borderTopWidth: 1,
+    borderTopColor: colors.line,
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    gap: 10,
+    shadowColor: "#000",
+    shadowOpacity: 0.08,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: -2 },
+    elevation: 8,
   },
-  normalizeCopy: { flex: 1, gap: 2 },
-  normalizeLabel: { fontSize: 14, fontWeight: "700", color: colors.ink },
-  normalizeHint: { fontSize: 12, lineHeight: 16, color: colors.inkSoft },
-  bulkRow: { flexDirection: "row", flexWrap: "wrap", alignItems: "center", gap: 8, marginTop: 8 },
-  bulkLabel: { fontSize: 13, fontWeight: "700", color: colors.ink },
+  stickyCount: { fontSize: 15, fontWeight: "700", color: colors.ink },
+  bulkRow: { flexDirection: "row", flexWrap: "wrap", alignItems: "center", gap: 8 },
+  actionBtn: {
+    borderWidth: 1,
+    borderColor: colors.brand,
+    borderRadius: 8,
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    backgroundColor: colors.bgDeep,
+  },
+  actionBtnText: { color: colors.brand, fontWeight: "700", fontSize: 13 },
   empty: { fontSize: 14, color: colors.inkSoft, marginTop: 20 },
   card: {
     backgroundColor: colors.card,

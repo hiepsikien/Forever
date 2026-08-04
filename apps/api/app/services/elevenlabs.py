@@ -208,6 +208,26 @@ def list_voices(
     return out
 
 
+def delete_voice(*, settings: Settings, api_key: str, voice_id: str) -> None:
+    """Delete a custom / Instant Clone voice from the ElevenLabs account."""
+    voice_id = (voice_id or "").strip()
+    if not voice_id:
+        raise ElevenLabsError("Thiếu voice_id để xóa.", status_code=400)
+
+    url = f"{settings.elevenlabs_api_base.rstrip('/')}/voices/{voice_id}"
+    with httpx.Client(timeout=45.0) as client:
+        res = client.delete(url, headers={"xi-api-key": api_key})
+
+    if res.status_code == 404:
+        raise ElevenLabsError("Không tìm thấy bản clone trên tài khoản.", status_code=404)
+    if res.status_code >= 400:
+        detail = _error_detail(res)
+        raise ElevenLabsError(
+            f"Xóa clone thất bại: {detail}",
+            status_code=502,
+        )
+
+
 def text_to_speech(
     *,
     settings: Settings,

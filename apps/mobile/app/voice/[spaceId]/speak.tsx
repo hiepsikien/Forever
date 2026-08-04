@@ -42,6 +42,7 @@ import {
   activeTtsValues,
   clampSpeed,
   clampTts,
+  DEFAULT_DRAFT_TEXT,
   DEFAULT_TTS_PROFILE_SETTINGS,
   loadTtsSettings,
   saveTtsSettings,
@@ -171,7 +172,7 @@ export default function VoiceSpeakScreen() {
   );
   const [selectedElVoiceId, setSelectedElVoiceId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
-  const [text, setText] = useState("Con nhớ bố lắm.");
+  const [text, setText] = useState(DEFAULT_DRAFT_TEXT);
   const [modelId, setModelId] = useState<VoiceTtsModelId>("eleven_v3");
   const [preset, setPreset] = useState<TtsPresetName | null>(
     DEFAULT_TTS_PROFILE_SETTINGS.mode === "custom"
@@ -206,6 +207,8 @@ export default function VoiceSpeakScreen() {
 
   const selectedProfileIdRef = useRef<string | null>(selectedProfileId);
   selectedProfileIdRef.current = selectedProfileId;
+  const textRef = useRef(text);
+  textRef.current = text;
 
   const settingsRef = useRef<TtsProfileSettings>(DEFAULT_TTS_PROFILE_SETTINGS);
 
@@ -220,7 +223,12 @@ export default function VoiceSpeakScreen() {
   }, []);
 
   const commitProfileSettings = useCallback(
-    (next: TtsProfileSettings) => {
+    (patch: Partial<TtsProfileSettings> & Pick<TtsProfileSettings, "mode" | "custom">) => {
+      const next: TtsProfileSettings = {
+        ...settingsRef.current,
+        ...patch,
+        draftText: patch.draftText ?? settingsRef.current.draftText ?? textRef.current,
+      };
       settingsRef.current = next;
       applyValues(activeTtsValues(next), next.mode);
       const profileId = selectedProfileIdRef.current;
@@ -238,6 +246,11 @@ export default function VoiceSpeakScreen() {
       settingsRef.current = saved;
       applyValues(activeTtsValues(saved), saved.mode);
       setAdvancedOpen(saved.mode === "custom");
+      setText(
+        typeof saved.draftText === "string" && saved.draftText.length > 0
+          ? saved.draftText
+          : DEFAULT_DRAFT_TEXT,
+      );
       setSettingsReady(true);
     },
     [applyValues],
@@ -347,7 +360,10 @@ export default function VoiceSpeakScreen() {
     return () => {
       const profileId = selectedProfileIdRef.current;
       if (profileId) {
-        void saveTtsSettings(profileId, settingsRef.current);
+        void saveTtsSettings(profileId, {
+          ...settingsRef.current,
+          draftText: textRef.current,
+        });
       }
     };
   }, []);
@@ -412,7 +428,10 @@ export default function VoiceSpeakScreen() {
     setSettingsReady(false);
     const leavingId = selectedProfileId;
     if (leavingId) {
-      void saveTtsSettings(leavingId, settingsRef.current);
+      void saveTtsSettings(leavingId, {
+        ...settingsRef.current,
+        draftText: textRef.current,
+      });
     }
     setSelectedProfileId(id);
     const profile = profiles.find((p) => p.id === id) ?? null;
@@ -424,6 +443,18 @@ export default function VoiceSpeakScreen() {
         setSettingsReady(true);
       }
     })();
+  };
+
+  const onChangeDraftText = (next: string) => {
+    setText(next);
+    settingsRef.current = {
+      ...settingsRef.current,
+      draftText: next,
+    };
+    const profileId = selectedProfileIdRef.current;
+    if (profileId) {
+      void saveTtsSettings(profileId, settingsRef.current);
+    }
   };
 
   const selectElVoice = (id: string) => {
@@ -752,7 +783,7 @@ export default function VoiceSpeakScreen() {
           <TextInput
             style={styles.input}
             value={text}
-            onChangeText={setText}
+            onChangeText={onChangeDraftText}
             placeholder="Nhập câu để tạo giọng…"
             placeholderTextColor={colors.inkSoft}
             multiline

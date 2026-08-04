@@ -36,10 +36,20 @@ from ..services.heritage import (
     heritage_thread_title,
     sync_heritage_thread_title,
 )
-from ..services.audio_combine import AudioCombineError, combine_audio_files
+from ..services.audio_combine import AudioCombineError, combine_audio_files, probe_duration_ms
+from ..services.audio_extract import extract_audio_from_video
 from ..services.audio_process import normalize_audio_file, normalize_audio_file_inplace
+from ..services.audio_split import split_audio_file
 from ..services.sample_quality import score_voice_sample
-from ..services.storage import MAX_UPLOAD_BYTES, absolute_media_path, save_bytes, save_upload
+from ..services.storage import (
+    MAX_UPLOAD_BYTES,
+    MAX_VOICE_VIDEO_BYTES,
+    absolute_media_path,
+    is_audio_mime,
+    is_video_mime,
+    save_bytes,
+    save_upload,
+)
 from ..services.voice_script import generate_voice_sample_script
 
 router = APIRouter(tags=["voice-dna"])
@@ -51,6 +61,7 @@ CLONE_MAX_DURATION_MS = 150_000
 COMBINE_MIN_SAMPLES = 2
 COMBINE_MAX_SAMPLES = 100
 COMBINE_MAX_INPUT_DURATION_MS = 600_000
+SPLIT_MIN_DURATION_MS = 20_000
 
 
 class CreateIdentityBody(BaseModel):
@@ -81,6 +92,9 @@ class CreateVoiceForIdentityBody(BaseModel):
 
 class CloneBody(BaseModel):
     remove_background_noise: bool | None = None
+    sample_ids: list[str] | None = Field(
+        default=None, min_length=1, max_length=CLONE_MAX_SAMPLES
+    )
 
 
 class SampleNoteBody(BaseModel):
@@ -112,6 +126,12 @@ class ProcessSamplesBody(BaseModel):
     normalize: bool = True
 
 
+class SplitSampleBody(BaseModel):
+    sample_id: str = Field(min_length=1)
+    at_ms: int | None = Field(default=None, ge=1_000)
+    note: str = Field(default="", max_length=2000)
+
+
 class VoiceScriptBody(BaseModel):
     theme: str = Field(default="", max_length=200)
     seed: int = Field(default=0, ge=0, le=10_000)
@@ -130,6 +150,10 @@ class TtsBody(BaseModel):
     use_speaker_boost: bool | None = None
     lengthen_pauses: bool | None = None
     save: bool = False
+
+
+class SelectCloneBody(BaseModel):
+    provider_voice_id: str = Field(min_length=1, max_length=120)
 
 
 def _resolve_tts_model(requested: str | None, default: str) -> str:
@@ -155,6 +179,10 @@ def _render_payload(row: VoiceRender, voice: VoiceProfile | None = None) -> dict
         "provider_voice_name": row.provider_voice_name or None,
         "stability": row.stability,
         "similarity_boost": row.similarity_boost,
+        "style": getattr(row, "style", None),
+        "speed": getattr(row, "speed", None),
+        "use_speaker_boost": getattr(row, "use_speaker_boost", None),
+        "lengthen_pauses": getattr(row, "lengthen_pauses", None),
         "created_by": row.created_by,
         "created_at": row.created_at.isoformat(),
         "voice_display_name": voice.display_name if voice else None,
@@ -269,7 +297,10 @@ def _create_derived_sample(
     note: str,
     parent_ids: list[str],
     processing: dict,
+    pipeline_stage: str = "unprocessed",
 ) -> VoiceSample:
+    if pipeline_stage not in PIPELINE_STAGES:
+        raise ValueError(f"Invalid pipeline_stage: {pipeline_stage}")
     score, label, tip = score_voice_sample(
         duration_ms=duration_ms,
         file_size_bytes=file_size,
@@ -286,7 +317,7 @@ def _create_derived_sample(
         quality_score=score,
         quality_label=label,
         quality_tip=tip,
-        pipeline_stage="unprocessed",
+        pipeline_stage=pipeline_stage,
         parent_sample_ids=json.dumps(parent_ids),
         processing_applied=json.dumps(processing),
         created_by=user.id,
@@ -1012,16 +1043,79 @@ async def add_sample(
 
     if source not in ("record", "upload", "memory", "extract"):
         source = "upload"
-    pipeline_stage = "unprocessed" if source == "extract" else "processed"
 
-    media_path, mime = save_upload(voice.space_id, file)
-    if not mime.startswith("audio/"):
-        raise HTTPException(status_code=400, detail="Chỉ chấp nhận file audio.")
+    # Allow video up to voice-video cap; audio still enforced at 25MB below.
+    media_path, mime = save_upload(
+        voice.space_id,
+        file,
+        max_bytes=MAX_VOICE_VIDEO_BYTES,
+    )
+    from_video = is_video_mime(mime)
+    if not from_video and not is_audio_mime(mime):
+        absolute_media_path(media_path).unlink(missing_ok=True)
+        raise HTTPException(
+            status_code=400,
+            detail="Chỉ chấp nhận file audio hoặc video (sẽ tách tiếng).",
+        )
+    if not from_video:
+        path_check = absolute_media_path(media_path)
+        if path_check.exists() and path_check.stat().st_size > MAX_UPLOAD_BYTES:
+            path_check.unlink(missing_ok=True)
+            raise HTTPException(
+                status_code=400,
+                detail="File audio quá lớn (tối đa 25MB).",
+            )
+
+    settings = get_settings()
+    original_name = (file.filename or "").strip()
+    user_note = (note or "").strip()
+    processing: dict = {}
+
+    if from_video:
+        video_path = absolute_media_path(media_path)
+        relative_audio = f"{voice.space_id}/{generate()}.m4a"
+        audio_path = Path(settings.upload_dir) / relative_audio
+        try:
+            dur_extracted, file_size = extract_audio_from_video(video_path, audio_path)
+        except AudioCombineError as exc:
+            video_path.unlink(missing_ok=True)
+            audio_path.unlink(missing_ok=True)
+            raise HTTPException(status_code=400, detail=exc.message) from exc
+        video_path.unlink(missing_ok=True)
+        if file_size > MAX_UPLOAD_BYTES:
+            audio_path.unlink(missing_ok=True)
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    "Phần âm thanh sau khi tách vẫn quá lớn (tối đa 25MB). "
+                    "Dùng Tách giọng từ băng dài cho video dài hơn."
+                ),
+            )
+        media_path = relative_audio.replace("\\", "/")
+        mime = "audio/mp4"
+        duration_ms = dur_extracted or duration_ms
+        processing = {"from_video": True}
+        if not user_note and original_name:
+            user_note = f"Tách tiếng từ video ({original_name})"
+        elif not user_note:
+            user_note = "Tách tiếng từ video"
 
     path = absolute_media_path(media_path)
     file_size = path.stat().st_size if path.exists() else 0
     dur = duration_ms if duration_ms is not None and duration_ms > 0 else None
+    if dur is None:
+        dur = probe_duration_ms(path)
     score, label, tip = score_voice_sample(duration_ms=dur, file_size_bytes=file_size)
+    if from_video and dur and dur > 180_000:
+        tip = (
+            "Video hơi dài cho 1 mẫu clone — cân nhắc Tách giọng từ băng dài "
+            "nếu có nhiều người / đoạn."
+        )
+
+    # Video-derived and extract stay in inbox for human listen/approve.
+    pipeline_stage = (
+        "unprocessed" if source == "extract" or from_video else "processed"
+    )
 
     now = datetime.now(timezone.utc)
     sample = VoiceSample(
@@ -1030,13 +1124,14 @@ async def add_sample(
         media_path=media_path,
         media_mime=mime,
         source=source,
-        note=(note or "").strip()[:2000],
+        note=user_note[:2000],
         duration_ms=dur,
         file_size_bytes=file_size,
         quality_score=score,
         quality_label=label,
         quality_tip=tip,
         pipeline_stage=pipeline_stage,
+        processing_applied=json.dumps(processing) if processing else "",
         created_by=user.id,
         created_at=now,
     )
@@ -1054,7 +1149,11 @@ async def add_sample(
         .order_by(VoiceSample.created_at.asc())
         .all()
     )
-    return {"sample_id": sample.id, "voice": _voice_payload(voice, samples)}
+    return {
+        "sample_id": sample.id,
+        "from_video": from_video,
+        "voice": _voice_payload(voice, samples),
+    }
 
 
 @router.patch("/api/voices/{voice_id}/samples/{sample_id}")
@@ -1219,6 +1318,148 @@ def combine_samples(
     }
 
 
+@router.post("/api/voices/{voice_id}/samples/split")
+def split_sample(
+    voice_id: str,
+    body: SplitSampleBody,
+    user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[Session, Depends(get_db)],
+):
+    """Split one sample into two halves (keeps original; archives if it was processed)."""
+    voice = _get_voice_or_404(db, voice_id)
+    require_membership(db, space_id=voice.space_id, user=user)
+    if not _can_mutate_voice(db, voice, user):
+        raise HTTPException(status_code=403, detail="Không được sửa Voice DNA này.")
+    if voice.status == "paused":
+        raise HTTPException(status_code=400, detail="Voice đang tạm dừng.")
+
+    sample = (
+        db.query(VoiceSample)
+        .filter(
+            VoiceSample.voice_profile_id == voice.id,
+            VoiceSample.id == body.sample_id,
+        )
+        .first()
+    )
+    if sample is None:
+        raise HTTPException(status_code=404, detail="Sample không tồn tại.")
+
+    stage = _effective_stage(sample)
+    if stage == "archived":
+        raise HTTPException(
+            status_code=400,
+            detail="Không chia mẫu đã loại (archived).",
+        )
+
+    duration_ms = sample.duration_ms or 0
+    if duration_ms < SPLIT_MIN_DURATION_MS:
+        raise HTTPException(
+            status_code=400,
+            detail="Mẫu quá ngắn để chia (cần ≥ ~20 giây).",
+        )
+    if body.at_ms is not None and (
+        body.at_ms < 1_000 or body.at_ms >= duration_ms - 1_000
+    ):
+        raise HTTPException(
+            status_code=400,
+            detail="Điểm chia không hợp lệ — mỗi nửa cần ít nhất ~1 giây.",
+        )
+
+    settings = get_settings()
+    relative_a = f"{voice.space_id}/{generate()}.wav"
+    relative_b = f"{voice.space_id}/{generate()}.wav"
+    output_a = Path(settings.upload_dir) / relative_a
+    output_b = Path(settings.upload_dir) / relative_b
+    input_path = absolute_media_path(sample.media_path)
+
+    try:
+        (dur_a, size_a), (dur_b, size_b) = split_audio_file(
+            input_path,
+            output_a,
+            output_b,
+            at_ms=body.at_ms,
+        )
+    except AudioCombineError as exc:
+        output_a.unlink(missing_ok=True)
+        output_b.unlink(missing_ok=True)
+        raise HTTPException(status_code=400, detail=exc.message) from exc
+
+    if size_a > MAX_UPLOAD_BYTES or size_b > MAX_UPLOAD_BYTES:
+        output_a.unlink(missing_ok=True)
+        output_b.unlink(missing_ok=True)
+        raise HTTPException(
+            status_code=400,
+            detail="Một nửa sau khi chia vẫn quá lớn (tối đa 25MB).",
+        )
+
+    cut_label = _format_duration(body.at_ms if body.at_ms is not None else duration_ms // 2)
+    auto_note = (
+        f"Chia đôi từ mẫu ({_format_duration(duration_ms) or '—:—'}"
+        f" · cắt @{cut_label or 'giữa'})"
+    )
+    user_note = (body.note or "").strip()
+    base_note = f"{auto_note}. {user_note}".strip() if user_note else auto_note
+    processing = {
+        "split": True,
+        "at_ms": body.at_ms if body.at_ms is not None else duration_ms // 2,
+    }
+
+    # Halves stay in the same inbox stage as the parent so Ready-to-clone
+    # can immediately replace one oversized file with two shorter ones.
+    half_stage = stage
+    now = datetime.now(timezone.utc)
+    half_a = _create_derived_sample(
+        db=db,
+        voice=voice,
+        user=user,
+        now=now,
+        relative_path=relative_a,
+        duration_ms=dur_a or None,
+        file_size=size_a,
+        source="split",
+        note=f"{base_note} · nửa 1",
+        parent_ids=[sample.id],
+        processing=processing,
+        pipeline_stage=half_stage,
+    )
+    half_b = _create_derived_sample(
+        db=db,
+        voice=voice,
+        user=user,
+        now=now,
+        relative_path=relative_b,
+        duration_ms=dur_b or None,
+        file_size=size_b,
+        source="split",
+        note=f"{base_note} · nửa 2",
+        parent_ids=[sample.id],
+        processing=processing,
+        pipeline_stage=half_stage,
+    )
+
+    archived_original = False
+    if stage == "processed":
+        # Avoid cloning original + halves together (duplicate audio / over sample cap).
+        sample.pipeline_stage = "archived"
+        archived_original = True
+        _invalidate_clone_if_ready(voice)
+
+    voice.updated_at = now
+    db.commit()
+
+    samples = (
+        db.query(VoiceSample)
+        .filter(VoiceSample.voice_profile_id == voice.id)
+        .order_by(VoiceSample.created_at.asc())
+        .all()
+    )
+    return {
+        "sample_ids": [half_a.id, half_b.id],
+        "archived_original": archived_original,
+        "voice": _voice_payload(voice, samples),
+    }
+
+
 @router.post("/api/voices/{voice_id}/samples/process")
 def process_samples(
     voice_id: str,
@@ -1361,27 +1602,41 @@ def clone_voice(
                 "Vào Mẫu giọng → chọn mẫu tốt → Duyệt."
             ),
         )
-    if len(processed) > CLONE_MAX_SAMPLES:
-        raise HTTPException(
-            status_code=400,
-            detail=(
-                f"IVC tốt nhất với 1–{CLONE_MAX_SAMPLES} mẫu sạch (~1–2 phút tổng). "
-                "Loại bớt mẫu kém hoặc archive trước khi clone."
-            ),
-        )
-    total_ms = sum(s.duration_ms or 0 for s in processed)
+
+    requested_ids = list(dict.fromkeys(body.sample_ids)) if body and body.sample_ids else None
+    if requested_ids is not None:
+        by_id = {s.id: s for s in processed}
+        missing = [sid for sid in requested_ids if sid not in by_id]
+        if missing:
+            raise HTTPException(
+                status_code=400,
+                detail="Mẫu chọn phải ở tab Sẵn sàng clone.",
+            )
+        selected = [by_id[sid] for sid in requested_ids]
+    else:
+        if len(processed) > CLONE_MAX_SAMPLES:
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    f"Có hơn {CLONE_MAX_SAMPLES} mẫu sẵn sàng — chọn 1–{CLONE_MAX_SAMPLES} "
+                    "mẫu khi Clone (không clone cả kho)."
+                ),
+            )
+        selected = processed
+
+    total_ms = sum(s.duration_ms or 0 for s in selected)
     if total_ms > CLONE_MAX_DURATION_MS:
         raise HTTPException(
             status_code=400,
             detail=(
-                "Tổng thời lượng mẫu Processed quá dài (~>2.5 phút). "
-                "Chọn ít mẫu hơn hoặc archive bớt."
+                "Tổng thời lượng mẫu chọn quá dài (~>2.5 phút). "
+                "Bỏ bớt mẫu hoặc chia đôi file dài."
             ),
         )
 
     settings = get_settings()
     api_key = el.resolve_api_key(settings, _space_api_key(db, voice.space_id))
-    paths = [absolute_media_path(s.media_path) for s in processed]
+    paths = [absolute_media_path(s.media_path) for s in selected]
     for path in paths:
         if not path.exists():
             raise HTTPException(status_code=400, detail="Sample audio bị thiếu trên server.")
@@ -1444,6 +1699,26 @@ def synthesize_tts(
     model_id = _resolve_tts_model(body.model_id, settings.elevenlabs_tts_model)
     api_key = el.resolve_api_key(settings, _space_api_key(db, voice.space_id))
     provider_voice_name = (body.provider_voice_name or "").strip()
+    stability = (
+        body.stability if body.stability is not None else settings.elevenlabs_stability
+    )
+    similarity_boost = (
+        body.similarity_boost
+        if body.similarity_boost is not None
+        else settings.elevenlabs_similarity_boost
+    )
+    style = body.style if body.style is not None else settings.elevenlabs_style
+    speed = body.speed if body.speed is not None else settings.elevenlabs_speed
+    use_speaker_boost = (
+        body.use_speaker_boost
+        if body.use_speaker_boost is not None
+        else settings.elevenlabs_speaker_boost
+    )
+    lengthen_pauses = (
+        body.lengthen_pauses
+        if body.lengthen_pauses is not None
+        else settings.elevenlabs_lengthen_pauses
+    )
     try:
         audio = el.text_to_speech(
             settings=settings,
@@ -1451,12 +1726,12 @@ def synthesize_tts(
             voice_id=provider_voice_id,
             text=body.text,
             model_id=model_id,
-            stability=body.stability,
-            similarity_boost=body.similarity_boost,
-            style=body.style,
-            speed=body.speed,
-            use_speaker_boost=body.use_speaker_boost,
-            lengthen_pauses=body.lengthen_pauses,
+            stability=stability,
+            similarity_boost=similarity_boost,
+            style=style,
+            speed=speed,
+            use_speaker_boost=use_speaker_boost,
+            lengthen_pauses=lengthen_pauses,
         )
     except el.ElevenLabsError as exc:
         raise HTTPException(status_code=exc.status_code, detail=exc.message) from exc
@@ -1476,8 +1751,12 @@ def synthesize_tts(
         model_id=model_id,
         provider_voice_id=provider_voice_id,
         provider_voice_name=provider_voice_name,
-        stability=body.stability,
-        similarity_boost=body.similarity_boost,
+        stability=stability,
+        similarity_boost=similarity_boost,
+        style=style,
+        speed=speed,
+        use_speaker_boost=use_speaker_boost,
+        lengthen_pauses=lengthen_pauses,
         created_by=user.id,
         created_at=now,
     )
@@ -1536,12 +1815,54 @@ def list_elevenlabs_voices(
     return {"voices": voices}
 
 
+@router.delete("/api/spaces/{space_id}/elevenlabs-voices/{provider_voice_id}")
+def delete_elevenlabs_voice(
+    space_id: str,
+    provider_voice_id: str,
+    user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[Session, Depends(get_db)],
+):
+    """Delete an Instant Clone from the shared ElevenLabs account."""
+    require_steward_or_owner(db, space_id=space_id, user=user)
+    el_id = (provider_voice_id or "").strip()
+    if not el_id:
+        raise HTTPException(status_code=400, detail="Thiếu provider voice id.")
+
+    settings = get_settings()
+    api_key = el.resolve_api_key(settings, _space_api_key(db, space_id))
+    try:
+        el.delete_voice(settings=settings, api_key=api_key, voice_id=el_id)
+    except el.ElevenLabsError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=exc.message) from exc
+
+    # Detach any Forever Voice DNA still pointing at this clone.
+    now = datetime.now(timezone.utc)
+    affected = (
+        db.query(VoiceProfile)
+        .filter(
+            VoiceProfile.space_id == space_id,
+            VoiceProfile.provider_voice_id == el_id,
+        )
+        .all()
+    )
+    for voice in affected:
+        voice.provider_voice_id = None
+        if voice.status == "ready":
+            voice.status = "draft"
+        voice.updated_at = now
+    if affected:
+        db.commit()
+
+    return {"ok": True, "detached_voice_ids": [v.id for v in affected]}
+
+
 @router.get("/api/spaces/{space_id}/voice-renders")
 def list_space_voice_renders(
     space_id: str,
     user: Annotated[User, Depends(get_current_user)],
     db: Annotated[Session, Depends(get_db)],
     voice_id: str | None = None,
+    provider_voice_id: str | None = None,
 ):
     require_membership(db, space_id=space_id, user=user)
     q = (
@@ -1551,6 +1872,9 @@ def list_space_voice_renders(
     )
     if voice_id:
         q = q.filter(VoiceRender.voice_profile_id == voice_id)
+    el_id = (provider_voice_id or "").strip()
+    if el_id:
+        q = q.filter(VoiceRender.provider_voice_id == el_id)
     rows = q.order_by(VoiceRender.created_at.desc()).all()
     return {
         "renders": [_render_payload(render, voice=voice) for render, voice in rows]
@@ -1640,6 +1964,48 @@ def pause_voice(
     if not _can_mutate_voice(db, voice, user):
         raise HTTPException(status_code=403, detail="Không được sửa Voice DNA này.")
     voice.status = "paused"
+    voice.updated_at = datetime.now(timezone.utc)
+    db.commit()
+    samples = (
+        db.query(VoiceSample)
+        .filter(VoiceSample.voice_profile_id == voice.id)
+        .order_by(VoiceSample.created_at.asc())
+        .all()
+    )
+    return _voice_payload(voice, samples)
+
+
+@router.post("/api/voices/{voice_id}/select-clone")
+def select_clone(
+    voice_id: str,
+    body: SelectCloneBody,
+    user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[Session, Depends(get_db)],
+):
+    """Attach an existing Instant Clone as the default provider voice for TTS."""
+    voice = _get_voice_or_404(db, voice_id)
+    require_membership(db, space_id=voice.space_id, user=user)
+    if not _can_mutate_voice(db, voice, user):
+        raise HTTPException(status_code=403, detail="Không được sửa Voice DNA này.")
+    if voice.status == "paused":
+        raise HTTPException(status_code=400, detail="Voice đang tạm dừng.")
+
+    el_id = body.provider_voice_id.strip()
+    settings = get_settings()
+    api_key = el.resolve_api_key(settings, _space_api_key(db, voice.space_id))
+    try:
+        clones = el.list_voices(settings=settings, api_key=api_key, cloned_only=True)
+    except el.ElevenLabsError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=exc.message) from exc
+    if not any(str(v.get("voice_id") or "") == el_id for v in clones):
+        raise HTTPException(
+            status_code=404,
+            detail="Không tìm thấy bản clone trên tài khoản.",
+        )
+
+    voice.provider_voice_id = el_id
+    voice.status = "ready"
+    voice.error_message = ""
     voice.updated_at = datetime.now(timezone.utc)
     db.commit()
     samples = (

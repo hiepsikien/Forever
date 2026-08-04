@@ -530,6 +530,68 @@ def test_pipeline_stage_clone_uses_processed_only(client: TestClient, monkeypatc
     get_settings.cache_clear()
 
 
+def test_clone_with_selected_sample_ids(client: TestClient, monkeypatch, tmp_path):
+    monkeypatch.setenv("UPLOAD_DIR", str(tmp_path))
+    monkeypatch.setenv("ELEVENLABS_API_KEY", "test-key")
+    from app.config import get_settings
+
+    get_settings.cache_clear()
+
+    token = _login(client, "clone-pick@forever.family", "ClonePick")
+    headers = {"Authorization": f"Bearer {token}"}
+    space_id = _space(client, token)
+
+    created = client.post(
+        f"/api/spaces/{space_id}/voices/self",
+        headers=headers,
+        json={"consent": True},
+    )
+    assert created.status_code == 200, created.text
+    voice_id = created.json()["id"]
+
+    sample_ids: list[str] = []
+    for idx in range(4):
+        res = client.post(
+            f"/api/voices/{voice_id}/samples",
+            headers=headers,
+            files={"file": (f"s{idx}.wav", BytesIO(b"fake"), "audio/wav")},
+            data={"source": "upload", "duration_ms": "30000"},
+        )
+        assert res.status_code == 200, res.text
+        sample_ids.append(res.json()["sample_id"])
+
+    # Without selection, >3 processed is blocked.
+    blocked = client.post(f"/api/voices/{voice_id}/clone", headers=headers)
+    assert blocked.status_code == 400
+    assert "chọn" in blocked.json()["error"].lower()
+
+    captured: dict = {}
+
+    def fake_clone(**kwargs):
+        captured["paths"] = kwargs["file_paths"]
+        captured["remove_noise"] = kwargs["remove_background_noise"]
+        return "el_picked_voice"
+
+    with patch(
+        "app.routers.voice_dna.el.create_instant_voice_clone",
+        side_effect=fake_clone,
+    ):
+        cloned = client.post(
+            f"/api/voices/{voice_id}/clone",
+            headers=headers,
+            json={
+                "sample_ids": sample_ids[:2],
+                "remove_background_noise": False,
+            },
+        )
+    assert cloned.status_code == 200, cloned.text
+    assert cloned.json()["status"] == "ready"
+    assert len(captured["paths"]) == 2
+    assert captured["remove_noise"] is False
+
+    get_settings.cache_clear()
+
+
 def test_combine_unprocessed_samples(client: TestClient, monkeypatch, tmp_path):
     monkeypatch.setenv("UPLOAD_DIR", str(tmp_path))
 
@@ -646,3 +708,91 @@ def test_process_normalize_creates_derived_sample(
     assert new_sample["source"] == "process"
     assert new_sample["processing_applied"]["normalize"] is True
     assert new_sample["parent_sample_ids"] == [sample_id]
+
+
+def test_split_processed_sample_archives_original(
+    client: TestClient, monkeypatch, tmp_path
+):
+    monkeypatch.setenv("UPLOAD_DIR", str(tmp_path))
+
+    def fake_split(input_path, output_a, output_b, *, at_ms=None):
+        output_a.write_bytes(b"fake-half-a")
+        output_b.write_bytes(b"fake-half-b")
+        return (70_000, len(b"fake-half-a")), (70_000, len(b"fake-half-b"))
+
+    monkeypatch.setattr("app.routers.voice_dna.split_audio_file", fake_split)
+
+    token = _login(client, "split@forever.family", "Split")
+    headers = {"Authorization": f"Bearer {token}"}
+    space_id = _space(client, token)
+
+    created = client.post(
+        f"/api/spaces/{space_id}/voices/self",
+        headers=headers,
+        json={"consent": True},
+    )
+    assert created.status_code == 200, created.text
+    voice_id = created.json()["id"]
+
+    res = client.post(
+        f"/api/voices/{voice_id}/samples",
+        headers=headers,
+        files={"file": ("long.wav", BytesIO(b"fake-long-wav"), "audio/wav")},
+        data={"source": "upload", "duration_ms": "140000"},
+    )
+    assert res.status_code == 200, res.text
+    sample_id = res.json()["sample_id"]
+
+    split = client.post(
+        f"/api/voices/{voice_id}/samples/split",
+        headers=headers,
+        json={"sample_id": sample_id},
+    )
+    assert split.status_code == 200, split.text
+    payload = split.json()
+    assert payload["archived_original"] is True
+    assert len(payload["sample_ids"]) == 2
+
+    voice = payload["voice"]
+    assert voice["processed_count"] == 2
+    halves = [s for s in voice["samples"] if s["id"] in payload["sample_ids"]]
+    assert len(halves) == 2
+    assert all(s["source"] == "split" for s in halves)
+    assert all(s["pipeline_stage"] == "processed" for s in halves)
+    assert all(s["parent_sample_ids"] == [sample_id] for s in halves)
+
+    original = next(s for s in voice["samples"] if s["id"] == sample_id)
+    assert original["pipeline_stage"] == "archived"
+
+
+def test_split_rejects_short_sample(client: TestClient, monkeypatch, tmp_path):
+    monkeypatch.setenv("UPLOAD_DIR", str(tmp_path))
+
+    token = _login(client, "split-short@forever.family", "SplitShort")
+    headers = {"Authorization": f"Bearer {token}"}
+    space_id = _space(client, token)
+
+    created = client.post(
+        f"/api/spaces/{space_id}/voices/self",
+        headers=headers,
+        json={"consent": True},
+    )
+    assert created.status_code == 200, created.text
+    voice_id = created.json()["id"]
+
+    res = client.post(
+        f"/api/voices/{voice_id}/samples",
+        headers=headers,
+        files={"file": ("short.wav", BytesIO(b"fake"), "audio/wav")},
+        data={"source": "upload", "duration_ms": "10000"},
+    )
+    assert res.status_code == 200, res.text
+    sample_id = res.json()["sample_id"]
+
+    split = client.post(
+        f"/api/voices/{voice_id}/samples/split",
+        headers=headers,
+        json={"sample_id": sample_id},
+    )
+    assert split.status_code == 400
+    assert "ngắn" in split.json()["error"].lower()

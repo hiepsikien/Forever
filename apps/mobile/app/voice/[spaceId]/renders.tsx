@@ -22,6 +22,8 @@ import {
   stopActivePlayback,
 } from "@/lib/audio";
 import { useAuth } from "@/lib/auth";
+import { formatPct } from "@/lib/cloneSuggest";
+import { formatLocalDateTime } from "@/lib/datetime";
 import { useSpaceScreenOptions } from "@/lib/spaceHeader";
 import {
   fetchAuthedMediaUri,
@@ -35,7 +37,6 @@ type BusyAction = { id: string; kind: "share" } | null;
 
 function exportBaseName(item: VoiceRender): string {
   const voice = item.voice_display_name || "Voice-DNA";
-  // Include time + short id so exports don't collide on the same day.
   const stamp = item.created_at
     .slice(0, 16)
     .replace("T", "-")
@@ -44,24 +45,68 @@ function exportBaseName(item: VoiceRender): string {
   return `Forever-TTS-${voice}-${stamp}-${suffix}`;
 }
 
+function renderParamLines(item: VoiceRender): string[] {
+  const lines: string[] = [
+    `Model: ${voiceTtsModelLabel(item.model_id)}`,
+  ];
+  if (item.provider_voice_name) {
+    lines.push(`Bản clone: ${item.provider_voice_name}`);
+  }
+  if (item.stability != null || item.similarity_boost != null) {
+    lines.push(
+      `Ổn định ${formatPct(item.stability)} · Giống giọng ${formatPct(item.similarity_boost)}`,
+    );
+  }
+  if (item.style != null || item.speed != null) {
+    lines.push(
+      `Phong cách ${formatPct(item.style)} · Tốc độ ${
+        item.speed != null ? item.speed.toFixed(2) : "—"
+      }`,
+    );
+  }
+  const flags: string[] = [];
+  if (item.use_speaker_boost != null) {
+    flags.push(item.use_speaker_boost ? "Speaker boost bật" : "Speaker boost tắt");
+  }
+  if (item.lengthen_pauses != null) {
+    flags.push(item.lengthen_pauses ? "Kéo dài nghỉ câu" : "Nghỉ câu mặc định");
+  }
+  if (flags.length) lines.push(flags.join(" · "));
+  return lines;
+}
+
 export default function VoiceRendersScreen() {
-  const { spaceId, voiceId: voiceIdParam } = useLocalSearchParams<{
+  const {
+    spaceId,
+    voiceId: voiceIdParam,
+    providerVoiceId: providerVoiceIdParam,
+    cloneName: cloneNameParam,
+  } = useLocalSearchParams<{
     spaceId: string;
     voiceId?: string;
+    providerVoiceId?: string;
+    cloneName?: string;
   }>();
   const { api } = useAuth();
   const [voices, setVoices] = useState<VoiceProfile[]>([]);
   const [filterVoiceId, setFilterVoiceId] = useState<string | null>(
     voiceIdParam || null,
   );
+  const providerVoiceId = Array.isArray(providerVoiceIdParam)
+    ? providerVoiceIdParam[0]
+    : providerVoiceIdParam;
+  const cloneName = Array.isArray(cloneNameParam)
+    ? cloneNameParam[0]
+    : cloneNameParam;
   const [renders, setRenders] = useState<VoiceRender[]>([]);
   const [loading, setLoading] = useState(true);
   const [playback, setPlayback] = useState<Playback>(null);
   const [busy, setBusy] = useState<BusyAction>(null);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
 
   useSpaceScreenOptions({
     spaceId,
-    title: "Bản đã tạo",
+    title: providerVoiceId ? "TTS theo clone" : "Bản đã tạo",
     backTitle: "Nhà",
   });
 
@@ -71,7 +116,10 @@ export default function VoiceRendersScreen() {
     try {
       const [v, r] = await Promise.all([
         api.listVoices(spaceId),
-        api.listSpaceVoiceRenders(spaceId, filterVoiceId || undefined),
+        api.listSpaceVoiceRenders(spaceId, {
+          voiceId: filterVoiceId || undefined,
+          providerVoiceId: providerVoiceId || undefined,
+        }),
       ]);
       setVoices(v.voices);
       setRenders(r.renders);
@@ -80,7 +128,7 @@ export default function VoiceRendersScreen() {
     } finally {
       setLoading(false);
     }
-  }, [api, spaceId, filterVoiceId]);
+  }, [api, spaceId, filterVoiceId, providerVoiceId]);
 
   useEffect(() => {
     load();
@@ -192,10 +240,15 @@ export default function VoiceRendersScreen() {
       keyExtractor={(item) => item.id}
       ListHeaderComponent={
         <View style={styles.header}>
-          <Text style={styles.title}>Bản TTS đã tạo</Text>
-          <Text style={styles.sub}>
-            Lọc theo người — nghe hoặc chia sẻ từng bản.
+          <Text style={styles.title}>
+            {providerVoiceId ? "TTS theo clone" : "Bản TTS đã tạo"}
           </Text>
+          <Text style={styles.sub}>
+            {providerVoiceId
+              ? `Các câu nói tạo từ “${cloneName || "bản clone này"}”.`
+              : "Lọc theo người — nghe, xem thông số, hoặc chia sẻ từng bản."}
+          </Text>
+          {!providerVoiceId ? (
           <View style={styles.chips}>
             <Pressable
               style={[styles.chip, !filterVoiceId && styles.chipActive]}
@@ -228,20 +281,25 @@ export default function VoiceRendersScreen() {
               );
             })}
           </View>
+          ) : null}
         </View>
       }
       ListEmptyComponent={
         <Text style={styles.empty}>
-          Chưa có bản nào. Vào Tạo câu nói — mỗi lần tạo đều lưu tự động.
+          {providerVoiceId
+            ? "Chưa có câu nói từ bản clone này."
+            : "Chưa có bản nào. Vào Tạo câu nói — mỗi lần tạo đều lưu tự động."}
         </Text>
       }
       renderItem={({ item }) => {
         const active = playback?.id === item.id;
         const paused = active && playback?.paused;
-        const when = item.created_at.slice(0, 16).replace("T", " ");
+        const when = formatLocalDateTime(item.created_at);
         const voiceName = item.voice_display_name || "Voice DNA";
         const sharing = busy?.id === item.id && busy.kind === "share";
         const itemBusy = sharing;
+        const expanded = expandedId === item.id;
+        const params = renderParamLines(item);
 
         return (
           <View style={styles.card}>
@@ -258,7 +316,23 @@ export default function VoiceRendersScreen() {
               {when}
               {" · "}
               {voiceTtsModelLabel(item.model_id)}
+              {" · "}
+              <Text
+                style={styles.detailLink}
+                onPress={() => setExpandedId(expanded ? null : item.id)}
+              >
+                {expanded ? "Ẩn" : "Chi tiết"}
+              </Text>
             </Text>
+            {expanded ? (
+              <View style={styles.detailBox}>
+                {params.map((line) => (
+                  <Text key={line} style={styles.detailLine}>
+                    {line}
+                  </Text>
+                ))}
+              </View>
+            ) : null}
             <View style={styles.row}>
               <Pressable
                 style={styles.play}
@@ -341,6 +415,14 @@ const styles = StyleSheet.create({
     color: colors.ink,
   },
   meta: { fontSize: 12, color: colors.inkSoft },
+  detailLink: { fontSize: 12, fontWeight: "600", color: colors.brand },
+  detailBox: {
+    backgroundColor: colors.bgDeep,
+    borderRadius: 10,
+    padding: 10,
+    gap: 4,
+  },
+  detailLine: { fontSize: 12, lineHeight: 17, color: colors.inkSoft },
   row: {
     flexDirection: "row",
     alignItems: "center",
