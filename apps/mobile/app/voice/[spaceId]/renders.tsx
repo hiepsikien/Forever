@@ -2,6 +2,8 @@ import {
   VoiceProfile,
   VoiceRender,
   VoiceSample,
+  voiceProviderForModel,
+  voiceProviderLabel,
   voiceTtsModelLabel,
 } from "@forever/api-client";
 import { useLocalSearchParams } from "expo-router";
@@ -53,6 +55,12 @@ type ParamRow = { label: string; value: string };
 
 function renderParamRows(item: VoiceRender): ParamRow[] {
   const rows: ParamRow[] = [
+    {
+      label: "Dịch vụ",
+      value: voiceProviderLabel(
+        item.provider ?? voiceProviderForModel(item.model_id),
+      ),
+    },
     { label: "Model", value: voiceTtsModelLabel(item.model_id) },
   ];
   if (item.provider_voice_name) {

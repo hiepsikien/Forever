@@ -1,9 +1,11 @@
 import {
   ElevenLabsVoice,
-  VOICE_TTS_MODELS,
   VoiceProfile,
+  type VoiceProvider,
   VoiceRender,
   type VoiceTtsModelId,
+  voiceProviderLabel,
+  voiceTtsModelsFor,
 } from "@forever/api-client";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -276,10 +278,22 @@ export default function VoiceSpeakScreen() {
     () => sortedElVoices.find((v) => v.voice_id === selectedElVoiceId) ?? null,
     [sortedElVoices, selectedElVoiceId],
   );
+  // Which vendor holds this clone decides both the model list and which of the
+  // advanced knobs actually reach the provider.
+  const provider: VoiceProvider =
+    selectedProfile?.provider === "minimax" ? "minimax" : "elevenlabs";
+  const isMinimax = provider === "minimax";
+  const modelOptions = useMemo(() => voiceTtsModelsFor(provider), [provider]);
   const selectedModel = useMemo(
-    () => VOICE_TTS_MODELS.find((m) => m.id === modelId) ?? VOICE_TTS_MODELS[0],
-    [modelId],
+    () => modelOptions.find((m) => m.id === modelId) ?? modelOptions[0],
+    [modelOptions, modelId],
   );
+
+  useEffect(() => {
+    if (!modelOptions.some((m) => m.id === modelId)) {
+      setModelId(modelOptions[0].id as VoiceTtsModelId);
+    }
+  }, [modelOptions, modelId]);
 
   const pickPreferredElVoice = useCallback(
     (profile: VoiceProfile | null, sorted: ElevenLabsVoice[]) =>
@@ -308,6 +322,7 @@ export default function VoiceSpeakScreen() {
       const el = await api.listElevenLabsVoices(spaceId, {
         clonedOnly: true,
         voiceId: profile.id,
+        provider: profile.provider === "minimax" ? "minimax" : "elevenlabs",
       });
       const sorted = [...el.voices].sort(
         (a, b) => elVoiceSortKey(b) - elVoiceSortKey(a),
@@ -553,7 +568,7 @@ export default function VoiceSpeakScreen() {
       }));
     }
     if (openPicker === "model") {
-      return VOICE_TTS_MODELS.map((m) => ({
+      return modelOptions.map((m) => ({
         id: m.id,
         title: m.label,
         subtitle: m.hint,
@@ -567,7 +582,13 @@ export default function VoiceSpeakScreen() {
       }));
     }
     return [];
-  }, [openPicker, sortedElVoices, selectedProfile?.provider_voice_id, profiles]);
+  }, [
+    openPicker,
+    sortedElVoices,
+    selectedProfile?.provider_voice_id,
+    profiles,
+    modelOptions,
+  ]);
 
   const pickerSelectedId =
     openPicker === "voice"
@@ -725,24 +746,28 @@ export default function VoiceSpeakScreen() {
                 clamp={clampSpeed}
                 onChange={(next) => patchCustom({ speed: next })}
               />
-              <TtsStepper
-                label="Similarity"
-                hint="Cao = sát chất giọng mẫu hơn (giảm cảm giác trẻ hóa)"
-                value={similarityBoost}
-                onChange={(next) => patchCustom({ similarityBoost: next })}
-              />
-              <TtsStepper
-                label="Stability"
-                hint="Cao = đều, trầm ổn hơn · Thấp = biểu cảm"
-                value={stability}
-                onChange={(next) => patchCustom({ stability: next })}
-              />
-              <TtsStepper
-                label="Style"
-                hint="Nhẹ = giữ đúng mẫu · Cao = phóng đại cách nói (dễ lệch)"
-                value={styleExaggeration}
-                onChange={(next) => patchCustom({ style: next })}
-              />
+              {isMinimax ? null : (
+                <>
+                  <TtsStepper
+                    label="Similarity"
+                    hint="Cao = sát chất giọng mẫu hơn (giảm cảm giác trẻ hóa)"
+                    value={similarityBoost}
+                    onChange={(next) => patchCustom({ similarityBoost: next })}
+                  />
+                  <TtsStepper
+                    label="Stability"
+                    hint="Cao = đều, trầm ổn hơn · Thấp = biểu cảm"
+                    value={stability}
+                    onChange={(next) => patchCustom({ stability: next })}
+                  />
+                  <TtsStepper
+                    label="Style"
+                    hint="Nhẹ = giữ đúng mẫu · Cao = phóng đại cách nói (dễ lệch)"
+                    value={styleExaggeration}
+                    onChange={(next) => patchCustom({ style: next })}
+                  />
+                </>
+              )}
               <View style={styles.advancedRow}>
                 <View style={styles.advancedCopy}>
                   <Text style={styles.advancedLabel}>Nghỉ giữa câu</Text>
@@ -757,22 +782,27 @@ export default function VoiceSpeakScreen() {
                   thumbColor={lengthenPauses ? colors.brand : "#f4f3f4"}
                 />
               </View>
-              <View style={styles.advancedRow}>
-                <View style={styles.advancedCopy}>
-                  <Text style={styles.advancedLabel}>Speaker Boost</Text>
-                  <Text style={styles.advancedHint}>
-                    Bám sát giọng gốc hơn — nên bật khi nghe trẻ hơn mẫu
-                  </Text>
+              {isMinimax ? null : (
+                <View style={styles.advancedRow}>
+                  <View style={styles.advancedCopy}>
+                    <Text style={styles.advancedLabel}>Speaker Boost</Text>
+                    <Text style={styles.advancedHint}>
+                      Bám sát giọng gốc hơn — nên bật khi nghe trẻ hơn mẫu
+                    </Text>
+                  </View>
+                  <Switch
+                    value={speakerBoost}
+                    onValueChange={(next) => patchCustom({ speakerBoost: next })}
+                    trackColor={{ false: colors.line, true: colors.brandSoft }}
+                    thumbColor={speakerBoost ? colors.brand : "#f4f3f4"}
+                  />
                 </View>
-                <Switch
-                  value={speakerBoost}
-                  onValueChange={(next) => patchCustom({ speakerBoost: next })}
-                  trackColor={{ false: colors.line, true: colors.brandSoft }}
-                  thumbColor={speakerBoost ? colors.brand : "#f4f3f4"}
-                />
-              </View>
+              )}
               <Text style={styles.advancedNote}>
                 Thiết lập được ghi nhớ riêng cho từng giọng.
+                {isMinimax
+                  ? ` ${voiceProviderLabel(provider)} chỉ nhận Tốc độ và Nghỉ giữa câu.`
+                  : ""}
               </Text>
             </View>
           ) : null}

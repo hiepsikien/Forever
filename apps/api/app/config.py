@@ -39,6 +39,20 @@ class Settings(BaseSettings):
     # Soften gaps between sentences (model-aware pause markers).
     elevenlabs_lengthen_pauses: bool = True
 
+    # MiniMax — second Voice DNA provider. Clones from up to 5 minutes of
+    # reference audio, which is what ElevenLabs IVC cannot use.
+    minimax_api_key: str = ""
+    minimax_tts_model: str = "speech-2.8-hd"
+    minimax_api_base: str = "https://api.minimax.io/v1"
+    minimax_speed: float = 0.9
+    minimax_lengthen_pauses: bool = True
+    # Forever already denoises and normalizes samples; a second pass on
+    # MiniMax's side only costs fidelity.
+    minimax_remove_noise: bool = False
+
+    # Provider used when a Voice DNA row does not name one.
+    voice_default_provider: str = "elevenlabs"
+
     # Shared secret for local Extract worker → Forever API claim/complete.
     extract_worker_token: str = "forever-extract-worker"
     # Re-queue running jobs with no worker heartbeat after this many minutes.

@@ -374,6 +374,8 @@ class VoiceRender(Base):
     media_path: Mapped[str] = mapped_column(String(512))
     media_mime: Mapped[str] = mapped_column(String(120), default="audio/mpeg")
     model_id: Mapped[str] = mapped_column(String(64), default="")
+    # Which vendor produced this take — a profile can be re-cloned elsewhere.
+    provider: Mapped[str] = mapped_column(String(32), default="elevenlabs")
     provider_voice_id: Mapped[str] = mapped_column(String(120), default="")
     provider_voice_name: Mapped[str] = mapped_column(String(200), default="")
     stability: Mapped[float | None] = mapped_column(Float, nullable=True)

@@ -1,4 +1,9 @@
-import { ElevenLabsVoice } from "@forever/api-client";
+import {
+  ElevenLabsVoice,
+  VOICE_PROVIDERS,
+  type VoiceProvider,
+  voiceProviderLabel,
+} from "@forever/api-client";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
@@ -21,8 +26,11 @@ import { colors, fonts } from "@/lib/theme";
 const SWIPE_DELETE_WIDTH = 88;
 const SWIPE_OPEN_THRESHOLD = 48;
 
+/** A clone plus the account it lives on — ids are only unique per provider. */
+type Clone = ElevenLabsVoice & { provider: VoiceProvider };
+
 type CloneRowProps = {
-  item: ElevenLabsVoice;
+  item: Clone;
   active: boolean;
   busy: boolean;
   canSetDefault: boolean;
@@ -100,6 +108,8 @@ function CloneRow({
         <Pressable onPress={onOpenTts} disabled={busy}>
           <Text style={styles.name}>{item.name}</Text>
           <Text style={styles.meta}>
+            {voiceProviderLabel(item.provider)}
+            {" · "}
             {formatElVoiceWhen(item)}
             {active ? " · đang dùng" : ""}
             {" · xem TTS"}
@@ -145,11 +155,12 @@ export default function VoiceClonesScreen() {
   }>();
   const { api } = useAuth();
   const router = useRouter();
-  const [voices, setVoices] = useState<ElevenLabsVoice[]>([]);
+  const [voices, setVoices] = useState<Clone[]>([]);
   const [activeProviderId, setActiveProviderId] = useState<string | null>(null);
   const [profileName, setProfileName] = useState("");
   const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [skipped, setSkipped] = useState<string[]>([]);
 
   useSpaceScreenOptions({ spaceId, title: "Lịch sử clone", backTitle: "Nhà" });
 
@@ -169,12 +180,33 @@ export default function VoiceClonesScreen() {
         setActiveProviderId(null);
         setProfileName("");
       }
-      const res = await api.listElevenLabsVoices(spaceId, {
-        clonedOnly: true,
-        voiceId: voiceId || undefined,
+      // Both accounts, so a person's history stays in one place.
+      const results = await Promise.allSettled(
+        VOICE_PROVIDERS.map((p) =>
+          api.listElevenLabsVoices(spaceId, {
+            clonedOnly: true,
+            voiceId: voiceId || undefined,
+            provider: p.id,
+          }),
+        ),
+      );
+      const merged: Clone[] = [];
+      const unreachable: string[] = [];
+      results.forEach((result, index) => {
+        const p = VOICE_PROVIDERS[index];
+        if (result.status === "fulfilled") {
+          merged.push(
+            ...result.value.voices.map((v) => ({ ...v, provider: p.id })),
+          );
+        } else {
+          unreachable.push(p.label);
+        }
       });
-      const sorted = [...res.voices].sort((a, b) => elVoiceSortKey(b) - elVoiceSortKey(a));
-      setVoices(sorted);
+      if (unreachable.length === VOICE_PROVIDERS.length) {
+        throw new Error("Không tải được bản clone từ cả hai dịch vụ.");
+      }
+      setSkipped(unreachable);
+      setVoices(merged.sort((a, b) => elVoiceSortKey(b) - elVoiceSortKey(a)));
     } catch (e) {
       Alert.alert("Lỗi", e instanceof Error ? e.message : "Không tải Voice DNA.");
     } finally {
@@ -186,7 +218,7 @@ export default function VoiceClonesScreen() {
     void load();
   }, [load]);
 
-  const openTts = (item: ElevenLabsVoice) => {
+  const openTts = (item: Clone) => {
     if (!spaceId) return;
     const params = new URLSearchParams();
     if (voiceId) params.set("voiceId", voiceId);
@@ -195,11 +227,11 @@ export default function VoiceClonesScreen() {
     router.push(`/voice/${spaceId}/renders?${params.toString()}` as never);
   };
 
-  const setDefault = (item: ElevenLabsVoice) => {
+  const setDefault = (item: Clone) => {
     if (!voiceId || busyId) return;
     Alert.alert(
       "Đặt làm mặc định?",
-      `Voice DNA sẽ dùng “${item.name}” khi tạo câu nói.`,
+      `Voice DNA sẽ dùng “${item.name}” (${voiceProviderLabel(item.provider)}) khi tạo câu nói.`,
       [
         { text: "Huỷ", style: "cancel" },
         {
@@ -207,7 +239,7 @@ export default function VoiceClonesScreen() {
           onPress: async () => {
             setBusyId(item.voice_id);
             try {
-              await api.selectVoiceClone(voiceId, item.voice_id);
+              await api.selectVoiceClone(voiceId, item.voice_id, item.provider);
               setActiveProviderId(item.voice_id);
             } catch (e) {
               Alert.alert("Lỗi", e instanceof Error ? e.message : "Không đặt được.");
@@ -220,7 +252,7 @@ export default function VoiceClonesScreen() {
     );
   };
 
-  const removeClone = (item: ElevenLabsVoice) => {
+  const removeClone = (item: Clone) => {
     if (!spaceId || busyId) return;
     const active = activeProviderId === item.voice_id;
     Alert.alert(
@@ -236,7 +268,7 @@ export default function VoiceClonesScreen() {
           onPress: async () => {
             setBusyId(item.voice_id);
             try {
-              await api.deleteElevenLabsVoice(spaceId, item.voice_id);
+              await api.deleteElevenLabsVoice(spaceId, item.voice_id, item.provider);
               if (active) setActiveProviderId(null);
               setVoices((prev) => prev.filter((v) => v.voice_id !== item.voice_id));
             } catch (e) {
@@ -263,15 +295,20 @@ export default function VoiceClonesScreen() {
       style={styles.root}
       contentContainerStyle={styles.content}
       data={voices}
-      keyExtractor={(item) => item.voice_id}
+      keyExtractor={(item) => `${item.provider}:${item.voice_id}`}
       ListHeaderComponent={
         <View style={styles.header}>
           <Text style={styles.title}>Lịch sử clone</Text>
           <Text style={styles.sub}>
             {profileName
               ? `Bản clone của ${profileName}. Chạm để xem TTS · vuốt trái để xóa.`
-              : "Các bản Instant Clone trên tài khoản — mới nhất trước."}
+              : "Các bản clone trên tài khoản — mới nhất trước."}
           </Text>
+          {skipped.length ? (
+            <Text style={styles.warn}>
+              Chưa đọc được danh sách từ {skipped.join(", ")} — kiểm tra API key.
+            </Text>
+          ) : null}
           <Pressable onPress={() => void load()}>
             <Text style={styles.refresh}>Làm mới</Text>
           </Pressable>
@@ -309,6 +346,7 @@ const styles = StyleSheet.create({
   header: { gap: 6, marginBottom: 12 },
   title: { fontFamily: fonts.display, fontSize: 24, color: colors.ink },
   sub: { fontSize: 14, lineHeight: 20, color: colors.inkSoft },
+  warn: { fontSize: 13, lineHeight: 18, color: colors.danger, fontWeight: "600" },
   refresh: {
     color: colors.brand,
     fontWeight: "700",

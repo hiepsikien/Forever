@@ -91,6 +91,11 @@ def ensure_schema() -> None:
         "ALTER TABLE voice_renders ADD COLUMN provider_voice_name VARCHAR(200) DEFAULT ''",
     )
     _add_column_if_missing(
+        "voice_renders",
+        "provider",
+        "ALTER TABLE voice_renders ADD COLUMN provider VARCHAR(32) DEFAULT 'elevenlabs'",
+    )
+    _add_column_if_missing(
         "voice_profiles",
         "identity_profile_id",
         "ALTER TABLE voice_profiles ADD COLUMN identity_profile_id VARCHAR(32)",

@@ -230,6 +230,7 @@ export interface VoiceRender {
   text: string;
   media_mime: string;
   model_id?: string | null;
+  provider?: string | null;
   provider_voice_id?: string | null;
   provider_voice_name?: string | null;
   stability?: number | null;
@@ -272,7 +273,27 @@ export interface ElevenLabsVoice {
   created_at_unix?: number | null;
 }
 
-/** TTS models that officially include Vietnamese. */
+export type VoiceProvider = "elevenlabs" | "minimax";
+
+export const VOICE_PROVIDERS = [
+  {
+    id: "elevenlabs",
+    label: "ElevenLabs",
+    hint: "Mẫu ngắn, cảm xúc mạnh",
+  },
+  {
+    id: "minimax",
+    label: "MiniMax",
+    hint: "Nhận mẫu tới 5 phút — giống người gốc hơn",
+  },
+] as const;
+
+export function voiceProviderLabel(provider: string | null | undefined): string {
+  const found = VOICE_PROVIDERS.find((p) => p.id === provider);
+  return found?.label ?? "ElevenLabs";
+}
+
+/** TTS models that officially include Vietnamese, per provider. */
 export const VOICE_TTS_MODELS = [
   {
     id: "eleven_v3",
@@ -291,11 +312,59 @@ export const VOICE_TTS_MODELS = [
   },
 ] as const;
 
-export type VoiceTtsModelId = (typeof VOICE_TTS_MODELS)[number]["id"];
+export const MINIMAX_TTS_MODELS = [
+  {
+    id: "speech-2.8-hd",
+    label: "Speech 2.8 HD · Giống nhất",
+    hint: "Ưu tiên cho giọng ký ức",
+  },
+  {
+    id: "speech-2.8-turbo",
+    label: "Speech 2.8 Turbo · Nhanh",
+    hint: "Nhanh hơn, giống kém hơn một chút",
+  },
+  {
+    id: "speech-2.6-hd",
+    label: "Speech 2.6 HD",
+    hint: "Bản trước, giọng trầm ổn",
+  },
+  {
+    id: "speech-2.6-turbo",
+    label: "Speech 2.6 Turbo",
+    hint: "Bản trước, nhanh",
+  },
+  {
+    id: "speech-02-hd",
+    label: "Speech 02 HD",
+    hint: "Bản cũ, để đối chiếu",
+  },
+] as const;
+
+export type VoiceTtsModelId =
+  | (typeof VOICE_TTS_MODELS)[number]["id"]
+  | (typeof MINIMAX_TTS_MODELS)[number]["id"];
+
+export function voiceTtsModelsFor(
+  provider: string | null | undefined,
+): readonly { id: string; label: string; hint: string }[] {
+  return provider === "minimax" ? MINIMAX_TTS_MODELS : VOICE_TTS_MODELS;
+}
+
+/** Which provider a stored model id belongs to, for labelling old renders. */
+export function voiceProviderForModel(
+  modelId: string | null | undefined,
+): VoiceProvider | null {
+  if (!modelId) return null;
+  if (modelId.startsWith("speech-")) return "minimax";
+  if (modelId.startsWith("eleven_")) return "elevenlabs";
+  return null;
+}
 
 export function voiceTtsModelLabel(modelId: string | null | undefined): string {
   if (!modelId) return "—";
-  const found = VOICE_TTS_MODELS.find((m) => m.id === modelId);
+  const found = [...VOICE_TTS_MODELS, ...MINIMAX_TTS_MODELS].find(
+    (m) => m.id === modelId,
+  );
   return found?.label ?? modelId;
 }
 
@@ -700,21 +769,29 @@ export function createApiClient({
         clonedOnly?: boolean;
         nameContains?: string;
         voiceId?: string;
+        provider?: VoiceProvider;
       },
     ) => {
       const params = new URLSearchParams();
       params.set("cloned_only", (opts?.clonedOnly ?? true) ? "true" : "false");
       if (opts?.nameContains) params.set("name_contains", opts.nameContains);
       if (opts?.voiceId) params.set("voice_id", opts.voiceId);
+      if (opts?.provider) params.set("provider", opts.provider);
       return request<{ voices: ElevenLabsVoice[] }>(
         `/api/spaces/${spaceId}/elevenlabs-voices?${params.toString()}`,
       );
     },
-    deleteElevenLabsVoice: (spaceId: string, providerVoiceId: string) =>
-      request<{ ok: boolean; detached_voice_ids: string[] }>(
-        `/api/spaces/${spaceId}/elevenlabs-voices/${encodeURIComponent(providerVoiceId)}`,
+    deleteElevenLabsVoice: (
+      spaceId: string,
+      providerVoiceId: string,
+      provider?: VoiceProvider,
+    ) => {
+      const q = provider ? `?provider=${provider}` : "";
+      return request<{ ok: boolean; detached_voice_ids: string[] }>(
+        `/api/spaces/${spaceId}/elevenlabs-voices/${encodeURIComponent(providerVoiceId)}${q}`,
         { method: "DELETE" },
-      ),
+      );
+    },
     createSelfVoice: (spaceId: string, consent = true) =>
       request<VoiceProfile>(`/api/spaces/${spaceId}/voices/self`, {
         method: "POST",
@@ -888,6 +965,7 @@ export function createApiClient({
       opts?: {
         remove_background_noise?: boolean;
         sample_ids?: string[];
+        provider?: VoiceProvider;
       },
     ) =>
       request<VoiceProfile>(`/api/voices/${voiceId}/clone`, {
@@ -896,10 +974,17 @@ export function createApiClient({
       }),
     pauseVoice: (voiceId: string) =>
       request<VoiceProfile>(`/api/voices/${voiceId}/pause`, { method: "POST" }),
-    selectVoiceClone: (voiceId: string, providerVoiceId: string) =>
+    selectVoiceClone: (
+      voiceId: string,
+      providerVoiceId: string,
+      provider?: VoiceProvider,
+    ) =>
       request<VoiceProfile>(`/api/voices/${voiceId}/select-clone`, {
         method: "POST",
-        body: JSON.stringify({ provider_voice_id: providerVoiceId }),
+        body: JSON.stringify({
+          provider_voice_id: providerVoiceId,
+          ...(provider ? { provider } : {}),
+        }),
       }),
     listVoiceRenders: (voiceId: string) =>
       request<{ renders: VoiceRender[] }>(`/api/voices/${voiceId}/renders`),

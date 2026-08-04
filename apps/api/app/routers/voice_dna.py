@@ -31,6 +31,7 @@ from ..models import (
 )
 from ..routers.settings import HERITAGE_CONSENT, SELF_CONSENT
 from ..services import elevenlabs as el
+from ..services import voice_providers as vp
 from ..services.heritage import (
     heritage_readiness_payload,
     heritage_thread_title,
@@ -58,7 +59,9 @@ router = APIRouter(tags=["voice-dna"])
 PIPELINE_STAGES = frozenset({"unprocessed", "processed", "archived"})
 CLONE_MAX_SAMPLES = 3
 CLONE_TARGET_DURATION_MS = 120_000
+# ElevenLabs IVC degrades past a couple of minutes; MiniMax reads 5 full minutes.
 CLONE_MAX_DURATION_MS = 150_000
+CLONE_MAX_DURATION_MS_BY_PROVIDER = {vp.MINIMAX: 300_000}
 COMBINE_MIN_SAMPLES = 2
 COMBINE_MAX_SAMPLES = 100
 COMBINE_MAX_INPUT_DURATION_MS = 600_000
@@ -96,6 +99,7 @@ class CloneBody(BaseModel):
     sample_ids: list[str] | None = Field(
         default=None, min_length=1, max_length=CLONE_MAX_SAMPLES
     )
+    provider: str | None = Field(default=None, pattern="^(elevenlabs|minimax)$")
 
 
 class SampleNoteBody(BaseModel):
@@ -155,15 +159,19 @@ class TtsBody(BaseModel):
 
 class SelectCloneBody(BaseModel):
     provider_voice_id: str = Field(min_length=1, max_length=120)
+    provider: str | None = Field(default=None, pattern="^(elevenlabs|minimax)$")
 
 
-def _resolve_tts_model(requested: str | None, default: str) -> str:
+def _resolve_tts_model(requested: str | None, default: str, provider: str) -> str:
     model = (requested or "").strip() or default.strip()
-    allowed = set(el.VI_TTS_MODELS) | {default.strip()}
+    allowed = set(vp.tts_models(provider)) | {default.strip()}
     if model not in allowed:
         raise HTTPException(
             status_code=400,
-            detail=f"Model không hỗ trợ. Chọn một trong: {', '.join(sorted(allowed))}",
+            detail=(
+                f"Model không hỗ trợ cho {vp.label(provider)}. "
+                f"Chọn một trong: {', '.join(sorted(allowed))}"
+            ),
         )
     return model
 
@@ -176,6 +184,9 @@ def _render_payload(row: VoiceRender, voice: VoiceProfile | None = None) -> dict
         "text": row.text,
         "media_mime": row.media_mime,
         "model_id": row.model_id or None,
+        "provider": getattr(row, "provider", None)
+        or vp.provider_for_model(row.model_id)
+        or vp.ELEVENLABS,
         "provider_voice_id": row.provider_voice_id or None,
         "provider_voice_name": row.provider_voice_name or None,
         "stability": row.stability,
@@ -412,6 +423,33 @@ def _voice_payload(
     if samples is not None:
         payload["samples"] = [_sample_payload(s, voice=row) for s in samples]
     return payload
+
+
+def _name_provider_clones(db: Session, space_id: str, rows: list[dict]) -> None:
+    """Give unnamed provider clones a Forever name, in place.
+
+    MiniMax stores no display name for a clone — only the id — so the readable
+    name has to come from the Voice DNA row that created it.
+    """
+    unnamed = {
+        str(row.get("voice_id")): row
+        for row in rows
+        if str(row.get("name") or "") == str(row.get("voice_id") or "")
+    }
+    if not unnamed:
+        return
+    profiles = (
+        db.query(VoiceProfile)
+        .filter(
+            VoiceProfile.space_id == space_id,
+            VoiceProfile.provider_voice_id.in_(list(unnamed)),
+        )
+        .all()
+    )
+    for profile in profiles:
+        row = unnamed.get(profile.provider_voice_id or "")
+        if row is not None:
+            row["name"] = f"Forever · {profile.display_name}"
 
 
 def _space_api_key(db: Session, space_id: str) -> str | None:
@@ -1677,18 +1715,26 @@ def clone_voice(
             )
         selected = processed
 
+    settings = get_settings()
+    provider = vp.normalize(
+        (body.provider if body else None) or voice.provider,
+        settings,
+    )
+    max_duration_ms = CLONE_MAX_DURATION_MS_BY_PROVIDER.get(
+        provider, CLONE_MAX_DURATION_MS
+    )
     total_ms = sum(s.duration_ms or 0 for s in selected)
-    if total_ms > CLONE_MAX_DURATION_MS:
+    if total_ms > max_duration_ms:
+        minutes = max_duration_ms / 60_000
         raise HTTPException(
             status_code=400,
             detail=(
-                "Tổng thời lượng mẫu chọn quá dài (~>2.5 phút). "
-                "Bỏ bớt mẫu hoặc chia đôi file dài."
+                f"Tổng thời lượng mẫu chọn quá dài (~>{minutes:.1f} phút cho "
+                f"{vp.label(provider)}). Bỏ bớt mẫu hoặc chia đôi file dài."
             ),
         )
 
-    settings = get_settings()
-    api_key = el.resolve_api_key(settings, _space_api_key(db, voice.space_id))
+    api_key = vp.resolve_api_key(provider, settings, _space_api_key(db, voice.space_id))
     paths = [absolute_media_path(s.media_path) for s in selected]
     for path in paths:
         if not path.exists():
@@ -1697,28 +1743,29 @@ def clone_voice(
     remove_noise = (
         body.remove_background_noise
         if body and body.remove_background_noise is not None
-        else settings.elevenlabs_remove_noise
+        else vp.default_remove_noise(provider, settings)
     )
 
     stamp = datetime.now(ZoneInfo("Asia/Ho_Chi_Minh")).strftime("%Y-%m-%d %H:%M")
     clone_name = f"Forever · {voice.display_name} · {stamp}"[:100]
     try:
-        provider_voice_id = el.create_instant_voice_clone(
+        provider_voice_id = vp.create_clone(
+            provider,
             settings=settings,
             api_key=api_key,
             name=clone_name,
             file_paths=paths,
             remove_background_noise=remove_noise,
-            language="vi",
-            description="Forever Voice DNA — Vietnamese family vault clone",
+            voice_id_seed=voice.id,
         )
-    except el.ElevenLabsError as exc:
+    except vp.VoiceProviderError as exc:
         voice.status = "failed"
         voice.error_message = exc.message
         voice.updated_at = datetime.now(timezone.utc)
         db.commit()
         raise HTTPException(status_code=exc.status_code, detail=exc.message) from exc
 
+    voice.provider = provider
     voice.provider_voice_id = provider_voice_id
     voice.status = "ready"
     voice.error_message = ""
@@ -1745,35 +1792,71 @@ def synthesize_tts(
     if not provider_voice_id:
         raise HTTPException(
             status_code=400,
-            detail="Chưa chọn bản clone ElevenLabs (provider voice).",
+            detail="Chưa chọn bản clone (provider voice).",
         )
 
     settings = get_settings()
-    model_id = _resolve_tts_model(body.model_id, settings.elevenlabs_tts_model)
-    api_key = el.resolve_api_key(settings, _space_api_key(db, voice.space_id))
+    provider = vp.normalize(
+        vp.provider_for_model(body.model_id) or voice.provider,
+        settings,
+    )
+    model_id = _resolve_tts_model(
+        body.model_id, vp.default_model(provider, settings), provider
+    )
+    api_key = vp.resolve_api_key(provider, settings, _space_api_key(db, voice.space_id))
     provider_voice_name = (body.provider_voice_name or "").strip()
+    is_minimax = provider == vp.MINIMAX
+    # MiniMax only honours speed and pacing; storing the ElevenLabs knobs on
+    # those renders would show numbers that never reached the provider.
     stability = (
-        body.stability if body.stability is not None else settings.elevenlabs_stability
+        None
+        if is_minimax
+        else (
+            body.stability
+            if body.stability is not None
+            else settings.elevenlabs_stability
+        )
     )
     similarity_boost = (
-        body.similarity_boost
-        if body.similarity_boost is not None
-        else settings.elevenlabs_similarity_boost
+        None
+        if is_minimax
+        else (
+            body.similarity_boost
+            if body.similarity_boost is not None
+            else settings.elevenlabs_similarity_boost
+        )
     )
-    style = body.style if body.style is not None else settings.elevenlabs_style
-    speed = body.speed if body.speed is not None else settings.elevenlabs_speed
+    style = (
+        None
+        if is_minimax
+        else (body.style if body.style is not None else settings.elevenlabs_style)
+    )
+    speed = (
+        body.speed
+        if body.speed is not None
+        else (settings.minimax_speed if is_minimax else settings.elevenlabs_speed)
+    )
     use_speaker_boost = (
-        body.use_speaker_boost
-        if body.use_speaker_boost is not None
-        else settings.elevenlabs_speaker_boost
+        None
+        if is_minimax
+        else (
+            body.use_speaker_boost
+            if body.use_speaker_boost is not None
+            else settings.elevenlabs_speaker_boost
+        )
     )
     lengthen_pauses = (
         body.lengthen_pauses
         if body.lengthen_pauses is not None
-        else settings.elevenlabs_lengthen_pauses
+        else (
+            settings.minimax_lengthen_pauses
+            if is_minimax
+            else settings.elevenlabs_lengthen_pauses
+        )
     )
     try:
-        audio = el.text_to_speech(
+        audio = vp.text_to_speech(
+            provider,
             settings=settings,
             api_key=api_key,
             voice_id=provider_voice_id,
@@ -1786,7 +1869,7 @@ def synthesize_tts(
             use_speaker_boost=use_speaker_boost,
             lengthen_pauses=lengthen_pauses,
         )
-    except el.ElevenLabsError as exc:
+    except vp.VoiceProviderError as exc:
         raise HTTPException(status_code=exc.status_code, detail=exc.message) from exc
 
     if not body.save:
@@ -1802,6 +1885,7 @@ def synthesize_tts(
         media_path=relative,
         media_mime="audio/mpeg",
         model_id=model_id,
+        provider=provider,
         provider_voice_id=provider_voice_id,
         provider_voice_name=provider_voice_name,
         stability=stability,
@@ -1827,20 +1911,26 @@ def list_elevenlabs_voices(
     cloned_only: bool = True,
     name_contains: str | None = None,
     voice_id: str | None = None,
+    provider: str | None = None,
 ):
-    """List Instant Clones / custom voices on the shared ElevenLabs account."""
+    """List clones on the shared provider account (ElevenLabs or MiniMax)."""
     require_membership(db, space_id=space_id, user=user)
     settings = get_settings()
-    api_key = el.resolve_api_key(settings, _space_api_key(db, space_id))
+    resolved_provider = vp.normalize(provider, settings)
+    api_key = vp.resolve_api_key(
+        resolved_provider, settings, _space_api_key(db, space_id)
+    )
     try:
-        voices = el.list_voices(
+        voices = vp.list_voices(
+            resolved_provider,
             settings=settings,
             api_key=api_key,
             cloned_only=cloned_only,
         )
-    except el.ElevenLabsError as exc:
+    except vp.VoiceProviderError as exc:
         raise HTTPException(status_code=exc.status_code, detail=exc.message) from exc
 
+    _name_provider_clones(db, space_id, voices)
     needle = (name_contains or "").strip().lower()
     if voice_id:
         voice = _get_voice_or_404(db, voice_id)
@@ -1854,6 +1944,10 @@ def list_elevenlabs_voices(
         alt = base.lower()
 
         def _match(v: dict) -> bool:
+            # MiniMax clone ids carry the Voice DNA id, so past clones of this
+            # person are still found even before they get a readable name.
+            if voice.id in str(v.get("voice_id") or ""):
+                return True
             name = str(v.get("name") or "").lower()
             if needle and needle in name:
                 return True
@@ -1874,18 +1968,24 @@ def delete_elevenlabs_voice(
     provider_voice_id: str,
     user: Annotated[User, Depends(get_current_user)],
     db: Annotated[Session, Depends(get_db)],
+    provider: str | None = None,
 ):
-    """Delete an Instant Clone from the shared ElevenLabs account."""
+    """Delete a clone from the shared provider account."""
     require_steward_or_owner(db, space_id=space_id, user=user)
     el_id = (provider_voice_id or "").strip()
     if not el_id:
         raise HTTPException(status_code=400, detail="Thiếu provider voice id.")
 
     settings = get_settings()
-    api_key = el.resolve_api_key(settings, _space_api_key(db, space_id))
+    resolved_provider = vp.normalize(provider, settings)
+    api_key = vp.resolve_api_key(
+        resolved_provider, settings, _space_api_key(db, space_id)
+    )
     try:
-        el.delete_voice(settings=settings, api_key=api_key, voice_id=el_id)
-    except el.ElevenLabsError as exc:
+        vp.delete_voice(
+            resolved_provider, settings=settings, api_key=api_key, voice_id=el_id
+        )
+    except vp.VoiceProviderError as exc:
         raise HTTPException(status_code=exc.status_code, detail=exc.message) from exc
 
     # Detach any Forever Voice DNA still pointing at this clone.
@@ -2045,17 +2145,21 @@ def select_clone(
 
     el_id = body.provider_voice_id.strip()
     settings = get_settings()
-    api_key = el.resolve_api_key(settings, _space_api_key(db, voice.space_id))
+    provider = vp.normalize(body.provider or voice.provider, settings)
+    api_key = vp.resolve_api_key(provider, settings, _space_api_key(db, voice.space_id))
     try:
-        clones = el.list_voices(settings=settings, api_key=api_key, cloned_only=True)
-    except el.ElevenLabsError as exc:
+        clones = vp.list_voices(
+            provider, settings=settings, api_key=api_key, cloned_only=True
+        )
+    except vp.VoiceProviderError as exc:
         raise HTTPException(status_code=exc.status_code, detail=exc.message) from exc
     if not any(str(v.get("voice_id") or "") == el_id for v in clones):
         raise HTTPException(
             status_code=404,
-            detail="Không tìm thấy bản clone trên tài khoản.",
+            detail=f"Không tìm thấy bản clone trên tài khoản {vp.label(provider)}.",
         )
 
+    voice.provider = provider
     voice.provider_voice_id = el_id
     voice.status = "ready"
     voice.error_message = ""

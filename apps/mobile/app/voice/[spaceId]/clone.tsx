@@ -1,4 +1,8 @@
-import { VoiceSample } from "@forever/api-client";
+import {
+  VOICE_PROVIDERS,
+  VoiceProvider,
+  VoiceSample,
+} from "@forever/api-client";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
@@ -21,8 +25,8 @@ import {
 } from "@/lib/audio";
 import { useAuth } from "@/lib/auth";
 import {
-  CLONE_MAX_DURATION_MS,
   CLONE_MAX_SAMPLES,
+  cloneMaxDurationMs,
   formatDurationMs,
   suggestCloneSampleIds,
 } from "@/lib/cloneSuggest";
@@ -44,6 +48,7 @@ export default function CloneVoiceScreen() {
   const [samples, setSamples] = useState<VoiceSample[]>([]);
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [provider, setProvider] = useState<VoiceProvider>("elevenlabs");
   const [removeNoise, setRemoveNoise] = useState(true);
   const [busy, setBusy] = useState(false);
   const [playback, setPlayback] = useState<Playback>(null);
@@ -53,9 +58,14 @@ export default function CloneVoiceScreen() {
 
   useSpaceScreenOptions({ spaceId, title: "Clone giọng", backTitle: "Nhà" });
 
-  const applySuggestion = useCallback((list: VoiceSample[]) => {
-    setSelected(new Set(suggestCloneSampleIds(list)));
-  }, []);
+  const maxDurationMs = cloneMaxDurationMs(provider);
+
+  const applySuggestion = useCallback(
+    (list: VoiceSample[]) => {
+      setSelected(new Set(suggestCloneSampleIds(list, { maxDurationMs })));
+    },
+    [maxDurationMs],
+  );
 
   const load = useCallback(async () => {
     if (!spaceId || !voiceId) return;
@@ -63,13 +73,12 @@ export default function CloneVoiceScreen() {
     try {
       const res = await api.listSpaceVoiceSamples(spaceId, voiceId, "processed");
       setSamples(res.samples);
-      applySuggestion(res.samples);
     } catch (e) {
       Alert.alert("Lỗi", e instanceof Error ? e.message : "Không tải mẫu.");
     } finally {
       setLoading(false);
     }
-  }, [api, spaceId, voiceId, applySuggestion]);
+  }, [api, spaceId, voiceId]);
 
   useEffect(() => {
     void load();
@@ -78,9 +87,14 @@ export default function CloneVoiceScreen() {
     };
   }, [load]);
 
+  // Re-suggest when the list arrives and when the provider changes the budget.
+  useEffect(() => {
+    applySuggestion(samples);
+  }, [samples, applySuggestion]);
+
   const suggestedIds = useMemo(
-    () => new Set(suggestCloneSampleIds(samples)),
-    [samples],
+    () => new Set(suggestCloneSampleIds(samples, { maxDurationMs })),
+    [samples, maxDurationMs],
   );
   const selectedSamples = useMemo(
     () => samples.filter((s) => selected.has(s.id)),
@@ -91,7 +105,7 @@ export default function CloneVoiceScreen() {
     [selectedSamples],
   );
   const overCount = selected.size > CLONE_MAX_SAMPLES;
-  const overDuration = selectedDurationMs > CLONE_MAX_DURATION_MS;
+  const overDuration = selectedDurationMs > maxDurationMs;
   const canSubmit =
     !!voiceId &&
     selected.size >= 1 &&
@@ -145,6 +159,7 @@ export default function CloneVoiceScreen() {
       const res = await api.cloneVoice(voiceId, {
         sample_ids: [...selected],
         remove_background_noise: removeNoise,
+        provider,
       });
       Alert.alert(
         res.status === "ready" ? "Voice DNA sẵn sàng" : "Clone xong",
@@ -179,8 +194,9 @@ export default function CloneVoiceScreen() {
           <View style={styles.header}>
             <Text style={styles.title}>Chọn mẫu để clone</Text>
             <Text style={styles.sub}>
-              Máy đã chọn sẵn vài mẫu tốt (1–{CLONE_MAX_SAMPLES}, tổng ≤ ~2.5 phút). Sửa
-              tick nếu muốn, rồi bấm Clone bên dưới.
+              Máy đã chọn sẵn vài mẫu tốt (1–{CLONE_MAX_SAMPLES}, tổng ≤{" "}
+              {formatDurationMs(maxDurationMs)}). Sửa tick nếu muốn, rồi bấm Clone
+              bên dưới.
             </Text>
             {samples.length > 0 ? (
               <Pressable
@@ -266,9 +282,37 @@ export default function CloneVoiceScreen() {
           <Text style={styles.warn}>
             {overCount
               ? `Tối đa ${CLONE_MAX_SAMPLES} mẫu.`
-              : "Tổng thời lượng quá dài — bỏ bớt mẫu."}
+              : `Tổng thời lượng quá dài — tối đa ${formatDurationMs(maxDurationMs)}.`}
           </Text>
         ) : null}
+        <View style={styles.providerRow}>
+          {VOICE_PROVIDERS.map((option) => {
+            const active = option.id === provider;
+            return (
+              <Pressable
+                key={option.id}
+                style={[styles.providerChip, active && styles.providerChipOn]}
+                onPress={() => {
+                  setProvider(option.id);
+                  // Forever already cleans samples; MiniMax reads them as-is.
+                  setRemoveNoise(option.id !== "minimax");
+                }}
+                disabled={busy}
+              >
+                <Text
+                  style={[styles.providerLabel, active && styles.providerLabelOn]}
+                >
+                  {option.label}
+                </Text>
+                <Text
+                  style={[styles.providerHint, active && styles.providerHintOn]}
+                >
+                  {option.hint}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </View>
         <View style={styles.noiseRow}>
           <View style={styles.noiseCopy}>
             <Text style={styles.noiseLabel}>Lọc tiếng ồn nền</Text>
@@ -332,6 +376,21 @@ const styles = StyleSheet.create({
   },
   stickyCount: { fontSize: 15, fontWeight: "700", color: colors.ink },
   warn: { fontSize: 13, color: colors.danger, fontWeight: "600" },
+  providerRow: { flexDirection: "row", gap: 8 },
+  providerChip: {
+    flex: 1,
+    gap: 2,
+    padding: 10,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: colors.line,
+    backgroundColor: colors.bgDeep,
+  },
+  providerChipOn: { borderColor: colors.brand, backgroundColor: colors.brandSoft },
+  providerLabel: { fontSize: 14, fontWeight: "700", color: colors.ink },
+  providerLabelOn: { color: colors.brand },
+  providerHint: { fontSize: 11, lineHeight: 15, color: colors.inkSoft },
+  providerHintOn: { color: colors.ink },
   noiseRow: {
     flexDirection: "row",
     alignItems: "center",
