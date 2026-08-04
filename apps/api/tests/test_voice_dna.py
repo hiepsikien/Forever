@@ -656,6 +656,62 @@ def test_combine_unprocessed_samples(client: TestClient, monkeypatch, tmp_path):
     assert len(all_unprocessed.json()["samples"]) == 4
 
 
+def test_smart_combine_unprocessed_samples(client: TestClient, monkeypatch, tmp_path):
+    monkeypatch.setenv("UPLOAD_DIR", str(tmp_path))
+
+    def fake_smart_combine(input_paths, output_path):
+        output_path.write_bytes(b"fake-smart-combined-wav")
+        return 95_000, len(b"fake-smart-combined-wav")
+
+    monkeypatch.setattr(
+        "app.routers.voice_dna.smart_combine_audio_files",
+        fake_smart_combine,
+    )
+
+    token = _login(client, "smartcombine@forever.family", "SmartCombine")
+    headers = {"Authorization": f"Bearer {token}"}
+    space_id = _space(client, token)
+
+    created = client.post(
+        f"/api/spaces/{space_id}/voices/self",
+        headers=headers,
+        json={"consent": True},
+    )
+    assert created.status_code == 200, created.text
+    voice_id = created.json()["id"]
+
+    sample_ids: list[str] = []
+    for idx in range(3):
+        res = client.post(
+            f"/api/voices/{voice_id}/samples",
+            headers=headers,
+            files={"file": (f"seg{idx}.wav", BytesIO(b"fake-seg"), "audio/wav")},
+            data={"source": "extract"},
+        )
+        assert res.status_code == 200, res.text
+        sample_ids.append(res.json()["sample_id"])
+
+    combined = client.post(
+        f"/api/voices/{voice_id}/samples/smart-combine",
+        headers=headers,
+        json={"sample_ids": sample_ids[:2]},
+    )
+    assert combined.status_code == 200, combined.text
+    payload = combined.json()
+    assert payload["sample_id"]
+    voice = payload["voice"]
+    assert voice["unprocessed_count"] == 4
+
+    combined_sample = next(
+        s for s in voice["samples"] if s["id"] == payload["sample_id"]
+    )
+    assert combined_sample["source"] == "smart_combine"
+    assert combined_sample["pipeline_stage"] == "unprocessed"
+    assert combined_sample["parent_sample_ids"] == sample_ids[:2]
+    assert combined_sample["duration_ms"] == 95_000
+    assert combined_sample["processing_applied"]["smart_combine"] is True
+
+
 def test_process_normalize_creates_derived_sample(
     client: TestClient, monkeypatch, tmp_path
 ):

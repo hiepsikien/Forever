@@ -818,6 +818,21 @@ export function createApiClient({
           }),
         },
       ),
+    smartCombineVoiceSamples: (
+      voiceId: string,
+      sampleIds: string[],
+      opts?: { note?: string },
+    ) =>
+      request<{ sample_id: string; voice: VoiceProfile }>(
+        `/api/voices/${voiceId}/samples/smart-combine`,
+        {
+          method: "POST",
+          body: JSON.stringify({
+            sample_ids: sampleIds,
+            note: opts?.note ?? "",
+          }),
+        },
+      ),
     processVoiceSamples: (
       voiceId: string,
       sampleIds: string[],

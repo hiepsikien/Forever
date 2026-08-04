@@ -36,7 +36,14 @@ from ..services.heritage import (
     heritage_thread_title,
     sync_heritage_thread_title,
 )
-from ..services.audio_combine import AudioCombineError, combine_audio_files, probe_duration_ms
+from ..services.audio_combine import (
+    DEFAULT_SMART_FADE_MS,
+    DEFAULT_SMART_GAP_MS,
+    AudioCombineError,
+    combine_audio_files,
+    probe_duration_ms,
+    smart_combine_audio_files,
+)
 from ..services.audio_extract import extract_audio_from_video
 from ..services.audio_process import normalize_audio_file, normalize_audio_file_inplace
 from ..services.audio_split import split_audio_file
@@ -119,6 +126,13 @@ class CombineSamplesBody(BaseModel):
     )
     note: str = Field(default="", max_length=2000)
     normalize: bool = False
+
+
+class SmartCombineSamplesBody(BaseModel):
+    sample_ids: list[str] = Field(
+        min_length=COMBINE_MIN_SAMPLES, max_length=COMBINE_MAX_SAMPLES
+    )
+    note: str = Field(default="", max_length=2000)
 
 
 class ProcessSamplesBody(BaseModel):
@@ -1301,6 +1315,113 @@ def combine_samples(
         source="combine",
         note=note,
         parent_ids=unique_ids,
+        processing=processing,
+    )
+    voice.updated_at = now
+    db.commit()
+
+    samples = (
+        db.query(VoiceSample)
+        .filter(VoiceSample.voice_profile_id == voice.id)
+        .order_by(VoiceSample.created_at.asc())
+        .all()
+    )
+    return {
+        "sample_id": combined.id,
+        "voice": _voice_payload(voice, samples),
+    }
+
+
+@router.post("/api/voices/{voice_id}/samples/smart-combine")
+def smart_combine_samples(
+    voice_id: str,
+    body: SmartCombineSamplesBody,
+    user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[Session, Depends(get_db)],
+):
+    """Combine with per-clip loudness, edge fades, and silence gaps between clips."""
+    voice = _get_voice_or_404(db, voice_id)
+    require_membership(db, space_id=voice.space_id, user=user)
+    if not _can_mutate_voice(db, voice, user):
+        raise HTTPException(status_code=403, detail="Không được sửa Voice DNA này.")
+    if voice.status == "paused":
+        raise HTTPException(status_code=400, detail="Voice đang tạm dừng.")
+
+    unique_ids = list(dict.fromkeys(body.sample_ids))
+    rows = (
+        db.query(VoiceSample)
+        .filter(
+            VoiceSample.voice_profile_id == voice.id,
+            VoiceSample.id.in_(unique_ids),
+        )
+        .all()
+    )
+    if len(rows) != len(unique_ids):
+        raise HTTPException(status_code=404, detail="Một hoặc nhiều sample không tồn tại.")
+    by_id = {row.id: row for row in rows}
+    selected = [by_id[sid] for sid in unique_ids]
+    _assert_unprocessed_samples(selected)
+
+    # Prefer timeline order from extract provenance when available.
+    def _sort_key(sample: VoiceSample) -> tuple:
+        t_start = getattr(sample, "t_start", None)
+        created = sample.created_at or datetime.min.replace(tzinfo=timezone.utc)
+        if t_start is not None:
+            return (0, float(t_start), created)
+        return (1, 0.0, created)
+
+    ordered = sorted(selected, key=_sort_key)
+    ordered_ids = [sample.id for sample in ordered]
+
+    input_paths = [absolute_media_path(sample.media_path) for sample in ordered]
+    input_duration_ms = sum(sample.duration_ms or 0 for sample in ordered)
+    if input_duration_ms > COMBINE_MAX_INPUT_DURATION_MS:
+        raise HTTPException(
+            status_code=400,
+            detail="Tổng thời lượng mẫu chọn quá dài (tối đa ~10 phút).",
+        )
+
+    settings = get_settings()
+    relative = f"{voice.space_id}/{generate()}.wav"
+    output_path = Path(settings.upload_dir) / relative
+    try:
+        duration_ms, file_size = smart_combine_audio_files(input_paths, output_path)
+    except AudioCombineError as exc:
+        output_path.unlink(missing_ok=True)
+        raise HTTPException(status_code=400, detail=exc.message) from exc
+
+    if file_size > MAX_UPLOAD_BYTES:
+        output_path.unlink(missing_ok=True)
+        raise HTTPException(
+            status_code=400,
+            detail="File ghép quá lớn (tối đa 25MB). Chọn ít mẫu hơn.",
+        )
+
+    processing = {
+        "smart_combine": True,
+        "normalize": True,
+        "gap_ms": DEFAULT_SMART_GAP_MS,
+        "fade_ms": DEFAULT_SMART_FADE_MS,
+        "denoise": "off",
+    }
+    auto_note = (
+        f"Ghép êm {len(ordered)} mẫu ({_format_duration(duration_ms) or '—:—'})"
+    )
+    user_note = (body.note or "").strip()
+    note = f"{auto_note}. {user_note}".strip() if user_note else auto_note
+
+    now = datetime.now(timezone.utc)
+    combined = _create_derived_sample(
+        db=db,
+        voice=voice,
+        user=user,
+        now=now,
+        relative_path=relative,
+        duration_ms=duration_ms or None,
+        file_size=file_size,
+        source="smart_combine",
+        note=note,
+        parent_ids=ordered_ids,
         processing=processing,
     )
     voice.updated_at = now

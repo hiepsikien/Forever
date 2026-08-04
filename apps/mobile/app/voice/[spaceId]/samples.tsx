@@ -41,7 +41,7 @@ const TAB_META: Record<
 > = {
   unprocessed: {
     label: "Chưa xử lý",
-    sub: "Chọn mẫu → Cân bằng âm lượng, Ghép (2+), hoặc Chia đôi (1 file dài). File gốc luôn giữ nguyên.",
+    sub: "Chọn mẫu → Cân bằng âm lượng, Ghép / Ghép êm (2+), hoặc Chia đôi (1 file dài). File gốc luôn giữ nguyên.",
     empty:
       "Không còn mẫu chưa xử lý. Import từ pool hoặc chuyển sang tab Sẵn sàng clone.",
   },
@@ -69,6 +69,8 @@ function sourceLabel(source: string): string {
       return "Extract pool";
     case "combine":
       return "Ghép clip";
+    case "smart_combine":
+      return "Ghép êm";
     case "process":
       return "Đã normalize";
     case "split":
@@ -315,6 +317,44 @@ export default function VoiceSamplesScreen() {
               );
             } catch (e) {
               Alert.alert("Lỗi", e instanceof Error ? e.message : "Không ghép được.");
+            } finally {
+              setBulkBusy(false);
+            }
+          },
+        },
+      ],
+    );
+  };
+
+  const smartCombineSelected = async () => {
+    const ids = [...selected];
+    const targetVoiceId = resolveTargetVoiceId(ids);
+    if (!targetVoiceId || ids.length < 2 || bulkBusy) return;
+    const dur = formatDurationMs(selectedDuration);
+    Alert.alert(
+      "Ghép êm?",
+      `Ghép ${ids.length} đoạn (tổng ${dur}) với cân âm lượng, fade nhẹ và khoảng lặng ngắn giữa đoạn — giảm ngắt hơi / nhảy nền. Thứ tự theo thời gian trên băng gốc nếu có.`,
+      [
+        { text: "Huỷ", style: "cancel" },
+        {
+          text: "Ghép êm",
+          onPress: async () => {
+            setBulkBusy(true);
+            try {
+              const res = await api.smartCombineVoiceSamples(targetVoiceId, ids);
+              await refreshCurrentTab();
+              const combined = res.voice.samples?.find((s) => s.id === res.sample_id);
+              Alert.alert(
+                "Đã ghép êm",
+                combined?.duration_label
+                  ? `File mới ~${combined.duration_label}. Nghe lại rồi Duyệt nếu ổn.`
+                  : "File mới đã tạo. Nghe lại rồi Duyệt nếu ổn.",
+              );
+            } catch (e) {
+              Alert.alert(
+                "Lỗi",
+                e instanceof Error ? e.message : "Không ghép êm được.",
+              );
             } finally {
               setBulkBusy(false);
             }
@@ -736,15 +776,26 @@ export default function VoiceSamplesScreen() {
               </Pressable>
             ) : null}
             {tab === "unprocessed" && selected.size >= 2 ? (
-              <Pressable
-                style={[styles.actionBtn, bulkBusy && styles.disabled]}
-                onPress={combineSelected}
-                disabled={bulkBusy}
-              >
-                <Text style={styles.actionBtnText}>
-                  {bulkBusy ? "Đang ghép…" : "Ghép"}
-                </Text>
-              </Pressable>
+              <>
+                <Pressable
+                  style={[styles.actionBtn, bulkBusy && styles.disabled]}
+                  onPress={combineSelected}
+                  disabled={bulkBusy}
+                >
+                  <Text style={styles.actionBtnText}>
+                    {bulkBusy ? "Đang ghép…" : "Ghép"}
+                  </Text>
+                </Pressable>
+                <Pressable
+                  style={[styles.actionBtn, bulkBusy && styles.disabled]}
+                  onPress={smartCombineSelected}
+                  disabled={bulkBusy}
+                >
+                  <Text style={styles.actionBtnText}>
+                    {bulkBusy ? "Đang ghép êm…" : "Ghép êm"}
+                  </Text>
+                </Pressable>
+              </>
             ) : null}
             {tab !== "archived" && selected.size === 1 ? (
               <Pressable
