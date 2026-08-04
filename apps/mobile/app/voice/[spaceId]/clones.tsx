@@ -131,6 +131,7 @@ function CloneRow({
             <Text style={styles.activeBadge}>Đang dùng</Text>
           ) : null}
           <Pressable
+            style={styles.deleteBtn}
             onPress={() => {
               closeSwipe();
               onDelete();
@@ -401,6 +402,7 @@ const styles = StyleSheet.create({
   },
   actionBtnText: { color: colors.brand, fontWeight: "700", fontSize: 13 },
   activeBadge: { fontSize: 13, fontWeight: "700", color: colors.brand },
+  deleteBtn: { marginLeft: "auto", paddingVertical: 8, paddingHorizontal: 8 },
   deleteLink: { color: colors.danger, fontWeight: "700", fontSize: 13 },
   disabled: { opacity: 0.5 },
 });

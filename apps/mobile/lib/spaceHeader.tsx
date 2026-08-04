@@ -16,7 +16,8 @@ export function useSpaceScreenOptions(opts: {
   const {
     spaceId,
     title,
-    showSettings = true,
+    // Opt-in: only the family home surfaces settings in the header.
+    showSettings = false,
     backTitle = "Nhà",
   } = opts;
 

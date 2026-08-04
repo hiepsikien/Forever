@@ -101,6 +101,7 @@ export default function SpaceScreen() {
     spaceId: id,
     title: space?.name ?? "Gia đình",
     backTitle: "Forever",
+    showSettings: true,
   });
 
   const familyThread = useMemo(

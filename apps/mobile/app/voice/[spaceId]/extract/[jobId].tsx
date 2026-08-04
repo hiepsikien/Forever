@@ -12,6 +12,7 @@ import {
   TextInput,
   View,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { playLocalAudio, stopActivePlayback } from "@/lib/audio";
 import { useAuth } from "@/lib/auth";
@@ -55,6 +56,7 @@ export default function ExtractJobScreen() {
   }>();
   const { api, user } = useAuth();
   const router = useRouter();
+  const insets = useSafeAreaInsets();
 
   const [job, setJob] = useState<ExtractJob | null>(null);
   const [segments, setSegments] = useState<ExtractSegment[]>([]);
@@ -454,11 +456,15 @@ export default function ExtractJobScreen() {
   const reviewing = job.status === "needs_review" || job.status === "done";
 
   return (
-    <ScrollView
-      style={styles.screen}
-      contentContainerStyle={styles.root}
-      keyboardShouldPersistTaps="handled"
-    >
+    <View style={styles.screen}>
+      <ScrollView
+        style={styles.flex}
+        contentContainerStyle={[
+          styles.root,
+          reviewing ? styles.rootWithBar : null,
+        ]}
+        keyboardShouldPersistTaps="handled"
+      >
       <Text style={styles.title}>{statusLabel(job.status)}</Text>
       <Text style={styles.meta}>
         {job.original_filename || "Băng ghi"} · {job.num_speakers} người
@@ -734,7 +740,17 @@ export default function ExtractJobScreen() {
               </Text>
             ) : null}
           </View>
+        </>
+      ) : null}
+      </ScrollView>
 
+      {reviewing ? (
+        <View
+          style={[
+            styles.stickyBar,
+            { paddingBottom: Math.max(insets.bottom, 12) },
+          ]}
+        >
           {!canImport ? (
             <Text style={styles.meta}>
               {!selectedSpeaker
@@ -743,8 +759,11 @@ export default function ExtractJobScreen() {
                   ? "Tick ít nhất một đoạn clean."
                   : "Chọn hồ sơ đích bên trên."}
             </Text>
-          ) : null}
-
+          ) : (
+            <Text style={styles.stickyCount}>
+              Import {selectedIds.size} đoạn vào Voice DNA
+            </Text>
+          )}
           <Pressable
             style={[styles.btn, (!canImport || busy) && styles.disabled]}
             onPress={() => void importSelected()}
@@ -754,7 +773,6 @@ export default function ExtractJobScreen() {
               Import vào Voice DNA ({selectedIds.size})
             </Text>
           </Pressable>
-
           {job.status === "needs_review" ? (
             <Pressable
               style={styles.btnGhost}
@@ -777,15 +795,35 @@ export default function ExtractJobScreen() {
               <Text style={styles.btnGhostText}>Đánh dấu xong pool</Text>
             </Pressable>
           ) : null}
-        </>
+        </View>
       ) : null}
-    </ScrollView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.bg },
+  flex: { flex: 1 },
   root: { padding: 20, gap: 12, paddingBottom: 48 },
+  rootWithBar: { paddingBottom: 180 },
+  stickyBar: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: colors.card,
+    borderTopWidth: 1,
+    borderTopColor: colors.line,
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    gap: 10,
+    shadowColor: "#000",
+    shadowOpacity: 0.08,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: -2 },
+    elevation: 8,
+  },
+  stickyCount: { fontSize: 15, fontWeight: "700", color: colors.ink },
   center: {
     flex: 1,
     alignItems: "center",

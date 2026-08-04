@@ -56,7 +56,7 @@ const TAB_META: Record<
   },
   archived: {
     label: "Đã loại",
-    sub: "Mẫu đã loại khỏi clone. Khôi phục về Chưa xử lý hoặc Sẵn sàng clone khi cần.",
+    sub: "Mẫu đã loại khỏi clone. Bấm Khôi phục rồi chọn đưa về Chưa xử lý hoặc Sẵn sàng clone.",
     empty: "Chưa có mẫu đã loại.",
   },
 };
@@ -626,11 +626,9 @@ export default function VoiceSamplesScreen() {
                     : "Tạm dừng"}
             </Text>
           </Pressable>
-          <Pressable onPress={() => openAudioInfo(item)} hitSlop={6}>
-            <Text style={styles.infoLink}>Thông số</Text>
-          </Pressable>
           {tab === "unprocessed" ? (
             <Pressable
+              style={styles.secondary}
               onPress={async () => {
                 const vid = item.voice_profile_id;
                 if (!vid) return;
@@ -642,48 +640,71 @@ export default function VoiceSamplesScreen() {
                 }
               }}
             >
-              <Text style={styles.approve}>Duyệt</Text>
+              <Text style={styles.secondaryText}>Duyệt</Text>
             </Pressable>
           ) : null}
           {tab === "archived" ? (
-            <>
-              <Pressable
-                onPress={async () => {
-                  const vid = item.voice_profile_id;
-                  if (!vid) return;
-                  try {
-                    await api.updateVoiceSampleStage(vid, item.id, "unprocessed");
-                    await refreshAllTabs();
-                  } catch (e) {
-                    Alert.alert(
-                      "Lỗi",
-                      e instanceof Error ? e.message : "Không khôi phục được.",
-                    );
-                  }
-                }}
-              >
-                <Text style={styles.approve}>Khôi phục</Text>
-              </Pressable>
-              <Pressable
-                onPress={async () => {
-                  const vid = item.voice_profile_id;
-                  if (!vid) return;
-                  try {
-                    await api.updateVoiceSampleStage(vid, item.id, "processed");
-                    await refreshAllTabs();
-                  } catch (e) {
-                    Alert.alert(
-                      "Lỗi",
-                      e instanceof Error ? e.message : "Không khôi phục được.",
-                    );
-                  }
-                }}
-              >
-                <Text style={styles.approve}>→ Sẵn sàng clone</Text>
-              </Pressable>
-            </>
+            <Pressable
+              style={styles.secondary}
+              onPress={() => {
+                const vid = item.voice_profile_id;
+                if (!vid) return;
+                Alert.alert(
+                  "Khôi phục mẫu?",
+                  "Chọn nơi đưa mẫu trở lại.",
+                  [
+                    { text: "Huỷ", style: "cancel" },
+                    {
+                      text: "Chưa xử lý",
+                      onPress: async () => {
+                        try {
+                          await api.updateVoiceSampleStage(
+                            vid,
+                            item.id,
+                            "unprocessed",
+                          );
+                          await refreshAllTabs();
+                        } catch (e) {
+                          Alert.alert(
+                            "Lỗi",
+                            e instanceof Error
+                              ? e.message
+                              : "Không khôi phục được.",
+                          );
+                        }
+                      },
+                    },
+                    {
+                      text: "Sẵn sàng clone",
+                      onPress: async () => {
+                        try {
+                          await api.updateVoiceSampleStage(
+                            vid,
+                            item.id,
+                            "processed",
+                          );
+                          await refreshAllTabs();
+                        } catch (e) {
+                          Alert.alert(
+                            "Lỗi",
+                            e instanceof Error
+                              ? e.message
+                              : "Không khôi phục được.",
+                          );
+                        }
+                      },
+                    },
+                  ],
+                );
+              }}
+            >
+              <Text style={styles.secondaryText}>Khôi phục</Text>
+            </Pressable>
           ) : null}
-          <Pressable onPress={() => remove(item)}>
+          <Pressable onPress={() => openAudioInfo(item)} hitSlop={6}>
+            <Text style={styles.infoLink}>Thông số</Text>
+          </Pressable>
+          <Pressable style={styles.deleteBtn} onPress={() => remove(item)} hitSlop={6}>
             <Text style={styles.delete}>Xóa</Text>
           </Pressable>
         </View>
@@ -960,19 +981,44 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
   editLink: { fontSize: 13, fontWeight: "700", color: colors.brand },
-  row: { flexDirection: "row", alignItems: "center", gap: 12, flexWrap: "wrap" },
+  row: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    flexWrap: "nowrap",
+  },
   playBtn: {
     backgroundColor: colors.brand,
     borderRadius: 8,
     paddingVertical: 8,
-    paddingHorizontal: 14,
-    minWidth: 88,
+    paddingHorizontal: 12,
+    minWidth: 72,
     alignItems: "center",
+    flexShrink: 0,
   },
   playBtnBusy: { opacity: 0.7 },
   playText: { color: "#fff", fontWeight: "700", fontSize: 13 },
-  approve: { color: colors.brand, fontWeight: "700", fontSize: 13 },
-  infoLink: { color: colors.inkSoft, fontWeight: "600", fontSize: 13 },
+  secondary: {
+    borderWidth: 1,
+    borderColor: colors.brand,
+    borderRadius: 8,
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+    flexShrink: 0,
+  },
+  secondaryText: { color: colors.brand, fontWeight: "700", fontSize: 13 },
+  infoLink: {
+    color: colors.inkSoft,
+    fontWeight: "600",
+    fontSize: 13,
+    flexShrink: 0,
+  },
+  deleteBtn: {
+    marginLeft: "auto",
+    paddingVertical: 8,
+    paddingHorizontal: 6,
+    flexShrink: 0,
+  },
   delete: { color: colors.danger, fontWeight: "700", fontSize: 13 },
   btn: {
     backgroundColor: colors.brand,

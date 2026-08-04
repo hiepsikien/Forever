@@ -454,7 +454,18 @@ export default function VoiceRendersScreen() {
 
           return (
             <View style={styles.card}>
-              <Text style={styles.voiceName}>{voiceName}</Text>
+              <View style={styles.voiceHeader}>
+                <Text style={styles.voiceName} numberOfLines={1}>
+                  {voiceName}
+                </Text>
+                <View style={styles.providerTag}>
+                  <Text style={styles.providerTagText}>
+                    {voiceProviderLabel(
+                      item.provider ?? voiceProviderForModel(item.model_id),
+                    )}
+                  </Text>
+                </View>
+              </View>
               {item.provider_voice_name ? (
                 <Text style={styles.cloneName} numberOfLines={2}>
                   {item.provider_voice_name}
@@ -575,12 +586,33 @@ const styles = StyleSheet.create({
     gap: 8,
     marginBottom: 8,
   },
+  voiceHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 8,
+  },
   voiceName: {
+    flexShrink: 1,
     fontSize: 12,
     fontWeight: "700",
     color: colors.brand,
     textTransform: "uppercase",
     letterSpacing: 0.3,
+  },
+  providerTag: {
+    flexShrink: 0,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: colors.line,
+    backgroundColor: colors.bgDeep,
+  },
+  providerTagText: {
+    fontSize: 11,
+    fontWeight: "700",
+    color: colors.ink,
   },
   cloneName: { fontSize: 13, fontWeight: "600", color: colors.inkSoft },
   body: {

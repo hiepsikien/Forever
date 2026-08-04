@@ -1,8 +1,8 @@
 import {
   ElevenLabsVoice,
   VoiceProfile,
+  VOICE_PROVIDERS,
   type VoiceProvider,
-  VoiceRender,
   type VoiceTtsModelId,
   voiceProviderLabel,
   voiceTtsModelsFor,
@@ -13,6 +13,7 @@ import {
   ActivityIndicator,
   Alert,
   FlatList,
+  Keyboard,
   KeyboardAvoidingView,
   Modal,
   Platform,
@@ -24,6 +25,7 @@ import {
   TextInput,
   View,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import {
   pauseActivePlayback,
@@ -35,8 +37,6 @@ import { useAuth } from "@/lib/auth";
 import { elVoiceSortKey, formatElVoiceWhen } from "@/lib/elVoice";
 import {
   fetchAuthedMediaUri,
-  prepareAudioExport,
-  shareLocalAudio,
 } from "@/lib/media";
 import { useSpaceScreenOptions } from "@/lib/spaceHeader";
 import { colors, fonts } from "@/lib/theme";
@@ -63,6 +63,13 @@ type PickerOption = {
 };
 
 type OpenPicker = "voice" | "model" | "profile" | null;
+
+/** A Forever Voice DNA may hold clones on more than one provider account. */
+type CloneOption = ElevenLabsVoice & { provider: VoiceProvider };
+
+function cloneKey(v: { provider: VoiceProvider; voice_id: string }): string {
+  return `${v.provider}:${v.voice_id}`;
+}
 
 function formatTtsLabel(value: number): string {
   return value.toFixed(2);
@@ -166,13 +173,16 @@ export default function VoiceSpeakScreen() {
   }>();
   const { api } = useAuth();
   const router = useRouter();
+  const insets = useSafeAreaInsets();
+  const [keyboardOpen, setKeyboardOpen] = useState(false);
 
   const [profiles, setProfiles] = useState<VoiceProfile[]>([]);
-  const [elVoices, setElVoices] = useState<ElevenLabsVoice[]>([]);
+  const [elVoices, setElVoices] = useState<CloneOption[]>([]);
   const [selectedProfileId, setSelectedProfileId] = useState<string | null>(
     voiceIdParam || null,
   );
-  const [selectedElVoiceId, setSelectedElVoiceId] = useState<string | null>(null);
+  /** `${provider}:${voice_id}` so MiniMax and ElevenLabs never collide. */
+  const [selectedCloneKey, setSelectedCloneKey] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [text, setText] = useState(DEFAULT_DRAFT_TEXT);
   const [modelId, setModelId] = useState<VoiceTtsModelId>("eleven_v3");
@@ -203,7 +213,6 @@ export default function VoiceSpeakScreen() {
   const [busy, setBusy] = useState(false);
   const [previewing, setPreviewing] = useState(false);
   const [paused, setPaused] = useState(false);
-  const [lastRender, setLastRender] = useState<VoiceRender | null>(null);
   const [openPicker, setOpenPicker] = useState<OpenPicker>(null);
   const [settingsReady, setSettingsReady] = useState(false);
 
@@ -264,6 +273,21 @@ export default function VoiceSpeakScreen() {
     backTitle: "Nhà",
   });
 
+  useEffect(() => {
+    const show = Keyboard.addListener(
+      Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow",
+      () => setKeyboardOpen(true),
+    );
+    const hide = Keyboard.addListener(
+      Platform.OS === "ios" ? "keyboardWillHide" : "keyboardDidHide",
+      () => setKeyboardOpen(false),
+    );
+    return () => {
+      show.remove();
+      hide.remove();
+    };
+  }, []);
+
   const sortedElVoices = useMemo(
     () =>
       [...elVoices].sort((a, b) => elVoiceSortKey(b) - elVoiceSortKey(a)),
@@ -275,13 +299,16 @@ export default function VoiceSpeakScreen() {
     [profiles, selectedProfileId],
   );
   const selectedElVoice = useMemo(
-    () => sortedElVoices.find((v) => v.voice_id === selectedElVoiceId) ?? null,
-    [sortedElVoices, selectedElVoiceId],
+    () =>
+      sortedElVoices.find((v) => cloneKey(v) === selectedCloneKey) ?? null,
+    [sortedElVoices, selectedCloneKey],
   );
-  // Which vendor holds this clone decides both the model list and which of the
-  // advanced knobs actually reach the provider.
+  const selectedElVoiceId = selectedElVoice?.voice_id ?? null;
+  // The selected clone's vendor decides the model list and which knobs apply —
+  // not the profile default alone, so stewards can A/B both houses in one screen.
   const provider: VoiceProvider =
-    selectedProfile?.provider === "minimax" ? "minimax" : "elevenlabs";
+    selectedElVoice?.provider ??
+    (selectedProfile?.provider === "minimax" ? "minimax" : "elevenlabs");
   const isMinimax = provider === "minimax";
   const modelOptions = useMemo(() => voiceTtsModelsFor(provider), [provider]);
   const selectedModel = useMemo(
@@ -295,20 +322,30 @@ export default function VoiceSpeakScreen() {
     }
   }, [modelOptions, modelId]);
 
-  const pickPreferredElVoice = useCallback(
-    (profile: VoiceProfile | null, sorted: ElevenLabsVoice[]) =>
-      (profile?.provider_voice_id &&
-        sorted.find((x) => x.voice_id === profile.provider_voice_id)?.voice_id) ||
-      sorted.find((x) =>
+  const pickPreferredClone = useCallback(
+    (profile: VoiceProfile | null, sorted: CloneOption[]): string | null => {
+      if (!sorted.length) return null;
+      const profileProvider: VoiceProvider =
+        profile?.provider === "minimax" ? "minimax" : "elevenlabs";
+      const attached =
+        profile?.provider_voice_id &&
+        (sorted.find(
+          (x) =>
+            x.voice_id === profile.provider_voice_id &&
+            x.provider === profileProvider,
+        ) ||
+          sorted.find((x) => x.voice_id === profile.provider_voice_id));
+      if (attached) return cloneKey(attached);
+      const byName = sorted.find((x) =>
         profile?.display_name
           ? x.name
               .toLowerCase()
               .includes(profile.display_name.split("(")[0].trim().toLowerCase())
           : false,
-      )?.voice_id ||
-      sorted[0]?.voice_id ||
-      profile?.provider_voice_id ||
-      null,
+      );
+      if (byName) return cloneKey(byName);
+      return cloneKey(sorted[0]);
+    },
     [],
   );
 
@@ -316,25 +353,43 @@ export default function VoiceSpeakScreen() {
     async (profile: VoiceProfile | null) => {
       if (!spaceId || !profile) {
         setElVoices([]);
-        setSelectedElVoiceId(null);
+        setSelectedCloneKey(null);
         return;
       }
-      const el = await api.listElevenLabsVoices(spaceId, {
-        clonedOnly: true,
-        voiceId: profile.id,
-        provider: profile.provider === "minimax" ? "minimax" : "elevenlabs",
+      const results = await Promise.allSettled(
+        VOICE_PROVIDERS.map((p) =>
+          api.listElevenLabsVoices(spaceId, {
+            clonedOnly: true,
+            voiceId: profile.id,
+            provider: p.id,
+          }),
+        ),
+      );
+      const merged: CloneOption[] = [];
+      results.forEach((result, index) => {
+        if (result.status !== "fulfilled") return;
+        const p = VOICE_PROVIDERS[index];
+        merged.push(
+          ...result.value.voices.map((v) => ({ ...v, provider: p.id })),
+        );
       });
-      const sorted = [...el.voices].sort(
+      if (
+        !merged.length &&
+        results.every((r) => r.status === "rejected")
+      ) {
+        throw new Error("Không tải được bản clone từ cả hai dịch vụ.");
+      }
+      const sorted = merged.sort(
         (a, b) => elVoiceSortKey(b) - elVoiceSortKey(a),
       );
       setElVoices(sorted);
-      setSelectedElVoiceId((prev) =>
-        prev && sorted.some((v) => v.voice_id === prev)
+      setSelectedCloneKey((prev) =>
+        prev && sorted.some((v) => cloneKey(v) === prev)
           ? prev
-          : pickPreferredElVoice(profile, sorted),
+          : pickPreferredClone(profile, sorted),
       );
     },
-    [api, spaceId, pickPreferredElVoice],
+    [api, spaceId, pickPreferredClone],
   );
 
   const load = useCallback(async () => {
@@ -472,12 +527,12 @@ export default function VoiceSpeakScreen() {
     }
   };
 
-  const selectElVoice = (id: string) => {
-    if (id === selectedElVoiceId) return;
+  const selectElVoice = (key: string) => {
+    if (key === selectedCloneKey) return;
     void stopActivePlayback();
     setPreviewing(false);
     setPaused(false);
-    setSelectedElVoiceId(id);
+    setSelectedCloneKey(key);
   };
 
   const createAndPlay = async () => {
@@ -497,7 +552,6 @@ export default function VoiceSpeakScreen() {
         text.trim(),
         ttsOpts,
       );
-      setLastRender(render);
       const url = api.voiceRenderMediaUrl(render.voice_profile_id, render.id);
       const uri = await fetchAuthedMediaUri(
         url,
@@ -518,54 +572,35 @@ export default function VoiceSpeakScreen() {
     }
   };
 
-  const shareLast = async () => {
-    if (!lastRender || busy) return;
-    setBusy(true);
-    try {
-      const url = api.voiceRenderMediaUrl(
-        lastRender.voice_profile_id,
-        lastRender.id,
-      );
-      const cached = await fetchAuthedMediaUri(
-        url,
-        `share-render-${lastRender.id}`,
-        lastRender.media_mime,
-      );
-      const voiceName = selectedProfile?.display_name || "Voice-DNA";
-      const stamp = lastRender.created_at.slice(0, 16).replace("T", "-");
-      const base = `Forever-TTS-${voiceName}-${stamp}-${lastRender.id.slice(-6)}`;
-      const uri = await prepareAudioExport(cached, base, lastRender.media_mime);
-      await shareLocalAudio(uri, {
-        mimeType: lastRender.media_mime,
-        dialogTitle: base,
-      });
-    } catch (e) {
-      Alert.alert("Lỗi", e instanceof Error ? e.message : "Không chia sẻ được.");
-    } finally {
-      setBusy(false);
-    }
-  };
-
   const pickerTitle =
     openPicker === "voice"
-      ? "Voice DNA"
+      ? "Bản clone"
       : openPicker === "model"
         ? "TTS Model"
         : openPicker === "profile"
-          ? "Hồ sơ Forever"
+          ? "Voice DNA"
           : "";
 
   const pickerOptions: PickerOption[] = useMemo(() => {
     if (openPicker === "voice") {
-      return sortedElVoices.map((v) => ({
-        id: v.voice_id,
-        title: v.name,
-        subtitle:
-          formatElVoiceWhen(v) +
-          (selectedProfile?.provider_voice_id === v.voice_id
-            ? " · đang gắn"
-            : ""),
-      }));
+      return sortedElVoices.map((v) => {
+        const attached =
+          selectedProfile?.provider_voice_id === v.voice_id &&
+          (selectedProfile.provider === "minimax"
+            ? "minimax"
+            : "elevenlabs") === v.provider;
+        return {
+          id: cloneKey(v),
+          title: v.name,
+          subtitle: [
+            voiceProviderLabel(v.provider),
+            formatElVoiceWhen(v),
+            attached ? "đang gắn" : null,
+          ]
+            .filter(Boolean)
+            .join(" · "),
+        };
+      });
     }
     if (openPicker === "model") {
       return modelOptions.map((m) => ({
@@ -586,13 +621,14 @@ export default function VoiceSpeakScreen() {
     openPicker,
     sortedElVoices,
     selectedProfile?.provider_voice_id,
+    selectedProfile?.provider,
     profiles,
     modelOptions,
   ]);
 
   const pickerSelectedId =
     openPicker === "voice"
-      ? selectedElVoiceId
+      ? selectedCloneKey
       : openPicker === "model"
         ? modelId
         : openPicker === "profile"
@@ -629,17 +665,19 @@ export default function VoiceSpeakScreen() {
     <KeyboardAvoidingView
       style={styles.flex}
       behavior={Platform.OS === "ios" ? "padding" : undefined}
-      keyboardVerticalOffset={88}
+      keyboardVerticalOffset={Platform.OS === "ios" ? 88 : 0}
     >
       <ScrollView
+        style={styles.flex}
         contentContainerStyle={styles.root}
         keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="interactive"
       >
         {profiles.length > 1 ? (
           <DropdownField
-            label="Hồ sơ Forever"
+            label="Voice DNA"
             value={selectedProfile?.display_name || ""}
-            placeholder="Chọn hồ sơ…"
+            placeholder="Chọn Voice DNA…"
             hint={
               selectedProfile
                 ? `${selectedProfile.subject_kind === "heritage" ? "Ký ức" : "Giọng của tôi"} · ${selectedProfile.status}`
@@ -650,20 +688,20 @@ export default function VoiceSpeakScreen() {
         ) : null}
 
         <DropdownField
-          label="Voice DNA"
+          label="Bản clone"
           value={selectedElVoice?.name || ""}
-          placeholder="Chọn Voice DNA…"
+          placeholder="Chọn bản clone…"
           hint={
             selectedElVoice
-              ? formatElVoiceWhen(selectedElVoice)
-              : "Chưa có clone trên ElevenLabs"
+              ? `${voiceProviderLabel(selectedElVoice.provider)} · ${formatElVoiceWhen(selectedElVoice)}`
+              : "Chưa có bản clone"
           }
           onPress={() => setOpenPicker("voice")}
           disabled={!sortedElVoices.length}
         />
         {!sortedElVoices.length ? (
           <Text style={styles.helper}>
-            Clone Voice DNA trên hub để tạo bản mới (mới nhất hiện trên cùng).
+            Clone trên hub để tạo bản mới (mới nhất hiện trên cùng).
           </Text>
         ) : (
           <Pressable
@@ -688,9 +726,8 @@ export default function VoiceSpeakScreen() {
         <Text style={styles.section}>Phong cách</Text>
         <View style={styles.card}>
           <Text style={styles.helper}>
-            Không có chỉnh tuổi/pitch riêng. Giọng nghe trẻ hơn mẫu → tăng
-            Similarity, bật Speaker Boost; nếu vẫn lệch thì chọn lại mẫu trầm hơn
-            rồi clone lại.
+            Giọng nghe trẻ hơn mẫu → tăng Similarity, bật Speaker Boost, hoặc
+            chọn lại mẫu trầm hơn rồi clone.
           </Text>
           <View style={styles.presetRow}>
             <Pressable
@@ -807,60 +844,52 @@ export default function VoiceSpeakScreen() {
             </View>
           ) : null}
         </View>
-
-        <Text style={styles.section}>Nội dung</Text>
-        <View style={styles.card}>
-          <TextInput
-            style={styles.input}
-            value={text}
-            onChangeText={onChangeDraftText}
-            placeholder="Nhập câu để tạo giọng…"
-            placeholderTextColor={colors.inkSoft}
-            multiline
-          />
-        </View>
-
-        <Text style={styles.section}>Tạo giọng</Text>
-        <View style={styles.card}>
-          <Text style={styles.hint}>
-            Mỗi lần tạo đều lưu tự động vào Bản đã tạo.
-          </Text>
-          <Pressable
-            style={[
-              styles.btn,
-              (busy || !selectedElVoiceId) && styles.disabled,
-            ]}
-            onPress={createAndPlay}
-            disabled={(busy && !previewing) || !selectedElVoiceId}
-          >
-            <Text style={styles.btnText}>
-              {!previewing ? "Tạo & nghe" : paused ? "Tiếp tục" : "Tạm dừng"}
-            </Text>
-          </Pressable>
-          <Pressable
-            style={[
-              styles.btnGhost,
-              (busy || !lastRender) && styles.disabled,
-            ]}
-            onPress={shareLast}
-            disabled={busy || !lastRender}
-          >
-            <Text style={styles.btnGhostText}>Chia sẻ</Text>
-          </Pressable>
-          <Pressable
-            onPress={() =>
-              spaceId &&
-              router.push(
-                `/voice/${spaceId}/renders${
-                  selectedProfileId ? `?voiceId=${selectedProfileId}` : ""
-                }`,
-              )
-            }
-          >
-            <Text style={styles.link}>Xem bản đã tạo</Text>
-          </Pressable>
-        </View>
       </ScrollView>
+
+      <View
+        style={[
+          styles.composer,
+          {
+            // Home-indicator padding only when the keyboard is closed; with the
+            // keyboard up, KeyboardAvoidingView already owns the bottom inset.
+            paddingBottom: keyboardOpen ? 10 : Math.max(insets.bottom, 12),
+          },
+        ]}
+      >
+        <TextInput
+          style={styles.input}
+          value={text}
+          onChangeText={onChangeDraftText}
+          placeholder="Nhập câu để tạo giọng…"
+          placeholderTextColor={colors.inkSoft}
+          multiline
+        />
+        <Pressable
+          style={[
+            styles.btn,
+            (busy || !selectedElVoiceId || !text.trim()) && styles.disabled,
+          ]}
+          onPress={createAndPlay}
+          disabled={(busy && !previewing) || !selectedElVoiceId || !text.trim()}
+        >
+          <Text style={styles.btnText}>
+            {!previewing ? "Tạo & nghe" : paused ? "Tiếp tục" : "Tạm dừng"}
+          </Text>
+        </Pressable>
+        <Pressable
+          onPress={() =>
+            spaceId &&
+            router.push(
+              `/voice/${spaceId}/renders${
+                selectedProfileId ? `?voiceId=${selectedProfileId}` : ""
+              }`,
+            )
+          }
+          hitSlop={6}
+        >
+          <Text style={styles.link}>Xem bản đã tạo</Text>
+        </Pressable>
+      </View>
 
       <Modal
         visible={openPicker != null}
@@ -938,7 +967,7 @@ const styles = StyleSheet.create({
     color: colors.ink,
   },
   emptySub: { fontSize: 14, lineHeight: 20, color: colors.inkSoft },
-  root: { padding: 20, gap: 12, paddingBottom: 40 },
+  root: { padding: 20, gap: 12, paddingBottom: 24 },
   fieldBlock: { gap: 8 },
   section: {
     fontSize: 12,
@@ -946,6 +975,16 @@ const styles = StyleSheet.create({
     color: colors.inkSoft,
     textTransform: "uppercase",
     letterSpacing: 0.4,
+  },
+  // Flex sibling (not absolute) so ScrollView never sits under it, and
+  // KeyboardAvoidingView can lift the whole composer above the keyboard.
+  composer: {
+    backgroundColor: colors.card,
+    borderTopWidth: 1,
+    borderTopColor: colors.line,
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    gap: 8,
   },
   hint: {
     fontSize: 13,
@@ -989,7 +1028,8 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   input: {
-    minHeight: 120,
+    minHeight: 72,
+    maxHeight: 120,
     borderWidth: 1,
     borderColor: colors.line,
     borderRadius: 10,
@@ -1075,14 +1115,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   btnText: { color: "#fff", fontWeight: "700", fontSize: 15 },
-  btnGhost: {
-    borderWidth: 1,
-    borderColor: colors.brand,
-    borderRadius: 10,
-    paddingVertical: 12,
-    alignItems: "center",
-  },
-  btnGhostText: { color: colors.brand, fontWeight: "700", fontSize: 15 },
   link: {
     textAlign: "center",
     color: colors.brand,

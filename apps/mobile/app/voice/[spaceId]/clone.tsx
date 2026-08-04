@@ -389,11 +389,17 @@ const styles = StyleSheet.create({
     borderColor: colors.line,
     backgroundColor: colors.bgDeep,
   },
-  providerChipOn: { borderColor: colors.brand, backgroundColor: colors.brandSoft },
+  // Light fill + brand border keeps ink readable; brandSoft+brand was dark-on-dark.
+  providerChipOn: {
+    borderColor: colors.brand,
+    borderWidth: 2,
+    backgroundColor: colors.card,
+    padding: 9,
+  },
   providerLabel: { fontSize: 14, fontWeight: "700", color: colors.ink },
-  providerLabelOn: { color: colors.brand },
+  providerLabelOn: { color: colors.ink },
   providerHint: { fontSize: 11, lineHeight: 15, color: colors.inkSoft },
-  providerHintOn: { color: colors.ink },
+  providerHintOn: { color: colors.inkSoft },
   noiseRow: {
     flexDirection: "row",
     alignItems: "center",
