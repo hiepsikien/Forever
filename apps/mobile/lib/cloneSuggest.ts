@@ -2,8 +2,13 @@ import type { VoiceSample } from "@forever/api-client";
 
 export const CLONE_MAX_SAMPLES = 3;
 export const CLONE_MAX_DURATION_MS = 150_000;
-/** MiniMax clones from up to 5 minutes of reference audio. */
+/** MiniMax clones from up to 5 minutes, which takes more than three clips. */
+export const MINIMAX_CLONE_MAX_SAMPLES = 8;
 export const MINIMAX_CLONE_MAX_DURATION_MS = 300_000;
+
+export function cloneMaxSamples(provider: string | null | undefined): number {
+  return provider === "minimax" ? MINIMAX_CLONE_MAX_SAMPLES : CLONE_MAX_SAMPLES;
+}
 
 export function cloneMaxDurationMs(provider: string | null | undefined): number {
   return provider === "minimax"

@@ -25,8 +25,8 @@ import {
 } from "@/lib/audio";
 import { useAuth } from "@/lib/auth";
 import {
-  CLONE_MAX_SAMPLES,
   cloneMaxDurationMs,
+  cloneMaxSamples,
   formatDurationMs,
   suggestCloneSampleIds,
 } from "@/lib/cloneSuggest";
@@ -59,12 +59,15 @@ export default function CloneVoiceScreen() {
   useSpaceScreenOptions({ spaceId, title: "Clone giọng", backTitle: "Nhà" });
 
   const maxDurationMs = cloneMaxDurationMs(provider);
+  const maxSamples = cloneMaxSamples(provider);
 
   const applySuggestion = useCallback(
     (list: VoiceSample[]) => {
-      setSelected(new Set(suggestCloneSampleIds(list, { maxDurationMs })));
+      setSelected(
+        new Set(suggestCloneSampleIds(list, { maxDurationMs, maxSamples })),
+      );
     },
-    [maxDurationMs],
+    [maxDurationMs, maxSamples],
   );
 
   const load = useCallback(async () => {
@@ -93,8 +96,8 @@ export default function CloneVoiceScreen() {
   }, [samples, applySuggestion]);
 
   const suggestedIds = useMemo(
-    () => new Set(suggestCloneSampleIds(samples, { maxDurationMs })),
-    [samples, maxDurationMs],
+    () => new Set(suggestCloneSampleIds(samples, { maxDurationMs, maxSamples })),
+    [samples, maxDurationMs, maxSamples],
   );
   const selectedSamples = useMemo(
     () => samples.filter((s) => selected.has(s.id)),
@@ -104,7 +107,7 @@ export default function CloneVoiceScreen() {
     () => selectedSamples.reduce((sum, s) => sum + (s.duration_ms ?? 0), 0),
     [selectedSamples],
   );
-  const overCount = selected.size > CLONE_MAX_SAMPLES;
+  const overCount = selected.size > maxSamples;
   const overDuration = selectedDurationMs > maxDurationMs;
   const canSubmit =
     !!voiceId &&
@@ -194,7 +197,7 @@ export default function CloneVoiceScreen() {
           <View style={styles.header}>
             <Text style={styles.title}>Chọn mẫu để clone</Text>
             <Text style={styles.sub}>
-              Máy đã chọn sẵn vài mẫu tốt (1–{CLONE_MAX_SAMPLES}, tổng ≤{" "}
+              Máy đã chọn sẵn vài mẫu tốt (1–{maxSamples}, tổng ≤{" "}
               {formatDurationMs(maxDurationMs)}). Sửa tick nếu muốn, rồi bấm Clone
               bên dưới.
             </Text>
@@ -281,7 +284,7 @@ export default function CloneVoiceScreen() {
         {overCount || overDuration ? (
           <Text style={styles.warn}>
             {overCount
-              ? `Tối đa ${CLONE_MAX_SAMPLES} mẫu.`
+              ? `Tối đa ${maxSamples} mẫu.`
               : `Tổng thời lượng quá dài — tối đa ${formatDurationMs(maxDurationMs)}.`}
           </Text>
         ) : null}

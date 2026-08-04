@@ -59,9 +59,12 @@ router = APIRouter(tags=["voice-dna"])
 PIPELINE_STAGES = frozenset({"unprocessed", "processed", "archived"})
 CLONE_MAX_SAMPLES = 3
 CLONE_TARGET_DURATION_MS = 120_000
-# ElevenLabs IVC degrades past a couple of minutes; MiniMax reads 5 full minutes.
+# ElevenLabs IVC degrades past a couple of minutes; MiniMax reads 5 full minutes,
+# which needs more clips too — heritage samples are often under a minute each.
 CLONE_MAX_DURATION_MS = 150_000
 CLONE_MAX_DURATION_MS_BY_PROVIDER = {vp.MINIMAX: 300_000}
+CLONE_MAX_SAMPLES_BY_PROVIDER = {vp.MINIMAX: 8}
+CLONE_MAX_SAMPLES_ANY = max([CLONE_MAX_SAMPLES, *CLONE_MAX_SAMPLES_BY_PROVIDER.values()])
 COMBINE_MIN_SAMPLES = 2
 COMBINE_MAX_SAMPLES = 100
 COMBINE_MAX_INPUT_DURATION_MS = 600_000
@@ -96,8 +99,9 @@ class CreateVoiceForIdentityBody(BaseModel):
 
 class CloneBody(BaseModel):
     remove_background_noise: bool | None = None
+    # Bound covers every provider; the per-provider cap is enforced on the route.
     sample_ids: list[str] | None = Field(
-        default=None, min_length=1, max_length=CLONE_MAX_SAMPLES
+        default=None, min_length=1, max_length=CLONE_MAX_SAMPLES_ANY
     )
     provider: str | None = Field(default=None, pattern="^(elevenlabs|minimax)$")
 
@@ -1694,6 +1698,16 @@ def clone_voice(
             ),
         )
 
+    settings = get_settings()
+    provider = vp.normalize(
+        (body.provider if body else None) or voice.provider,
+        settings,
+    )
+    max_samples = CLONE_MAX_SAMPLES_BY_PROVIDER.get(provider, CLONE_MAX_SAMPLES)
+    max_duration_ms = CLONE_MAX_DURATION_MS_BY_PROVIDER.get(
+        provider, CLONE_MAX_DURATION_MS
+    )
+
     requested_ids = list(dict.fromkeys(body.sample_ids)) if body and body.sample_ids else None
     if requested_ids is not None:
         by_id = {s.id: s for s in processed}
@@ -1703,26 +1717,25 @@ def clone_voice(
                 status_code=400,
                 detail="Mẫu chọn phải ở tab Sẵn sàng clone.",
             )
-        selected = [by_id[sid] for sid in requested_ids]
-    else:
-        if len(processed) > CLONE_MAX_SAMPLES:
+        if len(requested_ids) > max_samples:
             raise HTTPException(
                 status_code=400,
                 detail=(
-                    f"Có hơn {CLONE_MAX_SAMPLES} mẫu sẵn sàng — chọn 1–{CLONE_MAX_SAMPLES} "
+                    f"{vp.label(provider)} nhận tối đa {max_samples} mẫu mỗi lần clone."
+                ),
+            )
+        selected = [by_id[sid] for sid in requested_ids]
+    else:
+        if len(processed) > max_samples:
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    f"Có hơn {max_samples} mẫu sẵn sàng — chọn 1–{max_samples} "
                     "mẫu khi Clone (không clone cả kho)."
                 ),
             )
         selected = processed
 
-    settings = get_settings()
-    provider = vp.normalize(
-        (body.provider if body else None) or voice.provider,
-        settings,
-    )
-    max_duration_ms = CLONE_MAX_DURATION_MS_BY_PROVIDER.get(
-        provider, CLONE_MAX_DURATION_MS
-    )
     total_ms = sum(s.duration_ms or 0 for s in selected)
     if total_ms > max_duration_ms:
         minutes = max_duration_ms / 60_000
