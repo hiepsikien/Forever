@@ -48,6 +48,10 @@ function isVoiceMessage(item: ChatMessage): boolean {
   return (item.kind ?? "text") === "voice";
 }
 
+const POLL_IDLE_MS = 4000;
+const POLL_WAITING_MS = 1200;
+const HERITAGE_REPLY_TIMEOUT_MS = 60000;
+
 function nextTypewriterChunk(full: string, from: number): string {
   if (from >= full.length) return "";
   const rest = full.slice(from);
@@ -93,6 +97,9 @@ export default function ChatScreen() {
   const sendingRef = useRef(false);
   const recordingRef = useRef(false);
   const knownMessageIdsRef = useRef<Set<string>>(new Set());
+  const pendingMessageRef = useRef<ChatMessage | null>(null);
+  const listSeqRef = useRef(0);
+  const replyDeadlineRef = useRef(0);
   const [heritageTyping, setHeritageTyping] = useState(false);
   const [typewriter, setTypewriter] = useState<{ id: string; full: string; pos: number } | null>(
     null,
@@ -101,6 +108,48 @@ export default function ChatScreen() {
   const isHeritageThread = threadMeta?.kind === "heritage";
   const heritageTypingLabel =
     threadMeta?.title ?? threadMeta?.heritage?.display_name ?? "Ký ức";
+
+  /** Replaces the list with a server snapshot, keeping the in-flight optimistic
+   * message and animating a heritage reply only the first time we see it. */
+  const applyMessages = useCallback(
+    (incoming: ChatMessage[], options?: { animateNewHeritage?: boolean }) => {
+      let next = uniqueById(incoming);
+      const pending = pendingMessageRef.current;
+      if (pending && !next.some((m) => m.id === pending.id)) {
+        next = [...next, pending];
+      }
+      const known = knownMessageIdsRef.current;
+      const freshHeritage = options?.animateNewHeritage
+        ? [...next]
+            .reverse()
+            .find(
+              (m) =>
+                m.sender_kind === "heritage" &&
+                (m.kind ?? "text") === "text" &&
+                !known.has(m.id),
+            )
+        : undefined;
+      knownMessageIdsRef.current = new Set(next.map((m) => m.id));
+      setMessages(next);
+      if (freshHeritage?.body) {
+        replyDeadlineRef.current = 0;
+        setHeritageTyping(false);
+        setTypewriter({ id: freshHeritage.id, full: freshHeritage.body, pos: 0 });
+      }
+    },
+    [],
+  );
+
+  /** Returns null when a newer fetch has already been issued, so a slow response
+   * can never overwrite the list with an older snapshot. */
+  const fetchMessages = useCallback(async () => {
+    if (!threadId) return null;
+    const seq = listSeqRef.current + 1;
+    listSeqRef.current = seq;
+    const res = await api.listMessages(threadId, { limit: 100 });
+    if (seq !== listSeqRef.current) return null;
+    return res.messages;
+  }, [api, threadId]);
 
   const load = useCallback(async () => {
     if (!threadId) return;
@@ -111,13 +160,12 @@ export default function ChatScreen() {
       ]);
       setThreadMeta(thread);
       setSpaceId(thread.space_id);
-      const next = uniqueById(res.messages);
-      setMessages(next);
-      knownMessageIdsRef.current = new Set(next.map((m) => m.id));
+      listSeqRef.current += 1;
+      applyMessages(res.messages);
     } finally {
       setLoading(false);
     }
-  }, [api, threadId]);
+  }, [api, threadId, applyMessages]);
 
   useSpaceScreenOptions({
     spaceId: spaceId ?? undefined,
@@ -133,15 +181,19 @@ export default function ChatScreen() {
     if (!threadId) return;
     const timer = setInterval(async () => {
       if (sendingRef.current) return;
+      if (replyDeadlineRef.current && Date.now() > replyDeadlineRef.current) {
+        replyDeadlineRef.current = 0;
+        setHeritageTyping(false);
+      }
       try {
-        const res = await api.listMessages(threadId, { limit: 100 });
-        setMessages(uniqueById(res.messages));
+        const list = await fetchMessages();
+        if (list) applyMessages(list, { animateNewHeritage: true });
       } catch {
         // ignore poll errors
       }
-    }, 4000);
+    }, heritageTyping ? POLL_WAITING_MS : POLL_IDLE_MS);
     return () => clearInterval(timer);
-  }, [api, threadId]);
+  }, [threadId, heritageTyping, fetchMessages, applyMessages]);
 
   useEffect(() => {
     if (!typewriter) return;
@@ -179,7 +231,6 @@ export default function ChatScreen() {
   const send = async () => {
     const body = text.trim();
     if (!body || !threadId || sending || recording || !user) return;
-    const previousIds = new Set(knownMessageIdsRef.current);
     const optimistic: ChatMessage = {
       id: `local-${Date.now()}`,
       thread_id: threadId,
@@ -194,34 +245,28 @@ export default function ChatScreen() {
     setSending(true);
     sendingRef.current = true;
     setText("");
+    pendingMessageRef.current = optimistic;
     setMessages((prev) => uniqueById([...prev, optimistic]));
-    if (isHeritageThread) setHeritageTyping(true);
+    if (isHeritageThread) {
+      setHeritageTyping(true);
+      replyDeadlineRef.current = Date.now() + HERITAGE_REPLY_TIMEOUT_MS;
+    }
     requestAnimationFrame(() => listRef.current?.scrollToEnd({ animated: true }));
     try {
       await api.sendMessage(threadId, body);
-      const res = await api.listMessages(threadId, { limit: 100 });
-      const next = uniqueById(res.messages);
-      setMessages(next);
-      knownMessageIdsRef.current = new Set(next.map((m) => m.id));
-      const freshHeritage = [...next]
-        .reverse()
-        .find(
-          (m) =>
-            m.sender_kind === "heritage" &&
-            !previousIds.has(m.id) &&
-            (m.kind ?? "text") === "text",
-        );
-      if (freshHeritage?.body) {
-        setTypewriter({ id: freshHeritage.id, full: freshHeritage.body, pos: 0 });
-      }
+      pendingMessageRef.current = null;
+      const list = await fetchMessages();
+      if (list) applyMessages(list, { animateNewHeritage: true });
       requestAnimationFrame(() => listRef.current?.scrollToEnd({ animated: true }));
     } catch {
+      pendingMessageRef.current = null;
+      replyDeadlineRef.current = 0;
       setText(body);
       setMessages((prev) => prev.filter((m) => m.id !== optimistic.id));
+      setHeritageTyping(false);
     } finally {
       sendingRef.current = false;
       setSending(false);
-      setHeritageTyping(false);
     }
   };
 
@@ -274,8 +319,8 @@ export default function ChatScreen() {
         name: "voice.m4a",
         mimeType: "audio/mp4",
       });
-      const res = await api.listMessages(threadId, { limit: 100 });
-      setMessages(uniqueById(res.messages));
+      const list = await fetchMessages();
+      if (list) applyMessages(list, { animateNewHeritage: true });
       requestAnimationFrame(() => listRef.current?.scrollToEnd({ animated: true }));
     } catch (e) {
       Alert.alert("Lỗi", e instanceof Error ? e.message : "Không gửi được giọng nói.");
