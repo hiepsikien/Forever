@@ -14,6 +14,7 @@ from sqlalchemy.orm import Session
 
 from ..models import MemoryItem
 from .heritage import HERITAGE_TAG_PREFIX, normalize_text, tag_tokens
+from .memory_scope import readable_by
 
 MILESTONE_KIND = "milestone"
 
@@ -62,7 +63,7 @@ def query_tokens(text: str) -> set[str]:
 
 
 def milestones_for_identity(
-    db: Session, *, space_id: str, identity_id: str
+    db: Session, *, space_id: str, identity_id: str, reader: str | None = None
 ) -> list[MemoryItem]:
     needle = f"{HERITAGE_TAG_PREFIX}{identity_id}"
     items = (
@@ -70,6 +71,7 @@ def milestones_for_identity(
         .filter(
             MemoryItem.space_id == space_id,
             MemoryItem.kind == MILESTONE_KIND,
+            readable_by(reader),
         )
         .order_by(MemoryItem.occurred_at.asc().nullslast())
         .all()
@@ -118,7 +120,7 @@ LEARNED_KIND = "knowledge"
 
 
 def learned_facts_for_identity(
-    db: Session, *, space_id: str, identity_id: str
+    db: Session, *, space_id: str, identity_id: str, reader: str | None = None
 ) -> list[MemoryItem]:
     needle = f"{HERITAGE_TAG_PREFIX}{identity_id}"
     items = (
@@ -126,6 +128,7 @@ def learned_facts_for_identity(
         .filter(
             MemoryItem.space_id == space_id,
             MemoryItem.kind == LEARNED_KIND,
+            readable_by(reader),
         )
         .order_by(MemoryItem.created_at.desc())
         .all()

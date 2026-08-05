@@ -15,6 +15,12 @@ from ..auth import get_current_user
 from ..db import get_db
 from ..models import IdentityProfile, MemoryItem, Message, Thread, User
 from ..services.heritage import HERITAGE_TAG_PREFIX, POEM_KIND, tag_tokens
+from ..services.memory_scope import (
+    VISIBILITIES,
+    normalize_visibility,
+    readable_by,
+    visible_to,
+)
 from ..services.poetry_clean import clean_body_lines, format_body, format_body_tts
 from ..services.storage import (
     MAX_MEMORY_MEDIA_BYTES,
@@ -45,6 +51,7 @@ class UpdateMemoryBody(BaseModel):
     title: str | None = Field(default=None, max_length=200)
     body: str | None = Field(default=None, max_length=8000)
     tags: str | None = Field(default=None, max_length=500)
+    visibility: str | None = Field(default=None, max_length=16)
 
 
 ALLOWED_POEM_THEMES = {
@@ -114,6 +121,7 @@ def _memory_payload(item: MemoryItem, creator_name: str | None) -> dict:
         "media_mime": item.media_mime,
         "source_message_id": item.source_message_id,
         "tags": item.tags,
+        "visibility": normalize_visibility(item.visibility),
         "occurred_at": item.occurred_at.isoformat() if item.occurred_at else None,
         "created_at": item.created_at.isoformat(),
     }
@@ -135,7 +143,7 @@ def list_memories(
     require_membership(db, space_id=space_id, user=user)
     items = (
         db.query(MemoryItem)
-        .filter(MemoryItem.space_id == space_id)
+        .filter(MemoryItem.space_id == space_id, readable_by(user.id))
         .order_by(
             nulls_last(desc(MemoryItem.occurred_at)),
             desc(MemoryItem.created_at),
@@ -515,6 +523,20 @@ def update_memory(
     if not item:
         raise HTTPException(status_code=404, detail="Memory not found.")
     require_membership(db, space_id=item.space_id, user=user)
+    if not visible_to(item, user.id):
+        raise HTTPException(status_code=404, detail="Memory not found.")
+    if body.visibility is not None:
+        if body.visibility not in VISIBILITIES:
+            raise HTTPException(status_code=400, detail="Visibility không hợp lệ.")
+        # Only the person who saved it decides who reads it — a steward moving
+        # someone else's memory behind a wall, or out from behind one, would
+        # make the wall theirs rather than its owner's.
+        if item.created_by != user.id:
+            raise HTTPException(
+                status_code=403,
+                detail="Chỉ người lưu ký ức này mới đổi được phạm vi.",
+            )
+        item.visibility = body.visibility
     if body.title is not None:
         title = body.title.strip()
         if not title:

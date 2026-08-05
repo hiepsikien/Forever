@@ -1,4 +1,4 @@
-import { MemoryCandidate } from "@forever/api-client";
+import { MemoryCandidate, MemoryVisibility } from "@forever/api-client";
 import { useLocalSearchParams } from "expo-router";
 import { useCallback, useLayoutEffect, useState } from "react";
 import {
@@ -66,11 +66,15 @@ export default function ReviewScreen() {
   }, [load]);
 
   const settle = useCallback(
-    async (item: MemoryCandidate, keep: boolean) => {
+    async (
+      item: MemoryCandidate,
+      keep: boolean,
+      visibility: MemoryVisibility = "family",
+    ) => {
       setBusyId(item.id);
       setError(null);
       try {
-        if (keep) await api.approveMemoryCandidate(item.id);
+        if (keep) await api.approveMemoryCandidate(item.id, visibility);
         else await api.dismissMemoryCandidate(item.id);
         setItems((prev) => prev.filter((row) => row.id !== item.id));
       } catch (e) {
@@ -88,13 +92,18 @@ export default function ReviewScreen() {
         settle(item, true);
         return;
       }
-      // Sharing what was said in a private room cannot be undone quietly.
+      // Said in a private room: keeping it and telling the family are two
+      // different decisions, so the sentence must not make them one.
       Alert.alert(
         "Điều này nói riêng",
-        "Giữ vào Thư viện thì cả nhà đọc được. Bạn muốn giữ không?",
+        "Bạn muốn giữ riêng cho mình, hay chia sẻ để cả nhà cùng đọc?",
         [
           { text: "Thôi", style: "cancel" },
-          { text: "Giữ lại", onPress: () => settle(item, true) },
+          { text: "Giữ riêng", onPress: () => settle(item, true, "private") },
+          {
+            text: "Chia sẻ cả nhà",
+            onPress: () => settle(item, true, "family"),
+          },
         ],
       );
     },
@@ -162,7 +171,7 @@ export default function ReviewScreen() {
             ) : null}
             {isPrivate(item) ? (
               <Text style={styles.privateNote}>
-                Nói riêng — giữ lại là cả nhà đọc được.
+                Nói riêng — bạn chọn giữ riêng hay chia sẻ cả nhà.
               </Text>
             ) : null}
 

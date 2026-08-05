@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from ..access import require_membership
@@ -14,6 +15,7 @@ from ..services.heritage_candidates import (
     candidates_for_reviewer,
     dismiss,
 )
+from ..services.memory_scope import FAMILY, VISIBILITIES
 
 router = APIRouter(prefix="/api", tags=["memory-candidates"])
 
@@ -88,15 +90,23 @@ def list_memory_candidates(
     return {"candidates": [_payload(db, row) for row in rows]}
 
 
+class ApproveBody(BaseModel):
+    visibility: str = Field(default=FAMILY, max_length=16)
+
+
 @router.post("/memory-candidates/{candidate_id}/approve")
 def approve_memory_candidate(
     candidate_id: str,
     user: Annotated[User, Depends(get_current_user)],
     db: Annotated[Session, Depends(get_db)],
+    body: ApproveBody | None = None,
 ):
-    """Approving is also sharing: the fact enters the family library."""
+    """Keep the fact — shared with the family, or kept just for the reviewer."""
     row = _mine_or_404(db, candidate_id, user)
-    item = approve(db, candidate=row, user_id=user.id)
+    visibility = (body or ApproveBody()).visibility
+    if visibility not in VISIBILITIES:
+        raise HTTPException(status_code=400, detail="Visibility không hợp lệ.")
+    item = approve(db, candidate=row, user_id=user.id, visibility=visibility)
     return {"candidate": _payload(db, row), "memory_id": item.id}
 
 

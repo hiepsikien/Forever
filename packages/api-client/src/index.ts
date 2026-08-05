@@ -143,9 +143,13 @@ export interface MemoryItem {
   media_mime?: string | null;
   source_message_id?: string | null;
   tags: string;
+  /** private means only `created_by` reads it, and only in their own heritage room. */
+  visibility?: MemoryVisibility;
   occurred_at?: string | null;
   created_at: string;
 }
+
+export type MemoryVisibility = "family" | "private";
 
 export interface ImportPoemInput {
   title?: string;
@@ -807,7 +811,12 @@ export function createApiClient({
       `${resolveRoot()}/api/memories/${memoryId}/thumbnail`,
     updateMemory: (
       memoryId: string,
-      payload: { title?: string; body?: string; tags?: string },
+      payload: {
+        title?: string;
+        body?: string;
+        tags?: string;
+        visibility?: MemoryVisibility;
+      },
     ) =>
       request<MemoryItem>(`/api/memories/${memoryId}`, {
         method: "PATCH",
@@ -922,10 +931,13 @@ export function createApiClient({
       request<{ candidates: MemoryCandidate[] }>(
         `/api/spaces/${spaceId}/memory-candidates?status=${status}`,
       ),
-    approveMemoryCandidate: (candidateId: string) =>
+    approveMemoryCandidate: (
+      candidateId: string,
+      visibility: MemoryVisibility = "family",
+    ) =>
       request<{ candidate: MemoryCandidate; memory_id: string }>(
         `/api/memory-candidates/${candidateId}/approve`,
-        { method: "POST" },
+        { method: "POST", body: JSON.stringify({ visibility }) },
       ),
     dismissMemoryCandidate: (candidateId: string) =>
       request<{ candidate: MemoryCandidate }>(

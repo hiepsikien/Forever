@@ -54,6 +54,7 @@ from .heritage_retrieval import (
     retrieve_milestones,
 )
 from .heritage_values import select_value_lens, value_lens_block
+from .memory_scope import readable_by, reader_for_thread
 
 # Theme tags on imported poems (see memories.ALLOWED_POEM_THEMES).
 THEME_QUERY_HINTS: dict[str, tuple[str, ...]] = {
@@ -349,12 +350,16 @@ def _title_matches(poem_title: str, target: str) -> bool:
 
 
 def _poems_for_identity(
-    db: Session, *, space_id: str, identity_id: str
+    db: Session, *, space_id: str, identity_id: str, reader: str | None = None
 ) -> list[MemoryItem]:
     needle = f"{HERITAGE_TAG_PREFIX}{identity_id}"
     items = (
         db.query(MemoryItem)
-        .filter(MemoryItem.space_id == space_id, MemoryItem.kind == POEM_KIND)
+        .filter(
+            MemoryItem.space_id == space_id,
+            MemoryItem.kind == POEM_KIND,
+            readable_by(reader),
+        )
         .order_by(MemoryItem.created_at.asc())
         .all()
     )
@@ -423,7 +428,12 @@ def retrieve_poems(
 
 
 def _knowledge_snippets(
-    db: Session, *, space_id: str, identity_id: str, limit: int = 3
+    db: Session,
+    *,
+    space_id: str,
+    identity_id: str,
+    limit: int = 3,
+    reader: str | None = None,
 ) -> list[MemoryItem]:
     needle = f"{HERITAGE_TAG_PREFIX}{identity_id}"
     # Milestones count as knowledge for the activate gate, but the chat pulls
@@ -434,6 +444,7 @@ def _knowledge_snippets(
         .filter(
             MemoryItem.space_id == space_id,
             MemoryItem.kind.in_(kinds),
+            readable_by(reader),
         )
         .order_by(MemoryItem.created_at.desc())
         .limit(20)
@@ -878,13 +889,18 @@ def generate_heritage_reply(
     # ("kết hôn" for "cưới"), so retrieval searches both.
     search_text = " ".join([user_text, *frame.retrieval_queries])
 
+    # A private memory belongs to its owner's own room and nowhere else.
+    reader = reader_for_thread(thread)
+
     signature_titles = signature_poem_titles(identity)
-    poems = _poems_for_identity(db, space_id=thread.space_id, identity_id=identity.id)
+    poems = _poems_for_identity(
+        db, space_id=thread.space_id, identity_id=identity.id, reader=reader
+    )
     signature, retrieved = retrieve_poems(
         poems, query=search_text, signature_titles=signature_titles
     )
     knowledge = _knowledge_snippets(
-        db, space_id=thread.space_id, identity_id=identity.id
+        db, space_id=thread.space_id, identity_id=identity.id, reader=reader
     )
 
     live_context = None
@@ -906,7 +922,7 @@ def generate_heritage_reply(
 
     milestones = retrieve_milestones(
         milestones_for_identity(
-            db, space_id=thread.space_id, identity_id=identity.id
+            db, space_id=thread.space_id, identity_id=identity.id, reader=reader
         ),
         query=search_text,
     )
@@ -915,7 +931,7 @@ def generate_heritage_reply(
     # knowledge slot means it is quotable evidence and counts as grounded.
     learned = retrieve_learned(
         learned_facts_for_identity(
-            db, space_id=thread.space_id, identity_id=identity.id
+            db, space_id=thread.space_id, identity_id=identity.id, reader=reader
         ),
         query=search_text,
     )

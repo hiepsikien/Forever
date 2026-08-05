@@ -134,6 +134,9 @@ class MemoryItem(Base):
         ForeignKey("messages.id"), nullable=True
     )
     tags: Mapped[str] = mapped_column(String(500), default="")
+    # family — everyone in the space reads it; private — only `created_by`, and
+    # only their own room with a remembered person may quote it back.
+    visibility: Mapped[str] = mapped_column(String(16), default="family")
     occurred_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
 

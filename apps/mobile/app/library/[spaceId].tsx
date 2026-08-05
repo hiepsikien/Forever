@@ -479,17 +479,57 @@ export default function LibraryScreen() {
     }
   };
 
+  const toggleVisibility = async (item: MemoryItem) => {
+    const next = item.visibility === "private" ? "family" : "private";
+    const ask =
+      next === "private"
+        ? "Chỉ mình bạn đọc được, và chỉ phòng riêng của bạn với người được nhớ mới nhắc lại."
+        : "Cả nhà sẽ đọc được ký ức này.";
+    Alert.alert(next === "private" ? "Giữ riêng?" : "Chia sẻ cả nhà?", ask, [
+      { text: "Thôi", style: "cancel" },
+      {
+        text: next === "private" ? "Giữ riêng" : "Chia sẻ",
+        onPress: async () => {
+          setSaving(true);
+          try {
+            const saved = await api.updateMemory(item.id, { visibility: next });
+            setMemories((prev) =>
+              prev.map((m) => (m.id === saved.id ? saved : m)),
+            );
+          } catch (e) {
+            Alert.alert("Lỗi", e instanceof Error ? e.message : "Chưa đổi được.");
+          } finally {
+            setSaving(false);
+          }
+        },
+      },
+    ]);
+  };
+
   const renderCard = (item: MemoryItem) => {
     const note = displayMemoryNote(item.body);
     const title = displayMemoryTitle(item.kind, item.title);
     const untitled = isGenericMemoryTitle(item.kind, item.title);
     const people = heritageLabelsForMemory(item.tags, identities, user?.id);
+    const isPrivate = item.visibility === "private";
+    const mine = item.created_by === user?.id;
 
     return (
       <View style={styles.card}>
         <View style={styles.cardTop}>
           <Text style={styles.kind}>{kindLabel(item.kind)}</Text>
           <View style={styles.cardActions}>
+            {mine ? (
+              <Pressable
+                onPress={() => toggleVisibility(item)}
+                hitSlop={8}
+                disabled={saving}
+              >
+                <Text style={styles.editLink}>
+                  {isPrivate ? "Chia sẻ cả nhà" : "Giữ riêng"}
+                </Text>
+              </Pressable>
+            ) : null}
             <Pressable onPress={() => openCaptionForEdit(item)} hitSlop={8}>
               <Text style={styles.editLink}>Sửa</Text>
             </Pressable>
@@ -501,8 +541,15 @@ export default function LibraryScreen() {
 
         <Text style={[styles.title, untitled && styles.titleUntitled]}>{title}</Text>
 
-        {people.length > 0 ? (
+        {people.length > 0 || isPrivate ? (
           <View style={styles.peopleRow}>
+            {isPrivate ? (
+              <View style={[styles.personChip, styles.privateChip]}>
+                <Text style={[styles.personChipText, styles.privateChipText]}>
+                  Chỉ mình tôi
+                </Text>
+              </View>
+            ) : null}
             {people.map((label) => (
               <View key={`${item.id}-${label}`} style={styles.personChip}>
                 <Text style={styles.personChipText}>{label}</Text>
@@ -775,6 +822,14 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: "600",
     color: colors.brandSoft,
+  },
+  privateChip: {
+    borderWidth: 1,
+    borderColor: colors.line,
+    backgroundColor: "transparent",
+  },
+  privateChipText: {
+    color: colors.inkSoft,
   },
   noteIdentityLabel: {
     marginTop: 4,

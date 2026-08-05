@@ -294,6 +294,22 @@ def ensure_schema() -> None:
         "body_tts",
         "ALTER TABLE memory_items ADD COLUMN body_tts TEXT DEFAULT ''",
     )
+    # Everything saved before there was a choice was saved to be shared.
+    _add_column_if_missing(
+        "memory_items",
+        "visibility",
+        "ALTER TABLE memory_items ADD COLUMN visibility VARCHAR(16) DEFAULT 'family'",
+    )
+    try:
+        with engine.begin() as conn:
+            conn.execute(
+                text(
+                    "UPDATE memory_items SET visibility = 'family' "
+                    "WHERE visibility IS NULL OR visibility = ''"
+                )
+            )
+    except Exception:
+        pass
     for col, ddl in (
         (
             "heritage_identity_id",

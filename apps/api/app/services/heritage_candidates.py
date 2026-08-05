@@ -23,6 +23,7 @@ from ..models import (
 )
 from .heritage import HERITAGE_TAG_PREFIX, normalize_text
 from .heritage_memory import PERISHABLE_KINDS
+from .memory_scope import FAMILY, normalize_visibility, readable_by
 
 CANDIDATE_KIND = "knowledge"
 MAX_PENDING_PER_IDENTITY = 40
@@ -68,10 +69,26 @@ def _already_queued(db: Session, *, identity_id: str, statement: str) -> bool:
     return any(_same_fact(row.statement, statement) for row in existing)
 
 
-def _in_library(db: Session, *, space_id: str, identity_id: str, statement: str) -> bool:
+def _in_library(
+    db: Session,
+    *,
+    space_id: str,
+    identity_id: str,
+    statement: str,
+    reader: str | None = None,
+) -> bool:
+    """Only what this reviewer can see counts as already kept.
+
+    Deduplicating against someone else's private memory would refuse the fact
+    without being able to say why — and that refusal is itself a leak.
+    """
     items = (
         db.query(MemoryItem)
-        .filter(MemoryItem.space_id == space_id, MemoryItem.kind == CANDIDATE_KIND)
+        .filter(
+            MemoryItem.space_id == space_id,
+            MemoryItem.kind == CANDIDATE_KIND,
+            readable_by(reader),
+        )
         .all()
     )
     tag = f"{HERITAGE_TAG_PREFIX}{identity_id}"
@@ -122,7 +139,11 @@ def enqueue_facts(
         if _already_queued(db, identity_id=identity.id, statement=statement):
             continue
         if _in_library(
-            db, space_id=thread.space_id, identity_id=identity.id, statement=statement
+            db,
+            space_id=thread.space_id,
+            identity_id=identity.id,
+            statement=statement,
+            reader=reviewer,
         ):
             continue
         row = MemoryCandidate(
@@ -147,9 +168,18 @@ def enqueue_facts(
 
 
 def approve(
-    db: Session, *, candidate: MemoryCandidate, user_id: str
+    db: Session,
+    *,
+    candidate: MemoryCandidate,
+    user_id: str,
+    visibility: str = FAMILY,
 ) -> MemoryItem:
-    """Turn a candidate into library knowledge the chat can cite next time."""
+    """Turn a candidate into library knowledge the chat can cite next time.
+
+    Keeping something is no longer the same as telling everyone: a fact heard in
+    a private room can be kept `private`, and then only that member's own room
+    with the remembered person may quote it back.
+    """
     now = datetime.now(timezone.utc)
     occurred = None
     if _FULL_DATE.match(candidate.occurred_at or ""):
@@ -165,6 +195,7 @@ def approve(
         body=candidate.statement,
         source_message_id=candidate.source_message_id,
         tags=f"{HERITAGE_TAG_PREFIX}{candidate.identity_id}",
+        visibility=normalize_visibility(visibility),
         occurred_at=occurred,
         created_at=now,
     )
