@@ -275,6 +275,31 @@ class FamilyEntity(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
 
 
+class ThreadMemory(Base):
+    """What a heritage thread has already learned and already said.
+
+    One row per thread. The chat history alone is a poor memory: it grows past
+    the prompt budget, and re-reading it every turn still lets the entity ask
+    "con dạo này thế nào?" for the tenth time. This keeps the distilled version.
+    """
+
+    __tablename__ = "thread_memory"
+
+    id: Mapped[str] = mapped_column(String(32), primary_key=True)
+    thread_id: Mapped[str] = mapped_column(
+        ForeignKey("threads.id"), unique=True, index=True
+    )
+    # {facts_learned, topics_open, already_asked, emotional_tone, entities_seen}
+    summary_json: Mapped[str] = mapped_column(Text, default="")
+    # Heritage replies written into this thread since the row was created.
+    turn_count: Mapped[int] = mapped_column(Integer, default=0)
+    # turn_count at the last Gemini compaction, so we know when the next is due.
+    compacted_turn: Mapped[int] = mapped_column(Integer, default=0)
+    last_message_id: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+
 class VoiceProfile(Base):
     """Voice DNA — Instant Voice Clone binding for self or heritage identity."""
 

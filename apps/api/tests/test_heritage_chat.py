@@ -560,6 +560,130 @@ def test_heritage_reply_records_codex_hit(client: TestClient, tmp_path, monkeypa
     get_settings.cache_clear()
 
 
+def _compose_only(monkeypatch, tmp_path) -> None:
+    """Isolate the composer: patching httpx hits every stage, analyzer included."""
+    monkeypatch.setenv("UPLOAD_DIR", str(tmp_path))
+    monkeypatch.setenv("GEMINI_API_KEY", "test-key")
+    monkeypatch.setenv("HERITAGE_ANALYZER_ENABLED", "false")
+    from app.config import get_settings
+
+    get_settings.cache_clear()
+
+
+def _canned_gemini(*replies: str) -> tuple[MagicMock, list[str]]:
+    """A Gemini client that answers with `replies` in order, repeating the last."""
+    sent = list(replies)
+
+    def _response(*_args, **_kwargs):
+        text = sent.pop(0) if len(sent) > 1 else sent[0]
+        res = MagicMock()
+        res.raise_for_status = MagicMock()
+        res.json.return_value = {
+            "candidates": [{"content": {"parts": [{"text": text}]}}]
+        }
+        return res
+
+    mock_client = MagicMock()
+    mock_client.__enter__.return_value = mock_client
+    mock_client.__exit__.return_value = False
+    mock_client.post.side_effect = _response
+    return mock_client, sent
+
+
+def test_thread_memory_grows_across_turns(client, tmp_path, monkeypatch):
+    _compose_only(monkeypatch, tmp_path)
+    from app.config import get_settings
+
+    _, _, thread_id, headers = _ready_heritage(
+        client, email="heritage-memory@example.com", name="Con"
+    )
+
+    mock_client, _ = _canned_gemini(
+        "Bố đây con. Mẹ con dạo này ăn ngủ ra sao?",
+        "Bố mừng lắm. Con nhớ ghé thắp cho bố nén hương nhé.",
+    )
+    with patch("app.services.heritage_chat.httpx.Client", return_value=mock_client):
+        for body in ("Bố ơi, con đây.", "Thứ bảy con về bố ạ."):
+            send = client.post(
+                f"/api/threads/{thread_id}/messages",
+                headers=headers,
+                json={"body": body},
+            )
+            assert send.status_code == 200
+
+    from app.db import SessionLocal
+    from app.models import ThreadMemory
+    from app.services.heritage_memory import parse_state
+
+    db = SessionLocal()
+    try:
+        state = parse_state(
+            db.query(ThreadMemory).filter(ThreadMemory.thread_id == thread_id).one()
+        )
+    finally:
+        db.close()
+
+    assert state.turn_count == 2
+    assert state.already_asked == ["Mẹ con dạo này ăn ngủ ra sao?"]
+
+    get_settings.cache_clear()
+
+
+def test_second_turn_prompt_carries_the_memory(client, tmp_path, monkeypatch):
+    _compose_only(monkeypatch, tmp_path)
+    from app.config import get_settings
+
+    _, _, thread_id, headers = _ready_heritage(
+        client, email="heritage-memory-prompt@example.com", name="Con"
+    )
+
+    mock_client, _ = _canned_gemini("Bố đây con. Dạo này con ăn ngủ thế nào?")
+    with patch("app.services.heritage_chat.httpx.Client", return_value=mock_client):
+        for body in ("Bố ơi.", "Con vẫn ổn ạ."):
+            client.post(
+                f"/api/threads/{thread_id}/messages",
+                headers=headers,
+                json={"body": body},
+            )
+
+    prompts = [
+        call.kwargs["json"]["systemInstruction"]["parts"][0]["text"]
+        for call in mock_client.post.call_args_list
+    ]
+    assert "TRÍ NHỚ CUỘC TRÒ CHUYỆN NÀY" not in prompts[0]
+    assert "Dạo này con ăn ngủ thế nào?" in prompts[-1]
+
+    get_settings.cache_clear()
+
+
+def test_repeated_reply_triggers_one_rewrite(client, tmp_path, monkeypatch):
+    _compose_only(monkeypatch, tmp_path)
+    from app.config import get_settings
+
+    _, _, thread_id, headers = _ready_heritage(
+        client, email="heritage-repeat@example.com", name="Con"
+    )
+
+    echo = "Bố đây con. Con dạo này thế nào, có khoẻ không?"
+    mock_client, _ = _canned_gemini(echo)
+    with patch("app.services.heritage_chat.httpx.Client", return_value=mock_client):
+        for body in ("Bố ơi.", "Con vẫn ổn ạ."):
+            client.post(
+                f"/api/threads/{thread_id}/messages",
+                headers=headers,
+                json={"body": body},
+            )
+
+    msgs = client.get(f"/api/threads/{thread_id}/messages", headers=headers).json()[
+        "messages"
+    ]
+    assert msgs[-1]["meta"]["repeat_guard"] == "similar_reply"
+    # One compose for turn one, then compose + rewrite for turn two.
+    assert mock_client.post.call_count == 3
+
+    get_settings.cache_clear()
+
+
 @pytest.mark.parametrize("body", ADVERSARIAL_TABOO)
 def test_heritage_refuses_taboo(client: TestClient, tmp_path, monkeypatch, body: str):
     monkeypatch.setenv("UPLOAD_DIR", str(tmp_path))

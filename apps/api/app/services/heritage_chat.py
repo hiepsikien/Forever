@@ -26,6 +26,17 @@ from .heritage_codex import (
     entity_lines,
     resolve_mentions,
 )
+from .heritage_memory import (
+    MemoryState,
+    avoid_block,
+    compact_thread_memory,
+    is_repetitive,
+    load_state,
+    memory_block,
+    recent_heritage_bodies,
+    record_turn,
+    repetition_score,
+)
 from .heritage_retrieval import (
     MILESTONE_KIND,
     build_evidence_pack,
@@ -471,6 +482,7 @@ def build_system_prompt(
     codex_lines: list[str] | None = None,
     clarify: str | None = None,
     frame: ContextFrame | None = None,
+    memory: MemoryState | None = None,
 ) -> str:
     display = heritage_display_name(identity)
     quote_mode = (quote_mode or "paraphrase").strip().lower()
@@ -537,6 +549,7 @@ def build_system_prompt(
         if frame and frame.emotion != "neutral"
         else ""
     )
+    memory_section = memory_block(memory) if memory else ""
 
     return f"""\
 Bạn là thực thể ký ức {display} trong app Forever — KHÔNG phải người còn sống,
@@ -565,6 +578,7 @@ Hard rules:
 {_lock_section("Triết lý", philosophy)}
 {_lock_section("Điều cấm", taboos)}
 {context_section}
+{memory_section}
 {evidence_section}
 """
 
@@ -726,6 +740,43 @@ def _matches_from_slugs(
     return extra
 
 
+def _retry_if_repetitive(
+    settings: Settings,
+    *,
+    reply: str,
+    finish_reason: str | None,
+    system_prompt: str,
+    user_text: str,
+    history: list[Message],
+    memory: MemoryState,
+    max_output_tokens: int,
+) -> tuple[str, str | None, str | None]:
+    """Rewrite once when the reply echoes a recent one. Keeps the fresher of the two."""
+    previous = recent_heritage_bodies(history)
+    asked = memory.already_asked
+    reason = is_repetitive(
+        reply,
+        previous=previous,
+        asked=asked,
+        threshold=settings.heritage_repeat_threshold,
+    )
+    if not reason:
+        return reply, finish_reason, None
+
+    retry, retry_finish = _gemini_heritage_reply(
+        settings,
+        system_prompt=system_prompt + avoid_block(previous, asked),
+        user_text=user_text,
+        history=history,
+        max_output_tokens=max_output_tokens,
+    )
+    if not retry:
+        return reply, finish_reason, reason
+    if repetition_score(retry, previous) < repetition_score(reply, previous):
+        return retry, retry_finish, reason
+    return reply, finish_reason, reason
+
+
 def generate_heritage_reply(
     db: Session,
     *,
@@ -796,6 +847,10 @@ def generate_heritage_reply(
         query=search_text,
     )
 
+    memory = (
+        load_state(db, thread.id) if settings.heritage_memory_enabled else MemoryState()
+    )
+
     system_prompt = build_system_prompt(
         identity,
         signature_poems=signature,
@@ -808,6 +863,7 @@ def generate_heritage_reply(
         codex_lines=codex_lines,
         clarify=clarify,
         frame=frame,
+        memory=memory,
     )
 
     llm, finish_reason = _gemini_heritage_reply(
@@ -817,6 +873,20 @@ def generate_heritage_reply(
         history=history,
         max_output_tokens=frame.max_output_tokens,
     )
+
+    repeat_reason = None
+    if settings.heritage_anti_repeat_enabled and llm:
+        llm, finish_reason, repeat_reason = _retry_if_repetitive(
+            settings,
+            reply=llm,
+            finish_reason=finish_reason,
+            system_prompt=system_prompt,
+            user_text=user_text,
+            history=history,
+            memory=memory,
+            max_output_tokens=frame.max_output_tokens,
+        )
+
     body = post_process_reply(llm or _FALLBACK, audience=audience)
 
     all_poems = signature + retrieved
@@ -836,10 +906,19 @@ def generate_heritage_reply(
         meta["milestone_ids"] = [m.id for m in milestones]
     if codex_lines:
         meta["codex_hits"] = codex_lines
+        meta["codex_slugs"] = [
+            entity.slug for match in matches for entity in match.entities
+        ]
     if clarify:
         meta["clarify_prompted"] = True
     if frame.source != "default":
         meta["context_frame"] = frame.as_meta()
+    if frame.new_facts:
+        meta["new_facts"] = frame.new_facts
+    if repeat_reason:
+        meta["repeat_guard"] = repeat_reason
+    if not memory.is_empty:
+        meta["thread_memory"] = memory.as_meta()
     return body, meta
 
 
@@ -892,4 +971,34 @@ def maybe_heritage_reply(
     db.add(heritage_message)
     db.commit()
     db.refresh(heritage_message)
+
+    if settings.heritage_memory_enabled and meta.get("heritage_refusal") is None:
+        _write_back_memory(
+            db, thread=thread, user_message=user_message, reply=heritage_message,
+            settings=settings,
+        )
     return heritage_message
+
+
+def _write_back_memory(
+    db: Session,
+    *,
+    thread: Thread,
+    user_message: Message,
+    reply: Message,
+    settings: Settings,
+) -> None:
+    """Stage 5. Runs after the reply is saved — a memory failure must not lose it."""
+    try:
+        record_turn(db, thread=thread, user_message=user_message, reply=reply)
+        history = (
+            db.query(Message)
+            .filter(Message.thread_id == thread.id)
+            .order_by(Message.created_at.asc())
+            .all()
+        )
+        compact_thread_memory(
+            db, thread=thread, settings=settings, history=history
+        )
+    except Exception:  # noqa: BLE001 — never fail a delivered reply
+        db.rollback()

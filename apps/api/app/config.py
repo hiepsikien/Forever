@@ -27,10 +27,14 @@ class Settings(BaseSettings):
     heritage_codex_enabled: bool = True
     heritage_analyzer_enabled: bool = False
     heritage_critic_enabled: bool = False
+    heritage_memory_enabled: bool = True
+    heritage_anti_repeat_enabled: bool = True
     heritage_analyzer_model: str = ""
     heritage_compose_model: str = ""
     heritage_evidence_token_budget: int = 1800
     heritage_memory_compact_every: int = 6
+    # Token overlap above which two replies count as the same reply.
+    heritage_repeat_threshold: float = 0.6
 
     # Shared ElevenLabs key (primary for now). Space Cài đặt can override later.
     elevenlabs_api_key: str = ""
