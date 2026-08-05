@@ -64,6 +64,10 @@ API: http://localhost:8001 · Docs: http://localhost:8001/docs
 
 On a physical device, the mobile app uses your machine’s LAN IP (same host as Expo) on port 8001. Ensure the API binds with `--host 0.0.0.0`.
 
+### Production (shared GCE VM)
+
+Deploy the API on the shared `vstock-api` VM (`forever-api.antunai.com`) — same pattern as Read: Docker Compose + Angi Postgres + Caddy. See [`deploy/README.md`](./deploy/README.md).
+
 ### 3. Mobile
 
 ```bash
@@ -105,7 +109,7 @@ Sideloadable release APK via Gradle on this Mac. Does **not** use EAS cloud buil
 2. Run `npm run android:keystore` in `apps/mobile` and paste the printed **SHA-1** into Firebase → Project settings → Android app.
 3. Enable **Authentication → Google**.
 4. Copy the **Web client ID** (`….apps.googleusercontent.com`) into `apps/mobile/.env` as `EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID`.
-5. Set `EXPO_PUBLIC_API_URL` to a URL family phones can reach (LAN IP on same Wi‑Fi, or a public HTTPS host). `localhost` will not work on their devices.
+5. Set `EXPO_PUBLIC_API_URL` to a URL family phones can reach — LAN IP on same Wi‑Fi, or production `https://forever-api.antunai.com`. `localhost` will not work on their devices.
 
 ### Build
 

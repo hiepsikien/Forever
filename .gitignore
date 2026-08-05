@@ -48,6 +48,8 @@ yarn-error.log*
 .env.*
 !.env.example
 !.env*.example
+deploy/.env.prod
+deploy/firebase-service-account.json
 
 # Firebase Admin credentials
 apps/api/firebase-service-account.json

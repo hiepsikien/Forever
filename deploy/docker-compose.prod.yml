@@ -1,0 +1,92 @@
+name: forever
+
+# Production stack for Forever API on the shared vstock-api VM.
+# Shares Angi Postgres (separate DB/user) and angi_net for Caddy routing.
+#
+# Usage (on VM, from /home/anh_nguyendinh_cs/Forever/deploy):
+#   cp .env.prod.example .env.prod   # fill secrets
+#   docker compose -p forever -f docker-compose.prod.yml --env-file .env.prod up -d --build
+# IMPORTANT: always use project name "forever" (see top-level name:) so this does
+# not collide with Angi's compose project "deploy".
+
+services:
+  # Service name MUST be forever-api (not "api") — shares angi_net with Angi,
+  # which already owns the DNS alias "api" for Caddy → angi.
+  forever-api:
+    build:
+      context: ../apps/api
+    image: ${API_IMAGE:-forever-api:latest}
+    container_name: forever-api
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql+psycopg://${FOREVER_DB_USER:-forever}:${FOREVER_DB_PASSWORD}@postgres:5432/${FOREVER_DB_NAME:-forever}
+      UPLOAD_DIR: /data/uploads
+      PORT: "8000"
+      CORS_ORIGINS: ${CORS_ORIGINS:-https://forever-api.antunai.com}
+      SEED_DEMO: ${SEED_DEMO:-false}
+      AUTH_DEV_MODE: ${AUTH_DEV_MODE:-true}
+      AUTH_DEV_SECRET: ${AUTH_DEV_SECRET:-}
+      FIREBASE_PROJECT_ID: ${FIREBASE_PROJECT_ID:-forever-70614}
+      FIREBASE_CREDENTIALS_JSON: ${FIREBASE_CREDENTIALS_JSON:-/run/secrets/firebase.json}
+      AGENT_ENABLED: ${AGENT_ENABLED:-true}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      GEMINI_MODEL: ${GEMINI_MODEL:-gemini-3.5-flash}
+      ELEVENLABS_API_KEY: ${ELEVENLABS_API_KEY:-}
+      ELEVENLABS_TTS_MODEL: ${ELEVENLABS_TTS_MODEL:-eleven_v3}
+      ELEVENLABS_LANGUAGE_CODE: ${ELEVENLABS_LANGUAGE_CODE:-vi}
+      MINIMAX_API_KEY: ${MINIMAX_API_KEY:-}
+      MINIMAX_TTS_MODEL: ${MINIMAX_TTS_MODEL:-speech-2.8-hd}
+      VOICE_DEFAULT_PROVIDER: ${VOICE_DEFAULT_PROVIDER:-elevenlabs}
+      EXTRACT_WORKER_TOKEN: ${EXTRACT_WORKER_TOKEN:-}
+      EXTRACT_JOB_STALE_MINUTES: ${EXTRACT_JOB_STALE_MINUTES:-60}
+    volumes:
+      - forever_uploads:/data/uploads
+      - ./firebase-service-account.json:/run/secrets/firebase.json:ro
+    networks:
+      - angi
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=3)",
+        ]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 40s
+
+  forever-extract-worker:
+    build:
+      context: ../Extract
+    image: ${EXTRACT_WORKER_IMAGE:-forever-extract-worker:latest}
+    container_name: forever-extract-worker
+    restart: unless-stopped
+    environment:
+      FOREVER_API_URL: http://forever-api:8000
+      EXTRACT_WORKER_TOKEN: ${EXTRACT_WORKER_TOKEN:-}
+      EXTRACT_POLL_SECONDS: ${EXTRACT_POLL_SECONDS:-3}
+      HF_TOKEN: ${HF_TOKEN:-}
+      HUGGINGFACE_TOKEN: ${HF_TOKEN:-}
+    volumes:
+      - forever_uploads:/data/uploads
+      - forever_hf_cache:/root/.cache/huggingface
+    networks:
+      - angi
+    depends_on:
+      forever-api:
+        condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          memory: 5G
+
+volumes:
+  forever_uploads:
+  forever_hf_cache:
+
+networks:
+  angi:
+    external: true
+    name: angi_net

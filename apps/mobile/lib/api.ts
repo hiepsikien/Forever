@@ -16,24 +16,36 @@ function metroHost(): string | null {
   return host;
 }
 
+function isLocalApiUrl(url: string): boolean {
+  try {
+    const u = new URL(url);
+    return (
+      u.hostname === "localhost" ||
+      u.hostname === "127.0.0.1" ||
+      u.hostname === "10.0.2.2"
+    );
+  } catch {
+    return url.includes("localhost") || url.includes("127.0.0.1");
+  }
+}
+
 /**
  * Resolved on each request so hotspot/Wi‑Fi IP changes don't stick.
- * Prefer Metro's LAN host whenever available — never use loopback on a phone.
+ * Prefer EXPO_PUBLIC_API_URL when it points at cloud/staging — Metro LAN
+ * host is only used for local API dev (localhost / LAN :8001).
  */
 export function resolveBaseUrl(): string {
+  const fromEnv = process.env.EXPO_PUBLIC_API_URL?.trim();
+  if (fromEnv && !isLocalApiUrl(fromEnv)) {
+    return fromEnv;
+  }
+
   const host = metroHost();
   if (host) {
     return `http://${host}:8001`;
   }
 
-  const fromEnv = process.env.EXPO_PUBLIC_API_URL?.trim();
-  if (
-    fromEnv &&
-    !fromEnv.includes("localhost") &&
-    !fromEnv.includes("127.0.0.1")
-  ) {
-    return fromEnv;
-  }
+  if (fromEnv) return fromEnv;
 
   // Emulators only (Metro also local).
   if (Platform.OS === "android" && Constants.isDevice === false) {
@@ -42,8 +54,6 @@ export function resolveBaseUrl(): string {
   if (Platform.OS === "ios" && Constants.isDevice === false) {
     return "http://127.0.0.1:8001";
   }
-
-  if (fromEnv) return fromEnv;
 
   const extra = Constants.expoConfig?.extra as { apiUrl?: string } | undefined;
   if (extra?.apiUrl) return extra.apiUrl;
