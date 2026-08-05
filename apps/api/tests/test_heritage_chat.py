@@ -254,6 +254,32 @@ def test_fix_child_address_replaces_spouse_voice():
     assert "Anh đây em" not in fixed
 
 
+def test_build_system_prompt_includes_codex_and_clarify():
+    from app.models import IdentityProfile
+
+    identity = IdentityProfile(
+        id="id1",
+        space_id="s",
+        display_name="Nguyễn Đình Triệu",
+        relation_label="Bố",
+        status="remembered",
+        created_by="u",
+    )
+    prompt = build_system_prompt(
+        identity,
+        signature_poems=[],
+        retrieved_poems=[],
+        knowledge=[],
+        live_context=None,
+        quote_mode="paraphrase",
+        audience="child",
+        codex_lines=["- «Hương» → Nguyễn Lê Hương (con gái)"],
+        clarify="Con nói Hương nào hả con?",
+    )
+    assert "Nguyễn Lê Hương (con gái)" in prompt
+    assert "CHƯA RÕ NGƯỜI ĐƯỢC NHẮC" in prompt
+
+
 def test_build_system_prompt_child_audience():
     from app.models import IdentityProfile
 
@@ -455,6 +481,81 @@ def test_heritage_thread_replies_not_agent(client: TestClient, tmp_path, monkeyp
     assert reply["sender_name"] == "Bố Triệu · Bố"
     assert reply["sender_kind"] != "agent"
     assert "bảy nhăm" in reply["body"].lower()
+
+    get_settings.cache_clear()
+
+
+def test_heritage_reply_records_codex_hit(client: TestClient, tmp_path, monkeypatch):
+    monkeypatch.setenv("UPLOAD_DIR", str(tmp_path))
+    monkeypatch.setenv("GEMINI_API_KEY", "test-key")
+    from app.config import get_settings
+
+    get_settings.cache_clear()
+
+    space_id, identity_id, thread_id, headers = _ready_heritage(
+        client, email="heritage-codex@example.com", name="Con"
+    )
+
+    from datetime import datetime, timezone
+
+    from nanoid import generate
+
+    from app.db import SessionLocal
+    from app.models import FamilyEntity, IdentityProfile
+
+    db = SessionLocal()
+    try:
+        now = datetime.now(timezone.utc)
+        owner_id = (
+            db.query(IdentityProfile)
+            .filter(IdentityProfile.id == identity_id)
+            .one()
+            .created_by
+        )
+        db.add(
+            FamilyEntity(
+                id=generate(),
+                space_id=space_id,
+                slug="nguyen_le_huong",
+                subject_identity_id=identity_id,
+                canonical_name="Nguyễn Lê Hương",
+                aliases_json='["Nguyễn Lê Hương","Hương"]',
+                relation_json='{"to_subject":"con gái"}',
+                status="approved",
+                created_by=owner_id,
+                created_at=now,
+                updated_at=now,
+            )
+        )
+        db.commit()
+    finally:
+        db.close()
+
+    mock_response = MagicMock()
+    mock_response.raise_for_status = MagicMock()
+    mock_response.json.return_value = {
+        "candidates": [{"content": {"parts": [{"text": "Bố vẫn nhớ con lắm."}]}}]
+    }
+    mock_client = MagicMock()
+    mock_client.__enter__.return_value = mock_client
+    mock_client.__exit__.return_value = False
+    mock_client.post.return_value = mock_response
+
+    with patch("app.services.heritage_chat.httpx.Client", return_value=mock_client):
+        send = client.post(
+            f"/api/threads/{thread_id}/messages",
+            headers=headers,
+            json={"body": "Bố ơi, chị Hương dạo này thế nào?"},
+        )
+    assert send.status_code == 200
+
+    msgs = client.get(f"/api/threads/{thread_id}/messages", headers=headers).json()[
+        "messages"
+    ]
+    reply = msgs[-1]
+    assert reply["sender_kind"] == "heritage"
+    hits = reply["meta"]["codex_hits"]
+    assert any("Nguyễn Lê Hương" in line for line in hits)
 
     get_settings.cache_clear()
 

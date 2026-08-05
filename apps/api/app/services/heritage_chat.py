@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import json
 import re
-import unicodedata
 from datetime import datetime, timezone
 
 import httpx
@@ -16,7 +15,20 @@ from .heritage import (
     KNOWLEDGE_KINDS,
     POEM_KIND,
     heritage_thread_title,
+    normalize_text,
     tag_tokens,
+)
+from .heritage_codex import (
+    clarify_question,
+    codex_entities,
+    entity_lines,
+    resolve_mentions,
+)
+from .heritage_retrieval import (
+    MILESTONE_KIND,
+    build_evidence_pack,
+    milestones_for_identity,
+    retrieve_milestones,
 )
 
 # Theme tags on imported poems (see memories.ALLOWED_POEM_THEMES).
@@ -82,10 +94,7 @@ def _json_loads(raw: str | None) -> object | None:
         return None
 
 
-def _normalize_text(text: str) -> str:
-    folded = unicodedata.normalize("NFD", text.lower())
-    stripped = "".join(ch for ch in folded if unicodedata.category(ch) != "Mn")
-    return stripped.replace("đ", "d")
+_normalize_text = normalize_text
 
 
 def _query_tokens(text: str) -> set[str]:
@@ -385,11 +394,14 @@ def _knowledge_snippets(
     db: Session, *, space_id: str, identity_id: str, limit: int = 3
 ) -> list[MemoryItem]:
     needle = f"{HERITAGE_TAG_PREFIX}{identity_id}"
+    # Milestones count as knowledge for the activate gate, but the chat pulls
+    # them separately by relevance — including them here would duplicate them.
+    kinds = [k for k in KNOWLEDGE_KINDS if k != MILESTONE_KIND]
     items = (
         db.query(MemoryItem)
         .filter(
             MemoryItem.space_id == space_id,
-            MemoryItem.kind.in_(KNOWLEDGE_KINDS),
+            MemoryItem.kind.in_(kinds),
         )
         .order_by(MemoryItem.created_at.desc())
         .limit(20)
@@ -443,13 +455,6 @@ def _lock_section(label: str, payload: object | None) -> str:
     return f"\n{label}:\n{text}\n"
 
 
-def _format_poem_block(poem: MemoryItem) -> str:
-    body = (poem.body or "").strip()
-    if len(body) > 900:
-        body = body[:900] + "…"
-    return f"— {poem.title} (id={poem.id})\n{body}"
-
-
 def build_system_prompt(
     identity: IdentityProfile,
     *,
@@ -459,6 +464,9 @@ def build_system_prompt(
     live_context: str | None,
     quote_mode: str,
     audience: str | None = None,
+    milestones: list[MemoryItem] | None = None,
+    codex_lines: list[str] | None = None,
+    clarify: str | None = None,
 ) -> str:
     display = heritage_display_name(identity)
     quote_mode = (quote_mode or "paraphrase").strip().lower()
@@ -470,20 +478,20 @@ def build_system_prompt(
     philosophy = _json_loads(getattr(identity, "philosophy_json", None) or "")
     taboos = _json_loads(getattr(identity, "taboos_json", None) or "")
 
-    poem_blocks: list[str] = []
+    ordered_poems: list[MemoryItem] = []
     seen: set[str] = set()
     for poem in signature_poems + retrieved_poems:
         if poem.id in seen:
             continue
         seen.add(poem.id)
-        poem_blocks.append(_format_poem_block(poem))
+        ordered_poems.append(poem)
 
-    knowledge_blocks = []
-    for item in knowledge:
-        body = (item.body or "").strip()
-        if not body:
-            continue
-        knowledge_blocks.append(f"— {item.title}: {body[:500]}")
+    pack = build_evidence_pack(
+        entity_lines=codex_lines or [],
+        poems=ordered_poems,
+        milestones=milestones or [],
+        knowledge=[item for item in knowledge if (item.body or "").strip()],
+    )
 
     quote_rule = (
         "Chỉ trích nguyên văn lục bát khi thật sự cần; ghi rõ tên bài."
@@ -494,15 +502,20 @@ def build_system_prompt(
     dynamic = (getattr(identity, "dynamic_context", None) or "").strip()
     context_bits = [bit for bit in (dynamic, live_context) if bit]
     context_section = "\n".join(context_bits) if context_bits else ""
-    poem_section = (
-        "\nThơ tham chiếu:\n" + "\n\n".join(poem_blocks) if poem_blocks else ""
-    )
-    knowledge_section = (
-        "\nKý ức neo:\n" + "\n".join(knowledge_blocks) if knowledge_blocks else ""
+    evidence_section = (
+        "\nBằng chứng được phép dùng (chỉ khẳng định điều có ở đây):\n" + pack.render()
+        if pack.items
+        else ""
     )
     spouse_name = _spouse_name_from_lock(address, roles)
     address_rules = _address_rules_block(address, roles)
     audience_section = _audience_context_block(audience, spouse_name)
+    clarify_section = (
+        f"\nCHƯA RÕ NGƯỜI ĐƯỢC NHẮC: hỏi lại ngắn gọn, đại ý «{clarify}» — "
+        "đừng đoán bừa rồi kể tiếp.\n"
+        if clarify
+        else ""
+    )
 
     return f"""\
 Bạn là thực thể ký ức {display} trong app Forever — KHÔNG phải người còn sống,
@@ -520,6 +533,7 @@ Hard rules:
 - Trả lời đúng ý câu hỏi trước; tránh mở đầu sáo «Chào em/con» dài.
 - Luôn kết thúc bằng câu trọn vẹn — không dừng giữa chừng.
 {audience_section}
+{clarify_section}
 {_lock_section("Neo tuổi / giai đoạn", life_stage)}
 {_lock_section("Vai trò", roles)}
 {_lock_section("Xưng hô", address)}
@@ -528,8 +542,7 @@ Hard rules:
 {_lock_section("Triết lý", philosophy)}
 {_lock_section("Điều cấm", taboos)}
 {context_section}
-{poem_section}
-{knowledge_section}
+{evidence_section}
 """
 
 
@@ -701,6 +714,23 @@ def generate_heritage_reply(
         user_text=user_text,
     )
 
+    codex_lines: list[str] = []
+    clarify: str | None = None
+    if settings.heritage_codex_enabled:
+        entities = codex_entities(
+            db, space_id=thread.space_id, subject_identity_id=identity.id
+        )
+        matches = resolve_mentions(user_text, entities)
+        codex_lines = entity_lines(matches)
+        clarify = clarify_question(matches)
+
+    milestones = retrieve_milestones(
+        milestones_for_identity(
+            db, space_id=thread.space_id, identity_id=identity.id
+        ),
+        query=user_text,
+    )
+
     system_prompt = build_system_prompt(
         identity,
         signature_poems=signature,
@@ -709,6 +739,9 @@ def generate_heritage_reply(
         live_context=live_context,
         quote_mode=quote_mode,
         audience=audience,
+        milestones=milestones,
+        codex_lines=codex_lines,
+        clarify=clarify,
     )
 
     history = (
@@ -739,6 +772,12 @@ def generate_heritage_reply(
         meta["finish_reason"] = finish_reason
     if citations:
         meta["citations"] = citations
+    if milestones:
+        meta["milestone_ids"] = [m.id for m in milestones]
+    if codex_lines:
+        meta["codex_hits"] = codex_lines
+    if clarify:
+        meta["clarify_prompted"] = True
     return body, meta
 
 

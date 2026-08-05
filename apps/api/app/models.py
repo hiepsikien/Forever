@@ -237,6 +237,44 @@ class IdentityProfile(Base):
     )
 
 
+class FamilyEntity(Base):
+    """Family Codex row — a person the heritage entity can be asked about.
+
+    Kept separate from IdentityProfile because the codex holds relatives who
+    will never be app members or Voice DNA subjects (in-laws, grandchildren,
+    cousins), and those rows must not clutter the Voice DNA picker.
+    """
+
+    __tablename__ = "family_entities"
+    __table_args__ = (
+        UniqueConstraint("space_id", "slug", name="uq_family_entity_slug"),
+    )
+
+    id: Mapped[str] = mapped_column(String(32), primary_key=True)
+    space_id: Mapped[str] = mapped_column(ForeignKey("family_spaces.id"), index=True)
+    # Stable handle used by the analyzer to reference a person (e.g. "huong").
+    slug: Mapped[str] = mapped_column(String(64), index=True)
+    identity_profile_id: Mapped[str | None] = mapped_column(
+        ForeignKey("identity_profiles.id"), nullable=True, index=True
+    )
+    # Whose family tree this row belongs to — the remembered subject.
+    subject_identity_id: Mapped[str | None] = mapped_column(
+        ForeignKey("identity_profiles.id"), nullable=True, index=True
+    )
+    canonical_name: Mapped[str] = mapped_column(String(120))
+    aliases_json: Mapped[str] = mapped_column(Text, default="")
+    relation_json: Mapped[str] = mapped_column(Text, default="")
+    address_json: Mapped[str] = mapped_column(Text, default="")
+    disambiguation: Mapped[str] = mapped_column(Text, default="")
+    notes: Mapped[str] = mapped_column(Text, default="")
+    # draft | approved — only approved rows reach the prompt.
+    status: Mapped[str] = mapped_column(String(32), default="draft", index=True)
+    source: Mapped[str] = mapped_column(String(32), default="lock")
+    created_by: Mapped[str] = mapped_column(ForeignKey("users.id"))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+
 class VoiceProfile(Base):
     """Voice DNA — Instant Voice Clone binding for self or heritage identity."""
 

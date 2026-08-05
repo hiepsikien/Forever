@@ -21,6 +21,17 @@ class Settings(BaseSettings):
     gemini_model: str = "gemini-3.5-flash"
     gemini_api_base: str = "https://generativelanguage.googleapis.com/v1beta"
 
+    # Heritage chat v2 — see docs/heritage-chat-v2.plan.md.
+    # Every stage ships behind a flag so a bad turn can be rolled back per-space.
+    heritage_async_reply: bool = True
+    heritage_codex_enabled: bool = True
+    heritage_analyzer_enabled: bool = False
+    heritage_critic_enabled: bool = False
+    heritage_analyzer_model: str = ""
+    heritage_compose_model: str = ""
+    heritage_evidence_token_budget: int = 1800
+    heritage_memory_compact_every: int = 6
+
     # Shared ElevenLabs key (primary for now). Space Cài đặt can override later.
     elevenlabs_api_key: str = ""
     # eleven_v3: best quality + Vietnamese (70+ langs). multilingual_v2 does NOT list VI.
@@ -61,6 +72,14 @@ class Settings(BaseSettings):
     @property
     def cors_origin_list(self) -> list[str]:
         return [origin.strip() for origin in self.cors_origins.split(",") if origin.strip()]
+
+    @property
+    def analyzer_model(self) -> str:
+        return self.heritage_analyzer_model.strip() or self.gemini_model
+
+    @property
+    def compose_model(self) -> str:
+        return self.heritage_compose_model.strip() or self.gemini_model
 
     @property
     def firebase_enabled(self) -> bool:

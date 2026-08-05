@@ -1,0 +1,185 @@
+"""Evidence retrieval for heritage chat — Stage 2 of the v2 pipeline.
+
+Milestones live in the library as MemoryItem(kind="milestone") with an
+occurred_at, so a question about a year or a place can be answered from a
+steward-approved row instead of the model's imagination.
+"""
+
+from __future__ import annotations
+
+import re
+from dataclasses import dataclass, field
+
+from sqlalchemy.orm import Session
+
+from ..models import MemoryItem
+from .heritage import HERITAGE_TAG_PREFIX, normalize_text, tag_tokens
+
+MILESTONE_KIND = "milestone"
+
+_YEAR = re.compile(r"\b(1[89]\d{2}|20\d{2})\b")
+_STOPWORDS = {
+    "cua", "khong", "duoc", "nhung", "voi", "cho", "the", "nay", "roi", "lam",
+    "nhu", "cung", "khi", "vao", "tren", "duoi", "moi", "hay", "bao",
+    "gio", "day", "kia", "sao",
+    # Kinship words appear in almost every milestone summary, so matching on
+    # them retrieves the whole life story for a message like "con chào bố".
+    "con", "chau", "bo", "ba", "ong", "anh", "chi", "chong", "nguoi", "nha",
+}
+
+
+@dataclass
+class EvidenceItem:
+    id: str
+    kind: str  # entity | poem | milestone | knowledge
+    title: str
+    text: str
+    score: float = 0.0
+
+    def render(self) -> str:
+        head = f"— [{self.kind}:{self.id}] {self.title}".rstrip()
+        return f"{head}\n{self.text}" if self.text else head
+
+
+@dataclass
+class EvidencePack:
+    items: list[EvidenceItem] = field(default_factory=list)
+
+    def of_kind(self, kind: str) -> list[EvidenceItem]:
+        return [item for item in self.items if item.kind == kind]
+
+    def render(self) -> str:
+        return "\n\n".join(item.render() for item in self.items)
+
+    def ids(self) -> list[str]:
+        return [item.id for item in self.items]
+
+
+def query_tokens(text: str) -> set[str]:
+    norm = normalize_text(text)
+    parts = re.split(r"[^\w]+", norm)
+    return {p for p in parts if len(p) >= 3 and p not in _STOPWORDS}
+
+
+def milestones_for_identity(
+    db: Session, *, space_id: str, identity_id: str
+) -> list[MemoryItem]:
+    needle = f"{HERITAGE_TAG_PREFIX}{identity_id}"
+    items = (
+        db.query(MemoryItem)
+        .filter(
+            MemoryItem.space_id == space_id,
+            MemoryItem.kind == MILESTONE_KIND,
+        )
+        .order_by(MemoryItem.occurred_at.asc().nullslast())
+        .all()
+    )
+    return [item for item in items if needle in tag_tokens(item.tags)]
+
+
+# One title word, or three body words, or a year. Anything weaker pulls in the
+# whole life story on a message like "bố cưới mẹ năm nào".
+MIN_MILESTONE_SCORE = 6.0
+
+
+def score_milestone(milestone: MemoryItem, query: str) -> float:
+    """Year hits are the strongest signal; whole-word overlap breaks ties."""
+    score = 0.0
+    tokens = query_tokens(query)
+    title_tokens = query_tokens(milestone.title or "")
+    body_tokens = query_tokens((milestone.body or "")[:800])
+    for token in tokens:
+        if token in title_tokens:
+            score += 6
+        elif token in body_tokens:
+            score += 2
+
+    asked_years = set(_YEAR.findall(query))
+    if asked_years:
+        haystack = f"{milestone.title} {milestone.body}"
+        for year in asked_years:
+            if year in haystack:
+                score += 12
+            elif milestone.occurred_at and str(milestone.occurred_at.year) == year:
+                score += 12
+    return score
+
+
+def retrieve_milestones(
+    milestones: list[MemoryItem], *, query: str, limit: int = 3
+) -> list[MemoryItem]:
+    scored = [(score_milestone(m, query), m) for m in milestones]
+    scored.sort(key=lambda pair: pair[0], reverse=True)
+    return [m for score, m in scored if score >= MIN_MILESTONE_SCORE][:limit]
+
+
+def _truncate(text: str, limit: int) -> str:
+    body = (text or "").strip()
+    return body if len(body) <= limit else body[:limit].rstrip() + "…"
+
+
+def build_evidence_pack(
+    *,
+    entity_lines: list[str],
+    poems: list[MemoryItem],
+    milestones: list[MemoryItem],
+    knowledge: list[MemoryItem],
+    char_budget: int = 7200,
+) -> EvidencePack:
+    """Assemble evidence in trust order, stopping at the budget.
+
+    Entities first because getting the person wrong poisons everything after
+    it; poems last because they are the longest and the least factual.
+    """
+    pack = EvidencePack()
+    used = 0
+
+    def add(item: EvidenceItem) -> bool:
+        nonlocal used
+        size = len(item.render())
+        if used + size > char_budget:
+            return False
+        pack.items.append(item)
+        used += size
+        return True
+
+    if entity_lines:
+        add(
+            EvidenceItem(
+                id="codex",
+                kind="entity",
+                title="Người được nhắc tới",
+                text="\n".join(entity_lines),
+            )
+        )
+    for item in milestones:
+        if not add(
+            EvidenceItem(
+                id=item.id,
+                kind="milestone",
+                title=item.title or "Mốc đời",
+                text=_truncate(item.body, 400),
+            )
+        ):
+            break
+    for item in knowledge:
+        if not add(
+            EvidenceItem(
+                id=item.id,
+                kind="knowledge",
+                title=item.title or "Ký ức",
+                text=_truncate(item.body, 500),
+            )
+        ):
+            break
+    for item in poems:
+        if not add(
+            EvidenceItem(
+                id=item.id,
+                kind="poem",
+                title=item.title or "Thơ",
+                text=_truncate(item.body, 900),
+            )
+        ):
+            break
+    return pack

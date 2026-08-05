@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import re
+import unicodedata
 from datetime import datetime, timezone
 
 from sqlalchemy.orm import Session
@@ -15,6 +16,17 @@ KNOWLEDGE_KINDS = ("note", "voice", "photo", "video", "letter", "milestone")
 POEM_KIND = "poem"
 
 _TAG_SPLIT = re.compile(r"[,;\s]+")
+
+
+def normalize_text(text: str) -> str:
+    """Lowercase, strip Vietnamese tone marks, and fold đ → d.
+
+    NFD leaves đ intact, so folding it explicitly is what lets patterns like
+    "con đang" match after normalization.
+    """
+    folded = unicodedata.normalize("NFD", (text or "").lower())
+    stripped = "".join(ch for ch in folded if unicodedata.category(ch) != "Mn")
+    return stripped.replace("đ", "d")
 
 
 def heritage_thread_title(display_name: str, relation_label: str | None) -> str:

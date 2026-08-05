@@ -1,10 +1,20 @@
 from __future__ import annotations
 
 import json
+import logging
 from datetime import datetime, timezone
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile
+from fastapi import (
+    APIRouter,
+    BackgroundTasks,
+    Depends,
+    File,
+    Form,
+    HTTPException,
+    Query,
+    UploadFile,
+)
 from fastapi.responses import FileResponse
 from nanoid import generate
 from pydantic import BaseModel, Field
@@ -12,7 +22,8 @@ from sqlalchemy.orm import Session
 
 from ..access import require_membership
 from ..auth import get_current_user
-from ..db import get_db
+from ..config import get_settings
+from ..db import SessionLocal, get_db
 from ..models import Message, Thread, User
 from ..services.agent import maybe_reply, sender_display_name, sender_handle
 from ..services.heritage_chat import heritage_display_name, identity_for_heritage_thread, maybe_heritage_reply
@@ -20,6 +31,8 @@ from ..services.storage import absolute_media_path, save_upload
 
 router = APIRouter(prefix="/api/threads", tags=["messages"])
 media_router = APIRouter(prefix="/api/messages", tags=["messages"])
+
+logger = logging.getLogger(__name__)
 
 
 class SendMessageBody(BaseModel):
@@ -35,16 +48,39 @@ def _heritage_sender_name(db: Session, thread: Thread, sender_kind: str) -> str 
     return heritage_display_name(identity)
 
 
+def _heritage_reply_job(thread_id: str, message_id: str) -> None:
+    """Run the heritage pipeline on its own session, after the response is sent.
+
+    FastAPI closes the request-scoped session before background tasks run, so
+    this reloads the rows it needs. Errors stay here: a failed reply must never
+    surface as a failed send.
+    """
+    db = SessionLocal()
+    try:
+        thread = db.query(Thread).filter(Thread.id == thread_id).one_or_none()
+        message = db.query(Message).filter(Message.id == message_id).one_or_none()
+        if thread and message:
+            maybe_heritage_reply(db, thread=thread, user_message=message)
+    except Exception:
+        logger.exception("heritage reply failed for message %s", message_id)
+    finally:
+        db.close()
+
+
 def _dispatch_auto_reply(
     db: Session,
     *,
     thread: Thread,
     user_message: Message,
+    background: BackgroundTasks | None = None,
 ) -> None:
-    if thread.kind == "heritage":
-        maybe_heritage_reply(db, thread=thread, user_message=user_message)
-    else:
+    if thread.kind != "heritage":
         maybe_reply(db, thread=thread, user_message=user_message)
+        return
+    if background is not None and get_settings().heritage_async_reply:
+        background.add_task(_heritage_reply_job, thread.id, user_message.id)
+        return
+    maybe_heritage_reply(db, thread=thread, user_message=user_message)
 
 
 def _message_payload(
@@ -142,6 +178,7 @@ def list_messages(
 def send_message(
     thread_id: str,
     body: SendMessageBody,
+    background: BackgroundTasks,
     user: Annotated[User, Depends(get_current_user)],
     db: Annotated[Session, Depends(get_db)],
 ):
@@ -169,7 +206,7 @@ def send_message(
     db.commit()
     db.refresh(message)
 
-    _dispatch_auto_reply(db, thread=thread, user_message=message)
+    _dispatch_auto_reply(db, thread=thread, user_message=message, background=background)
 
     return _message_payload(
         message,
@@ -181,6 +218,7 @@ def send_message(
 @router.post("/{thread_id}/messages/voice")
 async def send_voice_message(
     thread_id: str,
+    background: BackgroundTasks,
     user: Annotated[User, Depends(get_current_user)],
     db: Annotated[Session, Depends(get_db)],
     file: UploadFile = File(...),
@@ -211,7 +249,7 @@ async def send_voice_message(
     db.commit()
     db.refresh(message)
 
-    _dispatch_auto_reply(db, thread=thread, user_message=message)
+    _dispatch_auto_reply(db, thread=thread, user_message=message, background=background)
 
     return _message_payload(
         message,
