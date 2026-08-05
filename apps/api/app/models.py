@@ -287,6 +287,41 @@ class FamilyEntity(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
 
 
+class MemoryCandidate(Base):
+    """A fact the chat heard, waiting for a human to say it may be kept.
+
+    The hard rule is that nothing enters a remembered person's biography without
+    a family member approving it, so chat can only ever propose. Approving is
+    also the moment a fact becomes visible to the whole family, which is why a
+    candidate from a private thread is reviewed by that thread's own member.
+    """
+
+    __tablename__ = "memory_candidates"
+
+    id: Mapped[str] = mapped_column(String(32), primary_key=True)
+    space_id: Mapped[str] = mapped_column(ForeignKey("family_spaces.id"), index=True)
+    identity_id: Mapped[str] = mapped_column(
+        ForeignKey("identity_profiles.id"), index=True
+    )
+    thread_id: Mapped[str] = mapped_column(ForeignKey("threads.id"), index=True)
+    # The message the family said it in — the reviewer needs to read it in context.
+    source_message_id: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    # The only person allowed to approve or dismiss this one.
+    reviewer_user_id: Mapped[str] = mapped_column(ForeignKey("users.id"), index=True)
+    statement: Mapped[str] = mapped_column(Text, default="")
+    fact_kind: Mapped[str] = mapped_column(String(32), default="event")
+    subject_slug: Mapped[str] = mapped_column(String(64), default="")
+    # Kept as the analyzer wrote it: may be YYYY, YYYY-MM, or a full date.
+    occurred_at: Mapped[str] = mapped_column(String(16), default="")
+    status: Mapped[str] = mapped_column(String(16), default="pending")
+    memory_item_id: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
+    reviewed_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    reviewed_by: Mapped[str | None] = mapped_column(String(32), nullable=True)
+
+
 class ThreadMemory(Base):
     """What a heritage thread has already learned and already said.
 

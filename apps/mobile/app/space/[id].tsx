@@ -82,6 +82,7 @@ export default function SpaceScreen() {
   const [threads, setThreads] = useState<ThreadSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [pendingCount, setPendingCount] = useState(0);
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(
@@ -98,6 +99,13 @@ export default function SpaceScreen() {
         ]);
         setSpace(spaceRes);
         setThreads(threadRes.threads);
+        // A quiet extra: an empty review queue must not break the home screen.
+        try {
+          const pending = await api.listMemoryCandidates(id, "pending");
+          setPendingCount(pending.candidates.length);
+        } catch {
+          setPendingCount(0);
+        }
       } catch (e) {
         setError(e instanceof Error ? e.message : "Không tải được.");
       } finally {
@@ -209,6 +217,20 @@ export default function SpaceScreen() {
           <Text style={styles.heroPreviewMuted}>Chưa có cuộc trò chuyện chung.</Text>
         </View>
       )}
+
+      {pendingCount > 0 ? (
+        <Pressable
+          style={styles.reviewBanner}
+          onPress={() => id && router.push(`/review/${id}`)}
+        >
+          <Text style={styles.reviewTitle}>
+            {pendingCount} điều nghe được, chờ bạn duyệt
+          </Text>
+          <Text style={styles.reviewSub}>
+            Trò chuyện đề xuất — bạn giữ lại thì mới vào Thư viện →
+          </Text>
+        </Pressable>
+      ) : null}
 
       <Text style={styles.memoryLabel}>Ký ức & giọng</Text>
       <View style={styles.memoryRow}>
@@ -359,6 +381,17 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     color: "#f4efe6",
   },
+  reviewBanner: {
+    backgroundColor: colors.card,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: colors.brand,
+    padding: 14,
+    gap: 4,
+    marginTop: 4,
+  },
+  reviewTitle: { fontSize: 15, fontWeight: "700", color: colors.ink },
+  reviewSub: { fontSize: 13, lineHeight: 19, color: colors.inkSoft },
   memoryLabel: {
     fontSize: 12,
     fontWeight: "700",

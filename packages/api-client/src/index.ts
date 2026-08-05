@@ -67,6 +67,25 @@ export interface ThreadSummary {
   heritage?: HeritageReadiness | null;
 }
 
+export interface MemoryCandidate {
+  id: string;
+  space_id: string;
+  identity_id: string;
+  identity_name: string;
+  thread_id: string;
+  /** direct means it was said in a private room — approving makes it family-wide. */
+  audience_scope?: "family" | "direct" | string;
+  statement: string;
+  fact_kind: "life_state" | "event" | "preference" | "relationship" | string;
+  subject_slug?: string;
+  occurred_at?: string;
+  status: "pending" | "approved" | "dismissed" | string;
+  source_message_id?: string | null;
+  source_body?: string;
+  memory_item_id?: string | null;
+  created_at: string;
+}
+
 export interface HeritageReadiness {
   identity_id: string;
   display_name: string;
@@ -895,6 +914,23 @@ export function createApiClient({
           method: "PATCH",
           body: JSON.stringify(payload),
         },
+      ),
+    listMemoryCandidates: (
+      spaceId: string,
+      status: "pending" | "approved" | "dismissed" = "pending",
+    ) =>
+      request<{ candidates: MemoryCandidate[] }>(
+        `/api/spaces/${spaceId}/memory-candidates?status=${status}`,
+      ),
+    approveMemoryCandidate: (candidateId: string) =>
+      request<{ candidate: MemoryCandidate; memory_id: string }>(
+        `/api/memory-candidates/${candidateId}/approve`,
+        { method: "POST" },
+      ),
+    dismissMemoryCandidate: (candidateId: string) =>
+      request<{ candidate: MemoryCandidate }>(
+        `/api/memory-candidates/${candidateId}/dismiss`,
+        { method: "POST" },
       ),
     getHeritageReadiness: (spaceId: string, identityId: string) =>
       request<HeritageReadiness>(

@@ -29,6 +29,7 @@ class Settings(BaseSettings):
     heritage_grounding_enabled: bool = True
     heritage_critic_enabled: bool = False
     heritage_memory_enabled: bool = True
+    heritage_candidates_enabled: bool = True
     heritage_anti_repeat_enabled: bool = True
     heritage_analyzer_model: str = ""
     heritage_compose_model: str = ""

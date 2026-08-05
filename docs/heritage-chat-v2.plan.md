@@ -1,6 +1,7 @@
 # Heritage Chat v2 — Context-Aware Pipeline
 
-> Trạng thái: Phase 0–4 đã xong; Phase 5 (MemoryCandidate + steward review) là bước kế.
+> Trạng thái: Phase 0–5 đã xong. Còn lại: bộ golden để đo bằng số, và
+> `visibility` trên `MemoryItem` nếu muốn fact riêng mà vẫn lâu dài.
 > Bối cảnh: sau buổi thử đầu tiên với mẹ, chat của Bố Triệu bị hai lỗi lớn —
 > xác định sai người đối thoại, và trả lời dài như một bức thư.
 > Bản v1 (`services/heritage_chat.py`) đã vá tạm bằng rule; v2 dựng lại luồng
@@ -208,8 +209,39 @@ Anti-repeat đọc chính trí nhớ đó:
 Lần viết lại được thêm khối «đã hỏi rồi / đã nói rồi»; giữ bản nào ít trùng hơn,
 không bao giờ gọi lần thứ ba. Lý do bị chặn ghi vào `meta.repeat_guard`.
 
-Còn lại cho Phase 5 — `memory_candidates`: `new_facts` vào hàng đợi `pending` →
-steward duyệt → `MemoryItem(kind="knowledge")`. Chat nuôi Thư viện, Thư viện nuôi chat.
+## Hàng đợi duyệt (Stage 5b)
+
+Chat **chỉ được đề xuất**. Fact `stated` của mỗi lượt vào bảng `memory_candidates`
+(`pending`), một người thật bấm giữ thì mới thành `MemoryItem(kind="knowledge")`
+gắn tag `heritage:{identity_id}`. Chat nuôi Thư viện, Thư viện nuôi chat.
+
+Ai được duyệt là câu hỏi về quyền riêng tư, không phải về vai trò:
+
+| Thread | Người duyệt |
+|---|---|
+| Cả nhà | steward (hoặc người tạo space) |
+| Riêng | **chính chủ phòng đó** |
+
+Đẩy fact của phòng riêng cho steward thì bằng đưa cho một người tất cả những gì
+người khác nói riêng — hàng đợi duyệt sẽ chọc thủng đúng bức tường vừa dựng.
+`reviewer_user_id` là người duy nhất được bấm, owner hay steward cũng không mở được.
+
+Duyệt **cũng là chia sẻ**: fact vào Thư viện thì cả nhà đọc được, nên với fact từ
+phòng riêng UI phải nói thẳng điều đó trước khi bấm. Không muốn chia sẻ thì bỏ —
+fact vẫn còn trong `thread_memory` của phòng đó, chỉ là không thành vĩnh viễn.
+Muốn giữ riêng mà vẫn lâu dài thì cần `visibility` trên từng `MemoryItem`, để sau.
+
+Đường về prompt **không dùng «3 cái mới nhất»** như `_knowledge_snippets`.
+`retrieve_learned` chấm điểm theo độ liên quan (dùng lại thang của milestone,
+ngưỡng 6.0) rồi mới nhập vào khe knowledge. Nếu không, chuyện vụn mới nhất
+("con về thứ bảy") sẽ đẩy tiểu sử đã biên tập ra khỏi ngân sách bằng chứng.
+
+Vì fact đã duyệt nằm trong prompt, nó tự động **được coi là đã neo** ở Stage 4 —
+không phải thêm luật gì cho grounding.
+
+Chống trùng theo văn bản đã chuẩn hoá, xét cả hàng đợi (`pending`/`approved`) và
+cả Thư viện, nên cùng một điều kể lại lần nữa không sinh thêm việc cho người duyệt.
+Trần `MAX_PENDING_PER_IDENTITY = 40` để hàng đợi không thành bãi rác.
 
 ## Hình thái thread
 
@@ -247,6 +279,7 @@ services/heritage_retrieval.py  EvidencePack
 services/heritage_analyzer.py   Stage 1 (Phase 2)
 services/heritage_memory.py     ThreadMemory + anti-repeat (Phase 3)
 services/heritage_grounding.py  grounding check + critic (Phase 4)
+services/heritage_candidates.py hàng đợi duyệt fact (Phase 5)
 services/heritage_chat.py       orchestrator (đã có)
 ```
 
@@ -274,7 +307,7 @@ p50 ≈ 2–3s → Phase 0 bắt buộc chuyển reply sang background.
 | 3 ✅ | ThreadMemory + anti-repeat | 10 lượt liên tiếp không lặp câu hỏi thăm |
 | 3.5 ✅ | Thread 1-1 + phòng cả nhà, fact có cấu trúc | Phòng riêng kín với người khác; «thứ bảy này» lưu thành ngày tuyệt đối |
 | 4 ✅ | Grounding check + critic | Bịa năm/tên = 0 trên bộ golden |
-| 5 | MemoryCandidate + steward review UI | Fact từ chat vào Thư viện sau khi duyệt |
+| 5 ✅ | MemoryCandidate + màn duyệt | Fact từ chat vào Thư viện sau khi duyệt, rồi quay lại prompt |
 
 ## Đánh đổi
 
@@ -293,5 +326,5 @@ không phát sinh loại phơi nhiễm mới. Riêng `new_facts` gated qua stewa
 
 Phòng riêng kín theo `require_thread_access`, không có cửa sau cho owner hay
 steward. Trí nhớ nằm theo thread nên điều mẹ kể riêng không rò sang phòng của
-con. Khi Phase 5 mở hàng đợi fact ra phạm vi cả nhà, bước duyệt của steward là
-nơi phải chọn `private` hay `family` cho từng fact — mặc định không được là chia sẻ.
+con. Hàng đợi duyệt giữ đúng bức tường đó: fact của phòng riêng chỉ chủ phòng
+thấy, và chia sẻ ra cả nhà là một hành động có chủ ý, có xác nhận.

@@ -113,6 +113,39 @@ def retrieve_milestones(
     return [m for score, m in scored if score >= MIN_MILESTONE_SCORE][:limit]
 
 
+# Facts the family told the chat, once a human approved them.
+LEARNED_KIND = "knowledge"
+
+
+def learned_facts_for_identity(
+    db: Session, *, space_id: str, identity_id: str
+) -> list[MemoryItem]:
+    needle = f"{HERITAGE_TAG_PREFIX}{identity_id}"
+    items = (
+        db.query(MemoryItem)
+        .filter(
+            MemoryItem.space_id == space_id,
+            MemoryItem.kind == LEARNED_KIND,
+        )
+        .order_by(MemoryItem.created_at.desc())
+        .all()
+    )
+    return [item for item in items if needle in tag_tokens(item.tags)]
+
+
+def retrieve_learned(
+    facts: list[MemoryItem], *, query: str, limit: int = 3
+) -> list[MemoryItem]:
+    """Relevance-gated, never "the newest three".
+
+    Approved facts are short and plentiful. Feeding recent ones unconditionally
+    would push the curated biography out of the evidence budget with trivia.
+    """
+    scored = [(score_milestone(f, query), f) for f in facts]
+    scored.sort(key=lambda pair: pair[0], reverse=True)
+    return [f for score, f in scored if score >= MIN_MILESTONE_SCORE][:limit]
+
+
 def _truncate(text: str, limit: int) -> str:
     body = (text or "").strip()
     return body if len(body) <= limit else body[:limit].rstrip() + "…"

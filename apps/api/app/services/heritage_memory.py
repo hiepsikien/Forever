@@ -285,7 +285,7 @@ def _meta_list(meta: object, key: str) -> list[str]:
     return _clean_list(meta.get(key), limit=MAX_FACTS)
 
 
-def _stated_facts(meta: object, *, source_message_id: str) -> list[dict]:
+def stated_facts(meta: object, *, source_message_id: str) -> list[dict]:
     """Only what the family actually said becomes memory.
 
     An inferred fact fed back as a known one is how a remembered father starts
@@ -346,7 +346,7 @@ def record_turn(
         meta = {}
 
     known = {fact["statement"] for fact in state.facts_learned}
-    for fact in _stated_facts(meta, source_message_id=user_message.id):
+    for fact in stated_facts(meta, source_message_id=user_message.id):
         if fact["statement"] not in known:
             known.add(fact["statement"])
             state.facts_learned.append(fact)

@@ -32,6 +32,7 @@ from .heritage_grounding import (
     drop_ungrounded_sentences,
     find_ungrounded,
 )
+from .heritage_candidates import enqueue_facts
 from .heritage_memory import (
     MemoryState,
     avoid_block,
@@ -42,11 +43,14 @@ from .heritage_memory import (
     recent_heritage_bodies,
     record_turn,
     repetition_score,
+    stated_facts,
 )
 from .heritage_retrieval import (
     MILESTONE_KIND,
     build_evidence_pack,
+    learned_facts_for_identity,
     milestones_for_identity,
+    retrieve_learned,
     retrieve_milestones,
 )
 from .heritage_values import select_value_lens, value_lens_block
@@ -907,6 +911,15 @@ def generate_heritage_reply(
         query=search_text,
     )
 
+    # What the family told the chat before and a human approved. Joining the
+    # knowledge slot means it is quotable evidence and counts as grounded.
+    learned = retrieve_learned(
+        learned_facts_for_identity(
+            db, space_id=thread.space_id, identity_id=identity.id
+        ),
+        query=search_text,
+    )
+
     memory = (
         load_state(db, thread.id) if settings.heritage_memory_enabled else MemoryState()
     )
@@ -915,7 +928,7 @@ def generate_heritage_reply(
         identity,
         signature_poems=signature,
         retrieved_poems=retrieved,
-        knowledge=knowledge,
+        knowledge=[*knowledge, *learned],
         live_context=live_context,
         quote_mode=quote_mode,
         audience=audience,
@@ -981,6 +994,8 @@ def generate_heritage_reply(
         meta["citations"] = citations
     if milestones:
         meta["milestone_ids"] = [m.id for m in milestones]
+    if learned:
+        meta["learned_ids"] = [item.id for item in learned]
     if codex_lines:
         meta["codex_hits"] = codex_lines
         meta["codex_slugs"] = [
@@ -1070,6 +1085,18 @@ def _write_back_memory(
     """Stage 5. Runs after the reply is saved — a memory failure must not lose it."""
     try:
         record_turn(db, thread=thread, user_message=user_message, reply=reply)
+        identity = identity_for_thread(db, thread)
+        if identity and settings.heritage_candidates_enabled:
+            enqueue_facts(
+                db,
+                thread=thread,
+                identity=identity,
+                user_message=user_message,
+                facts=stated_facts(
+                    _json_loads(reply.meta_json or ""),
+                    source_message_id=user_message.id,
+                ),
+            )
         history = (
             db.query(Message)
             .filter(Message.thread_id == thread.id)
