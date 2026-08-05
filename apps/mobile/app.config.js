@@ -31,7 +31,16 @@ module.exports = ({ config }) => {
     ios: {
       supportsTablet: true,
       bundleIdentifier: bundleId,
+      appleTeamId: "L22DU942ZT",
+      buildNumber: "1",
+      infoPlist: {
+        ITSAppUsesNonExemptEncryption: false,
+        NSAppTransportSecurity: {
+          NSAllowsLocalNetworking: true,
+        },
+      },
     },
+    owner: "hiepsikien",
     android: {
       package: bundleId,
       versionCode: 2,
@@ -94,6 +103,7 @@ module.exports = ({ config }) => {
           },
         },
       ],
+      "./plugins/withAutomaticSigning",
     ],
     experiments: {
       typedRoutes: true,
@@ -110,6 +120,9 @@ module.exports = ({ config }) => {
         process.env.EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID || "",
       googleWebClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID || "",
       googleIosClientId: process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID || "",
+      eas: {
+        projectId: "736577c4-1443-4279-861b-cb79966d5af6",
+      },
     },
   };
 };

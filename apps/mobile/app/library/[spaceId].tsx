@@ -26,6 +26,7 @@ import {
   displayMemoryNote,
   displayMemoryTitle,
   isGenericMemoryTitle,
+  kindLabel,
   titleFromFileName,
 } from "@/lib/memoryDisplay";
 import {
@@ -47,13 +48,6 @@ type PendingUpload = {
   name: string;
   mimeType: string;
 };
-
-function kindLabel(kind: string): string {
-  if (kind === "voice") return "Giọng nói";
-  if (kind === "video") return "Video";
-  if (kind === "photo") return "Ảnh";
-  return "Ghi chú";
-}
 
 export default function LibraryScreen() {
   const { spaceId } = useLocalSearchParams<{ spaceId: string }>();

@@ -8,6 +8,7 @@
     "android": "APP_VARIANT=dev expo run:android",
     "ios": "APP_VARIANT=dev expo run:ios",
     "ios:build": "bash scripts/build-ios-dev.sh",
+    "ios:prod": "bash scripts/build-ios-prod.sh",
     "web": "expo start --web",
     "typecheck": "tsc --noEmit",
     "android:keystore": "bash scripts/ensure-keystore.sh",

@@ -36,7 +36,14 @@ Chỉ re-clean JSON đã có (không gọi API lại):
 ./scripts/ocr-poetry-ingest.sh --reformat-only
 ```
 
+Ngày sáng tác ký dưới bài (`7/8/2014`) được tách khỏi `body` thành `composed_on`
+— khi import nó thành `occurred_at` để Thư viện xếp đúng dòng thời gian.
+
 ## 3. Review nhanh (~20 bài)
+
+```bash
+./scripts/import-poems.sh --list   # trạng thái duyệt từng trang
+```
 
 Với mỗi file JSON:
 1. Đọc `title` + `body` — đối 1–2 chỗ khó với ảnh gốc nếu `uncertain_spans` không rỗng  
@@ -44,19 +51,37 @@ Với mỗi file JSON:
 3. Nghe thử TTS (optional): copy `body_tts` vào màn Speak Voice DNA  
 4. Đổi `review_status` → `approved` khi ổn  
 
-**Không** cần import tay 40 ghi chú — báo agent khi xong review để làm batch `kind=poem`.
+Bài trải hai trang: dán tiếp phần sau vào `body` của trang đầu, rồi để `poems: []`
+ở file trang sau (ghi lý do vào `notes`).
+
+## 3b. Import vào Thư viện
+
+Chỉ trang `approved` mới được gửi.
+
+```bash
+./scripts/import-poems.sh --identity <identity_id> --dry-run
+./scripts/import-poems.sh --identity <identity_id>
+```
+
+Import lại nhiều lần vẫn an toàn — trùng nội dung sẽ bị bỏ qua.
+Thơ vào Thư viện với `kind=poem`, tag `heritage:{identity_id}` + `chu-de:…`,
+và **không** tính vào cổng kích hoạt.
 
 ## 4. Bản sắc (song song, 1 buổi với mẹ)
 
-Mở draft: `docs/heritage-bo-trieu/identity-lock.draft.json`  
-Hiệu đính: 3+ giá trị thật, xưng hô, taboo, vài câu mẫu — rồi tick `mark_profile_reviewed` trên app (API đã có).  
+Mở **[`identity-lock.CHOICE-SHEET.md`](./identity-lock.CHOICE-SHEET.md)** — tick chốt từng mục.  
+Chi tiết máy đọc: [`identity-lock.proposed.json`](./identity-lock.proposed.json) (đề xuất agent sau OCR 18 bài).  
+Draft gốc: [`identity-lock.draft.json`](./identity-lock.draft.json).  
 Cổng activate cần: giọng + **3 ký ức neo (không phải thơ)** + Bản sắc đã duyệt.
 
-## 5. Sau khi OCR xong — giao lại agent
+> Hồ sơ Triệu đã được kích hoạt từ trước khi siết cổng, nên chạy với Bản sắc trống.
+> Đã chuyển sang `paused` sau khi import thơ. `resume-heritage` kiểm tra lại Bản sắc,
+> nên chat chỉ mở lại được sau khi hiệu đính xong và tick `mark_profile_reviewed`.
 
-- “OCR xong, JSON trong `data/heritage-bo-trieu/poetry-ocr/`”  
-→ Phase B: endpoint batch import `kind=poem` + nhãn Thư viện  
-→ Rồi mới Phase C: chat Ký ức  
+## 5. Sau khi import xong — giao lại agent
+
+- “Đã import N bài thơ vào Thư viện”  
+→ Phase C: chat Ký ức (RAG trên thơ + ký ức neo)  
 
 ## Lưu ý TTS
 

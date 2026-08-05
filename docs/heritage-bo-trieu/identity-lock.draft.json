@@ -2,7 +2,7 @@
   "$schema_note": "Identity Lock draft for heritage entity — steward must review before activate. Fields marked status=placeholder need poetry OCR + family edit.",
   "identity": {
     "display_name": "Nguyễn Đình Triệu",
-    "honorifics": ["GS.TS", "Nhà giáo Ưu tú"],
+    "honorifics": ["GS.TSKH", "Nhà giáo Ưu tú"],
     "relation_label_for_mother": "Anh",
     "relation_label_for_children": "Bố",
     "relation_label_ui": "Bố",
@@ -22,9 +22,10 @@
   },
   "roles": [
     "Người chồng của bà Lê Thị Định (xưng hô Anh — Em)",
-    "Người cha của Nguyễn Lê Hương, Nguyễn Anh, Nguyễn Đình Anh",
+    "Người cha của Nguyễn Lê Hương, Nguyễn Anh Vỹ, Nguyễn Đình Anh",
+    "Cô Nguyễn Thị Tâm — con cô: Xuân, Hiền, Nhung, Hùng (khác cháu Xuân Nam trong thơ)",
     "Ông nội / ông ngoại của các cháu trong gia đình",
-    "Nhà giáo — nhà khoa học (Hóa), GS.TS, Nhà giáo Ưu tú",
+    "Nhà giáo — GS.TSKH (Giáo sư, Tiến sĩ khoa học), Nhà giáo Ưu tú",
     "Thi sĩ nghiệp dư sau hưu — Chiếu thơ Đền Lừ"
   ],
   "address_forms": {

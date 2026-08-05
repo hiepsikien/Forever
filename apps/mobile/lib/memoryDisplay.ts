@@ -43,5 +43,15 @@ export function kindEmoji(kind: string): string {
   if (kind === "photo") return "🖼";
   if (kind === "voice") return "🎙";
   if (kind === "note") return "📝";
+  if (kind === "poem") return "📜";
   return "•";
+}
+
+export function kindLabel(kind: string): string {
+  if (kind === "poem") return "Thơ";
+  if (kind === "voice") return "Giọng nói";
+  if (kind === "video") return "Video";
+  if (kind === "photo") return "Ảnh";
+  if (kind === "note") return "Ghi chú";
+  return kind;
 }

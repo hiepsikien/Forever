@@ -176,6 +176,10 @@ def _normalize(result: dict, source: Path | None) -> dict:
                 "year_guess": poem.get("year_guess"),
                 "ocr_confidence": poem.get("ocr_confidence"),
                 "uncertain_spans": poem.get("uncertain_spans") or [],
+                # Steward edits survive --reformat-only
+                "composed_on": poem.get("composed_on"),
+                "continued_from": poem.get("continued_from"),
+                "dedication": poem.get("dedication"),
             }
         )
         poems.append(enriched)

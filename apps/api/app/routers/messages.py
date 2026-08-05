@@ -15,6 +15,7 @@ from ..auth import get_current_user
 from ..db import get_db
 from ..models import Message, Thread, User
 from ..services.agent import maybe_reply, sender_display_name, sender_handle
+from ..services.heritage_chat import heritage_display_name, identity_for_heritage_thread, maybe_heritage_reply
 from ..services.storage import absolute_media_path, save_upload
 
 router = APIRouter(prefix="/api/threads", tags=["messages"])
@@ -23,6 +24,27 @@ media_router = APIRouter(prefix="/api/messages", tags=["messages"])
 
 class SendMessageBody(BaseModel):
     body: str = Field(min_length=1, max_length=8000)
+
+
+def _heritage_sender_name(db: Session, thread: Thread, sender_kind: str) -> str | None:
+    if sender_kind != "heritage" or thread.kind != "heritage":
+        return None
+    identity = identity_for_heritage_thread(db, thread.id)
+    if not identity:
+        return "Ký ức"
+    return heritage_display_name(identity)
+
+
+def _dispatch_auto_reply(
+    db: Session,
+    *,
+    thread: Thread,
+    user_message: Message,
+) -> None:
+    if thread.kind == "heritage":
+        maybe_heritage_reply(db, thread=thread, user_message=user_message)
+    else:
+        maybe_reply(db, thread=thread, user_message=user_message)
 
 
 def _message_payload(
@@ -90,13 +112,21 @@ def list_messages(
         for row in db.query(User).filter(User.id.in_(user_ids)).all():
             profiles[row.id] = row
 
+    heritage_label = _heritage_sender_name(db, thread, "heritage")
+
     return {
         "messages": [
             _message_payload(
                 m,
-                sender_name=sender_display_name(
-                    m.sender_kind,
-                    profiles[m.sender_user_id].name if m.sender_user_id in profiles else None,
+                sender_name=(
+                    heritage_label
+                    if m.sender_kind == "heritage" and heritage_label
+                    else sender_display_name(
+                        m.sender_kind,
+                        profiles[m.sender_user_id].name
+                        if m.sender_user_id in profiles
+                        else None,
+                    )
                 ),
                 handle=sender_handle(
                     m.sender_kind,
@@ -139,7 +169,7 @@ def send_message(
     db.commit()
     db.refresh(message)
 
-    maybe_reply(db, thread=thread, user_message=message)
+    _dispatch_auto_reply(db, thread=thread, user_message=message)
 
     return _message_payload(
         message,
@@ -181,7 +211,7 @@ async def send_voice_message(
     db.commit()
     db.refresh(message)
 
-    maybe_reply(db, thread=thread, user_message=message)
+    _dispatch_auto_reply(db, thread=thread, user_message=message)
 
     return _message_payload(
         message,

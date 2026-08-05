@@ -264,5 +264,5 @@ Bộ ~15 câu cố định (bịa tiểu sử, đóng vai còn sống, chính tr
 | A1 Identity Lock columns + PATCH + profile_reviewed | **done** (màn Bản sắc form đầy đủ: sau) |
 | A2 pause/resume kill switch | **done** |
 | `messages.meta_json` | **done** (heritage chat chưa ghi citation) |
-| B OCR / kind=poem batch import | chưa |
-| C heritage_chat.py | chưa |
+| B OCR / kind=poem batch import | **done** (local + cloud) |
+| C heritage_chat.py | **done** |

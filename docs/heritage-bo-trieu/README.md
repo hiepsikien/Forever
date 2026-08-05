@@ -6,7 +6,8 @@
 | File | Vai trò |
 |------|---------|
 | [`STEWARD-NEXT.md`](./STEWARD-NEXT.md) | Checklist OCR + review + Bản sắc |
-| [`identity-lock.draft.json`](./identity-lock.draft.json) | Profile neo 75 tuổi / 2015 |
+| [`identity-lock.draft.json`](./identity-lock.draft.json) | Profile neo 75 tuổi / 2015 (bản gốc) |
+| [`identity-lock.final.json`](./identity-lock.final.json) | **Đã chốt với mẹ** — đã PATCH local API |
 | [`milestones.draft.json`](./milestones.draft.json) | Mốc từ Profile |
 | [`poetry-themes.md`](./poetry-themes.md) | Theme tags |
 | [`samples/`](./samples/) | Bài seed mẫu |

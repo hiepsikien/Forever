@@ -19,13 +19,21 @@ function metroHost(): string | null {
 function isLocalApiUrl(url: string): boolean {
   try {
     const u = new URL(url);
-    return (
-      u.hostname === "localhost" ||
-      u.hostname === "127.0.0.1" ||
-      u.hostname === "10.0.2.2"
-    );
+    const host = u.hostname;
+    if (host === "localhost" || host === "127.0.0.1" || host === "10.0.2.2") {
+      return true;
+    }
+    // Stale LAN IP in .env — prefer Metro host (current Wi‑Fi IP).
+    if (/^192\.168\.\d{1,3}\.\d{1,3}$/.test(host)) return true;
+    if (/^10\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(host)) return true;
+    if (/^172\.(1[6-9]|2\d|3[01])\.\d{1,3}\.\d{1,3}$/.test(host)) return true;
+    return false;
   } catch {
-    return url.includes("localhost") || url.includes("127.0.0.1");
+    return (
+      url.includes("localhost") ||
+      url.includes("127.0.0.1") ||
+      /192\.168\.\d+\.\d+/.test(url)
+    );
   }
 }
 

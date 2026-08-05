@@ -132,6 +132,35 @@ Or share the APK file (Drive / Zalo). Recipients: Settings → allow install fro
 
 Toolchain (already used for local builds): JDK 17 + Android command-line tools (`brew install openjdk@17` and `brew install --cask android-commandlinetools`).
 
+## iOS TestFlight (local build)
+
+Production bundle: `com.nguyendinhanh.forever` · home screen **Forever** · API `https://forever-api.antunai.com`.
+
+Same pattern as Read: EAS project `@hiepsikien/forever`, local archive via `xcodebuild`, upload via `eas submit`.
+
+### One-time
+
+1. Firebase → add **iOS app** (`com.nguyendinhanh.forever`) → copy **iOS client ID** → `EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID` in `.env` (Google Sign-In on TestFlight; dev login still works without it).
+2. First TestFlight upload creates the App Store Connect app (needs Apple 2FA in Terminal once).
+
+### Build + upload
+
+```bash
+cd apps/mobile
+npm install
+npm run ios:prod              # archive + export IPA + eas submit
+npm run ios:prod -- --no-submit   # IPA only → dist/forever-production.ipa
+```
+
+After Apple processes (~5–10 min), open App Store Connect → **Forever** → TestFlight. Add `ascAppId` to `eas.json` `submit.production.ios` once known (Read/Recall pattern) so later submits can run `--non-interactive`.
+
+**Dev vs production (important):** EAS may auto-create ASC app `6798107548` for **`com.nguyendinhanh.forever.dev`** (Forever Dev). Production IPA uses **`com.nguyendinhanh.forever`** — a separate App Store Connect app. Do not point `submit.production` at the dev app id.
+
+| Variant | Bundle ID | ASC app | Name on device |
+|---------|-----------|---------|----------------|
+| Production / TestFlight | `com.nguyendinhanh.forever` | create separately | Forever |
+| Dev | `com.nguyendinhanh.forever.dev` | `6798107548` | Forever (Dev) |
+
 ## Phased delivery
 
 1. **Phase 0** — Collect family memories & identity worksheet  

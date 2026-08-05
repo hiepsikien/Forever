@@ -94,6 +94,7 @@ class UpdateIdentityBody(BaseModel):
         default=None, pattern="^(paraphrase|verbatim)$"
     )
     dynamic_context: str | None = Field(default=None, max_length=4000)
+    family_context_opt_in: bool | None = None
     mark_profile_reviewed: bool | None = None
 
 
@@ -440,6 +441,7 @@ def _identity_payload(
         "taboos": _parse(getattr(row, "taboos_json", None)),
         "poetry_quote_mode": getattr(row, "poetry_quote_mode", None) or "paraphrase",
         "dynamic_context": getattr(row, "dynamic_context", None) or "",
+        "family_context_opt_in": bool(getattr(row, "family_context_opt_in", False)),
         "profile_reviewed_at": (
             row.profile_reviewed_at.isoformat()
             if getattr(row, "profile_reviewed_at", None)
@@ -854,6 +856,8 @@ def update_identity(
         row.poetry_quote_mode = body.poetry_quote_mode
     if body.dynamic_context is not None:
         row.dynamic_context = body.dynamic_context.strip()
+    if body.family_context_opt_in is not None:
+        row.family_context_opt_in = body.family_context_opt_in
     if body.mark_profile_reviewed is True:
         mark_profile_reviewed(row, user_id=user.id)
     elif body.mark_profile_reviewed is False:

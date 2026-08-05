@@ -241,6 +241,10 @@ def ensure_schema() -> None:
             "ALTER TABLE identity_profiles ADD COLUMN dynamic_context TEXT DEFAULT ''",
         ),
         (
+            "family_context_opt_in",
+            "ALTER TABLE identity_profiles ADD COLUMN family_context_opt_in BOOLEAN DEFAULT FALSE",
+        ),
+        (
             "profile_reviewed_at",
             "ALTER TABLE identity_profiles ADD COLUMN profile_reviewed_at TIMESTAMP WITH TIME ZONE",
         ),
@@ -254,6 +258,11 @@ def ensure_schema() -> None:
         "messages",
         "meta_json",
         "ALTER TABLE messages ADD COLUMN meta_json TEXT DEFAULT ''",
+    )
+    _add_column_if_missing(
+        "memory_items",
+        "body_tts",
+        "ALTER TABLE memory_items ADD COLUMN body_tts TEXT DEFAULT ''",
     )
     try:
         with engine.begin() as conn:

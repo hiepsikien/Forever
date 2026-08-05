@@ -1,0 +1,43 @@
+{
+  "cli": {
+    "version": ">= 21.1.0",
+    "appVersionSource": "remote"
+  },
+  "build": {
+    "development": {
+      "developmentClient": true,
+      "distribution": "internal",
+      "env": {
+        "APP_VARIANT": "dev"
+      }
+    },
+    "production": {
+      "autoIncrement": true,
+      "env": {
+        "APP_VARIANT": "production",
+        "EXPO_PUBLIC_API_URL": "https://forever-api.antunai.com",
+        "EXPO_PUBLIC_AUTH_DEV": "true",
+        "EXPO_PUBLIC_FIREBASE_API_KEY": "AIzaSyDS9CTQu0rUrhXkqqH1BoLEBm7sl7jBAl8",
+        "EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN": "forever-70614.firebaseapp.com",
+        "EXPO_PUBLIC_FIREBASE_PROJECT_ID": "forever-70614",
+        "EXPO_PUBLIC_FIREBASE_APP_ID": "1:787275064281:web:993de324a0e8e945c5afc8",
+        "EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID": "787275064281",
+        "EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID": "787275064281-5ft3luaqstk6d6rq654tfeerotjl4hrq.apps.googleusercontent.com"
+      }
+    }
+  },
+  "submit": {
+    "development": {
+      "ios": {
+        "ascAppId": "6798107548",
+        "appleTeamId": "L22DU942ZT"
+      }
+    },
+    "production": {
+      "ios": {
+        "ascAppId": "6798111625",
+        "appleTeamId": "L22DU942ZT"
+      }
+    }
+  }
+}

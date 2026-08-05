@@ -10,10 +10,12 @@ from pydantic import BaseModel, Field
 from sqlalchemy import desc, nulls_last
 from sqlalchemy.orm import Session
 
-from ..access import require_membership
+from ..access import require_membership, require_steward_or_owner
 from ..auth import get_current_user
 from ..db import get_db
-from ..models import MemoryItem, Message, Thread, User
+from ..models import IdentityProfile, MemoryItem, Message, Thread, User
+from ..services.heritage import HERITAGE_TAG_PREFIX, POEM_KIND, tag_tokens
+from ..services.poetry_clean import clean_body_lines, format_body, format_body_tts
 from ..services.storage import (
     MAX_MEMORY_MEDIA_BYTES,
     absolute_media_path,
@@ -43,6 +45,35 @@ class UpdateMemoryBody(BaseModel):
     title: str | None = Field(default=None, max_length=200)
     body: str | None = Field(default=None, max_length=8000)
     tags: str | None = Field(default=None, max_length=500)
+
+
+ALLOWED_POEM_THEMES = {
+    "vo_chong",
+    "con_cai",
+    "gia_dinh",
+    "nghe_giao",
+    "tho",
+    "biet_on",
+    "truyen_thong",
+}
+UNTITLED_POEM = "Thơ không đề"
+
+
+class ImportPoem(BaseModel):
+    title: str = Field(default="", max_length=200)
+    body: str = Field(min_length=1, max_length=8000)
+    body_tts: str = Field(default="", max_length=12000)
+    meter: str = Field(default="unknown", max_length=32)
+    themes: list[str] = Field(default_factory=list)
+    composed_on: str | None = None
+    source_name: str = Field(default="", max_length=200)
+    page_label: str | None = Field(default=None, max_length=32)
+
+
+class ImportPoemsBody(BaseModel):
+    identity_id: str
+    poems: list[ImportPoem] = Field(min_length=1, max_length=200)
+    dry_run: bool = False
 
 
 def _warm_video_assets(media_relative: str) -> None:
@@ -78,6 +109,7 @@ def _memory_payload(item: MemoryItem, creator_name: str | None) -> dict:
         "kind": item.kind,
         "title": item.title,
         "body": item.body,
+        "body_tts": item.body_tts or "",
         "has_media": bool(item.media_path),
         "media_mime": item.media_mime,
         "source_message_id": item.source_message_id,
@@ -146,6 +178,130 @@ def create_note_memory(
     db.commit()
     db.refresh(item)
     return _memory_payload(item, user.name)
+
+
+def _poem_tags(identity_id: str, meter: str, themes: list[str]) -> str:
+    tags = [f"{HERITAGE_TAG_PREFIX}{identity_id}", "tho"]
+    meter = (meter or "").strip()
+    if meter and meter != "unknown":
+        tags.append(f"meter:{meter}")
+    for theme in themes:
+        theme = (theme or "").strip()
+        if theme in ALLOWED_POEM_THEMES:
+            tags.append(f"chu-de:{theme}")
+    return " ".join(dict.fromkeys(tags))[:500]
+
+
+def _meter_from_tags(tags: str | None) -> str:
+    for token in tag_tokens(tags):
+        if token.startswith("meter:"):
+            return token.split(":", 1)[1]
+    return "unknown"
+
+
+def _poem_fingerprint(body: str) -> str:
+    return "\n".join(ln.strip() for ln in body.strip().splitlines() if ln.strip()).lower()
+
+
+def _parse_composed_on(value: str | None) -> datetime | None:
+    if not value:
+        return None
+    try:
+        parsed = datetime.fromisoformat(value)
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=400, detail=f"composed_on không hợp lệ: {value}"
+        ) from exc
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=timezone.utc)
+    return parsed
+
+
+@router.post("/api/spaces/{space_id}/memories/poems/import")
+def import_poems(
+    space_id: str,
+    body: ImportPoemsBody,
+    user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[Session, Depends(get_db)],
+):
+    """Batch import reviewed OCR poems into the library as kind=poem.
+
+    Poems are heritage *material*, not anchor memories — they never count
+    toward the activate gate (see services/heritage.KNOWLEDGE_KINDS).
+    """
+    require_steward_or_owner(db, space_id=space_id, user=user)
+    identity = (
+        db.query(IdentityProfile)
+        .filter(
+            IdentityProfile.id == body.identity_id,
+            IdentityProfile.space_id == space_id,
+        )
+        .one_or_none()
+    )
+    if not identity:
+        raise HTTPException(status_code=404, detail="Identity profile not found.")
+
+    needle = f"{HERITAGE_TAG_PREFIX}{identity.id}"
+    existing = {
+        _poem_fingerprint(item.body)
+        for item in db.query(MemoryItem)
+        .filter(MemoryItem.space_id == space_id, MemoryItem.kind == POEM_KIND)
+        .all()
+        if needle in tag_tokens(item.tags)
+    }
+
+    now = datetime.now(timezone.utc)
+    imported: list[MemoryItem] = []
+    skipped: list[dict] = []
+    for poem in body.poems:
+        meter = (poem.meter or "unknown").strip()
+        lines = clean_body_lines(poem.body, meter=meter)
+        text = format_body(lines)
+        if not text:
+            skipped.append({"title": poem.title, "reason": "empty_body"})
+            continue
+        fingerprint = _poem_fingerprint(text)
+        if fingerprint in existing:
+            skipped.append({"title": poem.title, "reason": "duplicate"})
+            continue
+        existing.add(fingerprint)
+        occurred_at = _parse_composed_on(poem.composed_on)
+        item = MemoryItem(
+            id=generate(),
+            space_id=space_id,
+            created_by=user.id,
+            kind=POEM_KIND,
+            title=(poem.title or "").strip()[:200] or UNTITLED_POEM,
+            body=text,
+            body_tts=(poem.body_tts or "").strip() or format_body_tts(lines, meter=meter),
+            media_path=None,
+            media_mime=None,
+            source_message_id=None,
+            tags=_poem_tags(identity.id, meter, poem.themes),
+            occurred_at=occurred_at,
+            created_at=now,
+        )
+        imported.append(item)
+
+    if body.dry_run:
+        return {
+            "dry_run": True,
+            "would_import": len(imported),
+            "skipped": skipped,
+            "titles": [m.title for m in imported],
+        }
+
+    for item in imported:
+        db.add(item)
+    db.commit()
+    for item in imported:
+        db.refresh(item)
+    return {
+        "dry_run": False,
+        "imported": len(imported),
+        "skipped": skipped,
+        "memories": [_memory_payload(m, user.name) for m in imported],
+    }
 
 
 @router.post("/api/spaces/{space_id}/memories/upload")
@@ -366,6 +522,11 @@ def update_memory(
         item.title = title[:200]
     if body.body is not None:
         item.body = body.body.strip()[:8000]
+        if item.kind == POEM_KIND:
+            meter = _meter_from_tags(item.tags)
+            lines = clean_body_lines(item.body, meter=meter)
+            item.body = format_body(lines)
+            item.body_tts = format_body_tts(lines, meter=meter)
     if body.tags is not None:
         item.tags = body.tags.strip()[:500]
     db.commit()

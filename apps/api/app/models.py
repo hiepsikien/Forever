@@ -114,6 +114,8 @@ class MemoryItem(Base):
     )  # note | voice | photo | video | letter | poem | milestone
     title: Mapped[str] = mapped_column(String(200), default="")
     body: Mapped[str] = mapped_column(Text, default="")
+    # Same words as `body` with breath pauses — Voice DNA TTS reads this, not `body`.
+    body_tts: Mapped[str] = mapped_column(Text, default="")
     media_path: Mapped[str | None] = mapped_column(String(512), nullable=True)
     media_mime: Mapped[str | None] = mapped_column(String(120), nullable=True)
     source_message_id: Mapped[str | None] = mapped_column(
@@ -218,6 +220,8 @@ class IdentityProfile(Base):
     taboos_json: Mapped[str] = mapped_column(Text, default="")
     poetry_quote_mode: Mapped[str] = mapped_column(String(32), default="paraphrase")
     dynamic_context: Mapped[str] = mapped_column(Text, default="")
+    # When true, heritage chat may include a short summary of recent family-thread messages.
+    family_context_opt_in: Mapped[bool] = mapped_column(default=False)
     profile_reviewed_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
     )

@@ -40,6 +40,15 @@ _MULTI_NL = re.compile(r"\n{3,}")
 # Broken OCR: "đèo  bòng" / "b à"
 _LETTER_GAP = re.compile(r"(?<=[A-Za-zÀ-ỹ])\s(?=[A-Za-zÀ-ỹ]\s|[A-Za-zÀ-ỹ]$)")
 
+# Ông Triệu ký ngày sáng tác dưới bài: "7/8/2014", "Ngày 21-7-2014".
+_DATE_LINE = re.compile(
+    r"(?ix)^(?:ngày\s*)?"
+    r"(?P<d>\d{1,2})\s*[/.\-]\s*(?P<m>\d{1,2})\s*[/.\-]\s*(?P<y>\d{4})"
+    r"\s*$"
+)
+# Verse lines already ending in an emotional stop — don't stack another period.
+_TERMINAL_PUNCT = ".!?…"
+
 
 def nfc(text: str) -> str:
     return unicodedata.normalize("NFC", text or "")
@@ -115,9 +124,37 @@ def _reflow_luc_bat(lines: list[str]) -> list[str]:
     return out
 
 
+def split_composed_date(lines: list[str]) -> tuple[list[str], str | None]:
+    """Pull a trailing "7/8/2014" signature line out of the verse body.
+
+    Returns (verse_lines, iso_date). Ambiguous day/month (both ≤ 12) stays as
+    written on the page — the poet wrote d/m/yyyy.
+    """
+    if not lines:
+        return lines, None
+    match = _DATE_LINE.match(lines[-1].strip())
+    if not match:
+        return lines, None
+    day, month, year = (int(match.group(g)) for g in ("d", "m", "y"))
+    if not (1 <= month <= 12 and 1 <= day <= 31):
+        return lines, None
+    return lines[:-1], f"{year:04d}-{month:02d}-{day:02d}"
+
+
 def format_body(lines: list[str]) -> str:
     """Literary body: one verse line per line, no trailing spaces."""
     return "\n".join(lines).strip()
+
+
+def _strip_soft_pause(line: str) -> str:
+    """Drop trailing comma/semicolon so we can re-punctuate, keep ! ? …"""
+    return line.rstrip().rstrip(",;:").rstrip()
+
+
+def _end_stop(line: str) -> str:
+    if line.endswith(tuple(_TERMINAL_PUNCT)):
+        return line
+    return f"{line}."
 
 
 def format_body_tts(lines: list[str], *, meter: str = "unknown") -> str:
@@ -133,14 +170,14 @@ def format_body_tts(lines: list[str], *, meter: str = "unknown") -> str:
     if meter == "luc_bat":
         i = 0
         while i < len(lines):
-            six = lines[i].rstrip(" .,;:…")
+            six = _strip_soft_pause(lines[i])
             if i + 1 < len(lines):
-                eight = lines[i + 1].rstrip(" .,;:…")
+                eight = _strip_soft_pause(lines[i + 1])
                 # Comma after lục, period after bát → natural breath for clone TTS
-                chunks.append(f"{six}, {eight}.")
+                chunks.append(f"{six}, {_end_stop(eight)}")
                 i += 2
             else:
-                chunks.append(f"{six}.")
+                chunks.append(_end_stop(six))
                 i += 1
         # Blank line between couplets groups of ~4 for longer poems (paragraph pause)
         paired = chunks
@@ -154,11 +191,11 @@ def format_body_tts(lines: list[str], *, meter: str = "unknown") -> str:
     # Default: each line ends with pause
     out = []
     for i, ln in enumerate(lines):
-        base = ln.rstrip(" .,;:…")
+        base = _strip_soft_pause(ln)
         if i == len(lines) - 1:
-            out.append(f"{base}.")
+            out.append(_end_stop(base))
         else:
-            out.append(f"{base},")
+            out.append(base if base.endswith(tuple(_TERMINAL_PUNCT)) else f"{base},")
     return "\n".join(out)
 
 
@@ -167,6 +204,7 @@ def enrich_poem(poem: dict) -> dict:
     meter = (poem.get("meter") or "unknown").strip()
     title = clean_title(poem.get("title") or "")
     lines = clean_body_lines(poem.get("body") or "", meter=meter)
+    lines, composed_on = split_composed_date(lines)
     body = format_body(lines)
     body_tts = format_body_tts(lines, meter=meter)
     out = dict(poem)
@@ -174,5 +212,8 @@ def enrich_poem(poem: dict) -> dict:
     out["body"] = body
     out["body_tts"] = body_tts
     out["line_count"] = len(lines)
-    out["clean_version"] = 1
+    out["composed_on"] = composed_on or poem.get("composed_on")
+    if out["composed_on"] and not out.get("year_guess"):
+        out["year_guess"] = int(str(out["composed_on"])[:4])
+    out["clean_version"] = 2
     return out

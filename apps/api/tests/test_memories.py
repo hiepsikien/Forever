@@ -159,6 +159,121 @@ def test_update_memory(client):
     assert "from-chat" in data["tags"]
 
 
+def _heritage_identity(client, headers: dict, space_id: str) -> str:
+    res = client.post(
+        f"/api/spaces/{space_id}/identities",
+        headers=headers,
+        json={
+            "display_name": "Nguyễn Đình Triệu",
+            "relation_label": "Bố",
+            "status": "remembered",
+        },
+    )
+    assert res.status_code == 200, res.text
+    return res.json()["id"]
+
+
+_POEM = {
+    "title": "LỜI MẸ DẶN",
+    "body": "Mẹ già tóc bạc còng lưng\nĐêm nằm con vẫn nhớ từng bước chân",
+    "meter": "luc_bat",
+    "themes": ["gia_dinh", "biet_on", "khong_hop_le"],
+    "composed_on": "2014-08-07",
+}
+
+
+def test_import_poems_tags_and_dedupes(client):
+    token = _login(client, "poem-import@example.com", "Con")
+    headers = {"Authorization": f"Bearer {token}"}
+    space = client.post("/api/spaces", headers=headers, json={"name": "Nhà thơ"}).json()
+    identity_id = _heritage_identity(client, headers, space["id"])
+
+    payload = {"identity_id": identity_id, "poems": [_POEM]}
+    res = client.post(
+        f"/api/spaces/{space['id']}/memories/poems/import", headers=headers, json=payload
+    )
+    assert res.status_code == 200, res.text
+    data = res.json()
+    assert data["imported"] == 1
+    memory = data["memories"][0]
+    assert memory["kind"] == "poem"
+    assert f"heritage:{identity_id}" in memory["tags"]
+    assert "chu-de:gia_dinh" in memory["tags"]
+    assert "khong_hop_le" not in memory["tags"]
+    assert memory["occurred_at"].startswith("2014-08-07")
+    # TTS variant is derived when the caller does not send one.
+    assert "còng lưng, Đêm nằm" in memory["body_tts"]
+
+    again = client.post(
+        f"/api/spaces/{space['id']}/memories/poems/import", headers=headers, json=payload
+    )
+    assert again.status_code == 200, again.text
+    assert again.json()["imported"] == 0
+    assert again.json()["skipped"][0]["reason"] == "duplicate"
+
+
+def test_import_poems_dry_run_writes_nothing(client):
+    token = _login(client, "poem-dry@example.com", "Con")
+    headers = {"Authorization": f"Bearer {token}"}
+    space = client.post("/api/spaces", headers=headers, json={"name": "Nhà thử"}).json()
+    identity_id = _heritage_identity(client, headers, space["id"])
+
+    res = client.post(
+        f"/api/spaces/{space['id']}/memories/poems/import",
+        headers=headers,
+        json={"identity_id": identity_id, "poems": [_POEM], "dry_run": True},
+    )
+    assert res.status_code == 200, res.text
+    assert res.json()["would_import"] == 1
+    listed = client.get(f"/api/spaces/{space['id']}/memories", headers=headers).json()
+    assert listed["memories"] == []
+
+
+def test_imported_poems_do_not_open_activate_gate(client):
+    token = _login(client, "poem-gate@example.com", "Con")
+    headers = {"Authorization": f"Bearer {token}"}
+    space = client.post("/api/spaces", headers=headers, json={"name": "Nhà cổng"}).json()
+    identity_id = _heritage_identity(client, headers, space["id"])
+
+    poems = [dict(_POEM, title=f"Bài {i}", body=f"Câu thơ số {i}\nCâu tám của bài số {i} đây") for i in range(5)]
+    res = client.post(
+        f"/api/spaces/{space['id']}/memories/poems/import",
+        headers=headers,
+        json={"identity_id": identity_id, "poems": poems},
+    )
+    assert res.status_code == 200, res.text
+    assert res.json()["imported"] == 5
+
+    readiness = client.get(
+        f"/api/spaces/{space['id']}/identities/{identity_id}/heritage-readiness",
+        headers=headers,
+    ).json()
+    assert readiness["poem_count"] == 5
+    assert readiness["knowledge_count"] == 0
+    assert readiness["can_activate"] is False
+
+
+def test_editing_poem_body_refreshes_tts(client):
+    token = _login(client, "poem-edit@example.com", "Con")
+    headers = {"Authorization": f"Bearer {token}"}
+    space = client.post("/api/spaces", headers=headers, json={"name": "Nhà sửa"}).json()
+    identity_id = _heritage_identity(client, headers, space["id"])
+
+    created = client.post(
+        f"/api/spaces/{space['id']}/memories/poems/import",
+        headers=headers,
+        json={"identity_id": identity_id, "poems": [_POEM]},
+    ).json()["memories"][0]
+
+    updated = client.patch(
+        f"/api/memories/{created['id']}",
+        headers=headers,
+        json={"body": "Thương nhau chớ kể sang hèn\nMáu đào, sáng lửa tối đèn chớ quên"},
+    )
+    assert updated.status_code == 200, updated.text
+    assert "sang hèn, Máu đào" in updated.json()["body_tts"]
+
+
 def test_delete_memory(client, tmp_path, monkeypatch):
     monkeypatch.setenv("UPLOAD_DIR", str(tmp_path))
     from io import BytesIO

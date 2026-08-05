@@ -112,15 +112,37 @@ export interface MemoryItem {
   space_id: string;
   created_by: string;
   creator_name?: string | null;
-  kind: "note" | "voice" | "photo" | "video" | "letter" | string;
+  kind: "note" | "voice" | "photo" | "video" | "letter" | "poem" | string;
   title: string;
   body: string;
+  /** Same words as `body` with breath pauses — use for TTS, not for display. */
+  body_tts?: string;
   has_media: boolean;
   media_mime?: string | null;
   source_message_id?: string | null;
   tags: string;
   occurred_at?: string | null;
   created_at: string;
+}
+
+export interface ImportPoemInput {
+  title?: string;
+  body: string;
+  body_tts?: string;
+  meter?: string;
+  themes?: string[];
+  composed_on?: string | null;
+  source_name?: string;
+  page_label?: string | null;
+}
+
+export interface ImportPoemsResult {
+  dry_run: boolean;
+  imported?: number;
+  would_import?: number;
+  titles?: string[];
+  memories?: MemoryItem[];
+  skipped: { title: string; reason: "duplicate" | "empty_body" | string }[];
 }
 
 export interface InterviewPrompt {
@@ -733,6 +755,18 @@ export function createApiClient({
         { json: false },
       );
     },
+    importPoems: (
+      spaceId: string,
+      payload: {
+        identity_id: string;
+        poems: ImportPoemInput[];
+        dry_run?: boolean;
+      },
+    ) =>
+      request<ImportPoemsResult>(
+        `/api/spaces/${spaceId}/memories/poems/import`,
+        { method: "POST", body: JSON.stringify(payload) },
+      ),
     memoryFromMessage: (spaceId: string, messageId: string, title?: string) =>
       request<MemoryItem>(`/api/spaces/${spaceId}/memories/from-message`, {
         method: "POST",
