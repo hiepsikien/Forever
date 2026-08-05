@@ -680,7 +680,7 @@ def test_heritage_history_includes_prior_turns(client: TestClient, tmp_path, mon
 
     captured: dict = {}
 
-    def fake_gemini(settings, *, system_prompt, user_text, history):
+    def fake_gemini(settings, *, system_prompt, user_text, history, **kwargs):
         captured["roles"] = [m.sender_kind for m in history]
         return "Bố nghe con.", "STOP"
 

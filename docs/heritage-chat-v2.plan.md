@@ -1,6 +1,6 @@
 # Heritage Chat v2 — Context-Aware Pipeline
 
-> Trạng thái: Phase 0 và Phase 1 đã xong; Phase 2 (Context Analyzer) là bước kế.
+> Trạng thái: Phase 0, 1, 2 đã xong; Phase 3 (ThreadMemory + anti-repeat) là bước kế.
 > Bối cảnh: sau buổi thử đầu tiên với mẹ, chat của Bố Triệu bị hai lỗi lớn —
 > xác định sai người đối thoại, và trả lời dài như một bức thư.
 > Bản v1 (`services/heritage_chat.py`) đã vá tạm bằng rule; v2 dựng lại luồng
@@ -41,13 +41,10 @@ Gemini trả JSON theo schema chặt (`responseMimeType: application/json`):
   "depth": "ack | short | story",
   "emotion": "neutral | warm | sad | proud | worried | playful",
   "audience_hint": "spouse | child | grandchild | unknown",
-  "entities": [{ "mention": "Hương", "entity_id": "huong", "confidence": 0.9 }],
-  "unresolved_mentions": ["Nam"],
+  "entity_slugs": ["nguyen_le_huong"],
   "topics": ["con_cai", "gia_dinh"],
   "retrieval_queries": ["con gái đi xa"],
-  "new_facts": [{ "text": "Con đang test server local", "about": "steward" }],
-  "needs_clarification": false,
-  "clarify_question": null
+  "new_facts": ["Con đang test server local"]
 }
 ```
 
@@ -55,8 +52,20 @@ Ba ràng buộc:
 
 - `audience_hint` **chỉ** dùng khi không resolve được `IdentityProfile` của người
   gửi. Có profile → rule thắng. Không bao giờ để model đoán vai.
-- `entity_id` chọn từ alias list gửi kèm prompt (closed set) — model không tự bịa id.
-- `depth` điều khiển độ dài: `ack` = 1 câu, `short` = 2–3 câu, `story` = 4–6 câu.
+- `entity_slugs` chọn từ roster gửi kèm prompt (closed set); slug lạ bị loại khi parse.
+- `depth` điều khiển cả chỉ dẫn câu chữ lẫn `maxOutputTokens` (192 / 384 / 768).
+
+Kết quả đo trên dữ liệu Bố Triệu:
+
+| Tin nhắn | intent · depth | Codex | Mốc đời |
+|---|---|---|---|
+| «Con đang chat với bố trên server local ạ.» | meta · ack | — | — |
+| «con gái đầu của bố dạo này thế nào?» | ask_person · story | Nguyễn Lê Hương | 3 mốc con cái |
+| «kể chuyện hồi bố cưới mẹ đi ạ» | ask_event · story | Lê Thị Định | Kết hôn, Hàng Da |
+
+`retrieval_queries` là thứ bắc cầu từ vựng: hỏi «cưới» thì analyzer đề xuất
+«kết hôn», và mốc đời tìm thấy. Câu «con gái đầu» không nêu tên ai nhưng vẫn
+resolve được về slug — regex alias không làm được việc đó.
 
 ## Family Codex (Stage 2)
 
@@ -152,7 +161,7 @@ p50 ≈ 2–3s → Phase 0 bắt buộc chuyển reply sang background.
 |---|---|---|
 | 0 ✅ | Background dispatch + client Gemini chung + feature flags | POST trả 201 <200ms; tắt cờ → hành vi y hệt v1 |
 | 1 ✅ | Family Codex + milestone import + EvidencePack | Hỏi «Hương» ra đúng con gái + đúng bài thơ |
-| 2 | Context Analyzer + Value Lens + depth control | Câu meta → ack 1 câu; hỏi sâu → 4–6 câu có trục giá trị |
+| 2 ✅ | Context Analyzer + Value Lens + depth control | Câu meta → ack 1 câu; hỏi sâu → 4–6 câu có trục giá trị |
 | 3 | ThreadMemory + anti-repeat | 10 lượt liên tiếp không lặp câu hỏi thăm |
 | 4 | Grounding check + critic | Bịa năm/tên = 0 trên bộ golden |
 | 5 | MemoryCandidate + steward review UI | Fact từ chat vào Thư viện sau khi duyệt |

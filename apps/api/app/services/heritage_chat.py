@@ -9,7 +9,7 @@ from nanoid import generate
 from sqlalchemy.orm import Session
 
 from ..config import Settings, get_settings
-from ..models import IdentityProfile, MemoryItem, Message, Thread, User
+from ..models import FamilyEntity, IdentityProfile, MemoryItem, Message, Thread, User
 from .heritage import (
     HERITAGE_TAG_PREFIX,
     KNOWLEDGE_KINDS,
@@ -18,7 +18,9 @@ from .heritage import (
     normalize_text,
     tag_tokens,
 )
+from .heritage_analyzer import ContextFrame, analyze_turn
 from .heritage_codex import (
+    CodexMatch,
     clarify_question,
     codex_entities,
     entity_lines,
@@ -30,6 +32,7 @@ from .heritage_retrieval import (
     milestones_for_identity,
     retrieve_milestones,
 )
+from .heritage_values import select_value_lens, value_lens_block
 
 # Theme tags on imported poems (see memories.ALLOWED_POEM_THEMES).
 THEME_QUERY_HINTS: dict[str, tuple[str, ...]] = {
@@ -467,6 +470,7 @@ def build_system_prompt(
     milestones: list[MemoryItem] | None = None,
     codex_lines: list[str] | None = None,
     clarify: str | None = None,
+    frame: ContextFrame | None = None,
 ) -> str:
     display = heritage_display_name(identity)
     quote_mode = (quote_mode or "paraphrase").strip().lower()
@@ -516,6 +520,23 @@ def build_system_prompt(
         if clarify
         else ""
     )
+    lens_section = value_lens_block(
+        select_value_lens(
+            values,
+            intent=frame.intent if frame else "smalltalk",
+            topics=frame.topics if frame else [],
+        )
+    )
+    length_rule = (
+        frame.depth_rule
+        if frame
+        else "Kiểu chat nhắn tin (Zalo): 2–4 câu, tối đa 2 đoạn ngắn."
+    )
+    mood_rule = (
+        f"Người gửi đang có tâm trạng «{frame.emotion}» — đáp cho hợp, đừng lệch nhịp."
+        if frame and frame.emotion != "neutral"
+        else ""
+    )
 
     return f"""\
 Bạn là thực thể ký ức {display} trong app Forever — KHÔNG phải người còn sống,
@@ -529,10 +550,12 @@ Hard rules:
 - Không giả vờ còn sống; không đóng vai “bố/mẹ còn ở đây”.
 - Thiếu dữ liệu thì thừa nhận, mời gia đình bổ sung ký ức thật.
 - {quote_rule}
-- Kiểu chat nhắn tin (Zalo): 2–4 câu, tối đa 2 đoạn ngắn — KHÔNG viết thư, không triết lý dài khi không được hỏi.
+- Đây là nhắn tin (Zalo), KHÔNG phải viết thư: {length_rule}
 - Trả lời đúng ý câu hỏi trước; tránh mở đầu sáo «Chào em/con» dài.
 - Luôn kết thúc bằng câu trọn vẹn — không dừng giữa chừng.
 {audience_section}
+{mood_rule}
+{lens_section}
 {clarify_section}
 {_lock_section("Neo tuổi / giai đoạn", life_stage)}
 {_lock_section("Vai trò", roles)}
@@ -596,6 +619,7 @@ def _gemini_heritage_reply(
     system_prompt: str,
     user_text: str,
     history: list[Message],
+    max_output_tokens: int = 768,
 ) -> tuple[str | None, str | None]:
     api_key = settings.gemini_api_key.strip()
     if not api_key:
@@ -627,7 +651,7 @@ def _gemini_heritage_reply(
                     "contents": contents,
                     "generationConfig": {
                         "temperature": 0.5,
-                        "maxOutputTokens": 768,
+                        "maxOutputTokens": max_output_tokens,
                         "thinkingConfig": {"thinkingBudget": 0},
                     },
                 },
@@ -679,6 +703,29 @@ def post_process_reply(reply: str, *, audience: str | None = None) -> str:
     return cleaned
 
 
+def _matches_from_slugs(
+    entities: list[FamilyEntity], slugs: list[str], *, seen: list[CodexMatch]
+) -> list[CodexMatch]:
+    """People the analyzer spotted that a literal alias scan would miss.
+
+    Covers indirect references — "con gái đầu của bố" names nobody, but the
+    analyzer can still resolve it to a slug.
+    """
+    if not slugs:
+        return []
+    already = {entity.id for match in seen for entity in match.entities}
+    by_slug = {entity.slug: entity for entity in entities}
+    extra: list[CodexMatch] = []
+    for slug in slugs:
+        entity = by_slug.get(slug)
+        if entity and entity.id not in already:
+            already.add(entity.id)
+            extra.append(
+                CodexMatch(mention=entity.canonical_name, entities=[entity])
+            )
+    return extra
+
+
 def generate_heritage_reply(
     db: Session,
     *,
@@ -694,10 +741,33 @@ def generate_heritage_reply(
         return _REFUSE_TABOO, {"heritage_refusal": "taboo_or_fabrication"}
 
     quote_mode = (getattr(identity, "poetry_quote_mode", None) or "paraphrase").strip()
+    history = (
+        db.query(Message)
+        .filter(Message.thread_id == thread.id, Message.id != user_message.id)
+        .order_by(Message.created_at.asc())
+        .all()
+    )
+
+    entities = (
+        codex_entities(db, space_id=thread.space_id, subject_identity_id=identity.id)
+        if settings.heritage_codex_enabled
+        else []
+    )
+
+    frame = ContextFrame()
+    if settings.heritage_analyzer_enabled:
+        frame = analyze_turn(
+            settings, user_text=user_text, history=history, entities=entities
+        )
+
+    # The analyzer proposes wording the library is more likely to contain
+    # ("kết hôn" for "cưới"), so retrieval searches both.
+    search_text = " ".join([user_text, *frame.retrieval_queries])
+
     signature_titles = signature_poem_titles(identity)
     poems = _poems_for_identity(db, space_id=thread.space_id, identity_id=identity.id)
     signature, retrieved = retrieve_poems(
-        poems, query=user_text, signature_titles=signature_titles
+        poems, query=search_text, signature_titles=signature_titles
     )
     knowledge = _knowledge_snippets(
         db, space_id=thread.space_id, identity_id=identity.id
@@ -714,21 +784,16 @@ def generate_heritage_reply(
         user_text=user_text,
     )
 
-    codex_lines: list[str] = []
-    clarify: str | None = None
-    if settings.heritage_codex_enabled:
-        entities = codex_entities(
-            db, space_id=thread.space_id, subject_identity_id=identity.id
-        )
-        matches = resolve_mentions(user_text, entities)
-        codex_lines = entity_lines(matches)
-        clarify = clarify_question(matches)
+    matches = resolve_mentions(user_text, entities) if entities else []
+    matches += _matches_from_slugs(entities, frame.entity_slugs, seen=matches)
+    codex_lines = entity_lines(matches)
+    clarify = clarify_question(matches)
 
     milestones = retrieve_milestones(
         milestones_for_identity(
             db, space_id=thread.space_id, identity_id=identity.id
         ),
-        query=user_text,
+        query=search_text,
     )
 
     system_prompt = build_system_prompt(
@@ -742,13 +807,7 @@ def generate_heritage_reply(
         milestones=milestones,
         codex_lines=codex_lines,
         clarify=clarify,
-    )
-
-    history = (
-        db.query(Message)
-        .filter(Message.thread_id == thread.id, Message.id != user_message.id)
-        .order_by(Message.created_at.asc())
-        .all()
+        frame=frame,
     )
 
     llm, finish_reason = _gemini_heritage_reply(
@@ -756,6 +815,7 @@ def generate_heritage_reply(
         system_prompt=system_prompt,
         user_text=user_text,
         history=history,
+        max_output_tokens=frame.max_output_tokens,
     )
     body = post_process_reply(llm or _FALLBACK, audience=audience)
 
@@ -778,6 +838,8 @@ def generate_heritage_reply(
         meta["codex_hits"] = codex_lines
     if clarify:
         meta["clarify_prompted"] = True
+    if frame.source != "default":
+        meta["context_frame"] = frame.as_meta()
     return body, meta
 
 
