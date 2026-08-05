@@ -54,6 +54,9 @@ export interface ThreadSummary {
   space_id: string;
   kind: "family" | "heritage" | string;
   title: string;
+  /** family — everyone reads it; direct — one member alone with the remembered person. */
+  audience_scope?: "family" | "direct" | string;
+  member_user_id?: string | null;
   created_at: string;
   last_message?: {
     kind?: "text" | "voice" | string;
@@ -671,6 +674,11 @@ export function createApiClient({
       request<{ threads: ThreadSummary[] }>(`/api/spaces/${spaceId}/threads`),
     getThread: (threadId: string) =>
       request<ThreadSummary>(`/api/threads/${threadId}`),
+    openDirectHeritageThread: (spaceId: string, identityId: string) =>
+      request<ThreadSummary>(
+        `/api/spaces/${spaceId}/identities/${identityId}/direct-thread`,
+        { method: "POST" },
+      ),
     listMessages: (
       threadId: string,
       opts?: { limit?: number; before?: string },

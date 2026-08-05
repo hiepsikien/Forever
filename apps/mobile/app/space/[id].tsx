@@ -22,9 +22,16 @@ function threadPreview(item: ThreadSummary): string {
   return last.body || "Chưa có tin nhắn";
 }
 
-function threadKindLabel(kind: string): string | null {
-  if (kind === "heritage") return "Ký ức";
-  return null;
+/** A row the family has not created yet — tapping it opens the private thread. */
+type ThreadRow = ThreadSummary & { pendingDirectFor?: string };
+
+function isDirect(item: ThreadSummary): boolean {
+  return (item.audience_scope ?? "family") === "direct";
+}
+
+function threadKindLabel(item: ThreadSummary): string | null {
+  if (item.kind !== "heritage") return null;
+  return isDirect(item) ? "Riêng" : "Cả nhà";
 }
 
 function threadRowMeta(item: ThreadSummary): { preview: string; cta: string } {
@@ -35,6 +42,12 @@ function threadRowMeta(item: ThreadSummary): { preview: string; cta: string } {
         return {
           preview: threadPreview(item),
           cta: "Vào trò chuyện →",
+        };
+      }
+      if (isDirect(item)) {
+        return {
+          preview: "Chỉ bạn đọc được — không ai khác trong nhà thấy",
+          cta: "Nói riêng →",
         };
       }
       return {
@@ -111,15 +124,40 @@ export default function SpaceScreen() {
     [threads],
   );
 
-  const otherThreads = useMemo(
-    () =>
-      familyThread
-        ? threads.filter((t) => t.id !== familyThread.id)
-        : threads,
-    [threads, familyThread],
-  );
+  /** Every remembered person gets two rows: the family room and your own. */
+  const otherThreads = useMemo<ThreadRow[]>(() => {
+    const visible = familyThread
+      ? threads.filter((t) => t.id !== familyThread.id)
+      : threads;
+    const rows: ThreadRow[] = [];
+    for (const thread of visible) {
+      rows.push(thread);
+      const identityId = thread.heritage?.identity_id;
+      if (
+        thread.kind !== "heritage" ||
+        isDirect(thread) ||
+        !identityId ||
+        !thread.heritage?.chat_ready
+      ) {
+        continue;
+      }
+      const hasDirect = visible.some(
+        (other) =>
+          isDirect(other) && other.heritage?.identity_id === identityId,
+      );
+      if (hasDirect) continue;
+      rows.push({
+        ...thread,
+        id: `direct:${identityId}`,
+        audience_scope: "direct",
+        last_message: null,
+        pendingDirectFor: identityId,
+      });
+    }
+    return rows;
+  }, [threads, familyThread]);
 
-  const openThread = (item: ThreadSummary) => {
+  const openThread = async (item: ThreadRow) => {
     if (
       item.kind === "heritage" &&
       item.heritage &&
@@ -129,6 +167,19 @@ export default function SpaceScreen() {
       router.push(
         `/awakening/${id}?identityId=${item.heritage.identity_id}` as never,
       );
+      return;
+    }
+    if (item.pendingDirectFor && id) {
+      try {
+        const thread = await api.openDirectHeritageThread(
+          id,
+          item.pendingDirectFor,
+        );
+        router.push(`/chat/${thread.id}`);
+        load({ silent: true });
+      } catch (e) {
+        setError(e instanceof Error ? e.message : "Không mở được phòng riêng.");
+      }
       return;
     }
     router.push(`/chat/${item.id}`);
@@ -218,7 +269,7 @@ export default function SpaceScreen() {
         />
       }
       renderItem={({ item }) => {
-        const badge = threadKindLabel(item.kind);
+        const badge = threadKindLabel(item);
         const meta = threadRowMeta(item);
         return (
           <Pressable style={styles.thread} onPress={() => openThread(item)}>

@@ -758,6 +758,7 @@ def create_identity(
     require_steward_or_owner(db, space_id=space_id, user=user)
     now = datetime.now(timezone.utc)
     thread_id = None
+    thread = None
     if body.status == "remembered":
         title = heritage_thread_title(body.display_name, body.relation_label)
         thread = Thread(
@@ -765,6 +766,7 @@ def create_identity(
             space_id=space_id,
             kind="heritage",
             title=title,
+            audience_scope="family",
             created_at=now,
         )
         db.add(thread)
@@ -783,6 +785,9 @@ def create_identity(
         created_at=now,
     )
     db.add(row)
+    db.flush()
+    if thread is not None:
+        thread.heritage_identity_id = row.id
     db.commit()
     db.refresh(row)
     return _identity_payload(row)
@@ -829,6 +834,8 @@ def update_identity(
                 space_id=space_id,
                 kind="heritage",
                 title=title,
+                heritage_identity_id=row.id,
+                audience_scope="family",
                 created_at=now,
             )
             db.add(thread)

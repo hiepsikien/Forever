@@ -247,6 +247,95 @@ def test_infer_audience_from_message():
     assert _infer_audience_from_message("Em nhớ anh") == "spouse"
 
 
+def test_direct_thread_audience_ignores_misleading_wording(client):
+    """The original bug: a son quoting his mother got answered as the wife."""
+    from datetime import datetime, timezone
+
+    from nanoid import generate
+
+    from app.db import SessionLocal
+    from app.models import FamilySpace, IdentityProfile, Thread, User
+
+    db = SessionLocal()
+    try:
+        now = datetime.now(timezone.utc)
+        son = User(
+            id=generate(),
+            firebase_uid=generate(),
+            email=f"{generate()}@example.com",
+            name="Đình Anh",
+            created_at=now,
+        )
+        db.add(son)
+        db.commit()
+        space = FamilySpace(
+            id=generate(),
+            name="Nhà",
+            created_by=son.id,
+            steward_user_id=son.id,
+            created_at=now,
+        )
+        db.add(space)
+        db.commit()
+        db.add(
+            IdentityProfile(
+                id=generate(),
+                space_id=space.id,
+                display_name="Nguyễn Đình Anh",
+                relation_label="Con",
+                status="living",
+                linked_user_id=son.id,
+                created_by=son.id,
+                created_at=now,
+            )
+        )
+        db.commit()
+        direct = Thread(
+            id=generate(),
+            space_id=space.id,
+            kind="heritage",
+            title="Bố",
+            audience_scope="direct",
+            member_user_id=son.id,
+            created_at=now,
+        )
+        family = Thread(
+            id=generate(),
+            space_id=space.id,
+            kind="heritage",
+            title="Bố",
+            audience_scope="family",
+            created_at=now,
+        )
+        db.add_all([direct, family])
+        db.commit()
+
+        quoting_mother = "Em nhớ anh lắm — mẹ nhắn thế đấy bố ạ."
+        assert (
+            _detect_audience(
+                db,
+                space_id=space.id,
+                sender_user_id=son.id,
+                user_text=quoting_mother,
+                thread=direct,
+            )
+            == "child"
+        )
+        # In the shared room the wording still steers it — nothing else to go on.
+        assert (
+            _detect_audience(
+                db,
+                space_id=space.id,
+                sender_user_id=son.id,
+                user_text=quoting_mother,
+                thread=family,
+            )
+            == "spouse"
+        )
+    finally:
+        db.close()
+
+
 def test_fix_child_address_replaces_spouse_voice():
     raw = "Chào em,\n\nAnh đây em. Nghe em nói về công nghệ..."
     fixed = _fix_child_address(raw)

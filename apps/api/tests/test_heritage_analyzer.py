@@ -69,6 +69,82 @@ def test_parse_frame_rejects_empty_payload():
     assert parse_frame(None, known_slugs=set()) is None
 
 
+# --- structured facts ---
+
+def test_parse_frame_keeps_the_shape_of_a_fact():
+    frame = parse_frame(
+        {
+            "intent": "share_news",
+            "depth": "short",
+            "emotion": "warm",
+            "new_facts": [
+                {
+                    "kind": "event",
+                    "subject_slug": "huong",
+                    "statement": "Hương  về  nhà thứ bảy",
+                    "occurred_at": "2026-08-08",
+                    "confidence": "stated",
+                }
+            ],
+        },
+        known_slugs={"huong"},
+    )
+    assert frame is not None
+    fact = frame.new_facts[0]
+    assert fact.statement == "Hương về nhà thứ bảy"
+    assert fact.kind == "event"
+    assert fact.subject_slug == "huong"
+    assert fact.occurred_at == "2026-08-08"
+    assert fact.confidence == "stated"
+    assert fact.as_dict()["occurred_at"] == "2026-08-08"
+
+
+def test_parse_frame_scrubs_unusable_fact_fields():
+    frame = parse_frame(
+        {
+            "intent": "share_news",
+            "new_facts": [
+                {
+                    "kind": "bịa",
+                    "subject_slug": "khong_co_that",
+                    "statement": "Mẹ đang ở nhà",
+                    "occurred_at": "cuối tuần này",
+                    "confidence": "chắc chắn",
+                },
+                {"kind": "event", "statement": "   ", "confidence": "stated"},
+            ],
+        },
+        known_slugs={"huong"},
+    )
+    assert frame is not None
+    assert len(frame.new_facts) == 1
+    fact = frame.new_facts[0]
+    assert fact.kind == "event"
+    # An unknown person, a relative date, and a made-up confidence all get dropped.
+    assert fact.subject_slug == ""
+    assert fact.occurred_at == ""
+    assert fact.confidence == "implied"
+
+
+def test_parse_frame_accepts_a_bare_string_fact():
+    frame = parse_frame(
+        {"intent": "share_news", "new_facts": ["Con đang thử app"]},
+        known_slugs=set(),
+    )
+    assert frame is not None
+    assert frame.new_facts[0].statement == "Con đang thử app"
+
+
+def test_analyzer_prompt_anchors_relative_dates_to_today():
+    from datetime import date
+
+    from app.services.heritage_analyzer import _today_block
+
+    block = _today_block(date(2026, 8, 5))
+    assert "2026-08-05" in block
+    assert "thứ Tư" in block
+
+
 def test_parse_json_object_tolerates_code_fence():
     payload = parse_json_object('```json\n{"intent": "meta"}\n```')
     assert payload == {"intent": "meta"}

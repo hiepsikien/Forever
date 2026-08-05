@@ -66,6 +66,18 @@ class Thread(Base):
     space_id: Mapped[str] = mapped_column(ForeignKey("family_spaces.id"), index=True)
     kind: Mapped[str] = mapped_column(String(32), default="family")  # family | heritage
     title: Mapped[str] = mapped_column(String(160))
+    # Which remembered person this thread talks to (heritage threads only).
+    # Deliberately not a FK: identity_profiles.heritage_thread_id already points
+    # back here, and a real constraint both ways is a cycle create_all cannot sort.
+    heritage_identity_id: Mapped[str | None] = mapped_column(
+        String(32), nullable=True, index=True
+    )
+    # family — everyone in the space reads it; direct — one member alone with them.
+    audience_scope: Mapped[str] = mapped_column(String(32), default="family")
+    # Set on direct threads: the only member who may read or write.
+    member_user_id: Mapped[str | None] = mapped_column(
+        ForeignKey("users.id"), nullable=True, index=True
+    )
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
 
     space: Mapped[FamilySpace] = relationship(back_populates="threads")

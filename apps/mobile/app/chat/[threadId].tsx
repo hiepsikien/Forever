@@ -167,9 +167,13 @@ export default function ChatScreen() {
     }
   }, [api, threadId, applyMessages]);
 
+  const isDirectThread = threadMeta?.audience_scope === "direct";
+
   useSpaceScreenOptions({
     spaceId: spaceId ?? undefined,
-    title: threadMeta?.title ?? "Trò chuyện",
+    title: threadMeta
+      ? `${threadMeta.title}${isDirectThread ? " · riêng" : ""}`
+      : "Trò chuyện",
     backTitle: "Nhà",
   });
 

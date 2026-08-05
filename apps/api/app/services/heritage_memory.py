@@ -50,24 +50,24 @@ _TOKEN_SPLIT = re.compile(r"[^\w]+")
 _COMPACT_SCHEMA = {
     "type": "object",
     "properties": {
-        "facts_learned": {"type": "array", "items": {"type": "string"}},
         "topics_open": {"type": "array", "items": {"type": "string"}},
         "emotional_tone": {"type": "string"},
-        "entities_seen": {"type": "array", "items": {"type": "string"}},
+        "retire_statements": {"type": "array", "items": {"type": "string"}},
     },
-    "required": ["facts_learned", "topics_open", "emotional_tone"],
+    "required": ["topics_open", "emotional_tone"],
 }
 
 _COMPACT_SYSTEM = """\
 Bạn là bộ nén trí nhớ cho app Forever. Bạn KHÔNG trả lời người dùng.
-Đọc một đoạn hội thoại gia đình và bản ghi nhớ hiện có, trả về JSON gộp lại.
+Đọc một đoạn hội thoại gia đình và bản ghi nhớ hiện có, trả về JSON.
 
-- facts_learned: sự thật về đời sống NGƯỜI NHÀ đã kể trong hội thoại (mỗi ý một
-  câu ngắn tiếng Việt). Gộp ý trùng, bỏ ý đã cũ hoặc đã được thay thế.
-  KHÔNG thêm thông tin không có trong hội thoại.
 - topics_open: chuyện còn dang dở, đáng hỏi tiếp ở lượt sau
 - emotional_tone: một cụm ngắn mô tả không khí chung của cuộc trò chuyện
-- entities_seen: tên người thân đã được nhắc
+- retire_statements: những câu trong facts_learned đã hết đúng vì bị thay thế bởi
+  thông tin mới hơn trong hội thoại. Sao lại NGUYÊN VĂN câu cần bỏ, không sửa chữ.
+  Không chắc thì để rỗng.
+
+TUYỆT ĐỐI không viết lại nội dung một fact — bạn chỉ được đề nghị cho về hưu.
 
 Chỉ trả JSON, không giải thích.\
 """
@@ -75,7 +75,9 @@ Chỉ trả JSON, không giải thích.\
 
 @dataclass
 class MemoryState:
-    facts_learned: list[str] = field(default_factory=list)
+    # Each fact is a dict: statement, kind, subject_slug, occurred_at,
+    # source_message_id. Only the statement is ever shown to the composer.
+    facts_learned: list[dict] = field(default_factory=list)
     topics_open: list[str] = field(default_factory=list)
     already_asked: list[str] = field(default_factory=list)
     emotional_tone: str = ""
@@ -121,6 +123,33 @@ def _clean_list(raw: object, *, limit: int) -> list[str]:
     return out[-limit:]
 
 
+def _clean_facts(raw: object, *, limit: int) -> list[dict]:
+    """Accept the structured shape, and the plain strings written before it."""
+    if not isinstance(raw, list):
+        return []
+    out: list[dict] = []
+    seen: set[str] = set()
+    for item in raw:
+        if isinstance(item, str):
+            item = {"statement": item}
+        if not isinstance(item, dict):
+            continue
+        statement = item.get("statement")
+        if not isinstance(statement, str):
+            continue
+        statement = " ".join(statement.split())[:MAX_FACT_CHARS].strip()
+        if not statement or statement in seen:
+            continue
+        seen.add(statement)
+        fact = {"statement": statement}
+        for key in ("kind", "subject_slug", "occurred_at", "source_message_id"):
+            value = item.get(key)
+            if isinstance(value, str) and value.strip():
+                fact[key] = value.strip()
+        out.append(fact)
+    return out[-limit:]
+
+
 def parse_state(memory: ThreadMemory | None) -> MemoryState:
     if memory is None:
         return MemoryState()
@@ -132,7 +161,7 @@ def parse_state(memory: ThreadMemory | None) -> MemoryState:
         payload = {}
     tone = payload.get("emotional_tone")
     return MemoryState(
-        facts_learned=_clean_list(payload.get("facts_learned"), limit=MAX_FACTS),
+        facts_learned=_clean_facts(payload.get("facts_learned"), limit=MAX_FACTS),
         topics_open=_clean_list(payload.get("topics_open"), limit=MAX_TOPICS_OPEN),
         already_asked=_clean_list(payload.get("already_asked"), limit=MAX_ASKED),
         emotional_tone=tone.strip()[:120] if isinstance(tone, str) else "",
@@ -157,7 +186,11 @@ def memory_block(state: MemoryState) -> str:
     lines: list[str] = ["\nTRÍ NHỚ CUỘC TRÒ CHUYỆN NÀY:"]
     if state.facts_learned:
         lines.append("- Đã biết (đừng hỏi lại những điều này):")
-        lines += [f"  · {fact}" for fact in state.facts_learned]
+        for fact in state.facts_learned:
+            when = fact.get("occurred_at")
+            lines.append(
+                f"  · {fact['statement']}" + (f" [{when}]" if when else "")
+            )
     if state.topics_open:
         lines.append("- Chuyện còn dang dở, có thể hỏi tiếp: " + "; ".join(state.topics_open))
     if state.already_asked:
@@ -252,6 +285,30 @@ def _meta_list(meta: object, key: str) -> list[str]:
     return _clean_list(meta.get(key), limit=MAX_FACTS)
 
 
+def _stated_facts(meta: object, *, source_message_id: str) -> list[dict]:
+    """Only what the family actually said becomes memory.
+
+    An inferred fact fed back as a known one is how a remembered father starts
+    making things up, so `implied` records stay in the message meta and go no
+    further.
+    """
+    if not isinstance(meta, dict):
+        return []
+    kept: list[dict] = []
+    for raw in meta.get("new_facts") or []:
+        if isinstance(raw, str):
+            raw = {"statement": raw, "confidence": "stated"}
+        if not isinstance(raw, dict):
+            continue
+        if (raw.get("confidence") or "stated") != "stated":
+            continue
+        fact = dict(raw)
+        fact.pop("confidence", None)
+        fact["source_message_id"] = source_message_id
+        kept.append(fact)
+    return _clean_facts(kept, limit=MAX_FACTS)
+
+
 def record_turn(
     db: Session,
     *,
@@ -288,8 +345,10 @@ def record_turn(
     except json.JSONDecodeError:
         meta = {}
 
-    for fact in _meta_list(meta, "new_facts"):
-        if fact not in state.facts_learned:
+    known = {fact["statement"] for fact in state.facts_learned}
+    for fact in _stated_facts(meta, source_message_id=user_message.id):
+        if fact["statement"] not in known:
+            known.add(fact["statement"])
             state.facts_learned.append(fact)
     for slug in _meta_list(meta, "codex_slugs"):
         if slug not in state.entities_seen:
@@ -350,9 +409,8 @@ def compact_thread_memory(
         "Bản ghi nhớ hiện có:\n"
         + json.dumps(
             {
-                "facts_learned": state.facts_learned,
+                "facts_learned": [f["statement"] for f in state.facts_learned],
                 "topics_open": state.topics_open,
-                "entities_seen": state.entities_seen,
             },
             ensure_ascii=False,
         )
@@ -377,14 +435,22 @@ def compact_thread_memory(
         return False
 
     tone = payload.get("emotional_tone")
-    state.facts_learned = _clean_list(payload.get("facts_learned"), limit=MAX_FACTS)
     state.topics_open = _clean_list(payload.get("topics_open"), limit=MAX_TOPICS_OPEN)
-    state.entities_seen = (
-        _clean_list(payload.get("entities_seen"), limit=MAX_ENTITIES)
-        or state.entities_seen
-    )
     if isinstance(tone, str) and tone.strip():
         state.emotional_tone = tone.strip()[:120]
+
+    # The model may only retire a fact, never reword one: it proposes exact
+    # statements and code does the matching.
+    retired = {
+        normalize_text(text)
+        for text in _clean_list(payload.get("retire_statements"), limit=MAX_FACTS)
+    }
+    if retired:
+        state.facts_learned = [
+            fact
+            for fact in state.facts_learned
+            if normalize_text(fact["statement"]) not in retired
+        ]
 
     row.summary_json = json.dumps(state.as_summary(), ensure_ascii=False)
     row.compacted_turn = row.turn_count or 0

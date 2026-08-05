@@ -13,7 +13,9 @@ rule lives in heritage_chat and always wins.
 from __future__ import annotations
 
 import json
+import re
 from dataclasses import dataclass, field
+from datetime import date
 
 from ..config import Settings
 from ..models import FamilyEntity, Message
@@ -42,6 +44,13 @@ TOPICS = (
     "khac",
 )
 
+# life_state là thứ có thể bị thay thế về sau ("mẹ đang ở phòng ngoài"); event
+# thì đứng yên một lần rồi thuộc về quá khứ.
+FACT_KINDS = ("life_state", "event", "preference", "relationship")
+CONFIDENCES = ("stated", "implied")
+
+_ISO_DATE = re.compile(r"^\d{4}(-\d{2}(-\d{2})?)?$")
+
 # Sentence counts the composer is told to hit for each depth.
 DEPTH_RULES: dict[str, str] = {
     "ack": "Đáp gọn 1 câu, ấm áp — người ta chỉ đang báo tin vặt, không hỏi gì sâu.",
@@ -60,7 +69,20 @@ _SCHEMA = {
         "entity_slugs": {"type": "array", "items": {"type": "string"}},
         "topics": {"type": "array", "items": {"type": "string", "enum": list(TOPICS)}},
         "retrieval_queries": {"type": "array", "items": {"type": "string"}},
-        "new_facts": {"type": "array", "items": {"type": "string"}},
+        "new_facts": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "kind": {"type": "string", "enum": list(FACT_KINDS)},
+                    "subject_slug": {"type": "string"},
+                    "statement": {"type": "string"},
+                    "occurred_at": {"type": "string"},
+                    "confidence": {"type": "string", "enum": list(CONFIDENCES)},
+                },
+                "required": ["kind", "statement", "confidence"],
+            },
+        },
     },
     "required": ["intent", "depth", "emotion", "topics"],
 }
@@ -79,10 +101,43 @@ Bạn là bộ phân tích ngữ cảnh cho app Forever. Bạn KHÔNG trả lờ
 - topics: chọn trong enum
 - retrieval_queries: 1–3 cụm từ khoá tiếng Việt để tra kho ký ức, dùng từ ngữ
   có khả năng xuất hiện trong tư liệu (ví dụ hỏi "cưới" thì thêm "kết hôn")
-- new_facts: thông tin mới về đời sống người gửi, mỗi ý một câu ngắn; để rỗng nếu không có
+- new_facts: thông tin mới về đời sống người nhà, để rỗng nếu không có. Mỗi ý một
+  bản ghi:
+  · kind: life_state (trạng thái hiện tại, về sau có thể bị thay thế) |
+    event (việc xảy ra một lần) | preference (sở thích, thói quen) |
+    relationship (quan hệ giữa hai người)
+  · subject_slug: người mà thông tin nói VỀ, chọn trong danh sách; không rõ thì để rỗng
+  · statement: một câu ngắn, tự nó đủ nghĩa khi đọc rời khỏi hội thoại
+  · occurred_at: YYYY-MM-DD nếu suy ra được ngày tuyệt đối; để rỗng nếu không
+  · confidence: stated (người ta nói thẳng) | implied (bạn suy ra)
+
+QUAN TRỌNG: không bao giờ ghi confidence "stated" cho điều bạn phải suy luận.
 
 Chỉ trả JSON, không giải thích.\
 """
+
+
+@dataclass
+class FactRecord:
+    """One thing the family said, shaped so it survives leaving the conversation."""
+
+    statement: str
+    kind: str = "event"
+    subject_slug: str = ""
+    occurred_at: str = ""
+    confidence: str = "stated"
+
+    def as_dict(self) -> dict:
+        out = {
+            "statement": self.statement,
+            "kind": self.kind,
+            "confidence": self.confidence,
+        }
+        if self.subject_slug:
+            out["subject_slug"] = self.subject_slug
+        if self.occurred_at:
+            out["occurred_at"] = self.occurred_at
+        return out
 
 
 @dataclass
@@ -94,7 +149,7 @@ class ContextFrame:
     entity_slugs: list[str] = field(default_factory=list)
     topics: list[str] = field(default_factory=list)
     retrieval_queries: list[str] = field(default_factory=list)
-    new_facts: list[str] = field(default_factory=list)
+    new_facts: list[FactRecord] = field(default_factory=list)
     source: str = "default"
 
     @property
@@ -135,6 +190,36 @@ def _enum(raw: object, allowed: tuple[str, ...], fallback: str) -> str:
     return value if value in allowed else fallback
 
 
+def _fact_list(raw: object, *, known_slugs: set[str]) -> list[FactRecord]:
+    """Tolerate a bare string, drop anything without a usable statement."""
+    if not isinstance(raw, list):
+        return []
+    out: list[FactRecord] = []
+    for item in raw[:5]:
+        if isinstance(item, str):
+            item = {"statement": item}
+        if not isinstance(item, dict):
+            continue
+        statement = item.get("statement")
+        statement = " ".join(statement.split())[:200] if isinstance(statement, str) else ""
+        if not statement:
+            continue
+        occurred = item.get("occurred_at")
+        occurred = occurred.strip() if isinstance(occurred, str) else ""
+        slug = item.get("subject_slug")
+        slug = slug.strip() if isinstance(slug, str) else ""
+        out.append(
+            FactRecord(
+                statement=statement,
+                kind=_enum(item.get("kind"), FACT_KINDS, "event"),
+                subject_slug=slug if slug in known_slugs else "",
+                occurred_at=occurred if _ISO_DATE.match(occurred) else "",
+                confidence=_enum(item.get("confidence"), CONFIDENCES, "implied"),
+            )
+        )
+    return out
+
+
 def parse_frame(payload: dict | None, *, known_slugs: set[str]) -> ContextFrame | None:
     if not payload:
         return None
@@ -148,7 +233,7 @@ def parse_frame(payload: dict | None, *, known_slugs: set[str]) -> ContextFrame 
         ],
         topics=_str_list(payload.get("topics"), allowed=TOPICS),
         retrieval_queries=_str_list(payload.get("retrieval_queries"))[:3],
-        new_facts=_str_list(payload.get("new_facts"))[:3],
+        new_facts=_fact_list(payload.get("new_facts"), known_slugs=known_slugs),
         source="gemini",
     )
 
@@ -172,12 +257,32 @@ def _roster_block(entities: list[FamilyEntity]) -> str:
     return "Danh sách người thân (chọn slug trong đây):\n" + "\n".join(lines)
 
 
+_WEEKDAYS_VI = (
+    "thứ Hai",
+    "thứ Ba",
+    "thứ Tư",
+    "thứ Năm",
+    "thứ Sáu",
+    "thứ Bảy",
+    "Chủ nhật",
+)
+
+
+def _today_block(today: date) -> str:
+    """Without this, "cuối tuần này" gets stored verbatim and rots in a week."""
+    return (
+        f"Hôm nay là {today.isoformat()} ({_WEEKDAYS_VI[today.weekday()]}). "
+        "Thời gian nói tương đối thì quy về ngày tuyệt đối trong occurred_at."
+    )
+
+
 def analyze_turn(
     settings: Settings,
     *,
     user_text: str,
     history: list[Message],
     entities: list[FamilyEntity],
+    today: date | None = None,
 ) -> ContextFrame:
     """Return a frame; fall back to safe defaults when the call fails."""
     if not user_text.strip():
@@ -192,6 +297,7 @@ def analyze_turn(
     transcript = "\n".join(recent) or "(chưa có lượt nào trước)"
 
     prompt = (
+        f"{_today_block(today or date.today())}\n\n"
         f"{_roster_block(entities)}\n\n"
         f"Vài lượt gần đây:\n{transcript}\n\n"
         f"Tin nhắn mới nhất cần phân tích:\n{user_text[:1200]}"

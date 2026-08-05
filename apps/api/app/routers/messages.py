@@ -20,7 +20,7 @@ from nanoid import generate
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
-from ..access import require_membership
+from ..access import require_thread_access
 from ..auth import get_current_user
 from ..config import get_settings
 from ..db import SessionLocal, get_db
@@ -132,7 +132,7 @@ def list_messages(
     thread = db.query(Thread).filter(Thread.id == thread_id).one_or_none()
     if not thread:
         raise HTTPException(status_code=404, detail="Thread not found.")
-    require_membership(db, space_id=thread.space_id, user=user)
+    require_thread_access(db, thread=thread, user=user)
 
     query = db.query(Message).filter(Message.thread_id == thread_id)
     if before:
@@ -185,7 +185,7 @@ def send_message(
     thread = db.query(Thread).filter(Thread.id == thread_id).one_or_none()
     if not thread:
         raise HTTPException(status_code=404, detail="Thread not found.")
-    require_membership(db, space_id=thread.space_id, user=user)
+    require_thread_access(db, thread=thread, user=user)
 
     text = body.body.strip()
     if not text:
@@ -227,7 +227,7 @@ async def send_voice_message(
     thread = db.query(Thread).filter(Thread.id == thread_id).one_or_none()
     if not thread:
         raise HTTPException(status_code=404, detail="Thread not found.")
-    require_membership(db, space_id=thread.space_id, user=user)
+    require_thread_access(db, thread=thread, user=user)
 
     relative, mime = save_upload(thread.space_id, file)
     if not mime.startswith("audio/"):
@@ -270,7 +270,7 @@ def get_message_media(
     thread = db.query(Thread).filter(Thread.id == message.thread_id).one_or_none()
     if not thread:
         raise HTTPException(status_code=404, detail="Thread not found.")
-    require_membership(db, space_id=thread.space_id, user=user)
+    require_thread_access(db, thread=thread, user=user)
     path = absolute_media_path(message.media_path)
     if not path.exists():
         raise HTTPException(status_code=404, detail="Media file missing.")

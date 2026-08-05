@@ -5,6 +5,7 @@ import re
 import unicodedata
 from datetime import datetime, timezone
 
+from nanoid import generate
 from sqlalchemy.orm import Session
 
 from ..models import IdentityProfile, MemoryItem, Thread, VoiceProfile, VoiceSample
@@ -244,18 +245,77 @@ def heritage_readiness_payload(
 
 
 def sync_heritage_thread_title(db: Session, identity: IdentityProfile) -> None:
-    if not identity.heritage_thread_id:
-        return
-    thread = (
+    title = heritage_thread_title(identity.display_name, identity.relation_label)
+    for thread in heritage_threads_for_identity(db, identity.id):
+        thread.title = title
+
+
+def heritage_threads_for_identity(db: Session, identity_id: str) -> list[Thread]:
+    return (
         db.query(Thread)
-        .filter(Thread.id == identity.heritage_thread_id)
+        .filter(Thread.heritage_identity_id == identity_id)
+        .order_by(Thread.created_at.asc())
+        .all()
+    )
+
+
+def identity_for_thread(db: Session, thread: Thread) -> IdentityProfile | None:
+    """The remembered person a heritage thread talks to.
+
+    Reads the thread's own link first; the legacy one-thread-per-identity
+    pointer stays as a fallback for rows created before the 1-1 split.
+    """
+    if thread.kind != "heritage":
+        return None
+    identity_id = getattr(thread, "heritage_identity_id", None)
+    if identity_id:
+        return (
+            db.query(IdentityProfile)
+            .filter(IdentityProfile.id == identity_id)
+            .one_or_none()
+        )
+    return (
+        db.query(IdentityProfile)
+        .filter(IdentityProfile.heritage_thread_id == thread.id)
         .one_or_none()
     )
-    if not thread:
-        return
-    thread.title = heritage_thread_title(
-        identity.display_name, identity.relation_label
+
+
+def direct_thread_for(
+    db: Session, *, identity: IdentityProfile, user_id: str
+) -> Thread | None:
+    return (
+        db.query(Thread)
+        .filter(
+            Thread.heritage_identity_id == identity.id,
+            Thread.audience_scope == "direct",
+            Thread.member_user_id == user_id,
+        )
+        .one_or_none()
     )
+
+
+def get_or_create_direct_thread(
+    db: Session, *, identity: IdentityProfile, user_id: str
+) -> Thread:
+    """The member's own room with this person. Created the first time they open it."""
+    existing = direct_thread_for(db, identity=identity, user_id=user_id)
+    if existing:
+        return existing
+    thread = Thread(
+        id=generate(),
+        space_id=identity.space_id,
+        kind="heritage",
+        title=heritage_thread_title(identity.display_name, identity.relation_label),
+        heritage_identity_id=identity.id,
+        audience_scope="direct",
+        member_user_id=user_id,
+        created_at=datetime.now(timezone.utc),
+    )
+    db.add(thread)
+    db.commit()
+    db.refresh(thread)
+    return thread
 
 
 def mark_profile_reviewed(

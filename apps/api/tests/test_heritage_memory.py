@@ -57,14 +57,14 @@ def test_parse_state_caps_each_list():
     state = parse_state(row)
     assert len(state.facts_learned) == 12
     # Keeps the newest, drops the oldest.
-    assert state.facts_learned[-1] == "Sự thật số 39"
+    assert state.facts_learned[-1]["statement"] == "Sự thật số 39"
 
 
 # --- prompt block ---
 
 def test_memory_block_lists_facts_and_used_questions():
     state = MemoryState(
-        facts_learned=["Mẹ đang ở phòng ngoài"],
+        facts_learned=[{"statement": "Mẹ đang ở phòng ngoài"}],
         already_asked=[GREETING],
         topics_open=["cúng tuần thứ bảy"],
         emotional_tone="ấm áp, nhớ thương",
@@ -229,10 +229,12 @@ def test_record_turn_accumulates_facts_questions_and_entities(client):
             db.query(ThreadMemory).filter(ThreadMemory.thread_id == thread.id).one()
         )
         assert state.turn_count == 2
-        assert state.facts_learned == [
+        assert [f["statement"] for f in state.facts_learned] == [
             "Mẹ hay ngồi ngoài phòng khách",
             "Con về thứ bảy",
         ]
+        # Every remembered fact points back at the message it came from.
+        assert all(f["source_message_id"] for f in state.facts_learned)
         assert state.entities_seen == ["le_thi_dinh"]
         assert len(state.already_asked) == 1
     finally:
@@ -281,6 +283,109 @@ def test_compact_without_api_key_leaves_memory_untouched(client):
             )
             is False
         )
-        assert parse_state(row).facts_learned == ["Con đang thử app"]
+        assert [f["statement"] for f in parse_state(row).facts_learned] == [
+            "Con đang thử app"
+        ]
+    finally:
+        db.close()
+
+
+def test_record_turn_keeps_only_what_was_actually_said(client):
+    """An inferred fact must not come back as something the family stated."""
+    from app.db import SessionLocal
+
+    db = SessionLocal()
+    try:
+        thread = _heritage_thread(db)
+        _turn(
+            db,
+            thread,
+            ask="Cuối tuần con về ạ.",
+            reply_body="Bố chờ con.",
+            meta={
+                "new_facts": [
+                    {
+                        "statement": "Con về nhà 2026-08-08",
+                        "kind": "event",
+                        "occurred_at": "2026-08-08",
+                        "confidence": "stated",
+                    },
+                    {
+                        "statement": "Con đang buồn chuyện công việc",
+                        "kind": "life_state",
+                        "confidence": "implied",
+                    },
+                ]
+            },
+        )
+        state = parse_state(
+            db.query(ThreadMemory).filter(ThreadMemory.thread_id == thread.id).one()
+        )
+        assert [f["statement"] for f in state.facts_learned] == [
+            "Con về nhà 2026-08-08"
+        ]
+        assert state.facts_learned[0]["occurred_at"] == "2026-08-08"
+    finally:
+        db.close()
+
+
+def test_compaction_may_retire_a_fact_but_never_reword_one(client):
+    from unittest.mock import patch
+
+    from app.db import SessionLocal
+    from app.services.heritage_gemini import GeminiResult
+
+    db = SessionLocal()
+    try:
+        thread = _heritage_thread(db)
+        _turn(
+            db,
+            thread,
+            ask="Mẹ đang ở phòng ngoài.",
+            reply_body="Bố biết rồi.",
+            meta={
+                "new_facts": [
+                    {"statement": "Mẹ đang ở phòng ngoài", "confidence": "stated"},
+                    {"statement": "Con làm nghề dạy học", "confidence": "stated"},
+                ]
+            },
+        )
+        row = (
+            db.query(ThreadMemory).filter(ThreadMemory.thread_id == thread.id).one()
+        )
+        row.turn_count = 6
+        db.commit()
+
+        compacted = json.dumps(
+            {
+                "topics_open": ["chuyện lớp của con"],
+                "emotional_tone": "ấm áp",
+                "retire_statements": ["Mẹ đang ở phòng ngoài"],
+                # A rewrite attempt the code must ignore.
+                "facts_learned": ["Con làm bác sĩ"],
+            },
+            ensure_ascii=False,
+        )
+        settings = Settings(
+            gemini_api_key="test-key", heritage_memory_compact_every=6, seed_demo=False
+        )
+        history = db.query(Message).filter(Message.thread_id == thread.id).all()
+        with patch(
+            "app.services.heritage_memory.call_gemini",
+            return_value=GeminiResult(text=compacted),
+        ):
+            assert (
+                compact_thread_memory(
+                    db, thread=thread, settings=settings, history=history
+                )
+                is True
+            )
+
+        state = parse_state(row)
+        assert [f["statement"] for f in state.facts_learned] == [
+            "Con làm nghề dạy học"
+        ]
+        assert state.topics_open == ["chuyện lớp của con"]
+        assert state.emotional_tone == "ấm áp"
     finally:
         db.close()

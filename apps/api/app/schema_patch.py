@@ -18,6 +18,36 @@ def _add_column_if_missing(table: str, column: str, ddl: str) -> None:
         conn.execute(text(ddl))
 
 
+def _backfill_heritage_threads() -> None:
+    """Point pre-split heritage threads at their identity as the family thread.
+
+    Before the 1-1 split, IdentityProfile.heritage_thread_id was the only link
+    and every heritage thread was shared. Those become the family thread.
+    """
+    inspector = inspect(engine)
+    tables = set(inspector.get_table_names())
+    if not {"threads", "identity_profiles"} <= tables:
+        return
+    try:
+        with engine.begin() as conn:
+            conn.execute(
+                text(
+                    "UPDATE threads SET heritage_identity_id = ("
+                    "  SELECT p.id FROM identity_profiles p"
+                    "  WHERE p.heritage_thread_id = threads.id"
+                    ") WHERE kind = 'heritage' AND heritage_identity_id IS NULL"
+                )
+            )
+            conn.execute(
+                text(
+                    "UPDATE threads SET audience_scope = 'family' "
+                    "WHERE audience_scope IS NULL"
+                )
+            )
+    except Exception:
+        pass
+
+
 def ensure_schema() -> None:
     """Additive schema tweaks for local create_all demos (no Alembic yet)."""
     _add_column_if_missing(
@@ -264,6 +294,22 @@ def ensure_schema() -> None:
         "body_tts",
         "ALTER TABLE memory_items ADD COLUMN body_tts TEXT DEFAULT ''",
     )
+    for col, ddl in (
+        (
+            "heritage_identity_id",
+            "ALTER TABLE threads ADD COLUMN heritage_identity_id VARCHAR(32)",
+        ),
+        (
+            "audience_scope",
+            "ALTER TABLE threads ADD COLUMN audience_scope VARCHAR(32) DEFAULT 'family'",
+        ),
+        (
+            "member_user_id",
+            "ALTER TABLE threads ADD COLUMN member_user_id VARCHAR(32)",
+        ),
+    ):
+        _add_column_if_missing("threads", col, ddl)
+    _backfill_heritage_threads()
     try:
         with engine.begin() as conn:
             conn.execute(

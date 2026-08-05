@@ -1,6 +1,6 @@
 # Heritage Chat v2 — Context-Aware Pipeline
 
-> Trạng thái: Phase 0–3 đã xong; Phase 4 (grounding check + critic) là bước kế.
+> Trạng thái: Phase 0–3.5 đã xong; Phase 4 (grounding check + critic) là bước kế.
 > Bối cảnh: sau buổi thử đầu tiên với mẹ, chat của Bố Triệu bị hai lỗi lớn —
 > xác định sai người đối thoại, và trả lời dài như một bức thư.
 > Bản v1 (`services/heritage_chat.py`) đã vá tạm bằng rule; v2 dựng lại luồng
@@ -127,6 +127,28 @@ Bảng `thread_memory`, một hàng mỗi thread. `summary_json` =
 `{facts_learned, topics_open, already_asked, emotional_tone, entities_seen}`,
 mỗi danh sách có trần cứng để khối trí nhớ luôn chiếm một phần cố định của prompt.
 
+Mỗi fact là một bản ghi, không phải một câu trôi nổi:
+
+```json
+{
+  "statement": "Con và Hương về quê thắp hương thứ bảy",
+  "kind": "event",
+  "subject_slug": "le_thi_dinh",
+  "occurred_at": "2026-08-08",
+  "source_message_id": "..."
+}
+```
+
+- `kind`: `life_state` (có thể bị thay thế) | `event` | `preference` | `relationship`
+- `occurred_at`: analyzer nhận ngày hôm nay trong prompt và **quy thời gian tương
+  đối về ngày tuyệt đối** — «thứ bảy này» thành `2026-08-08`, nếu không thì một
+  tuần sau câu đó thành sai.
+- `source_message_id`: do code gắn, luôn truy được về đúng tin nhắn gốc.
+- `confidence`: analyzer trả `stated` | `implied`. **Chỉ `stated` vào trí nhớ.**
+  Điều suy luận nằm lại trong `meta` của reply để tra vết, không bao giờ được
+  đưa lại cho composer như thứ gia đình đã nói — đó chính là đường mà một người
+  bố được nhớ bắt đầu bịa.
+
 Ghi vào bằng hai nhịp:
 
 | Nhịp | Ai làm | Lấy từ đâu |
@@ -137,6 +159,11 @@ Ghi vào bằng hai nhịp:
 `already_asked` do code giữ, không để model sửa — đó là danh sách trực tiếp
 chặn việc hỏi thăm lặp. Facts chỉ đến từ `meta` mà analyzer đã sinh ra, nên trí
 nhớ không bao giờ chứa thứ pipeline chưa từng neo được.
+
+Compactor **không được sửa chữ trong một fact**. Nó chỉ trả `topics_open`,
+`emotional_tone`, và `retire_statements` — những câu đã hết đúng vì có thông tin
+mới hơn, sao lại nguyên văn. Code tự khớp rồi loại. Nếu để model viết lại
+`facts_learned` thì mỗi 6 lượt là một lần tam sao thất bản.
 
 Write-back chạy **sau** khi reply đã commit, trong cùng background task, và
 nuốt mọi lỗi: một lượt trí nhớ hỏng không được phép làm mất câu trả lời.
@@ -153,6 +180,31 @@ không bao giờ gọi lần thứ ba. Lý do bị chặn ghi vào `meta.repeat_
 
 Còn lại cho Phase 5 — `memory_candidates`: `new_facts` vào hàng đợi `pending` →
 steward duyệt → `MemoryItem(kind="knowledge")`. Chat nuôi Thư viện, Thư viện nuôi chat.
+
+## Hình thái thread
+
+Mỗi người được nhớ có **một phòng cả nhà** và **một phòng riêng cho từng thành
+viên**. Trên `threads`:
+
+| Cột | Ý nghĩa |
+|---|---|
+| `heritage_identity_id` | nói với ai (thay cho `IdentityProfile.heritage_thread_id` một-chiều) |
+| `audience_scope` | `family` — cả nhà đọc; `direct` — một người |
+| `member_user_id` | chủ của phòng riêng |
+
+`heritage_identity_id` cố ý **không phải FK**: `identity_profiles.heritage_thread_id`
+đã trỏ ngược lại, ràng buộc hai chiều là một vòng mà `create_all` không sắp thứ tự
+được. Thread cũ được backfill thành `family` trong `ensure_schema()`.
+
+Phòng riêng tạo lười, lần đầu thành viên bấm vào —
+`POST /api/spaces/{id}/identities/{id}/direct-thread`. `require_thread_access`
+chặn mọi người khác đọc hay gửi, kể cả owner và steward, và `list_threads` không
+liệt kê phòng riêng của người khác.
+
+Lợi ích không nằm ở UI: **trong phòng riêng, audience là tất định**. Thread đã
+biết ai đang nói nên không phải đoán theo câu chữ nữa — lỗi gốc «con nhắc lời mẹ
+thì bị trả lời như vợ» biến mất về mặt cấu trúc. Phòng cả nhà vẫn phải đoán, vì
+ở đó thật sự có nhiều người.
 
 ## Cấu trúc code
 
@@ -189,6 +241,7 @@ p50 ≈ 2–3s → Phase 0 bắt buộc chuyển reply sang background.
 | 1 ✅ | Family Codex + milestone import + EvidencePack | Hỏi «Hương» ra đúng con gái + đúng bài thơ |
 | 2 ✅ | Context Analyzer + Value Lens + depth control | Câu meta → ack 1 câu; hỏi sâu → 4–6 câu có trục giá trị |
 | 3 ✅ | ThreadMemory + anti-repeat | 10 lượt liên tiếp không lặp câu hỏi thăm |
+| 3.5 ✅ | Thread 1-1 + phòng cả nhà, fact có cấu trúc | Phòng riêng kín với người khác; «thứ bảy này» lưu thành ngày tuyệt đối |
 | 4 | Grounding check + critic | Bịa năm/tên = 0 trên bộ golden |
 | 5 | MemoryCandidate + steward review UI | Fact từ chat vào Thư viện sau khi duyệt |
 
@@ -205,3 +258,8 @@ p50 ≈ 2–3s → Phase 0 bắt buộc chuyển reply sang background.
 
 Analyzer gửi nội dung gia đình lên Gemini — compose hiện tại đã gửi rồi nên
 không phát sinh loại phơi nhiễm mới. Riêng `new_facts` gated qua steward.
+
+Phòng riêng kín theo `require_thread_access`, không có cửa sau cho owner hay
+steward. Trí nhớ nằm theo thread nên điều mẹ kể riêng không rò sang phòng của
+con. Khi Phase 5 mở hàng đợi fact ra phạm vi cả nhà, bước duyệt của steward là
+nơi phải chọn `private` hay `family` cho từng fact — mặc định không được là chia sẻ.

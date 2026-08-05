@@ -15,6 +15,7 @@ from .heritage import (
     KNOWLEDGE_KINDS,
     POEM_KIND,
     heritage_thread_title,
+    identity_for_thread,
     normalize_text,
     tag_tokens,
 )
@@ -202,33 +203,44 @@ def _infer_audience_from_message(text: str) -> str | None:
     return None
 
 
+def _audience_for_user(db: Session, *, space_id: str, user_id: str | None) -> str | None:
+    if not user_id:
+        return None
+    profile = (
+        db.query(IdentityProfile)
+        .filter(
+            IdentityProfile.space_id == space_id,
+            IdentityProfile.linked_user_id == user_id,
+        )
+        .one_or_none()
+    )
+    if not profile:
+        return None
+    if _is_spouse_profile(profile):
+        return "spouse"
+    if _is_child_profile(profile):
+        return "child"
+    return None
+
+
 def _detect_audience(
     db: Session,
     *,
     space_id: str,
     sender_user_id: str | None,
     user_text: str = "",
+    thread: Thread | None = None,
 ) -> str:
     """Return spouse | child — default child when unknown (safer than guessing wife)."""
+    # A direct thread already names the member, so nothing has to be inferred
+    # from wording — which is where the "chào em" to a son came from.
+    if thread is not None and getattr(thread, "audience_scope", "family") == "direct":
+        member_id = thread.member_user_id or sender_user_id
+        return _audience_for_user(db, space_id=space_id, user_id=member_id) or "child"
     hinted = _infer_audience_from_message(user_text)
     if hinted:
         return hinted
-    if not sender_user_id:
-        return "child"
-    profile = (
-        db.query(IdentityProfile)
-        .filter(
-            IdentityProfile.space_id == space_id,
-            IdentityProfile.linked_user_id == sender_user_id,
-        )
-        .one_or_none()
-    )
-    if profile:
-        if _is_spouse_profile(profile):
-            return "spouse"
-        if _is_child_profile(profile):
-            return "child"
-    return "child"
+    return _audience_for_user(db, space_id=space_id, user_id=sender_user_id) or "child"
 
 
 def _audience_context_block(audience: str | None, spouse_name: str | None) -> str:
@@ -291,11 +303,8 @@ def heritage_display_name(identity: IdentityProfile) -> str:
 
 
 def identity_for_heritage_thread(db: Session, thread_id: str) -> IdentityProfile | None:
-    return (
-        db.query(IdentityProfile)
-        .filter(IdentityProfile.heritage_thread_id == thread_id)
-        .one_or_none()
-    )
+    thread = db.query(Thread).filter(Thread.id == thread_id).one_or_none()
+    return identity_for_thread(db, thread) if thread else None
 
 
 def looks_like_taboo(text: str) -> bool:
@@ -833,6 +842,7 @@ def generate_heritage_reply(
         space_id=thread.space_id,
         sender_user_id=user_message.sender_user_id,
         user_text=user_text,
+        thread=thread,
     )
 
     matches = resolve_mentions(user_text, entities) if entities else []
@@ -914,7 +924,7 @@ def generate_heritage_reply(
     if frame.source != "default":
         meta["context_frame"] = frame.as_meta()
     if frame.new_facts:
-        meta["new_facts"] = frame.new_facts
+        meta["new_facts"] = [fact.as_dict() for fact in frame.new_facts]
     if repeat_reason:
         meta["repeat_guard"] = repeat_reason
     if not memory.is_empty:
