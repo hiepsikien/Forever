@@ -1,6 +1,7 @@
 import { FamilySpace, ThreadSummary } from "@forever/api-client";
+import { useFocusEffect } from "@react-navigation/native";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { useCallback, useLayoutEffect, useMemo, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   FlatList,
@@ -84,6 +85,8 @@ export default function SpaceScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [pendingCount, setPendingCount] = useState(0);
   const [error, setError] = useState<string | null>(null);
+  const spaceRef = useRef<FamilySpace | null>(null);
+  spaceRef.current = space;
 
   const load = useCallback(
     async (opts?: { silent?: boolean }) => {
@@ -116,9 +119,13 @@ export default function SpaceScreen() {
     [api, id],
   );
 
-  useLayoutEffect(() => {
-    load();
-  }, [load]);
+  useFocusEffect(
+    useCallback(() => {
+      // Returning from "Điều nghe được" must refresh the badge — the queue
+      // changed while this screen stayed mounted under the review screen.
+      void load({ silent: Boolean(spaceRef.current) });
+    }, [load]),
+  );
 
   useSpaceScreenOptions({
     spaceId: id,
