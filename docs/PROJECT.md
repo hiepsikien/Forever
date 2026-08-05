@@ -197,12 +197,16 @@ từng thành viên. Chưa có Alembic — bảng mới qua `create_all`, cột 
 
 1. **Bộ golden ~20 câu hỏi** — đo bịa đặt và độ đúng giọng bằng số, thay vì cảm
    tính từng lượt. Đây là thứ chặn đường mọi tinh chỉnh tiếp theo.  
-2. **`visibility` trên `MemoryItem`** — hiện fact chỉ có hai lựa chọn: chia sẻ cả
-   nhà, hoặc không thành ký ức lâu dài. Chưa có chỗ cho «riêng mà vẫn giữ».  
+2. **Quy hoạch lại trang Ký ức** — xem `docs/library-ia.plan.md`. Thư viện đang là
+   một dòng chảy phẳng; 48 món đã khó tìm, 300 món thì không dùng được.  
 3. Bật critic (`HERITAGE_CRITIC_ENABLED`) sau khi có golden set để biết nó sửa
    đúng hay sửa hỏng.  
 4. Giọng đọc trong chat — TTS cho reply của thực thể, không auto-play.  
 5. Micro-rituals (Phase 5) và export archive (Phase 6) khi mẹ đã dùng đều.  
+
+Đã xong: `visibility` trên `MemoryItem` (`family` / `private`) — fact nghe trong
+phòng riêng có thể giữ lâu dài mà vẫn không thành chuyện của cả nhà. Luật đọc nằm
+gọn trong `services/memory_scope.py`.
 
 Nợ kỹ thuật đáng ghi: chưa có Alembic, `_knowledge_snippets` vẫn lấy «3 cái mới
 nhất» thay vì theo độ liên quan như `retrieve_learned`.

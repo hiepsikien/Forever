@@ -1,7 +1,7 @@
 # Heritage Chat v2 — Context-Aware Pipeline
 
-> Trạng thái: Phase 0–5 đã xong. Còn lại: bộ golden để đo bằng số, và
-> `visibility` trên `MemoryItem` nếu muốn fact riêng mà vẫn lâu dài.
+> Trạng thái: Phase 0–5 đã xong, cùng `visibility` trên `MemoryItem`.
+> Còn lại: bộ golden để đo bằng số.
 > Bối cảnh: sau buổi thử đầu tiên với mẹ, chat của Bố Triệu bị hai lỗi lớn —
 > xác định sai người đối thoại, và trả lời dài như một bức thư.
 > Bản v1 (`services/heritage_chat.py`) đã vá tạm bằng rule; v2 dựng lại luồng
@@ -247,10 +247,39 @@ Ai được duyệt là câu hỏi về quyền riêng tư, không phải về v
 người khác nói riêng — hàng đợi duyệt sẽ chọc thủng đúng bức tường vừa dựng.
 `reviewer_user_id` là người duy nhất được bấm, owner hay steward cũng không mở được.
 
-Duyệt **cũng là chia sẻ**: fact vào Thư viện thì cả nhà đọc được, nên với fact từ
-phòng riêng UI phải nói thẳng điều đó trước khi bấm. Không muốn chia sẻ thì bỏ —
-fact vẫn còn trong `thread_memory` của phòng đó, chỉ là không thành vĩnh viễn.
-Muốn giữ riêng mà vẫn lâu dài thì cần `visibility` trên từng `MemoryItem`, để sau.
+Duyệt **không còn đồng nghĩa với chia sẻ**. Fact từ phòng riêng có ba lối ra, và
+UI phải hỏi rõ: giữ riêng, chia sẻ cả nhà, hoặc bỏ. Bỏ thì fact vẫn còn trong
+`thread_memory` của phòng đó, chỉ là không thành vĩnh viễn.
+
+### Phạm vi ký ức — `visibility`
+
+`MemoryItem.visibility` là `family` hoặc `private`, chủ sở hữu là `created_by`.
+Mọi hàng có trước lựa chọn này đều được backfill thành `family`, vì lúc lưu người
+ta đã lưu để chia sẻ — mặc định ngược lại sẽ là bịa ra một ý định không có.
+
+Luật gói trong `services/memory_scope.py`, một chỗ duy nhất, vì rò rỉ ở đây là
+loại lỗi không ai kịp nhận ra:
+
+- `readable_by(user_id)` — điều kiện SQL cho Thư viện và mọi truy hồi.
+- `reader_for_thread(thread)` — phòng cả nhà đọc được **không** món riêng nào,
+  kể cả của chính người đang gõ. Bức tường chỉ đứng nếu thực thể không nói xuyên
+  qua được: bố nhắc lại trong phòng chung điều con kể riêng thì tường coi như không
+  có. Phòng 1-1 đọc được món riêng của đúng người ấy.
+- Chỉ `created_by` đổi được phạm vi. Steward dựng hay hạ tường của người khác thì
+  tường thành của steward, không còn của chủ ký ức.
+- Chống trùng khi xếp hàng đợi cũng lọc theo người duyệt. So với món riêng của
+  người khác thì fact bị từ chối mà không giải thích được vì sao — và chính lời
+  từ chối đó đã là một rò rỉ.
+
+### Thẻ: một dấu phân tách
+
+`tags` là một chuỗi phẳng, và hai chỗ ghi từng bất đồng: import thơ/mốc đời dùng
+dấu cách, còn màn Thư viện dùng dấu phẩy. API đọc cả hai nên phía server không ai
+thấy gì sai; nhưng mobile chỉ tách dấu phẩy, nên `heritage:X chu-de:gia_dinh` bị
+đọc thành **một** thẻ, `id` thành `"X chu-de:gia_dinh"`, và một món đã neo đúng
+người lại hiện ra như chưa neo ai. `tagTokens` (mobile) giờ tách đúng như
+`tag_tokens` (API), và `scripts/normalize-memory-tags.py` viết lại các hàng cũ về
+một dấu phân tách, không lặp.
 
 Đường về prompt **không dùng «3 cái mới nhất»** như `_knowledge_snippets`.
 `retrieve_learned` chấm điểm theo độ liên quan (dùng lại thang của milestone,
