@@ -33,23 +33,20 @@ from app.services.heritage_candidates import (  # noqa: E402
     enqueue_facts,
     reviewer_for,
 )
+from app.services.heritage_memory import stated_facts  # noqa: E402
 
 
-def stated_facts(message: Message) -> list[dict]:
+def facts_from(reply: Message, *, source_message_id: str) -> list[dict]:
+    """Reuse the live rule, so a backfill cannot disagree with a real turn.
+
+    It also tolerates the bare strings the analyzer wrote before facts had a
+    shape — the earliest turns, which is exactly what a backfill is for.
+    """
     try:
-        meta = json.loads(message.meta_json or "{}")
+        meta = json.loads(reply.meta_json or "{}")
     except (TypeError, ValueError):
         return []
-    facts = meta.get("new_facts")
-    if not isinstance(facts, list):
-        return []
-    return [
-        fact
-        for fact in facts
-        if isinstance(fact, dict)
-        and (fact.get("statement") or "").strip()
-        and fact.get("confidence", "stated") == "stated"
-    ]
+    return stated_facts(meta, source_message_id=source_message_id)
 
 
 def asking_message(db, reply: Message) -> Message | None:
@@ -94,11 +91,11 @@ def main() -> int:
         )
         found: list[tuple[Message, list[dict]]] = []
         for reply in replies:
-            facts = stated_facts(reply)
-            if not facts:
-                continue
             source = asking_message(db, reply)
-            if source:
+            if not source:
+                continue
+            facts = facts_from(reply, source_message_id=source.id)
+            if facts:
                 found.append((source, facts))
         if not found:
             continue

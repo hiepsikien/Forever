@@ -22,10 +22,27 @@ from ..models import (
     Thread,
 )
 from .heritage import HERITAGE_TAG_PREFIX, normalize_text
+from .heritage_memory import PERISHABLE_KINDS
 
 CANDIDATE_KIND = "knowledge"
 MAX_PENDING_PER_IDENTITY = 40
 _FULL_DATE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
+# Shortest overlap we will treat as one fact restated at a different length.
+_PREFIX_MIN = 60
+
+
+def _same_fact(one: str, other: str) -> bool:
+    """One fact stated twice, possibly clipped to a different length.
+
+    A statement is capped before it is stored, so the same sentence can arrive
+    both whole and clipped — and a library that shows a memory twice, once cut
+    off mid-word, reads like a bug in the family's own archive.
+    """
+    a, b = normalize_text(one), normalize_text(other)
+    if a == b:
+        return True
+    short, long = sorted((a, b), key=len)
+    return len(short) >= _PREFIX_MIN and long.startswith(short)
 
 
 def reviewer_for(thread: Thread, space: FamilySpace) -> str | None:
@@ -48,12 +65,10 @@ def _already_queued(db: Session, *, identity_id: str, statement: str) -> bool:
         )
         .all()
     )
-    needle = normalize_text(statement)
-    return any(normalize_text(row.statement) == needle for row in existing)
+    return any(_same_fact(row.statement, statement) for row in existing)
 
 
 def _in_library(db: Session, *, space_id: str, identity_id: str, statement: str) -> bool:
-    needle = normalize_text(statement)
     items = (
         db.query(MemoryItem)
         .filter(MemoryItem.space_id == space_id, MemoryItem.kind == CANDIDATE_KIND)
@@ -61,7 +76,7 @@ def _in_library(db: Session, *, space_id: str, identity_id: str, statement: str)
     )
     tag = f"{HERITAGE_TAG_PREFIX}{identity_id}"
     return any(
-        tag in (item.tags or "") and normalize_text(item.body) == needle
+        tag in (item.tags or "") and _same_fact(item.body or "", statement)
         for item in items
     )
 
@@ -99,6 +114,10 @@ def enqueue_facts(
     for fact in facts:
         statement = (fact.get("statement") or "").strip()
         if not statement or pending + len(queued) >= MAX_PENDING_PER_IDENTITY:
+            continue
+        # "Công việc hôm nay tốt đẹp" is true today and noise in a life story.
+        # It still lives in the thread memory, it just is not offered as one.
+        if fact.get("kind") in PERISHABLE_KINDS:
             continue
         if _already_queued(db, identity_id=identity.id, statement=statement):
             continue

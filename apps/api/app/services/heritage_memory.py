@@ -36,6 +36,11 @@ MAX_TOPICS_OPEN = 6
 MAX_ASKED = 10
 MAX_ENTITIES = 12
 MAX_FACT_CHARS = 160
+# How much of the fact budget today's news may occupy. A `life_state` fact
+# ("công việc hôm nay tốt đẹp") is worthless next week, while a nickname or a
+# wedding is worth keeping forever — so they must not compete for the same slots.
+PERISHABLE_KINDS = ("life_state",)
+MAX_PERISHABLE_FACTS = 3
 
 # Two replies over this token overlap are the same reply wearing a hat.
 REPEAT_THRESHOLD = 0.6
@@ -161,7 +166,9 @@ def parse_state(memory: ThreadMemory | None) -> MemoryState:
         payload = {}
     tone = payload.get("emotional_tone")
     return MemoryState(
-        facts_learned=_clean_facts(payload.get("facts_learned"), limit=MAX_FACTS),
+        facts_learned=trim_facts(
+            _clean_facts(payload.get("facts_learned"), limit=MAX_FACTS * 2)
+        ),
         topics_open=_clean_list(payload.get("topics_open"), limit=MAX_TOPICS_OPEN),
         already_asked=_clean_list(payload.get("already_asked"), limit=MAX_ASKED),
         emotional_tone=tone.strip()[:120] if isinstance(tone, str) else "",
@@ -309,6 +316,27 @@ def stated_facts(meta: object, *, source_message_id: str) -> list[dict]:
     return _clean_facts(kept, limit=MAX_FACTS)
 
 
+def trim_facts(facts: list[dict], *, limit: int = MAX_FACTS) -> list[dict]:
+    """Drop today's news before dropping a life.
+
+    Trimming by arrival alone let "người nhà đang làm việc muộn" push out "mẹ
+    từng bị cô điều dưỡng gọi là Em gái mưa" — so the entity forgot a nickname
+    it had been told, while remembering that a workday went fine. Perishable
+    kinds get a small fixed budget; the rest of the room is for what lasts.
+    """
+    if len(facts) <= limit:
+        return facts
+    perishable = [f for f in facts if f.get("kind") in PERISHABLE_KINDS]
+    lasting = [f for f in facts if f.get("kind") not in PERISHABLE_KINDS]
+    # The reserve is a floor, not a ceiling: today's news keeps a few slots even
+    # when there is plenty of biography, and may spread into the room biography
+    # is not using rather than leaving the memory half empty.
+    room = min(len(perishable), max(MAX_PERISHABLE_FACTS, limit - len(lasting)))
+    keep = {id(f) for f in perishable[-room:]} if room else set()
+    keep |= {id(f) for f in lasting[-(limit - room) :]} if limit > room else set()
+    return [f for f in facts if id(f) in keep]
+
+
 def record_turn(
     db: Session,
     *,
@@ -357,7 +385,7 @@ def record_turn(
         if not any(jaccard(question, old) >= QUESTION_THRESHOLD for old in state.already_asked):
             state.already_asked.append(question)
 
-    state.facts_learned = state.facts_learned[-MAX_FACTS:]
+    state.facts_learned = trim_facts(state.facts_learned)
     state.entities_seen = state.entities_seen[-MAX_ENTITIES:]
     state.already_asked = state.already_asked[-MAX_ASKED:]
 

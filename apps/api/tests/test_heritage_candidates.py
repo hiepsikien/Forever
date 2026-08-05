@@ -23,7 +23,7 @@ from tests.test_heritage_chat import _login, _ready_heritage
 
 
 def _fact(statement: str, **kwargs) -> dict:
-    return {"statement": statement, "kind": "life_state", **kwargs}
+    return {"statement": statement, "kind": "event", **kwargs}
 
 
 def _scene(db, *, scope: str = "family", steward_is_member: bool = True):
@@ -160,6 +160,65 @@ def test_the_same_fact_is_not_queued_twice(client):
         assert len(enqueue_facts(db, **args, facts=[_fact("Mẹ ở phòng ngoài")])) == 1
         # Same words, different tone marks and case: still the same fact.
         assert enqueue_facts(db, **args, facts=[_fact("mẹ ở phong ngoai")]) == []
+    finally:
+        db.close()
+
+
+def test_todays_news_is_never_offered_as_a_life_story(client):
+    """"Công việc hôm nay tốt đẹp" belongs in the thread, not in a biography."""
+    from app.db import SessionLocal
+
+    db = SessionLocal()
+    try:
+        _, identity, thread, message, _, _ = _scene(db)
+        queued = enqueue_facts(
+            db,
+            thread=thread,
+            identity=identity,
+            user_message=message,
+            facts=[
+                {"statement": "Công việc trong ngày diễn ra tốt đẹp", "kind": "life_state"},
+                _fact("Bố tham gia Ban phụ huynh cho chị Hương"),
+            ],
+        )
+        assert [row.statement for row in queued] == [
+            "Bố tham gia Ban phụ huynh cho chị Hương"
+        ]
+    finally:
+        db.close()
+
+
+def test_the_same_fact_clipped_short_is_not_queued_again(client):
+    """A statement is capped on the way in, so it can arrive whole and clipped."""
+    from app.db import SessionLocal
+
+    db = SessionLocal()
+    try:
+        _, identity, thread, message, _, _ = _scene(db)
+        args = dict(thread=thread, identity=identity, user_message=message)
+        whole = (
+            "Mẹ cùng em gái tên Yên đến ký túc xá trường Tổng hợp ở phố Lý Thường "
+            "Kiệt để thăm bố, tại đây mẹ đã xé tan nát lọ hoa hồng trên bàn bố rồi "
+            "bỏ đi khiến bố đuổi theo không kịp."
+        )
+        assert len(enqueue_facts(db, **args, facts=[_fact(whole)])) == 1
+        assert enqueue_facts(db, **args, facts=[_fact(whole[:160])]) == []
+    finally:
+        db.close()
+
+
+def test_two_facts_that_merely_start_alike_both_get_queued(client):
+    from app.db import SessionLocal
+
+    db = SessionLocal()
+    try:
+        _, identity, thread, message, _, _ = _scene(db)
+        args = dict(thread=thread, identity=identity, user_message=message)
+        assert len(enqueue_facts(db, **args, facts=[_fact("Bố dạy ở trường Tổng hợp")])) == 1
+        assert (
+            len(enqueue_facts(db, **args, facts=[_fact("Bố dạy ở trường Bách khoa")]))
+            == 1
+        )
     finally:
         db.close()
 

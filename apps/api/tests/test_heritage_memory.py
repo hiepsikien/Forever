@@ -8,6 +8,8 @@ from nanoid import generate
 from app.config import Settings
 from app.models import Message, Thread, ThreadMemory
 from app.services.heritage_memory import (
+    MAX_FACTS,
+    MAX_PERISHABLE_FACTS,
     MemoryState,
     avoid_block,
     compact_thread_memory,
@@ -20,6 +22,7 @@ from app.services.heritage_memory import (
     recent_heritage_bodies,
     record_turn,
     repeated_question,
+    trim_facts,
 )
 
 GREETING = "Con dạo này thế nào, có khoẻ không?"
@@ -327,6 +330,73 @@ def test_record_turn_keeps_only_what_was_actually_said(client):
         assert state.facts_learned[0]["occurred_at"] == "2026-08-08"
     finally:
         db.close()
+
+
+def test_a_nickname_outlives_a_report_of_todays_mood():
+    """The real bug: "Em gái mưa" was pushed out by "hôm nay làm việc tốt"."""
+    nickname = {
+        "statement": "Mẹ từng bị cô điều dưỡng gọi đùa là Em gái mưa.",
+        "kind": "event",
+    }
+    facts = [nickname] + [
+        {"statement": f"Ngày hôm nay của con ổn ({i})", "kind": "life_state"}
+        for i in range(MAX_FACTS + 4)
+    ]
+
+    kept = trim_facts(facts)
+
+    assert len(kept) == MAX_FACTS
+    assert nickname in kept
+    # Nothing else deserved the room, so the newest of today's news fills it.
+    assert kept[-1]["statement"].endswith(f"({MAX_FACTS + 3})")
+
+
+def test_trimming_keeps_the_newest_of_what_lasts():
+    lasting = [
+        {"statement": f"Chuyện đời {i}", "kind": "event"} for i in range(MAX_FACTS + 3)
+    ]
+
+    kept = trim_facts(lasting)
+
+    assert [f["statement"] for f in kept] == [
+        f"Chuyện đời {i}" for i in range(3, MAX_FACTS + 3)
+    ]
+
+
+def test_trimming_leaves_a_short_memory_alone():
+    facts = [{"statement": "Một điều", "kind": "life_state"}]
+
+    assert trim_facts(facts) == facts
+
+
+def test_a_fact_with_no_kind_is_treated_as_worth_keeping():
+    """Facts written before `kind` existed must not be the first to go."""
+    old = {"statement": "Bố mẹ gặp nhau ở sân ga."}
+    facts = [old] + [
+        {"statement": f"Hôm nay ổn ({i})", "kind": "life_state"}
+        for i in range(MAX_FACTS)
+    ]
+
+    assert old in trim_facts(facts)
+
+
+def test_todays_news_keeps_its_reserve_against_a_wall_of_biography():
+    """Biography must not starve the entity of what is happening right now."""
+    recent = [
+        {"statement": f"Chuyện hôm nay {i}", "kind": "life_state"}
+        for i in range(MAX_PERISHABLE_FACTS + 2)
+    ]
+    facts = [
+        {"statement": f"Chuyện đời {i}", "kind": "event"}
+        for i in range(MAX_FACTS * 2)
+    ] + recent
+
+    kept = trim_facts(facts)
+
+    assert len(kept) == MAX_FACTS
+    perishable = [f for f in kept if f["kind"] == "life_state"]
+    assert len(perishable) == MAX_PERISHABLE_FACTS
+    assert perishable == recent[-MAX_PERISHABLE_FACTS:]
 
 
 def test_compaction_may_retire_a_fact_but_never_reword_one(client):

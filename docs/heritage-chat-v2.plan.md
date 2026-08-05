@@ -196,6 +196,27 @@ Compactor **không được sửa chữ trong một fact**. Nó chỉ trả `top
 mới hơn, sao lại nguyên văn. Code tự khớp rồi loại. Nếu để model viết lại
 `facts_learned` thì mỗi 6 lượt là một lần tam sao thất bản.
 
+### Cắt trần theo giá trị, không theo thứ tự đến
+
+Ban đầu trần 12 cắt kiểu FIFO. Kết quả trên hội thoại thật: «công việc trong ngày
+diễn ra tốt đẹp» đẩy «mẹ từng bị cô điều dưỡng gọi đùa là Em gái mưa» ra khỏi trí
+nhớ — thực thể quên một biệt danh được kể, mà vẫn nhớ một ngày làm việc suôn sẻ.
+
+`trim_facts` chia fact thành **dễ hỏng** (`life_state`) và **lâu bền** (còn lại):
+
+- `MAX_PERISHABLE_FACTS = 3` là **sàn dự trữ**, không phải trần: chuyện hôm nay
+  luôn có vài chỗ, nhưng khi tiểu sử còn ít thì nó được lan ra chỗ trống chứ
+  không để trí nhớ rỗng một nửa.
+- Fact không có `kind` (viết trước khi fact có cấu trúc) được coi là lâu bền —
+  cái cũ không được là cái đầu tiên bị bỏ.
+
+Cùng lý lẽ đó, `life_state` **không vào hàng đợi duyệt**: «hôm nay ổn» đúng hôm
+nay và là rác trong một cuộc đời. Nó vẫn ở `thread_memory`, chỉ không được đề
+xuất thành ký ức vĩnh viễn.
+
+Trí nhớ vẫn là **ngắn hạn có trần**. Đường để một điều được nhớ mãi là qua hàng
+đợi duyệt vào Thư viện, rồi `retrieve_learned` gọi lại theo độ liên quan.
+
 Write-back chạy **sau** khi reply đã commit, trong cùng background task, và
 nuốt mọi lỗi: một lượt trí nhớ hỏng không được phép làm mất câu trả lời.
 
@@ -250,7 +271,14 @@ khi hàng đợi rỗng, có số đếm khi có việc. Ban đầu nó chỉ l�
 Lượt chat có trước Stage 5b vẫn còn nguyên fact trong `meta_json.new_facts` nhưng
 chưa từng được xếp hàng. `scripts/backfill-memory-candidates.py` gom lại (chỉ
 `stated`, dedupe qua service nên chạy lại vô hại) — cần mỗi khi hàng đợi ra sau
-cuộc trò chuyện.
+cuộc trò chuyện. Nó gọi thẳng `heritage_memory.stated_facts` chứ không tự lọc:
+bản lọc riêng đầu tiên bỏ qua fact dạng chuỗi trần và thế là mất đúng những lượt
+sớm nhất — phần việc duy nhất của một backfill.
+
+Chống trùng phải chịu được **cùng một câu ở hai độ dài**, vì `statement` bị cắt ở
+160 ký tự trên đường vào: câu nào là tiền tố của câu kia (và đủ dài, ≥60) thì là
+một. Không có luật này thì Thư viện hiện hai lần cùng một ký ức, một lần đứt giữa
+chữ — đọc như lỗi trong chính kho lưu của gia đình.
 
 ## Hình thái thread
 

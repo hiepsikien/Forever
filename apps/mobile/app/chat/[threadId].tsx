@@ -10,6 +10,7 @@ import {
   ActivityIndicator,
   Alert,
   FlatList,
+  Keyboard,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -18,6 +19,7 @@ import {
   TextInput,
   View,
 } from "react-native";
+import { useHeaderHeight } from "@react-navigation/elements";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import {
@@ -83,6 +85,7 @@ export default function ChatScreen() {
   const { api, user } = useAuth();
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const headerHeight = useHeaderHeight();
   const recorder = useAudioRecorder(VOICE_RECORDING_OPTIONS);
   const recorderState = useAudioRecorderState(recorder, 80);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -90,6 +93,7 @@ export default function ChatScreen() {
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const [recording, setRecording] = useState(false);
+  const [keyboardUp, setKeyboardUp] = useState(false);
   const [playingId, setPlayingId] = useState<string | null>(null);
   const [spaceId, setSpaceId] = useState<string | null>(null);
   const [threadMeta, setThreadMeta] = useState<ThreadSummary | null>(null);
@@ -219,6 +223,24 @@ export default function ChatScreen() {
   useEffect(() => {
     recordingRef.current = recording;
   }, [recording]);
+
+  // Opening the keyboard shortens the list without changing its content, so
+  // nothing else would scroll — and the reply just read disappears behind the
+  // composer.
+  useEffect(() => {
+    const shown = Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow";
+    const hidden = Platform.OS === "ios" ? "keyboardWillHide" : "keyboardDidHide";
+    const subs = [
+      Keyboard.addListener(shown, () => {
+        setKeyboardUp(true);
+        requestAnimationFrame(() =>
+          listRef.current?.scrollToEnd({ animated: true }),
+        );
+      }),
+      Keyboard.addListener(hidden, () => setKeyboardUp(false)),
+    ];
+    return () => subs.forEach((sub) => sub.remove());
+  }, []);
 
   useEffect(() => {
     return () => {
@@ -392,8 +414,8 @@ export default function ChatScreen() {
   return (
     <KeyboardAvoidingView
       style={styles.root}
-      behavior={Platform.OS === "ios" ? "padding" : undefined}
-      keyboardVerticalOffset={88}
+      behavior={Platform.OS === "ios" ? "padding" : "height"}
+      keyboardVerticalOffset={Platform.OS === "ios" ? headerHeight : 0}
     >
       <FlatList
         ref={listRef}
@@ -506,7 +528,9 @@ export default function ChatScreen() {
       <View
         style={[
           styles.composer,
-          { paddingBottom: Math.max(insets.bottom, 12) },
+          // The keyboard already covers the home indicator, so reserving room
+          // for it as well leaves a dead band under the input.
+          { paddingBottom: keyboardUp ? 12 : Math.max(insets.bottom, 12) },
         ]}
       >
         {recording ? (
@@ -573,7 +597,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     backgroundColor: colors.bg,
   },
-  list: { padding: 16, paddingBottom: 8 },
+  list: { padding: 16, paddingBottom: 20 },
   row: { marginBottom: 12, maxWidth: "85%" },
   rowMine: { alignSelf: "flex-end" },
   rowTheirs: { alignSelf: "flex-start" },
