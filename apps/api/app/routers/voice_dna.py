@@ -35,6 +35,7 @@ from ..services import voice_providers as vp
 from ..services.heritage import (
     heritage_readiness_payload,
     heritage_thread_title,
+    mark_profile_reviewed,
     sync_heritage_thread_title,
 )
 from ..services.audio_combine import AudioCombineError, combine_audio_files, probe_duration_ms
@@ -81,6 +82,23 @@ class UpdateIdentityBody(BaseModel):
     display_name: str | None = Field(default=None, min_length=1, max_length=120)
     relation_label: str | None = Field(default=None, max_length=80)
     status: str | None = Field(default=None, pattern="^(living|remembered)$")
+    # Identity Lock fields (JSON-serializable structures or pre-stringified)
+    life_stage: dict | list | None = None
+    roles: list | None = None
+    address_forms: dict | None = None
+    speech_style: dict | None = None
+    core_values: list | None = None
+    philosophy: dict | None = None
+    taboos: dict | None = None
+    poetry_quote_mode: str | None = Field(
+        default=None, pattern="^(paraphrase|verbatim)$"
+    )
+    dynamic_context: str | None = Field(default=None, max_length=4000)
+    mark_profile_reviewed: bool | None = None
+
+
+class MarkProfileReviewedBody(BaseModel):
+    reviewed: bool = True
 
 
 class CreateSelfVoiceBody(BaseModel):
@@ -389,6 +407,14 @@ def _identity_payload(
     *,
     voice: VoiceProfile | None = None,
 ) -> dict:
+    def _parse(raw: str | None):
+        if not raw or not str(raw).strip():
+            return None
+        try:
+            return json.loads(raw)
+        except json.JSONDecodeError:
+            return None
+
     payload = {
         "id": row.id,
         "space_id": row.space_id,
@@ -397,12 +423,29 @@ def _identity_payload(
         "status": row.status,
         "linked_user_id": row.linked_user_id,
         "heritage_thread_id": row.heritage_thread_id,
+        "heritage_entity_status": getattr(row, "heritage_entity_status", None)
+        or "dormant",
         "created_by": row.created_by,
         "created_at": row.created_at.isoformat(),
         "voice_profile_id": voice.id if voice else None,
         "voice_status": voice.status if voice else None,
         "voice_sample_count": None,
         "voice_provider_voice_id": voice.provider_voice_id if voice else None,
+        "life_stage": _parse(getattr(row, "life_stage_json", None)),
+        "roles": _parse(getattr(row, "roles_json", None)),
+        "address_forms": _parse(getattr(row, "address_forms_json", None)),
+        "speech_style": _parse(getattr(row, "speech_style_json", None)),
+        "core_values": _parse(getattr(row, "core_values_json", None)),
+        "philosophy": _parse(getattr(row, "philosophy_json", None)),
+        "taboos": _parse(getattr(row, "taboos_json", None)),
+        "poetry_quote_mode": getattr(row, "poetry_quote_mode", None) or "paraphrase",
+        "dynamic_context": getattr(row, "dynamic_context", None) or "",
+        "profile_reviewed_at": (
+            row.profile_reviewed_at.isoformat()
+            if getattr(row, "profile_reviewed_at", None)
+            else None
+        ),
+        "profile_reviewed_by": getattr(row, "profile_reviewed_by", None),
     }
     return payload
 
@@ -790,6 +833,33 @@ def update_identity(
             db.flush()
             row.heritage_thread_id = thread.id
 
+    def _dump(value: dict | list) -> str:
+        return json.dumps(value, ensure_ascii=False)
+
+    if body.life_stage is not None:
+        row.life_stage_json = _dump(body.life_stage)
+    if body.roles is not None:
+        row.roles_json = _dump(body.roles)
+    if body.address_forms is not None:
+        row.address_forms_json = _dump(body.address_forms)
+    if body.speech_style is not None:
+        row.speech_style_json = _dump(body.speech_style)
+    if body.core_values is not None:
+        row.core_values_json = _dump(body.core_values)
+    if body.philosophy is not None:
+        row.philosophy_json = _dump(body.philosophy)
+    if body.taboos is not None:
+        row.taboos_json = _dump(body.taboos)
+    if body.poetry_quote_mode is not None:
+        row.poetry_quote_mode = body.poetry_quote_mode
+    if body.dynamic_context is not None:
+        row.dynamic_context = body.dynamic_context.strip()
+    if body.mark_profile_reviewed is True:
+        mark_profile_reviewed(row, user_id=user.id)
+    elif body.mark_profile_reviewed is False:
+        row.profile_reviewed_at = None
+        row.profile_reviewed_by = None
+
     sync_heritage_thread_title(db, row)
 
     # Keep linked Voice DNA label in sync.
@@ -837,7 +907,7 @@ def activate_heritage_entity(
     user: Annotated[User, Depends(get_current_user)],
     db: Annotated[Session, Depends(get_db)],
 ):
-    """Steward marks heritage entity ready for chat after voice + knowledge gates."""
+    """Steward marks heritage entity ready for chat after voice + knowledge + profile gates."""
     require_steward_or_owner(db, space_id=space_id, user=user)
     row = (
         db.query(IdentityProfile)
@@ -856,13 +926,82 @@ def activate_heritage_entity(
         )
     readiness = heritage_readiness_payload(db, identity=row)
     if not readiness["can_activate"]:
+        missing = []
+        if not readiness["voice_ready"]:
+            missing.append("giọng (≥1 mẫu đã duyệt)")
+        if not readiness["knowledge_ready"]:
+            missing.append(
+                f"{readiness['knowledge_target']} ký ức neo "
+                f"(note/milestone/… — không tính thơ; tag heritage:{row.id})"
+            )
+        if not readiness["profile_ready"]:
+            missing.append("Bản sắc đã hiệu đính (Identity Lock)")
         raise HTTPException(
             status_code=400,
-            detail=(
-                "Cần ít nhất 1 mẫu giọng đã duyệt và "
-                f"{readiness['knowledge_target']} ký ức trong Thư viện "
-                f"(tag heritage:{row.id})."
-            ),
+            detail="Chưa đủ điều kiện kích hoạt: " + "; ".join(missing),
+        )
+    row.heritage_entity_status = "ready"
+    db.commit()
+    db.refresh(row)
+    return heritage_readiness_payload(db, identity=row)
+
+
+@router.post("/api/spaces/{space_id}/identities/{identity_id}/pause-heritage")
+def pause_heritage_entity(
+    space_id: str,
+    identity_id: str,
+    user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[Session, Depends(get_db)],
+):
+    """Kill switch — steward pauses heritage chat without deleting data."""
+    require_steward_or_owner(db, space_id=space_id, user=user)
+    row = (
+        db.query(IdentityProfile)
+        .filter(
+            IdentityProfile.id == identity_id,
+            IdentityProfile.space_id == space_id,
+        )
+        .one_or_none()
+    )
+    if not row:
+        raise HTTPException(status_code=404, detail="Identity profile not found.")
+    if (row.heritage_entity_status or "") != "ready":
+        raise HTTPException(
+            status_code=400,
+            detail="Chỉ tạm dừng khi thực thể đang ở trạng thái ready.",
+        )
+    row.heritage_entity_status = "paused"
+    db.commit()
+    db.refresh(row)
+    return heritage_readiness_payload(db, identity=row)
+
+
+@router.post("/api/spaces/{space_id}/identities/{identity_id}/resume-heritage")
+def resume_heritage_entity(
+    space_id: str,
+    identity_id: str,
+    user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[Session, Depends(get_db)],
+):
+    """Resume after pause — only if voice + knowledge + profile gates still hold."""
+    require_steward_or_owner(db, space_id=space_id, user=user)
+    row = (
+        db.query(IdentityProfile)
+        .filter(
+            IdentityProfile.id == identity_id,
+            IdentityProfile.space_id == space_id,
+        )
+        .one_or_none()
+    )
+    if not row:
+        raise HTTPException(status_code=404, detail="Identity profile not found.")
+    if (row.heritage_entity_status or "") != "paused":
+        raise HTTPException(status_code=400, detail="Thực thể không đang tạm dừng.")
+    readiness = heritage_readiness_payload(db, identity=row)
+    if not readiness["can_resume"]:
+        raise HTTPException(
+            status_code=400,
+            detail="Chưa đủ điều kiện mở lại (giọng + ký ức neo + Bản sắc đã hiệu đính).",
         )
     row.heritage_entity_status = "ready"
     db.commit()

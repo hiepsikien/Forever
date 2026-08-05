@@ -330,21 +330,64 @@ def test_heritage_readiness_and_activation(client: TestClient, tmp_path, monkeyp
     assert body["display_name"] == "Hương"
     assert body["voice_ready"] is True
     assert body["knowledge_count"] == 0
-    assert body["knowledge_target"] == 5
+    assert body["knowledge_target"] == 3
+    assert body["profile_ready"] is False
     assert body["chat_ready"] is False
     assert body["can_activate"] is False
+    assert body["entity_status"] == "gathering"
 
     threads = client.get(f"/api/spaces/{space_id}/threads", headers=owner_h).json()
     heritage_thread = next(t for t in threads["threads"] if t["id"] == thread_id)
     assert heritage_thread["title"] == "Hương · Chị"
-    assert heritage_thread["heritage"]["entity_status"] in ("dormant", "awakening")
+    assert heritage_thread["heritage"]["entity_status"] == "gathering"
 
     thread_get = client.get(f"/api/threads/{thread_id}", headers=owner_h)
     assert thread_get.status_code == 200
     assert thread_get.json()["heritage"]["identity_id"] == identity_id
 
     tag = f"heritage:{identity_id}"
+    # Poems must NOT count toward knowledge gate.
     for i in range(5):
+        poem = client.post(
+            f"/api/spaces/{space_id}/memories/note",
+            headers=owner_h,
+            json={"title": f"Thơ {i}", "body": f"Lục bát {i}", "tags": tag},
+        )
+        assert poem.status_code == 200, poem.text
+        # Force kind=poem via direct DB (no poem endpoint yet).
+        from app.db import SessionLocal
+        from app.models import MemoryItem
+
+        db = SessionLocal()
+        try:
+            mid = poem.json()["id"]
+            row = db.query(MemoryItem).filter(MemoryItem.id == mid).one()
+            row.kind = "poem"
+            db.commit()
+        finally:
+            db.close()
+
+    after_poems = client.get(
+        f"/api/spaces/{space_id}/identities/{identity_id}/heritage-readiness",
+        headers=owner_h,
+    ).json()
+    assert after_poems["knowledge_count"] == 0
+    assert after_poems["poem_count"] == 5
+    assert after_poems["can_activate"] is False
+
+    # Prefix collision must not count (heritage:{id}xxx).
+    decoy = client.post(
+        f"/api/spaces/{space_id}/memories/note",
+        headers=owner_h,
+        json={
+            "title": "Decoy",
+            "body": "Sai tag",
+            "tags": f"heritage:{identity_id}extra",
+        },
+    )
+    assert decoy.status_code == 200
+
+    for i in range(3):
         note = client.post(
             f"/api/spaces/{space_id}/memories/note",
             headers=owner_h,
@@ -352,11 +395,39 @@ def test_heritage_readiness_and_activation(client: TestClient, tmp_path, monkeyp
         )
         assert note.status_code == 200, note.text
 
+    mid = client.get(
+        f"/api/spaces/{space_id}/identities/{identity_id}/heritage-readiness",
+        headers=owner_h,
+    ).json()
+    assert mid["knowledge_count"] == 3
+    assert mid["knowledge_ready"] is True
+    assert mid["profile_ready"] is False
+    assert mid["can_activate"] is False
+
+    lock = client.patch(
+        f"/api/spaces/{space_id}/identities/{identity_id}",
+        headers=owner_h,
+        json={
+            "core_values": [
+                {"label": "Yêu gia đình", "status": "draft"},
+                {"label": "Khiêm nhường", "status": "draft"},
+                {"label": "Tôn trọng nghề giáo", "status": "draft"},
+            ],
+            "speech_style": {"traits": ["Điềm đạm", "Ấm áp"]},
+            "address_forms": {"with_spouse": {"self": "anh", "other": "em"}},
+            "taboos": {"hard": ["Chính trị", "Tình dục"]},
+            "mark_profile_reviewed": True,
+        },
+    )
+    assert lock.status_code == 200, lock.text
+    assert lock.json()["profile_reviewed_at"]
+
     ready = client.get(
         f"/api/spaces/{space_id}/identities/{identity_id}/heritage-readiness",
         headers=owner_h,
     ).json()
-    assert ready["knowledge_count"] == 5
+    assert ready["profile_ready"] is True
+    assert ready["entity_status"] == "awakening"
     assert ready["can_activate"] is True
 
     denied = client.post(
@@ -372,6 +443,24 @@ def test_heritage_readiness_and_activation(client: TestClient, tmp_path, monkeyp
     assert activated.status_code == 200, activated.text
     assert activated.json()["chat_ready"] is True
     assert activated.json()["entity_status"] == "ready"
+    assert activated.json()["can_pause"] is True
+
+    paused = client.post(
+        f"/api/spaces/{space_id}/identities/{identity_id}/pause-heritage",
+        headers=owner_h,
+    )
+    assert paused.status_code == 200, paused.text
+    assert paused.json()["entity_status"] == "paused"
+    assert paused.json()["chat_ready"] is False
+    assert paused.json()["can_resume"] is True
+
+    resumed = client.post(
+        f"/api/spaces/{space_id}/identities/{identity_id}/resume-heritage",
+        headers=owner_h,
+    )
+    assert resumed.status_code == 200, resumed.text
+    assert resumed.json()["entity_status"] == "ready"
+    assert resumed.json()["chat_ready"] is True
 
     get_settings.cache_clear()
 

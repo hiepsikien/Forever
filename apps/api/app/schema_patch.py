@@ -215,6 +215,46 @@ def ensure_schema() -> None:
         "heritage_entity_status",
         "ALTER TABLE identity_profiles ADD COLUMN heritage_entity_status VARCHAR(32) DEFAULT 'dormant'",
     )
+    for col, ddl in (
+        ("life_stage_json", "ALTER TABLE identity_profiles ADD COLUMN life_stage_json TEXT DEFAULT ''"),
+        ("roles_json", "ALTER TABLE identity_profiles ADD COLUMN roles_json TEXT DEFAULT ''"),
+        (
+            "address_forms_json",
+            "ALTER TABLE identity_profiles ADD COLUMN address_forms_json TEXT DEFAULT ''",
+        ),
+        (
+            "speech_style_json",
+            "ALTER TABLE identity_profiles ADD COLUMN speech_style_json TEXT DEFAULT ''",
+        ),
+        (
+            "core_values_json",
+            "ALTER TABLE identity_profiles ADD COLUMN core_values_json TEXT DEFAULT ''",
+        ),
+        ("philosophy_json", "ALTER TABLE identity_profiles ADD COLUMN philosophy_json TEXT DEFAULT ''"),
+        ("taboos_json", "ALTER TABLE identity_profiles ADD COLUMN taboos_json TEXT DEFAULT ''"),
+        (
+            "poetry_quote_mode",
+            "ALTER TABLE identity_profiles ADD COLUMN poetry_quote_mode VARCHAR(32) DEFAULT 'paraphrase'",
+        ),
+        (
+            "dynamic_context",
+            "ALTER TABLE identity_profiles ADD COLUMN dynamic_context TEXT DEFAULT ''",
+        ),
+        (
+            "profile_reviewed_at",
+            "ALTER TABLE identity_profiles ADD COLUMN profile_reviewed_at TIMESTAMP WITH TIME ZONE",
+        ),
+        (
+            "profile_reviewed_by",
+            "ALTER TABLE identity_profiles ADD COLUMN profile_reviewed_by VARCHAR(32)",
+        ),
+    ):
+        _add_column_if_missing("identity_profiles", col, ddl)
+    _add_column_if_missing(
+        "messages",
+        "meta_json",
+        "ALTER TABLE messages ADD COLUMN meta_json TEXT DEFAULT ''",
+    )
     try:
         with engine.begin() as conn:
             conn.execute(

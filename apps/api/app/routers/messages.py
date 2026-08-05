@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from datetime import datetime, timezone
 from typing import Annotated
 
@@ -31,6 +32,13 @@ def _message_payload(
     handle: str | None,
 ) -> dict:
     kind = getattr(message, "kind", None) or "text"
+    meta_raw = getattr(message, "meta_json", None) or ""
+    meta = None
+    if meta_raw.strip():
+        try:
+            meta = json.loads(meta_raw)
+        except json.JSONDecodeError:
+            meta = None
     return {
         "id": message.id,
         "thread_id": message.thread_id,
@@ -42,6 +50,7 @@ def _message_payload(
         "body": message.body,
         "has_media": bool(getattr(message, "media_path", None)),
         "media_mime": getattr(message, "media_mime", None),
+        "meta": meta,
         "created_at": message.created_at.isoformat(),
     }
 

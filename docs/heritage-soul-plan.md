@@ -230,27 +230,39 @@ Bộ ~15 câu cố định (bịa tiểu sử, đóng vai còn sống, chính tr
 - [ ] Toggle paraphrase/verbatim + citation khi verbatim  
 - [ ] Heritage history nhớ lượt trước; tách khỏi agent family  
 - [ ] Live context opt-in + tóm tắt 1–2 câu  
-- [ ] ACL mẹ+steward trước khi mở rộng  
+- [ ] ACL: full members (đã chốt) — không khóa theo giai đoạn  
 - [ ] ~15 adversarial tests xanh  
 - [ ] Dry-run 10 câu mẹ+steward trước TTS tinh chỉnh  
 
 ---
 
-## 8. Việc không làm ở giai đoạn này
+## 8. Quyết định đã chốt (steward 2026-08-05)
+
+1. **Knowledge neo N=3**, thơ (`kind=poem`) **không** tính vào cổng activate.  
+2. **ACL:** full cho mọi thành viên space.  
+3. **Citation:** cột `messages.meta_json`.  
+4. **Gate fix:** land trên PR này (A0) trước OCR ingest.
+
+---
+
+## 9. Việc không làm ở giai đoạn này
 
 - pgvector / embedding service  
 - Nhồi 40 bài mỗi request  
 - Mở activate trước `profile_reviewed_at`  
 - Tái sử dụng `maybe_reply` cho heritage  
 - Auto-play TTS  
+- ACL hạn chế member (đã chốt: full)
 
 ---
 
-## 9. Điểm thảo luận còn mở (trước khi code)
+## 10. Tiến độ implement (PR này)
 
-1. **Knowledge neo sau khi loại thơ:** giữ N=5 note/milestone, hạ xuống 3, hay cho phép 0 nếu Profile đã reviewed + voice? (Đề xuất: N=3 note/milestone **hoặc** time-capsule — thơ không tính.)  
-2. **ACL:** ẩn thread với member khác, hay hiện thread nhưng chặn send?  
-3. **Citation meta:** JSON trên cột `Message.body` prefix / cột `Message.meta_json` mới (schema_patch)? Đề xuất `meta_json`.  
-4. **Merge strategy:** land A0 gate fix trên nhánh này rồi mới OCR, hay PR gate riêng cherry-pick trước?  
-
-Khi chốt 1–4 → bắt đầu implement theo §0 (A0 trước).
+| Hạng mục | Status |
+|----------|--------|
+| A0 gate N=3, exclude poem, tag token match, gathering/awakening | **done** |
+| A1 Identity Lock columns + PATCH + profile_reviewed | **done** (màn Bản sắc form đầy đủ: sau) |
+| A2 pause/resume kill switch | **done** |
+| `messages.meta_json` | **done** (heritage chat chưa ghi citation) |
+| B OCR / kind=poem batch import | chưa |
+| C heritage_chat.py | chưa |

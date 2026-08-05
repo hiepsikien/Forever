@@ -43,11 +43,13 @@ function threadRowMeta(item: ThreadSummary): { preview: string; cta: string } {
       };
     }
     return {
-      preview: `Giọng ${h.voice_ready ? "✓" : "…"} · Ký ức ${h.knowledge_count}/${h.knowledge_target} — chưa thể chat`,
+      preview: `Giọng ${h.voice_ready ? "✓" : "…"} · Neo ${h.knowledge_count}/${h.knowledge_target}${h.profile_ready ? " · Bản sắc ✓" : " · Bản sắc …"} — chưa thể chat`,
       cta:
         h.entity_status === "dormant"
           ? "Bắt đầu thổi hồn →"
-          : "Tiếp tục thổi hồn →",
+          : h.entity_status === "paused"
+            ? "Đã tạm dừng — mở Thổi hồn →"
+            : "Tiếp tục thổi hồn →",
     };
   }
   if (!item.last_message) {

@@ -83,6 +83,8 @@ class Message(Base):
     body: Mapped[str] = mapped_column(Text, default="")
     media_path: Mapped[str | None] = mapped_column(String(512), nullable=True)
     media_mime: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    # JSON: citations, quote_mode, etc. (heritage verbatim provenance)
+    meta_json: Mapped[str] = mapped_column(Text, default="")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
 
     thread: Mapped[Thread] = relationship(back_populates="messages")
@@ -107,7 +109,9 @@ class MemoryItem(Base):
     id: Mapped[str] = mapped_column(String(32), primary_key=True)
     space_id: Mapped[str] = mapped_column(ForeignKey("family_spaces.id"), index=True)
     created_by: Mapped[str] = mapped_column(ForeignKey("users.id"), index=True)
-    kind: Mapped[str] = mapped_column(String(32), default="note")  # note | voice | photo | video | letter
+    kind: Mapped[str] = mapped_column(
+        String(32), default="note"
+    )  # note | voice | photo | video | letter | poem | milestone
     title: Mapped[str] = mapped_column(String(200), default="")
     body: Mapped[str] = mapped_column(Text, default="")
     media_path: Mapped[str | None] = mapped_column(String(512), nullable=True)
@@ -200,9 +204,25 @@ class IdentityProfile(Base):
     heritage_thread_id: Mapped[str | None] = mapped_column(
         ForeignKey("threads.id"), nullable=True
     )
-    # dormant | awakening | ready — heritage chat unlocked at ready
+    # dormant | gathering | awakening | ready | paused
     heritage_entity_status: Mapped[str] = mapped_column(
         String(32), default="dormant", index=True
+    )
+    # Identity Lock (JSON text — assemble system prompt at request time)
+    life_stage_json: Mapped[str] = mapped_column(Text, default="")
+    roles_json: Mapped[str] = mapped_column(Text, default="")
+    address_forms_json: Mapped[str] = mapped_column(Text, default="")
+    speech_style_json: Mapped[str] = mapped_column(Text, default="")
+    core_values_json: Mapped[str] = mapped_column(Text, default="")
+    philosophy_json: Mapped[str] = mapped_column(Text, default="")
+    taboos_json: Mapped[str] = mapped_column(Text, default="")
+    poetry_quote_mode: Mapped[str] = mapped_column(String(32), default="paraphrase")
+    dynamic_context: Mapped[str] = mapped_column(Text, default="")
+    profile_reviewed_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    profile_reviewed_by: Mapped[str | None] = mapped_column(
+        ForeignKey("users.id"), nullable=True
     )
     created_by: Mapped[str] = mapped_column(ForeignKey("users.id"))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))

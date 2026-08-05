@@ -99,13 +99,22 @@ export default function AwakeningScreen() {
         <Text style={styles.statusTitle}>
           {readiness.entity_status === "ready"
             ? "Sẵn sàng trò chuyện"
-            : readiness.entity_status === "awakening"
-              ? "Đang thổi hồn"
-              : "Chưa bắt đầu"}
+            : readiness.entity_status === "paused"
+              ? "Đã tạm dừng"
+              : readiness.entity_status === "awakening"
+                ? "Đủ điều kiện — chờ kích hoạt"
+                : readiness.entity_status === "gathering"
+                  ? "Đang thổi hồn"
+                  : "Chưa bắt đầu"}
         </Text>
         <Text style={styles.statusSub}>
-          Giọng {readiness.voice_ready ? "đã có" : "chưa đủ"} · Ký ức{" "}
+          Giọng {readiness.voice_ready ? "đã có" : "chưa đủ"} · Ký ức neo{" "}
           {readiness.knowledge_count}/{readiness.knowledge_target}
+          {typeof readiness.poem_count === "number"
+            ? ` · Thơ ${readiness.poem_count}`
+            : ""}
+          {" · "}
+          Bản sắc {readiness.profile_ready ? "đã duyệt" : "chưa duyệt"}
         </Text>
       </View>
 
@@ -144,10 +153,14 @@ export default function AwakeningScreen() {
           )}
         </Text>
         <View style={styles.pillarBody}>
-          <Text style={styles.pillarTitle}>Ký ức</Text>
+          <Text style={styles.pillarTitle}>Ký ức neo</Text>
           <Text style={styles.pillarSub}>
-            Thêm ghi chú, ảnh, câu trả lời Time-Capsule vào Thư viện — gắn tag{" "}
-            <Text style={styles.mono}>{tagHint}</Text> trong trường tags.
+            Cần {readiness.knowledge_target} ghi chú / mốc / time-capsule gắn tag{" "}
+            <Text style={styles.mono}>{tagHint}</Text>. Thơ không tính vào cổng
+            kích hoạt
+            {typeof readiness.poem_count === "number"
+              ? ` (đang có ${readiness.poem_count} bài).`
+              : "."}
           </Text>
           <Pressable onPress={() => router.push(`/library/${spaceId}`)}>
             <Text style={styles.link}>Mở Thư viện →</Text>
@@ -160,13 +173,30 @@ export default function AwakeningScreen() {
 
       <View style={styles.pillar}>
         <Text style={styles.pillarMark}>
-          {pillarLabel(readiness.entity_status === "ready", readiness.can_activate)}
+          {pillarLabel(Boolean(readiness.profile_ready), !readiness.profile_ready)}
+        </Text>
+        <View style={styles.pillarBody}>
+          <Text style={styles.pillarTitle}>Bản sắc</Text>
+          <Text style={styles.pillarSub}>
+            Identity Lock đã hiệu đính (giá trị, giọng điệu, xưng hô, taboo) —
+            bắt buộc trước khi kích hoạt.
+          </Text>
+        </View>
+      </View>
+
+      <View style={styles.pillar}>
+        <Text style={styles.pillarMark}>
+          {pillarLabel(
+            readiness.entity_status === "ready",
+            readiness.can_activate || readiness.entity_status === "paused",
+          )}
         </Text>
         <View style={styles.pillarBody}>
           <Text style={styles.pillarTitle}>Kích hoạt</Text>
           <Text style={styles.pillarSub}>
-            Khi đủ giọng và {readiness.knowledge_target} ký ức, người quản lý nhà
-            xác nhận mở trò chuyện Ký ức.
+            Khi đủ giọng, {readiness.knowledge_target} ký ức neo và Bản sắc đã
+            duyệt, người quản lý nhà xác nhận mở trò chuyện Ký ức. Có thể tạm
+            dừng bất cứ lúc nào.
           </Text>
         </View>
       </View>
@@ -184,19 +214,54 @@ export default function AwakeningScreen() {
       ) : readiness.chat_ready ? (
         <Pressable
           style={styles.btn}
-          onPress={() => {
-            void load();
-            Alert.alert(
-              "Sẵn sàng",
-              "Quay về nhà và mở cuộc trò chuyện Ký ức.",
-            );
+          onPress={async () => {
+            if (!spaceId || !identityId) return;
+            setActivating(true);
+            try {
+              const res = await api.pauseHeritageEntity(spaceId, identityId);
+              setReadiness(res);
+            } catch (e) {
+              Alert.alert(
+                "Lỗi",
+                e instanceof Error ? e.message : "Không tạm dừng được.",
+              );
+            } finally {
+              setActivating(false);
+            }
           }}
+          disabled={activating}
         >
-          <Text style={styles.btnText}>Đã kích hoạt — về nhà để chat</Text>
+          <Text style={styles.btnText}>
+            {activating ? "Đang tạm dừng…" : "Tạm dừng thực thể (kill switch)"}
+          </Text>
+        </Pressable>
+      ) : readiness.entity_status === "paused" && readiness.can_resume ? (
+        <Pressable
+          style={[styles.btn, activating && styles.disabled]}
+          onPress={async () => {
+            if (!spaceId || !identityId) return;
+            setActivating(true);
+            try {
+              const res = await api.resumeHeritageEntity(spaceId, identityId);
+              setReadiness(res);
+            } catch (e) {
+              Alert.alert(
+                "Lỗi",
+                e instanceof Error ? e.message : "Không mở lại được.",
+              );
+            } finally {
+              setActivating(false);
+            }
+          }}
+          disabled={activating}
+        >
+          <Text style={styles.btnText}>
+            {activating ? "Đang mở lại…" : "Mở lại thực thể ký ức"}
+          </Text>
         </Pressable>
       ) : (
         <Text style={styles.footnote}>
-          Hoàn thành Giọng và Ký ức ở trên rồi quay lại kích hoạt.
+          Hoàn thành Giọng, Ký ức neo và Bản sắc rồi quay lại kích hoạt.
         </Text>
       )}
     </ScrollView>

@@ -1,11 +1,20 @@
 from __future__ import annotations
 
+import json
+import re
+from datetime import datetime, timezone
+
 from sqlalchemy.orm import Session
 
 from ..models import IdentityProfile, MemoryItem, Thread, VoiceProfile, VoiceSample
 
-KNOWLEDGE_TARGET = 5
+KNOWLEDGE_TARGET = 3
 HERITAGE_TAG_PREFIX = "heritage:"
+# Kinds that count toward activate knowledge gate (poems do NOT).
+KNOWLEDGE_KINDS = ("note", "voice", "photo", "video", "letter", "milestone")
+POEM_KIND = "poem"
+
+_TAG_SPLIT = re.compile(r"[,;\s]+")
 
 
 def heritage_thread_title(display_name: str, relation_label: str | None) -> str:
@@ -16,18 +25,43 @@ def heritage_thread_title(display_name: str, relation_label: str | None) -> str:
     return name
 
 
+def tag_tokens(tags: str | None) -> list[str]:
+    if not tags:
+        return []
+    return [t for t in _TAG_SPLIT.split(tags.strip()) if t]
+
+
+def has_heritage_tag(tags: str | None, identity_id: str) -> bool:
+    needle = f"{HERITAGE_TAG_PREFIX}{identity_id}"
+    return needle in tag_tokens(tags)
+
+
 def knowledge_count_for_identity(
     db: Session, *, space_id: str, identity_id: str
 ) -> int:
+    """Count non-poem memories tagged exactly heritage:{id}."""
     needle = f"{HERITAGE_TAG_PREFIX}{identity_id}"
-    return (
+    items = (
         db.query(MemoryItem)
         .filter(
             MemoryItem.space_id == space_id,
-            MemoryItem.tags.contains(needle),
+            MemoryItem.kind.in_(KNOWLEDGE_KINDS),
         )
-        .count()
+        .all()
     )
+    return sum(1 for item in items if needle in tag_tokens(item.tags))
+
+
+def poem_count_for_identity(
+    db: Session, *, space_id: str, identity_id: str
+) -> int:
+    needle = f"{HERITAGE_TAG_PREFIX}{identity_id}"
+    items = (
+        db.query(MemoryItem)
+        .filter(MemoryItem.space_id == space_id, MemoryItem.kind == POEM_KIND)
+        .all()
+    )
+    return sum(1 for item in items if needle in tag_tokens(item.tags))
 
 
 def voice_for_identity(db: Session, identity: IdentityProfile) -> VoiceProfile | None:
@@ -70,20 +104,74 @@ def voice_stage_stats(db: Session, voice: VoiceProfile | None) -> dict:
     }
 
 
+def _json_loads(raw: str | None) -> object | None:
+    if not raw or not str(raw).strip():
+        return None
+    try:
+        return json.loads(raw)
+    except json.JSONDecodeError:
+        return None
+
+
+def profile_lock_ready(identity: IdentityProfile) -> bool:
+    """Human-reviewed Identity Lock with minimum non-empty fields."""
+    reviewed = getattr(identity, "profile_reviewed_at", None)
+    if not reviewed:
+        return False
+    values = _json_loads(getattr(identity, "core_values_json", None) or "")
+    if not isinstance(values, list) or len(values) < 3:
+        return False
+    # Reject if every value is still a placeholder marker.
+    real = 0
+    for item in values:
+        if isinstance(item, dict):
+            status = str(item.get("status") or "")
+            if status.startswith("placeholder"):
+                continue
+            label = (item.get("label") or item.get("text") or "").strip()
+            if label and "PLACEHOLDER" not in label.upper():
+                real += 1
+        elif isinstance(item, str) and item.strip() and "PLACEHOLDER" not in item.upper():
+            real += 1
+    if real < 3:
+        return False
+    speech = _json_loads(getattr(identity, "speech_style_json", None) or "")
+    if not isinstance(speech, dict):
+        return False
+    traits = speech.get("traits")
+    if not isinstance(traits, list) or len(traits) < 1:
+        return False
+    address = _json_loads(getattr(identity, "address_forms_json", None) or "")
+    if not isinstance(address, dict) or not address:
+        return False
+    taboos = _json_loads(getattr(identity, "taboos_json", None) or "")
+    if not isinstance(taboos, dict):
+        return False
+    hard = taboos.get("hard")
+    if not isinstance(hard, list) or len(hard) < 1:
+        return False
+    return True
+
+
 def compute_heritage_entity_status(
     *,
     identity: IdentityProfile,
     processed_count: int,
     knowledge_count: int,
+    profile_ready: bool,
 ) -> str:
     stored = getattr(identity, "heritage_entity_status", None) or "dormant"
     if stored == "ready":
         return "ready"
+    if stored == "paused":
+        return "paused"
+
     voice_ok = processed_count >= 1
-    if knowledge_count >= KNOWLEDGE_TARGET and voice_ok:
-        return "awakening"
-    if knowledge_count > 0 or processed_count > 0 or voice_ok:
-        return "awakening"
+    knowledge_ok = knowledge_count >= KNOWLEDGE_TARGET
+    if voice_ok and knowledge_ok and profile_ready:
+        return "awakening"  # đủ điều kiện — chờ steward kích hoạt
+    if knowledge_count > 0 or processed_count > 0 or voice_ok or profile_ready:
+        return "gathering"
     return "dormant"
 
 
@@ -97,14 +185,26 @@ def heritage_readiness_payload(
     knowledge_count = knowledge_count_for_identity(
         db, space_id=identity.space_id, identity_id=identity.id
     )
+    poem_count = poem_count_for_identity(
+        db, space_id=identity.space_id, identity_id=identity.id
+    )
+    profile_ready = profile_lock_ready(identity)
     entity_status = compute_heritage_entity_status(
         identity=identity,
         processed_count=stats["processed_count"],
         knowledge_count=knowledge_count,
+        profile_ready=profile_ready,
     )
     voice_ok = stats["processed_count"] >= 1
     knowledge_ok = knowledge_count >= KNOWLEDGE_TARGET
     chat_ready = entity_status == "ready"
+    can_activate = (
+        voice_ok
+        and knowledge_ok
+        and profile_ready
+        and entity_status == "awakening"
+    )
+    reviewed_at = getattr(identity, "profile_reviewed_at", None)
     return {
         "identity_id": identity.id,
         "display_name": identity.display_name,
@@ -118,8 +218,16 @@ def heritage_readiness_payload(
         "knowledge_count": knowledge_count,
         "knowledge_target": KNOWLEDGE_TARGET,
         "knowledge_ready": knowledge_ok,
+        "poem_count": poem_count,
+        "profile_ready": profile_ready,
+        "profile_reviewed_at": reviewed_at.isoformat() if reviewed_at else None,
         "chat_ready": chat_ready,
-        "can_activate": voice_ok and knowledge_ok and entity_status != "ready",
+        "can_activate": can_activate,
+        "can_pause": entity_status == "ready",
+        "can_resume": entity_status == "paused"
+        and voice_ok
+        and knowledge_ok
+        and profile_ready,
     }
 
 
@@ -136,3 +244,10 @@ def sync_heritage_thread_title(db: Session, identity: IdentityProfile) -> None:
     thread.title = heritage_thread_title(
         identity.display_name, identity.relation_label
     )
+
+
+def mark_profile_reviewed(
+    identity: IdentityProfile, *, user_id: str, at: datetime | None = None
+) -> None:
+    identity.profile_reviewed_at = at or datetime.now(timezone.utc)
+    identity.profile_reviewed_by = user_id

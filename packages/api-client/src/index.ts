@@ -68,7 +68,13 @@ export interface HeritageReadiness {
   identity_id: string;
   display_name: string;
   relation_label: string;
-  entity_status: "dormant" | "awakening" | "ready" | string;
+  entity_status:
+    | "dormant"
+    | "gathering"
+    | "awakening"
+    | "ready"
+    | "paused"
+    | string;
   voice_profile_id?: string | null;
   voice_status?: string | null;
   processed_count: number;
@@ -77,8 +83,13 @@ export interface HeritageReadiness {
   knowledge_count: number;
   knowledge_target: number;
   knowledge_ready: boolean;
+  poem_count?: number;
+  profile_ready?: boolean;
+  profile_reviewed_at?: string | null;
   chat_ready: boolean;
   can_activate: boolean;
+  can_pause?: boolean;
+  can_resume?: boolean;
 }
 
 export interface ChatMessage {
@@ -92,6 +103,7 @@ export interface ChatMessage {
   body: string;
   has_media?: boolean;
   media_mime?: string | null;
+  meta?: Record<string, unknown> | null;
   created_at: string;
 }
 
@@ -136,12 +148,24 @@ export interface IdentityProfile {
   status: "living" | "remembered" | string;
   linked_user_id?: string | null;
   heritage_thread_id?: string | null;
+  heritage_entity_status?: string | null;
   created_by: string;
   created_at: string;
   voice_profile_id?: string | null;
   voice_status?: string | null;
   voice_sample_count?: number | null;
   voice_provider_voice_id?: string | null;
+  life_stage?: unknown;
+  roles?: unknown;
+  address_forms?: unknown;
+  speech_style?: unknown;
+  core_values?: unknown;
+  philosophy?: unknown;
+  taboos?: unknown;
+  poetry_quote_mode?: "paraphrase" | "verbatim" | string;
+  dynamic_context?: string;
+  profile_reviewed_at?: string | null;
+  profile_reviewed_by?: string | null;
 }
 
 export interface VoiceSample {
@@ -811,6 +835,16 @@ export function createApiClient({
         display_name?: string;
         relation_label?: string;
         status?: "living" | "remembered";
+        life_stage?: unknown;
+        roles?: unknown;
+        address_forms?: unknown;
+        speech_style?: unknown;
+        core_values?: unknown;
+        philosophy?: unknown;
+        taboos?: unknown;
+        poetry_quote_mode?: "paraphrase" | "verbatim";
+        dynamic_context?: string;
+        mark_profile_reviewed?: boolean;
       },
     ) =>
       request<IdentityProfile>(
@@ -827,6 +861,16 @@ export function createApiClient({
     activateHeritageEntity: (spaceId: string, identityId: string) =>
       request<HeritageReadiness>(
         `/api/spaces/${spaceId}/identities/${identityId}/activate-heritage`,
+        { method: "POST" },
+      ),
+    pauseHeritageEntity: (spaceId: string, identityId: string) =>
+      request<HeritageReadiness>(
+        `/api/spaces/${spaceId}/identities/${identityId}/pause-heritage`,
+        { method: "POST" },
+      ),
+    resumeHeritageEntity: (spaceId: string, identityId: string) =>
+      request<HeritageReadiness>(
+        `/api/spaces/${spaceId}/identities/${identityId}/resume-heritage`,
         { method: "POST" },
       ),
     listVoices: (spaceId: string) =>
