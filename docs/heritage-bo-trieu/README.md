@@ -1,5 +1,8 @@
 # Ông Nguyễn Đình Triệu — Identity Lock & Memories pack
 
+> **Trạng thái:** nằm trên nhánh `cursor/heritage-soul-plan-1ef6` (PR #6) — **chưa merge `main`**.  
+> Kế hoạch v2: [`../heritage-soul-plan.md`](../heritage-soul-plan.md) — siết cổng activate **trước** khi ingest thơ.
+
 Tài liệu steward cho thực thể ký ức **Bố / Ông Triệu**.
 
 | File | Vai trò |
