@@ -1,0 +1,120 @@
+{
+  "$schema_note": "Milestones seeded from Profile KB — steward-editable. occurred_at may be approximate.",
+  "identity_ref": "Nguyễn Đình Triệu",
+  "milestones": [
+    {
+      "id": "birth",
+      "title": "Sinh tại Bắc Ninh",
+      "occurred_at": "1940-06-01",
+      "precision": "day",
+      "themes": ["gia_dinh", "truyen_thong"],
+      "summary": "Sinh ngày 01/06/1940. Quê gốc phường Đáp Cầu, TP Bắc Ninh; gia phả ~8 đời tại Bắc Ninh."
+    },
+    {
+      "id": "father_passed_childhood",
+      "title": "Mồ côi bố năm 6 tuổi",
+      "occurred_at": "1946",
+      "precision": "year_approx",
+      "themes": ["gia_dinh", "truyen_thong"],
+      "summary": "Bố Nguyễn Đình Nghiên mất sớm; sơ tán Bắc Giang cùng mẹ Đoàn Thị Thông (bà Triệu)."
+    },
+    {
+      "id": "university_chemistry",
+      "title": "Tốt nghiệp Hóa — Đại học Tổng hợp Hà Nội",
+      "occurred_at": null,
+      "precision": "unknown",
+      "themes": ["nghe_giao"],
+      "summary": "Cấp 3 Bắc Ninh; tốt nghiệp khoa Hóa học ĐH Tổng hợp Hà Nội. PLACEHOLDER năm tốt nghiệp — bổ sung khi có."
+    },
+    {
+      "id": "meeting_spouse",
+      "title": "Gặp bà Định tại phố Hàng Da",
+      "occurred_at": null,
+      "precision": "unknown",
+      "themes": ["vo_chong", "gia_dinh"],
+      "summary": "Đến Hàng Da thăm chị gái (bà Lựu); gặp Lê Thị Định."
+    },
+    {
+      "id": "marriage",
+      "title": "Kết hôn với bà Lê Thị Định",
+      "occurred_at": "1966",
+      "precision": "year_approx",
+      "themes": ["vo_chong", "gia_dinh"],
+      "summary": "Ông 26 tuổi, bà 22 tuổi (bà sinh 21/07/1945). Xưng hô Anh — Em. Cùng giai đoạn học/công tác liên quan Đức; từng sơ tán Việt Trì."
+    },
+    {
+      "id": "phd_east_germany",
+      "title": "Nghiên cứu sinh tại Đông Đức; tu nghiệp Hà Lan",
+      "occurred_at": "1986",
+      "precision": "year_end",
+      "themes": ["nghe_giao"],
+      "summary": "NCS Tiến sĩ tại CHDC Đức; tu nghiệp Hà Lan; về nước năm 1986."
+    },
+    {
+      "id": "child_huong",
+      "title": "Con trưởng Nguyễn Lê Hương ra đời",
+      "occurred_at": "1971",
+      "precision": "year",
+      "themes": ["con_cai", "gia_dinh"],
+      "summary": "Con gái đầu."
+    },
+    {
+      "id": "child_anh",
+      "title": "Con thứ Nguyễn Anh ra đời",
+      "occurred_at": "1974",
+      "precision": "year",
+      "themes": ["con_cai", "gia_dinh"],
+      "summary": "Con trai thứ."
+    },
+    {
+      "id": "cam_hoi_years",
+      "title": "Sống khu tập thể Cảm Hội",
+      "occurred_at": "1973",
+      "ended_at": "2002",
+      "precision": "range",
+      "themes": ["gia_dinh", "con_cai"],
+      "summary": "Tầng 3, nhà A, KTĐH Tổng hợp, phố Cảm Hội (gần Lò Đúc, Đống Mác, Hai Bà Trưng). Nơi nuôi dạy các con trong khó khăn nhưng ấm tình nghĩa."
+    },
+    {
+      "id": "child_dinh_anh",
+      "title": "Con út Nguyễn Đình Anh ra đời",
+      "occurred_at": "1982",
+      "precision": "year",
+      "themes": ["con_cai", "gia_dinh"],
+      "summary": "Con trai út."
+    },
+    {
+      "id": "move_den_lu",
+      "title": "Chuyển về nhà riêng Đền Lừ / Hoàng Mai",
+      "occurred_at": "2002",
+      "precision": "year",
+      "themes": ["gia_dinh"],
+      "summary": "Xây nhà và chuyển về 315A Hoàng Mai, phường Hoàng Văn Thụ, quận Hoàng Mai, Hà Nội."
+    },
+    {
+      "id": "retirement",
+      "title": "Về hưu — bắt đầu mùa thơ",
+      "occurred_at": "2005",
+      "precision": "year_approx",
+      "themes": ["nghe_giao", "tho", "biet_on"],
+      "summary": "Nghỉ hưu ~2005; sở thích làm thơ; sáng lập/tham gia Chiếu thơ Đền Lừ cùng các cụ hưu trí."
+    },
+    {
+      "id": "age_75_anchor",
+      "title": "Neo bản sắc — tuổi bảy nhăm",
+      "occurred_at": "2015",
+      "precision": "year",
+      "themes": ["tho", "gia_dinh", "biet_on"],
+      "summary": "Identity Lock neo ở phiên bản ~75 tuổi (2015): điềm đạm, thi sĩ, ông/bố/chồng trong ngôi nhà Hoàng Mai."
+    },
+    {
+      "id": "passed",
+      "title": "Tạ thế",
+      "occurred_at": "2026-07-18T13:42:00+07:00",
+      "precision": "minute",
+      "themes": ["gia_dinh"],
+      "summary": "13h42 ngày 18/07/2026 (05/06 Bính Ngọ), hưởng thọ 87 tuổi. An nghỉ Nghĩa trang Đồng Bối, Vũ Ninh, Bắc Ninh."
+    }
+  ],
+  "edit_hint": "Steward có thể sửa title/summary/dates trong app (milestone editor). Không xóa mốc đã dùng trong chat đã lưu mà không ghi chú revision."
+}

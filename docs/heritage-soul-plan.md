@@ -1,8 +1,30 @@
 # Thổi hồn cho Bố — kế hoạch triển khai
 
-> **Mục tiêu:** hoàn thiện trụ *bản sắc + tri thức* (Profile / Memories) sau khi Voice DNA ~70%.  
+> **Mục tiêu:** hoàn thiện trụ *bản sắc + tri thức* (Profile / Memories) sau Voice DNA (đã dùng được).  
 > **Nguyên tắc:** Identity Lock bất biến · Memories retrieve theo ngữ cảnh · không bịa tiểu sử · label rõ tin nhắn Ký ức.  
-> **Phạm vi repo:** Forever only (không đụng Read book).
+> **Phạm vi repo:** Forever only.  
+> **Pack steward:** [`docs/heritage-bo-trieu/`](./heritage-bo-trieu/).
+
+---
+
+## Quyết định đã khóa (steward Q&A 2026-08-05)
+
+| # | Quyết định |
+|---|------------|
+| Neo bản sắc | **Tuổi 75 / năm 2015** (sinh 1940) — tinh thần sau hưu, mùa thơ Đền Lừ |
+| Profile nguồn | Notion/PDF *PROFILE & KNOWLEDGE BASE ÔNG NGUYỄN ĐÌNH TRIỆU* → draft Identity Lock + milestones |
+| Giá trị / câu mẫu | **Placeholder** — đề xuất sau OCR đầy đủ + hiệu đính mẹ |
+| Taboo cứng | Chính trị · tình dục · trái pháp luật · trái đạo đức (+ không bịa tiểu sử) |
+| Thơ | ~20 bài ảnh sẵn, tổng ~40+; **ảnh chụp trang in** (vd. mục *Thơ Tâm Tình*, lục bát) |
+| Quote mode | Toggle; **default = mượn ý (paraphrase)**; optional verbatim + tên bài |
+| Signature poems (#8) | Chọn **2–3 bài chữ ký** luôn nằm trong System Prompt — đề xuất sau OCR |
+| Themes | `vo_chong`, `con_cai`, `gia_dinh`, `nghe_giao`, `tho`, `biet_on`, `truyen_thong` |
+| Milestones | Seed từ Profile; UI/edit sau |
+| Live context | Đề xuất bên dưới — steward tinh chỉnh |
+| Review ship text | **Mẹ + steward (con)** trước; anh chị sau |
+| Ưu tiên tiếp | **Ingest thơ (Gemini OCR)** trước heritage chat stub |
+| Voice DNA | Đủ dùng — tinh chỉnh sau text “đúng bố” |
+| Đường dẫn ảnh | Local Mac iCloud `…/Trieu/Thơ` — cloud agent không mount được; khi kéo code về local set `FOREVER_POETRY_PHOTOS` / `--input` |
 
 ---
 
@@ -10,188 +32,124 @@
 
 | Lớp | Đã có | Thiếu |
 |-----|-------|-------|
-| **Giọng (Voice DNA)** | Profile, mẫu, extract, clone, TTS speak | Tinh chỉnh clone / chọn mẫu (~30% còn lại) |
-| **Hồ sơ nhân dạng** | `IdentityProfile` mỏng: tên, quan hệ, status, thread | Core values, giọng điệu, xưng hô, taboo, system prompt |
-| **Ký ức / RAG** | `MemoryItem` + tag `heritage:{id}`; gate ≥5 item để activate | Vector / embedding; kind thơ; milestone có cấu trúc; live context |
-| **Chat Ký ức** | Thread `kind=heritage`; activate → `ready` | LLM reply cho heritage; inject Profile + retrieved memories; refuse khi thiếu data |
-| **UX Thổi hồn** | 3 trụ: Giọng · Ký ức (đếm tag) · Kích hoạt | Trụ Profile riêng; nhập thơ; preview “nghe như bố”; steward review |
+| **Giọng** | Voice DNA dùng được | Tinh chỉnh sau text |
+| **Profile** | Draft Identity Lock + milestones (docs) | Schema API + màn Bản sắc + hiệu đính |
+| **Thơ** | OCR script + 1 bài seed mẫu | Chạy OCR local trên folder Thơ (~20→40+) |
+| **RAG / chat Ký ức** | Thread heritage + activate gate | Embedding, heritage LLM, quote toggle |
 
-Agent hiện tại (`Người giữ nhà`) **cố ý từ chối** đóng vai người đã mất — đúng hard rule. Heritage twin là luồng riêng trên thread `heritage`, không mở rộng agent family.
+Agent `Người giữ nhà` vẫn từ chối đóng vai người đã mất — đúng. Twin chạy trên thread `heritage`.
 
 ---
 
-## 1. Kiến trúc dữ liệu (Profile vs Memories)
-
-Khớp mô hình sản phẩm *Cái bất biến / Cái biến đổi* trong `docs/PROJECT.md`:
+## 1. Kiến trúc Profile vs Memories
 
 ```
 Identity Lock (Profile)          Context Key (Memories)
 ─────────────────────────        ────────────────────────────
-system_prompt / identity JSON    poetry (vector)  ← tuyển tập thơ
-  · nhân thân & vai trò            milestones       ← mốc gia đình
-  · hệ giá trị & triết lý          library notes    ← đã có MemoryItem
-  · ngôn ngữ & xưng hô             live_context     ← chat / cập nhật gần đây
+system_prompt / identity JSON    poetry (vector)  ← OCR → review → MemoryItem
+  · nhân thân & vai trò            milestones       ← seed từ Profile
+  · hệ giá trị & triết lý          library notes
+  · ngôn ngữ & xưng hô             live_context     ← đề xuất §1.3
   · taboo / không nói
         │                              │
         └──────────► Heritage LLM ◄────┘
-                     (thread kind=heritage)
 ```
 
-### 1.1 Profile — bất biến trong prompt
+### 1.1 Profile — xem `docs/heritage-bo-trieu/identity-lock.draft.json`
 
-Lưu trên `IdentityProfile` (hoặc bảng `identity_lock` 1:1), steward-editable, versioned nhẹ (`updated_at` + optional revision note):
+Neo: GS.TS Nguyễn Đình Triệu · chồng bà Định (Anh–Em) · cha ba con · nhà giáo / thi sĩ sau hưu · **tuổi bảy nhăm (2015)**.
 
-| Trường | Ý nghĩa |
-|--------|---------|
-| `display_name`, `relation_label` | Đã có |
-| `life_stage_note` | “Phiên bản chín muồi” (vd. tuổi bảy nhăm) — không bịa năm sinh nếu chưa chắc |
-| `roles` | Chồng của mẹ · cha của … |
-| `core_values` | 5 giá trị + ví dụ hành vi ngắn |
-| `philosophy` | Đoạn ngắn / câu cửa miệng (có thể trích thơ đã gắn nguồn) |
-| `speech_style` | Từ tốn, ấm, thâm trầm; hay chiêm nghiệm |
-| `address_forms` | anh–em (với mẹ), bố–con, … |
-| `taboos` | Điều không nói / không giả |
-| `sample_phrases` | 5–15 câu mẫu thật (từ thư, FB, lời mẹ nhớ) |
-| `system_prompt_override` | Optional; mặc định assemble từ các field trên |
+### 1.2 Thơ — dạng trang in
 
-**Hard:** mọi claim tiểu sử trong Profile phải có nguồn (steward confirm) hoặc đánh dấu `unverified` và model được instruct không khẳng định chắc.
+Mẫu đã thấy: header mục (*Thơ Tâm Tình*), title IN HOA, lục bát đời thường (chợ, bếp, cháu), số trang chân trang. OCR prompt đã calibrate theo layout này.
 
-### 1.2 Memories — retrieve theo câu hỏi
+Pipeline:
 
-| Loại | Lưu trữ đề xuất | Retrieve khi |
-|------|-----------------|--------------|
-| **Thơ** | `MemoryItem` `kind=poem` (+ metadata: title, year?, themes[]) **hoặc** bảng `poetry_works` + chunks; embedding per bài / per khổ | Chủ đề (tuổi già, vợ chồng, nghề giáo, biết ơn…) |
-| **Milestone** | `MemoryItem` `kind=milestone` hoặc note + tag `milestone` + `occurred_at` | Nhắc chuyện cũ / ngày kỷ niệm |
-| **Library chung** | `MemoryItem` đã gắn `heritage:{id}` | Câu hỏi rộng về ký ức |
-| **Live context** | Snapshot từ N tin nhắn family gần đây + optional `dynamic_context` JSON steward | “Bây giờ cả nhà đang…” |
+```
+ảnh trang  →  scripts/ocr-poetry-ingest.sh  →  poetry-ocr/*.json (needs_review)
+         →  steward sửa  →  import MemoryItem kind=poem + themes + heritage:{id}
+```
 
-Vector: bắt đầu **pgvector trên Postgres** (hoặc embedding table + cosine in-app nếu chưa bật extension). Chunk thơ theo khổ/bài; metadata filter `identity_id` + `kind`.
+Local (sau khi pull):
 
----
+```bash
+export GEMINI_API_KEY=…
+export FOREVER_POETRY_PHOTOS="$HOME/Library/Mobile Documents/com~apple~CloudDocs/App Projects/A1 Forever/Trieu/Thơ"
+./scripts/ocr-poetry-ingest.sh
+# hoặc:
+./scripts/ocr-poetry-ingest.sh --input "/path/to/Thơ"
+```
 
-## 2. Luồng chat Ký ức (Phase 3)
+Output mặc định: `data/heritage-bo-trieu/poetry-ocr/` (**gitignore** — không commit nguyên văn thơ lên git).
 
-1. User gửi tin trên `heritage` thread gắn identity Bố.  
-2. Retrieve top-k (thơ + milestone + library) theo embedding query.  
-3. Build prompt = Profile (Lock) + retrieved excerpts + live context ngắn + lịch sử thread.  
-4. Generate (Gemini hoặc model đã cấu hình) với temperature thấp–vừa.  
-5. Post-check: nếu model khẳng định sự kiện không có trong retrieved / Profile → rewrite / refuse nhẹ (“Con ơi, bố chưa để lại chi tiết đó…”).  
-6. Persist `sender_kind=heritage`; UI label rõ (đã có pattern).  
-7. Optional TTS qua Voice DNA sẵn có — **không auto-play**.
+### 1.3 Live context — đề xuất (câu 11)
 
-Gate activate giữ nguyên: voice processed ≥1 + knowledge ≥ target; **bổ sung** Profile tối thiểu (core_values + speech_style + ≥1 address_form) trước khi cho chat “đúng bố”.
+**Đưa vào prompt (mặc định):**
+
+- Ghi chú steward `dynamic_context` (ô edit ngắn)
+- Tóm tắt N tin Phòng khách gần đây (7 ngày / tối đa ~15 tin text)
+- Milestone sắp tới ±30 ngày (sinh nhật mẹ, giỗ, …)
+
+**Loại trừ mặc định:**
+
+- Chủ đề trùng taboo (chính trị, tình dục, pháp lý nhạy cảm)
+- Số tài khoản / giấy tờ / địa chỉ chi tiết người sống (redact)
+- Thread riêng tư / chưa có đồng ý chia sẻ vào Ký ức
+- Tranh cãi đang nóng — không làm “trọng tài” nhân danh bố
 
 ---
 
-## 3. Lộ trình triển khai (engineering)
+## 2. Heritage chat (sau ingest)
 
-### Phase A — Profile scaffold *(ưu tiên nội dung + API)*
+1. Retrieve top-k thơ + milestone + library theo câu hỏi  
+2. Prompt = Lock + excerpts + live context + history  
+3. Quote mode từ setting (default paraphrase)  
+4. Refuse / khiêm tốn khi thiếu data  
+5. `sender_kind=heritage` · TTS optional không auto-play  
 
-- Mở rộng schema `IdentityProfile` / Identity Lock fields.  
-- API GET/PATCH steward-only.  
-- Mobile: màn **Bản sắc** trong Thổi hồn (form theo checklist Phase 0).  
-- Assemble `build_heritage_system_prompt(identity)`.  
-- Seed worksheet trống cho Bố (không điền tiểu sử giả).
-
-### Phase B — Thơ vào Memories + ingest
-
-- Định dạng nhập: Markdown / plain text một bài một file, hoặc paste bulk có delimiter.  
-- Steward UX: Thư viện → **Thêm thơ** (title, body, themes, gắn identity).  
-- Tag tự động `heritage:{id}` + `poetry`.  
-- Script offline `scripts/ingest-poetry.py` cho 30–40 bài lần đầu (family-private data, không commit thơ gốc nếu nhạy cảm — lưu media/DB).  
-- Embedding job (sync on create/update).
-
-### Phase C — Heritage reply engine
-
-- `services/heritage_chat.py`: retrieve → prompt → generate → safety.  
-- Hook vào `messages` khi `thread.kind == heritage` và entity `ready`.  
-- Tests: refuse fabricated bio; cite/paraphrase poem when theme matches; empty RAG → khiêm tốn.  
-- Awakening UI: bỏ copy “AI sẽ bổ sung sau”; thêm preview câu trả lời thử (steward only).
-
-### Phase D — Milestones + Live context
-
-- Milestone CRUD nhẹ (ngày cưới, biến cố… — chỉ sự kiện gia đình xác nhận).  
-- Live context: kéo N tin family gần đây (đã redact nếu cần) vào prompt slot “đời sống hiện tại”.  
-- Optional steward `dynamic_context` note (vd. “Mẹ vừa về quê”).
-
-### Phase E — Voice DNA còn lại (~30%)
-
-- Song song / sau khi text “đúng bố” theo đánh giá mẹ + con (đúng sequencing PROJECT.md).  
-- Clone selection (`docs/voice-dna-clone-selection.md`), TTS A/B.
+Gate activate: giữ voice + knowledge; **thêm** Profile tối thiểu (values draft + speech_style + address_forms).
 
 ---
 
-## 4. Thứ tự làm việc với gia đình (nội dung)
+## 3. Lộ trình engineering
 
-Song song code Phase A:
-
-1. **Worksheet Profile** (1 buổi với mẹ / anh chị): 5 giá trị, xưng hô, taboo, 10 câu mẫu.  
-2. **Số hóa thơ**: OCR/đánh máy → review chính tả → gắn theme (3–5 tag/bài).  
-3. **10 milestone neo** (có năm gần đúng càng tốt; thiếu thì để khoảng).  
-4. **Dry-run**: 10 câu hỏi mẹ thường hỏi → chấm “có giống bố không / có bịa không”.  
-5. Chỉ khi text ổn → đẩy TTS bằng Voice DNA hiện có.
-
----
-
-## 5. Tiêu chí xong (Definition of Done)
-
-- [ ] Steward sửa được Profile; prompt rebuild không deploy lại.  
-- [ ] ≥30 bài thơ searchable; hỏi đúng chủ đề → retrieve đúng bài/khổ.  
-- [ ] Heritage chat trả lời đúng khẩu khí Profile; thiếu data thì thừa nhận.  
-- [ ] Không tin nào `sender_kind=heritage` bị nhầm với user sống trên UI.  
-- [ ] Mẹ dùng được luồng Thổi hồn → chat mà không cần hiểu vector/RAG.  
-- [ ] Export được Profile JSON + danh sách thơ/metadata (archive gia tộc).
+| Phase | Việc | Status |
+|-------|------|--------|
+| **A** | Identity Lock schema + API + màn Bản sắc | Draft JSON sẵn |
+| **B** | OCR ingest + review + `kind=poem` | **Script sẵn — chạy local** |
+| **C** | Heritage reply engine + quote toggle | Tiếp theo sau B |
+| **D** | Milestones UI + live context | Seed JSON sẵn |
+| **E** | Voice DNA tinh chỉnh | Sau text ổn |
 
 ---
 
-## 6. Rủi ro & quyết định kỹ thuật
+## 4. Việc gia đình (nội dung)
 
-| Rủi ro | Hướng xử lý |
-|--------|-------------|
-| Thơ bị paraphrase sai ý | Prompt: ưu tiên trích ngắn + ghi tên bài; không “sáng tác thơ mới nhân danh bố” trừ khi steward bật mode thử nghiệm |
-| Embedding tiếng Việt yếu | Đánh giá model đa ngữ (vd. Gemini embedding / multilingual-e5); fallback keyword + theme tags |
-| Nhầm Identity Lock với tin thời sự | Live context chỉ “chiếu qua” Lock — không cập nhật giá trị cốt lõi từ chat |
-| Privacy thơ gia đình | Không đưa thơ vào repo public; chỉ DB/media private của space |
-
-**Quyết định mặc định (đổi được sau khi trả lời mục 7):**
-
-1. Thơ = `MemoryItem.kind=poem` trước; tách bảng riêng nếu metadata phức tạp.  
-2. Vector = bảng `memory_embeddings` + provider cấu hình qua env (Gemini embedding ưu tiên vì đã có Gemini cho agent).  
-3. Profile fields trên `identity_profiles` (JSON text columns) trước khi normalize.
+1. Chạy OCR local trên folder Thơ (~20 bài)  
+2. Review JSON (chính tả, themes)  
+3. Hiệu đính Identity Lock placeholders (values, câu mẫu)  
+4. Chọn 2–3 signature poems cho System Prompt  
+5. Dry-run 10 câu với mẹ + steward  
 
 ---
 
-## 7. Câu hỏi cần gia đình / steward trả lời
+## 5. Definition of Done
 
-### Nội dung Profile
-1. Tên hiển thị + cách mẹ gọi bố / bố gọi mẹ / bố gọi các con (chính xác từng cặp)?  
-2. “Phiên bản” tuổi / giai đoạn đời muốn neo (vd. tinh thần *Tuổi bảy nhăm*) — có năm cụ thể không, hay chỉ cảm nhận?  
-3. Năm giá trị cốt lõi + mỗi giá trị một kỷ niệm/hành vi thật?  
-4. Taboo: điều bố **không bao giờ** nói / không muốn AI nói nhân danh bố?  
-5. 5–15 câu cửa miệng hoặc câu an ủi mẹ / khuyên con mà gia đình còn nhớ nguyên văn?
-
-### Tuyển tập thơ
-6. Số bài khoảng bao nhiêu? Đã đánh máy / PDF / ảnh sổ tay?  
-7. Có được phép trích nguyên văn trong chat, hay chỉ “mượn ý / phong cách”?  
-8. Bài nào là neo bắt buộc luôn có trong Profile (vd. *Tuổi bảy nhăm*) dù không retrieve?  
-9. Theme tags ưu tiên (gợi ý: vợ chồng, tuổi già, nghề giáo, quê hương, biết ơn, đạo đức, thiên nhiên…)?
-
-### Milestones & live context
-10. 10 mốc gia đình nào chắc chắn được phép kể (ngày cưới, ngày mất, chuyển nhà…)?  
-11. Live context lấy từ Phòng khách chung — có tin nào **không** được đưa vào prompt Ký ức không?
-
-### Đánh giá & ưu tiên
-12. Ai chấm “đủ giống bố” để ship chat text: mẹ alone, hay mẹ + ≥1 con?  
-13. Ưu tiên tiếp theo sau Profile draft: **ingest thơ** hay **heritage chat stub** (prompt Profile-only, chưa RAG)?  
-14. Voice DNA còn thiếu phần nào cụ thể (chất lượng clone, đủ mẫu, TTS cảm xúc) để xếp Phase E?
+- [ ] Steward sửa Profile; prompt rebuild không deploy lại  
+- [ ] ≥20 bài (hướng 40+) searchable; theme đúng  
+- [ ] Toggle paraphrase/verbatim; default paraphrase  
+- [ ] Heritage chat đúng khẩu khí; thiếu data thì thừa nhận  
+- [ ] Label Ký ức rõ trên UI  
+- [ ] Mẹ dùng được không cần biết RAG  
+- [ ] Export Profile + metadata thơ (archive)
 
 ---
 
-## 8. Đề xuất bước ngay (khi có câu trả lời)
+## 6. Rủi ro kỹ thuật
 
-1. Điền Profile v0 từ câu 1–5 → API + màn Bản sắc.  
-2. Theo câu 13: song song ingest thơ (6–9) **hoặc** heritage chat Profile-only.  
-3. Dry-run 10 câu với mẹ trước khi bật TTS.  
-4. Cập nhật `docs/PROJECT.md` Phase 3 checklist khi Phase A+C land.
-
-*Tài liệu này là kế hoạch triển khai — chưa implement schema/API.*
+| Rủi ro | Xử lý |
+|--------|--------|
+| OCR lệch chữ trang in | `uncertain_spans` + steward đối sổ; temperature thấp |
+| HEIC từ iPhone | Đổi JPEG/PNG nếu Gemini từ chối mime; script liệt kê `.heic` |
+| Privacy thơ | Chỉ `data/` + DB space — không commit body thơ |
+| Bịa thơ mới | Cấm mặc định; chỉ paraphrase hoặc verbatim có nguồn |

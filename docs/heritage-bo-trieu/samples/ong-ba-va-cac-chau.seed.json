@@ -1,0 +1,25 @@
+{
+  "review_status": "steward_seed_from_chat_photo",
+  "source_note": "Transcribed from sample page photo shared in chat (Thơ Tâm Tình, p.21). Full corpus OCR via scripts/ocr-poetry-ingest.sh on local Thơ folder.",
+  "page_label": "21",
+  "collection_header": "Thơ Tâm Tình",
+  "poems": [
+    {
+      "title": "ÔNG BÀ VÀ CÁC CHÁU",
+      "meter": "luc_bat",
+      "themes": ["gia_dinh", "con_cai"],
+      "year_guess": null,
+      "body": "Cả tuần ông nhớ bà mong\nSáng nay thứ bảy đèo bòng nhau lên\nTối qua thao thức cả đêm\nThức ăn cháu dặn bà quên thứ gì\nSớm ra bà gọi ông đi\nChợ trời mua sớm cái gì cũng ngon\nCá tươi đang quẫy cả con\nMua về bà luộc, rán ròn cháu ăn\nCháu trai thích thịt bò lăn\nBà mua mấy lạng thịt thăn cho mềm\nMua rồi tính lại mua thêm\nNào giá nào đậu thức mềm cụ vui\nVề nhà bà chẳng kịp ngồi\nVội vào trong bếp bên nồi bên xoong\nLàm sao có thức ăn ngon\nCả nhà vui vẻ cháu con xum vầy\nDù bà nấu nướng luôn tay\nVẫn kêu không mệt, mê say tuổi già\nCác cháu là cháu của bà\nCháu ăn ngon miệng là bà sướng thôi\nMai sau cháu lớn khôn rồi\nNhư chim xa tổ bà thời nhớ mong\nYêu cháu mãi mãi trong lòng\nCháu nội cháu ngoại bà ngong bà chờ.",
+      "style_signals": [
+        "Lục bát truyền thống, nhịp kể chuyện đời thường",
+        "Đời sống cụ thể: chợ trời, bếp núc, món cháu thích",
+        "Ông–bà đồng hành; tình cảm đổ dồn vào cháu",
+        "Giọng ấm, hóm nhẹ, không đao to búa lớn"
+      ],
+      "ocr_confidence": 0.85,
+      "uncertain_spans": [
+        "Một số chữ có thể lệch so với bản in — steward đối chiếu sổ gốc khi có ảnh"
+      ]
+    }
+  ]
+}
