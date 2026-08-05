@@ -384,6 +384,11 @@ class VoiceRender(Base):
     speed: Mapped[float | None] = mapped_column(Float, nullable=True)
     use_speaker_boost: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
     lengthen_pauses: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
+    # MiniMax-only knobs. Empty emotion means the model inferred the mood.
+    emotion: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    pitch: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    intensity: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    timbre: Mapped[int | None] = mapped_column(Integer, nullable=True)
     created_by: Mapped[str] = mapped_column(ForeignKey("users.id"))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
 

@@ -75,6 +75,79 @@ def test_tts_can_skip_pause_markers():
     assert body["voice_setting"]["speed"] == 1.4
 
 
+def test_tts_sends_minimax_own_knobs():
+    response = _json_response(
+        {"data": {"audio": b"x".hex()}, "base_resp": {"status_code": 0}}
+    )
+
+    with patch("app.services.minimax.httpx.Client") as client_cls:
+        client = client_cls.return_value.__enter__.return_value
+        client.post.return_value = response
+        mm.text_to_speech(
+            settings=_settings(),
+            api_key="mm_test",
+            voice_id="fvabc-20260804",
+            text="Con nhớ bố.",
+            emotion="calm",
+            pitch=-2,
+            intensity=20,
+            timbre=-30,
+        )
+
+    body = client.post.call_args.kwargs["json"]
+    assert body["voice_setting"]["emotion"] == "calm"
+    assert body["voice_setting"]["pitch"] == -2
+    assert body["voice_modify"] == {"intensity": 20, "timbre": -30}
+
+
+def test_tts_omits_untouched_knobs():
+    """An all-zero voice_modify is still an effects request — do not send one."""
+    response = _json_response(
+        {"data": {"audio": b"x".hex()}, "base_resp": {"status_code": 0}}
+    )
+
+    with patch("app.services.minimax.httpx.Client") as client_cls:
+        client = client_cls.return_value.__enter__.return_value
+        client.post.return_value = response
+        mm.text_to_speech(
+            settings=_settings(),
+            api_key="mm_test",
+            voice_id="fvabc-20260804",
+            text="Con nhớ bố.",
+            emotion="auto",
+            pitch=0,
+            intensity=0,
+            timbre=0,
+        )
+
+    body = client.post.call_args.kwargs["json"]
+    assert "voice_modify" not in body
+    assert body["voice_setting"] == {"voice_id": "fvabc-20260804", "speed": 0.9}
+
+
+def test_tts_rejects_emotion_the_model_cannot_do():
+    with patch("app.services.minimax.httpx.Client") as client_cls:
+        with pytest.raises(mm.MinimaxError) as excinfo:
+            mm.text_to_speech(
+                settings=_settings(),
+                api_key="mm_test",
+                voice_id="fvabc-20260804",
+                text="Con nhớ bố.",
+                emotion="whisper",
+            )
+        client_cls.assert_not_called()
+
+    assert excinfo.value.status_code == 400
+    assert "speech-2.8-hd" in excinfo.value.message
+
+
+def test_whisper_is_allowed_on_the_2_6_line():
+    assert "whisper" in mm.emotions_for_model("speech-2.6-hd")
+    assert "whisper" not in mm.emotions_for_model("speech-2.8-hd")
+    assert vp.tts_emotions(vp.MINIMAX, "speech-2.6-turbo") == mm.EMOTIONS
+    assert vp.tts_emotions(vp.ELEVENLABS, "eleven_v3") == ()
+
+
 def test_errors_inside_a_200_response_are_raised():
     """MiniMax answers HTTP 200 and puts the real outcome in base_resp."""
     response = _json_response(

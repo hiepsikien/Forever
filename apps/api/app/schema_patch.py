@@ -181,6 +181,26 @@ def ensure_schema() -> None:
         "ALTER TABLE voice_renders ADD COLUMN lengthen_pauses BOOLEAN",
     )
     _add_column_if_missing(
+        "voice_renders",
+        "emotion",
+        "ALTER TABLE voice_renders ADD COLUMN emotion VARCHAR(32)",
+    )
+    _add_column_if_missing(
+        "voice_renders",
+        "pitch",
+        "ALTER TABLE voice_renders ADD COLUMN pitch INTEGER",
+    )
+    _add_column_if_missing(
+        "voice_renders",
+        "intensity",
+        "ALTER TABLE voice_renders ADD COLUMN intensity INTEGER",
+    )
+    _add_column_if_missing(
+        "voice_renders",
+        "timbre",
+        "ALTER TABLE voice_renders ADD COLUMN timbre INTEGER",
+    )
+    _add_column_if_missing(
         "extract_jobs",
         "source_memory_id",
         "ALTER TABLE extract_jobs ADD COLUMN source_memory_id VARCHAR(32)",

@@ -239,10 +239,37 @@ export interface VoiceRender {
   speed?: number | null;
   use_speaker_boost?: boolean | null;
   lengthen_pauses?: boolean | null;
+  emotion?: string | null;
+  pitch?: number | null;
+  intensity?: number | null;
+  timbre?: number | null;
   created_by: string;
   created_at: string;
   voice_display_name?: string | null;
   voice_subject_kind?: string | null;
+}
+
+/**
+ * TTS knobs. Each provider honours only its own half — the server drops the
+ * other side rather than storing settings that never reached the vendor.
+ */
+export interface VoiceTtsOptions {
+  model_id?: string;
+  provider_voice_id?: string;
+  provider_voice_name?: string;
+  /** Shared. */
+  speed?: number;
+  lengthen_pauses?: boolean;
+  /** ElevenLabs only. */
+  stability?: number;
+  similarity_boost?: number;
+  style?: number;
+  use_speaker_boost?: boolean;
+  /** MiniMax only. */
+  emotion?: string;
+  pitch?: number;
+  intensity?: number;
+  timbre?: number;
 }
 
 export interface AudioFileInfo {
@@ -355,6 +382,42 @@ export function voiceTtsModelsFor(
   provider: string | null | undefined,
 ): readonly { id: string; label: string; hint: string }[] {
   return provider === "minimax" ? MINIMAX_TTS_MODELS : VOICE_TTS_MODELS;
+}
+
+/**
+ * MiniMax emotion presets. `auto` sends nothing and lets the model read the
+ * mood from the text — the safest default for a remembered voice.
+ */
+export const MINIMAX_EMOTIONS = [
+  { id: "auto", label: "Tự động", hint: "Model tự đọc cảm xúc từ câu chữ" },
+  { id: "calm", label: "Bình thản", hint: "Đều, điềm tĩnh" },
+  { id: "happy", label: "Vui", hint: "Tươi, nhấn nhá nhiều hơn" },
+  { id: "sad", label: "Buồn", hint: "Chậm, trầm xuống" },
+  { id: "angry", label: "Tức", hint: "Gắt, dứt khoát" },
+  { id: "fearful", label: "Lo sợ", hint: "Run, ngắt hơi" },
+  { id: "disgusted", label: "Ghét", hint: "Khinh, kéo dài" },
+  { id: "surprised", label: "Ngạc nhiên", hint: "Bật lên, cao giọng" },
+  { id: "fluent", label: "Trôi chảy", hint: "Chỉ có ở Speech 2.6" },
+  { id: "whisper", label: "Thì thầm", hint: "Chỉ có ở Speech 2.6" },
+] as const;
+
+export type MinimaxEmotion = (typeof MINIMAX_EMOTIONS)[number]["id"];
+
+/** `fluent` and `whisper` shipped only on the 2.6 line. */
+const EMOTIONS_2_6_ONLY: readonly string[] = ["fluent", "whisper"];
+
+export function minimaxEmotionsForModel(
+  modelId: string | null | undefined,
+): readonly { id: MinimaxEmotion; label: string; hint: string }[] {
+  const is26 = (modelId ?? "").startsWith("speech-2.6-");
+  return is26
+    ? MINIMAX_EMOTIONS
+    : MINIMAX_EMOTIONS.filter((e) => !EMOTIONS_2_6_ONLY.includes(e.id));
+}
+
+export function minimaxEmotionLabel(id: string | null | undefined): string {
+  if (!id) return "Tự động";
+  return MINIMAX_EMOTIONS.find((e) => e.id === id)?.label ?? id;
 }
 
 /** Which provider a stored model id belongs to, for labelling old renders. */
@@ -1026,17 +1089,7 @@ export function createApiClient({
     saveVoiceRender: async (
       voiceId: string,
       text: string,
-      opts?: {
-        model_id?: string;
-        provider_voice_id?: string;
-        provider_voice_name?: string;
-        stability?: number;
-        similarity_boost?: number;
-        style?: number;
-        speed?: number;
-        use_speaker_boost?: boolean;
-        lengthen_pauses?: boolean;
-      },
+      opts?: VoiceTtsOptions,
     ) =>
       request<VoiceRender>(
         `/api/voices/${voiceId}/tts`,
@@ -1046,17 +1099,7 @@ export function createApiClient({
     synthesizeVoiceTts: async (
       voiceId: string,
       text: string,
-      opts?: {
-        model_id?: string;
-        provider_voice_id?: string;
-        provider_voice_name?: string;
-        stability?: number;
-        similarity_boost?: number;
-        style?: number;
-        speed?: number;
-        use_speaker_boost?: boolean;
-        lengthen_pauses?: boolean;
-      },
+      opts?: VoiceTtsOptions,
     ) => {
       const root = resolveRoot();
       const token = await getToken();

@@ -1,4 +1,5 @@
 import {
+  minimaxEmotionLabel,
   VoiceProfile,
   VoiceRender,
   VoiceSample,
@@ -53,39 +54,65 @@ function exportBaseName(item: VoiceRender): string {
 
 type ParamRow = { label: string; value: string };
 
+function formatSigned(value: number): string {
+  if (value === 0) return "0";
+  return value > 0 ? `+${value}` : `−${Math.abs(value)}`;
+}
+
 function renderParamRows(item: VoiceRender): ParamRow[] {
+  const provider =
+    item.provider ?? voiceProviderForModel(item.model_id) ?? "elevenlabs";
+  const isMinimax = provider === "minimax";
   const rows: ParamRow[] = [
     {
       label: "Dịch vụ",
-      value: voiceProviderLabel(
-        item.provider ?? voiceProviderForModel(item.model_id),
-      ),
+      value: voiceProviderLabel(provider),
     },
     { label: "Model", value: voiceTtsModelLabel(item.model_id) },
   ];
   if (item.provider_voice_name) {
     rows.push({ label: "Bản clone", value: item.provider_voice_name });
   }
-  if (item.stability != null) {
-    rows.push({ label: "Ổn định", value: formatPct(item.stability) });
-  }
-  if (item.similarity_boost != null) {
+  if (isMinimax) {
+    // Always list MiniMax knobs — 0 is a real setting (neutral), not "missing".
     rows.push({
-      label: "Giống giọng",
-      value: formatPct(item.similarity_boost),
+      label: "Cảm xúc",
+      value: minimaxEmotionLabel(item.emotion),
     });
-  }
-  if (item.style != null) {
-    rows.push({ label: "Phong cách", value: formatPct(item.style) });
+    rows.push({
+      label: "Cao độ",
+      value: formatSigned(item.pitch ?? 0),
+    });
+    rows.push({
+      label: "Chất giọng",
+      value: formatSigned(item.timbre ?? 0),
+    });
+    rows.push({
+      label: "Lực đọc",
+      value: formatSigned(item.intensity ?? 0),
+    });
+  } else {
+    if (item.stability != null) {
+      rows.push({ label: "Ổn định", value: formatPct(item.stability) });
+    }
+    if (item.similarity_boost != null) {
+      rows.push({
+        label: "Giống giọng",
+        value: formatPct(item.similarity_boost),
+      });
+    }
+    if (item.style != null) {
+      rows.push({ label: "Phong cách", value: formatPct(item.style) });
+    }
+    if (item.use_speaker_boost != null) {
+      rows.push({
+        label: "Speaker boost",
+        value: item.use_speaker_boost ? "Bật" : "Tắt",
+      });
+    }
   }
   if (item.speed != null) {
     rows.push({ label: "Tốc độ", value: item.speed.toFixed(2) });
-  }
-  if (item.use_speaker_boost != null) {
-    rows.push({
-      label: "Speaker boost",
-      value: item.use_speaker_boost ? "Bật" : "Tắt",
-    });
   }
   if (item.lengthen_pauses != null) {
     rows.push({

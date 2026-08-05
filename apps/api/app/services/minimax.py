@@ -28,6 +28,37 @@ OUTPUT_BITRATE = 256_000
 SPEED_MIN = 0.5
 SPEED_MAX = 2.0
 
+# `voice_setting.pitch` is a real pitch shift in semitones.
+PITCH_MIN = -12
+PITCH_MAX = 12
+# `voice_modify` sliders, mirroring the MiniMax console.
+MODIFY_MIN = -100
+MODIFY_MAX = 100
+
+# Emotion is model-gated: every synthesis model takes the seven core moods,
+# while `fluent` / `whisper` landed only on the 2.6 line.
+BASE_EMOTIONS = (
+    "happy",
+    "sad",
+    "angry",
+    "fearful",
+    "disgusted",
+    "surprised",
+    "calm",
+)
+EXTRA_EMOTIONS_2_6 = ("fluent", "whisper")
+EMOTIONS = BASE_EMOTIONS + EXTRA_EMOTIONS_2_6
+# Omitting emotion lets MiniMax infer the mood from the text, which is the
+# safest default for a heritage voice.
+EMOTION_AUTO = "auto"
+
+
+def emotions_for_model(model_id: str) -> tuple[str, ...]:
+    model = (model_id or "").strip()
+    if model.startswith("speech-2.6-"):
+        return EMOTIONS
+    return BASE_EMOTIONS
+
 # Vietnamese-capable synthesis models. HD first — the docs recommend it for
 # cloning similarity, which is the whole point for heritage voices.
 VI_TTS_MODELS = (
@@ -256,6 +287,10 @@ def text_to_speech(
     model_id: str | None = None,
     speed: float | None = None,
     lengthen_pauses: bool | None = None,
+    emotion: str | None = None,
+    pitch: int | None = None,
+    intensity: int | None = None,
+    timbre: int | None = None,
 ) -> bytes:
     text = text.strip()
     if not text:
@@ -269,6 +304,7 @@ def text_to_speech(
         SPEED_MIN,
         SPEED_MAX,
     )
+    resolved_emotion = _resolve_emotion(emotion, resolved_model)
     do_lengthen = (
         settings.minimax_lengthen_pauses if lengthen_pauses is None else lengthen_pauses
     )
@@ -276,13 +312,20 @@ def text_to_speech(
     if len(paced_text) > MAX_TTS_CHARS:
         paced_text = text
 
+    voice_setting: dict[str, Any] = {"voice_id": voice_id, "speed": resolved_speed}
+    if resolved_emotion:
+        voice_setting["emotion"] = resolved_emotion
+    resolved_pitch = _clamp_int(pitch, PITCH_MIN, PITCH_MAX)
+    if resolved_pitch:
+        voice_setting["pitch"] = resolved_pitch
+
     payload: dict[str, Any] = {
         "model": resolved_model,
         "text": paced_text,
         "stream": False,
         "output_format": "hex",
         "language_boost": LANGUAGE_BOOST,
-        "voice_setting": {"voice_id": voice_id, "speed": resolved_speed},
+        "voice_setting": voice_setting,
         "audio_setting": {
             "sample_rate": OUTPUT_SAMPLE_RATE,
             "bitrate": OUTPUT_BITRATE,
@@ -290,6 +333,18 @@ def text_to_speech(
             "channel": 1,
         },
     }
+
+    # Only send voice_modify when a slider actually moved: an all-zero block is
+    # still an effects request, and cloned voices sound best left untouched.
+    modify: dict[str, Any] = {}
+    resolved_intensity = _clamp_int(intensity, MODIFY_MIN, MODIFY_MAX)
+    resolved_timbre = _clamp_int(timbre, MODIFY_MIN, MODIFY_MAX)
+    if resolved_intensity:
+        modify["intensity"] = resolved_intensity
+    if resolved_timbre:
+        modify["timbre"] = resolved_timbre
+    if modify:
+        payload["voice_modify"] = modify
     body = _post_json(
         settings=settings,
         api_key=api_key,
@@ -484,3 +539,24 @@ def _date_to_unix(value: str) -> int | None:
 
 def _clamp(value: float, lo: float, hi: float) -> float:
     return max(lo, min(hi, float(value)))
+
+
+def _clamp_int(value: int | float | None, lo: int, hi: int) -> int:
+    if value is None:
+        return 0
+    return max(lo, min(hi, int(round(value))))
+
+
+def _resolve_emotion(emotion: str | None, model_id: str) -> str | None:
+    """Return the emotion to send, or None to let MiniMax pick one."""
+    wanted = (emotion or "").strip().lower()
+    if not wanted or wanted == EMOTION_AUTO:
+        return None
+    allowed = emotions_for_model(model_id)
+    if wanted not in allowed:
+        raise MinimaxError(
+            f"Cảm xúc '{wanted}' không dùng được với model {model_id}. "
+            f"Chọn một trong: {', '.join(allowed)}.",
+            status_code=400,
+        )
+    return wanted

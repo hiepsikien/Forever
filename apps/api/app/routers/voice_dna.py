@@ -158,6 +158,11 @@ class TtsBody(BaseModel):
     speed: float | None = Field(default=None, ge=0.7, le=1.2)
     use_speaker_boost: bool | None = None
     lengthen_pauses: bool | None = None
+    # MiniMax-only. "auto" (or omitted) lets the model infer the mood.
+    emotion: str | None = Field(default=None, max_length=32)
+    pitch: int | None = Field(default=None, ge=-12, le=12)
+    intensity: int | None = Field(default=None, ge=-100, le=100)
+    timbre: int | None = Field(default=None, ge=-100, le=100)
     save: bool = False
 
 
@@ -199,6 +204,10 @@ def _render_payload(row: VoiceRender, voice: VoiceProfile | None = None) -> dict
         "speed": getattr(row, "speed", None),
         "use_speaker_boost": getattr(row, "use_speaker_boost", None),
         "lengthen_pauses": getattr(row, "lengthen_pauses", None),
+        "emotion": getattr(row, "emotion", None) or None,
+        "pitch": getattr(row, "pitch", None),
+        "intensity": getattr(row, "intensity", None),
+        "timbre": getattr(row, "timbre", None),
         "created_by": row.created_by,
         "created_at": row.created_at.isoformat(),
         "voice_display_name": voice.display_name if voice else None,
@@ -1867,6 +1876,17 @@ def synthesize_tts(
             else settings.elevenlabs_lengthen_pauses
         )
     )
+    # Mirror image of the block above: MiniMax's own knobs are meaningless to
+    # ElevenLabs, so they are dropped instead of stored as phantom settings.
+    requested_emotion = (body.emotion or "").strip().lower()
+    emotion = (
+        requested_emotion
+        if is_minimax and requested_emotion and requested_emotion != "auto"
+        else None
+    )
+    pitch = body.pitch if is_minimax else None
+    intensity = body.intensity if is_minimax else None
+    timbre = body.timbre if is_minimax else None
     try:
         audio = vp.text_to_speech(
             provider,
@@ -1881,6 +1901,10 @@ def synthesize_tts(
             speed=speed,
             use_speaker_boost=use_speaker_boost,
             lengthen_pauses=lengthen_pauses,
+            emotion=emotion,
+            pitch=pitch,
+            intensity=intensity,
+            timbre=timbre,
         )
     except vp.VoiceProviderError as exc:
         raise HTTPException(status_code=exc.status_code, detail=exc.message) from exc
@@ -1907,6 +1931,10 @@ def synthesize_tts(
         speed=speed,
         use_speaker_boost=use_speaker_boost,
         lengthen_pauses=lengthen_pauses,
+        emotion=emotion,
+        pitch=pitch,
+        intensity=intensity,
+        timbre=timbre,
         created_by=user.id,
         created_at=now,
     )

@@ -1,9 +1,12 @@
 import {
   ElevenLabsVoice,
+  minimaxEmotionLabel,
+  minimaxEmotionsForModel,
   VoiceProfile,
   VOICE_PROVIDERS,
   type VoiceProvider,
   type VoiceTtsModelId,
+  type VoiceTtsOptions,
   voiceProviderLabel,
   voiceTtsModelsFor,
 } from "@forever/api-client";
@@ -42,15 +45,30 @@ import { useSpaceScreenOptions } from "@/lib/spaceHeader";
 import { colors, fonts } from "@/lib/theme";
 import {
   activeTtsValues,
-  clampSpeed,
-  clampTts,
+  clampModify,
+  clampPitch,
+  clampSpeedUnit,
+  clampUnit,
   DEFAULT_DRAFT_TEXT,
   DEFAULT_TTS_PROFILE_SETTINGS,
+  EMOTION_AUTO,
+  fromSpeedUnit,
+  fromUnit,
   loadTtsSettings,
+  MODIFY_MAX,
+  MODIFY_MIN,
+  MODIFY_STEP,
+  PITCH_MAX,
+  PITCH_MIN,
+  PITCH_STEP,
+  PRESET_VALUES,
   saveTtsSettings,
-  SPEED_MAX,
-  SPEED_MIN,
+  SPEED_UNIT_MAX,
+  SPEED_UNIT_MIN,
+  toUnit,
   TTS_STEP,
+  UNIT_MAX,
+  UNIT_MIN,
   type TtsPresetName,
   type TtsProfileSettings,
   type TtsValues,
@@ -62,7 +80,9 @@ type PickerOption = {
   subtitle?: string;
 };
 
-type OpenPicker = "voice" | "model" | "profile" | null;
+type OpenPicker = "voice" | "model" | "profile" | "emotion" | null;
+
+const INITIAL_VALUES = activeTtsValues(DEFAULT_TTS_PROFILE_SETTINGS, "elevenlabs");
 
 /** A Forever Voice DNA may hold clones on more than one provider account. */
 type CloneOption = ElevenLabsVoice & { provider: VoiceProvider };
@@ -71,8 +91,14 @@ function cloneKey(v: { provider: VoiceProvider; voice_id: string }): string {
   return `${v.provider}:${v.voice_id}`;
 }
 
-function formatTtsLabel(value: number): string {
-  return value.toFixed(2);
+function formatIntLabel(value: number): string {
+  return String(value);
+}
+
+/** MiniMax knobs read as offsets from the clone, so the sign carries meaning. */
+function formatSignedLabel(value: number): string {
+  if (value === 0) return "0";
+  return value > 0 ? `+${value}` : `−${Math.abs(value)}`;
 }
 
 function TtsStepper({
@@ -80,9 +106,11 @@ function TtsStepper({
   hint,
   value,
   onChange,
-  min = 0,
-  max = 1,
-  clamp = clampTts,
+  min = UNIT_MIN,
+  max = UNIT_MAX,
+  step = TTS_STEP,
+  clamp = clampUnit,
+  format = formatIntLabel,
 }: {
   label: string;
   hint: string;
@@ -90,10 +118,12 @@ function TtsStepper({
   onChange: (next: number) => void;
   min?: number;
   max?: number;
+  step?: number;
   clamp?: (value: number) => number;
+  format?: (value: number) => string;
 }) {
-  const dec = () => onChange(clamp(value - TTS_STEP));
-  const inc = () => onChange(clamp(value + TTS_STEP));
+  const dec = () => onChange(clamp(value - step));
+  const inc = () => onChange(clamp(value + step));
 
   return (
     <View style={styles.advancedRow}>
@@ -110,7 +140,7 @@ function TtsStepper({
         >
           <Text style={styles.stepBtnText}>−</Text>
         </Pressable>
-        <Text style={styles.stepValue}>{formatTtsLabel(value)}</Text>
+        <Text style={styles.stepValue}>{format(value)}</Text>
         <Pressable
           style={[styles.stepBtn, value >= max && styles.stepBtnDisabled]}
           onPress={inc}
@@ -192,24 +222,22 @@ export default function VoiceSpeakScreen() {
       : DEFAULT_TTS_PROFILE_SETTINGS.mode,
   );
   const [advancedOpen, setAdvancedOpen] = useState(false);
-  const [stability, setStability] = useState(
-    activeTtsValues(DEFAULT_TTS_PROFILE_SETTINGS).stability,
-  );
+  const [stability, setStability] = useState(INITIAL_VALUES.stability);
   const [similarityBoost, setSimilarityBoost] = useState(
-    activeTtsValues(DEFAULT_TTS_PROFILE_SETTINGS).similarityBoost,
+    INITIAL_VALUES.similarityBoost,
   );
   const [styleExaggeration, setStyleExaggeration] = useState(
-    activeTtsValues(DEFAULT_TTS_PROFILE_SETTINGS).style,
+    INITIAL_VALUES.style,
   );
-  const [speakerBoost, setSpeakerBoost] = useState(
-    activeTtsValues(DEFAULT_TTS_PROFILE_SETTINGS).speakerBoost,
-  );
-  const [speed, setSpeed] = useState(
-    activeTtsValues(DEFAULT_TTS_PROFILE_SETTINGS).speed,
-  );
+  const [speakerBoost, setSpeakerBoost] = useState(INITIAL_VALUES.speakerBoost);
+  const [speed, setSpeed] = useState(INITIAL_VALUES.speed);
   const [lengthenPauses, setLengthenPauses] = useState(
-    activeTtsValues(DEFAULT_TTS_PROFILE_SETTINGS).lengthenPauses,
+    INITIAL_VALUES.lengthenPauses,
   );
+  const [emotion, setEmotion] = useState(INITIAL_VALUES.emotion);
+  const [pitch, setPitch] = useState(INITIAL_VALUES.pitch);
+  const [intensity, setIntensity] = useState(INITIAL_VALUES.intensity);
+  const [timbre, setTimbre] = useState(INITIAL_VALUES.timbre);
   const [busy, setBusy] = useState(false);
   const [previewing, setPreviewing] = useState(false);
   const [paused, setPaused] = useState(false);
@@ -220,6 +248,8 @@ export default function VoiceSpeakScreen() {
   selectedProfileIdRef.current = selectedProfileId;
   const textRef = useRef(text);
   textRef.current = text;
+  /** Presets resolve per provider, and callbacks run outside render. */
+  const providerRef = useRef<VoiceProvider>("elevenlabs");
 
   const settingsRef = useRef<TtsProfileSettings>(DEFAULT_TTS_PROFILE_SETTINGS);
 
@@ -231,6 +261,10 @@ export default function VoiceSpeakScreen() {
     setSpeakerBoost(values.speakerBoost);
     setSpeed(values.speed);
     setLengthenPauses(values.lengthenPauses);
+    setEmotion(values.emotion);
+    setPitch(values.pitch);
+    setIntensity(values.intensity);
+    setTimbre(values.timbre);
   }, []);
 
   const commitProfileSettings = useCallback(
@@ -241,7 +275,7 @@ export default function VoiceSpeakScreen() {
         draftText: patch.draftText ?? settingsRef.current.draftText ?? textRef.current,
       };
       settingsRef.current = next;
-      applyValues(activeTtsValues(next), next.mode);
+      applyValues(activeTtsValues(next, providerRef.current), next.mode);
       const profileId = selectedProfileIdRef.current;
       if (profileId) {
         void saveTtsSettings(profileId, next);
@@ -255,7 +289,7 @@ export default function VoiceSpeakScreen() {
       const saved =
         (await loadTtsSettings(profileId)) ?? DEFAULT_TTS_PROFILE_SETTINGS;
       settingsRef.current = saved;
-      applyValues(activeTtsValues(saved), saved.mode);
+      applyValues(activeTtsValues(saved, providerRef.current), saved.mode);
       setAdvancedOpen(saved.mode === "custom");
       setText(
         typeof saved.draftText === "string" && saved.draftText.length > 0
@@ -310,10 +344,15 @@ export default function VoiceSpeakScreen() {
     selectedElVoice?.provider ??
     (selectedProfile?.provider === "minimax" ? "minimax" : "elevenlabs");
   const isMinimax = provider === "minimax";
+  providerRef.current = provider;
   const modelOptions = useMemo(() => voiceTtsModelsFor(provider), [provider]);
   const selectedModel = useMemo(
     () => modelOptions.find((m) => m.id === modelId) ?? modelOptions[0],
     [modelOptions, modelId],
+  );
+  const emotionOptions = useMemo(
+    () => (isMinimax ? minimaxEmotionsForModel(modelId) : []),
+    [isMinimax, modelId],
   );
 
   useEffect(() => {
@@ -321,6 +360,15 @@ export default function VoiceSpeakScreen() {
       setModelId(modelOptions[0].id as VoiceTtsModelId);
     }
   }, [modelOptions, modelId]);
+
+  // A preset means the same intent on both vendors but reaches it with
+  // different parameters, so switching clone re-resolves it.
+  useEffect(() => {
+    if (!settingsReady) return;
+    const mode = settingsRef.current.mode;
+    if (mode === "custom") return;
+    applyValues(PRESET_VALUES[provider][mode], mode);
+  }, [provider, settingsReady, applyValues]);
 
   const pickPreferredClone = useCallback(
     (profile: VoiceProfile | null, sorted: CloneOption[]): string | null => {
@@ -452,41 +500,65 @@ export default function VoiceSpeakScreen() {
       return;
     }
     setAdvancedOpen(true);
+    // Start from what is playing now, so Tùy chỉnh tweaks the preset the user
+    // just heard instead of jumping to an unrelated set of numbers.
     commitProfileSettings({
       mode: "custom",
-      custom: settingsRef.current.custom,
+      custom: activeTtsValues(settingsRef.current, providerRef.current),
     });
   };
 
-  const patchCustom = (patch: Partial<TtsValues>) => {
-    commitProfileSettings({
-      mode: "custom",
-      custom: { ...settingsRef.current.custom, ...patch },
-    });
-  };
+  const patchCustom = useCallback(
+    (patch: Partial<TtsValues>) => {
+      commitProfileSettings({
+        mode: "custom",
+        custom: { ...settingsRef.current.custom, ...patch },
+      });
+    },
+    [commitProfileSettings],
+  );
 
-  const ttsOpts = useMemo(
+  // `fluent` / `whisper` exist only on the 2.6 line; fall back to auto rather
+  // than letting the server reject a request the user cannot see is invalid.
+  useEffect(() => {
+    if (!isMinimax || emotion === EMOTION_AUTO) return;
+    if (emotionOptions.some((e) => e.id === emotion)) return;
+    patchCustom({ emotion: EMOTION_AUTO });
+  }, [isMinimax, emotion, emotionOptions, patchCustom]);
+
+  // Send only the half the provider honours, so a saved render never carries
+  // numbers that never left the phone.
+  const ttsOpts = useMemo<VoiceTtsOptions>(
     () => ({
       model_id: modelId,
       provider_voice_id: selectedElVoiceId || undefined,
       provider_voice_name: selectedElVoice?.name,
-      stability,
-      similarity_boost: similarityBoost,
-      style: styleExaggeration,
-      use_speaker_boost: speakerBoost,
       speed,
       lengthen_pauses: lengthenPauses,
+      ...(isMinimax
+        ? { emotion, pitch, intensity, timbre }
+        : {
+            stability,
+            similarity_boost: similarityBoost,
+            style: styleExaggeration,
+            use_speaker_boost: speakerBoost,
+          }),
     }),
     [
       modelId,
       selectedElVoiceId,
       selectedElVoice?.name,
+      speed,
+      lengthenPauses,
+      isMinimax,
+      emotion,
+      pitch,
+      intensity,
+      timbre,
       stability,
       similarityBoost,
       styleExaggeration,
       speakerBoost,
-      speed,
-      lengthenPauses,
     ],
   );
 
@@ -579,7 +651,9 @@ export default function VoiceSpeakScreen() {
         ? "TTS Model"
         : openPicker === "profile"
           ? "Voice DNA"
-          : "";
+          : openPicker === "emotion"
+            ? "Cảm xúc"
+            : "";
 
   const pickerOptions: PickerOption[] = useMemo(() => {
     if (openPicker === "voice") {
@@ -616,6 +690,13 @@ export default function VoiceSpeakScreen() {
         subtitle: `${p.subject_kind === "heritage" ? "Ký ức" : "Giọng của tôi"} · ${p.status}`,
       }));
     }
+    if (openPicker === "emotion") {
+      return emotionOptions.map((e) => ({
+        id: e.id,
+        title: e.label,
+        subtitle: e.hint,
+      }));
+    }
     return [];
   }, [
     openPicker,
@@ -624,6 +705,7 @@ export default function VoiceSpeakScreen() {
     selectedProfile?.provider,
     profiles,
     modelOptions,
+    emotionOptions,
   ]);
 
   const pickerSelectedId =
@@ -633,12 +715,15 @@ export default function VoiceSpeakScreen() {
         ? modelId
         : openPicker === "profile"
           ? selectedProfileId
-          : null;
+          : openPicker === "emotion"
+            ? emotion
+            : null;
 
   const onPick = (id: string) => {
     if (openPicker === "voice") selectElVoice(id);
     else if (openPicker === "model") setModelId(id as VoiceTtsModelId);
     else if (openPicker === "profile") selectProfile(id);
+    else if (openPicker === "emotion") patchCustom({ emotion: id });
     setOpenPicker(null);
   };
 
@@ -726,8 +811,9 @@ export default function VoiceSpeakScreen() {
         <Text style={styles.section}>Phong cách</Text>
         <View style={styles.card}>
           <Text style={styles.helper}>
-            Giọng nghe trẻ hơn mẫu → tăng Similarity, bật Speaker Boost, hoặc
-            chọn lại mẫu trầm hơn rồi clone.
+            {isMinimax
+              ? "Gần mẫu = chất giọng dày hơn. Bình thản = cảm xúc calm, đọc mềm hơn. Nghe trẻ hơn mẫu → mở Tùy chỉnh, hạ Cao độ."
+              : "Giọng nghe trẻ hơn mẫu → tăng Similarity, bật Speaker Boost, hoặc chọn lại mẫu trầm hơn rồi clone."}
           </Text>
           <View style={styles.presetRow}>
             <Pressable
@@ -740,7 +826,7 @@ export default function VoiceSpeakScreen() {
                   preset === "similar" && styles.chipTextActive,
                 ]}
               >
-                Gần giọng
+                {isMinimax ? "Gần mẫu" : "Gần giọng"}
               </Text>
             </Pressable>
             <Pressable
@@ -753,7 +839,7 @@ export default function VoiceSpeakScreen() {
                   preset === "stable" && styles.chipTextActive,
                 ]}
               >
-                Ổn định
+                {isMinimax ? "Bình thản" : "Ổn định"}
               </Text>
             </Pressable>
             <Pressable
@@ -770,38 +856,109 @@ export default function VoiceSpeakScreen() {
               </Text>
             </Pressable>
           </View>
+          {isMinimax && preset === "similar" && !advancedOpen ? (
+            <Text style={styles.presetSummary}>Đang dùng: Chất giọng −20</Text>
+          ) : null}
+          {isMinimax && preset === "stable" && !advancedOpen ? (
+            <Text style={styles.presetSummary}>
+              Đang dùng: Cảm xúc Bình thản · Lực đọc +20
+            </Text>
+          ) : null}
 
           {advancedOpen ? (
             <View style={styles.advancedPanel}>
               <Text style={styles.advancedHeading}>Nâng cao</Text>
               <TtsStepper
                 label="Tốc độ"
-                hint="Thấp = chậm hơn · 0.90 gần nhịp nói tự nhiên"
-                value={speed}
-                min={SPEED_MIN}
-                max={SPEED_MAX}
-                clamp={clampSpeed}
-                onChange={(next) => patchCustom({ speed: next })}
+                hint="Thấp = chậm hơn · 90 gần nhịp nói tự nhiên"
+                value={toUnit(speed)}
+                min={SPEED_UNIT_MIN}
+                max={SPEED_UNIT_MAX}
+                clamp={clampSpeedUnit}
+                onChange={(next) => patchCustom({ speed: fromSpeedUnit(next) })}
               />
-              {isMinimax ? null : (
+              {isMinimax ? (
+                <>
+                  <View style={styles.advancedRow}>
+                    <View style={styles.advancedCopy}>
+                      <Text style={styles.advancedLabel}>Cảm xúc</Text>
+                      <Text style={styles.advancedHint}>
+                        Tự động = model tự đọc cảm xúc từ câu chữ
+                      </Text>
+                    </View>
+                    <Pressable
+                      style={styles.pickerValue}
+                      onPress={() => setOpenPicker("emotion")}
+                    >
+                      <Text style={styles.pickerValueText}>
+                        {minimaxEmotionLabel(emotion)}
+                      </Text>
+                      <Text style={styles.pickerValueChevron}>▾</Text>
+                    </Pressable>
+                  </View>
+                  <TtsStepper
+                    label="Cao độ"
+                    hint="Đơn vị nửa cung · Âm = trầm xuống (bớt cảm giác trẻ)"
+                    value={pitch}
+                    min={PITCH_MIN}
+                    max={PITCH_MAX}
+                    step={PITCH_STEP}
+                    clamp={clampPitch}
+                    format={formatSignedLabel}
+                    onChange={(next) => patchCustom({ pitch: next })}
+                  />
+                  <TtsStepper
+                    label="Chất giọng"
+                    hint="Âm = dày, ấm hơn · Dương = trong, sáng hơn"
+                    value={timbre}
+                    min={MODIFY_MIN}
+                    max={MODIFY_MAX}
+                    step={MODIFY_STEP}
+                    clamp={clampModify}
+                    format={formatSignedLabel}
+                    onChange={(next) => patchCustom({ timbre: next })}
+                  />
+                  <TtsStepper
+                    label="Lực đọc"
+                    hint="Âm = dứt khoát, mạnh hơn · Dương = nhẹ, dịu hơn"
+                    value={intensity}
+                    min={MODIFY_MIN}
+                    max={MODIFY_MAX}
+                    step={MODIFY_STEP}
+                    clamp={clampModify}
+                    format={formatSignedLabel}
+                    onChange={(next) => patchCustom({ intensity: next })}
+                  />
+                </>
+              ) : (
                 <>
                   <TtsStepper
                     label="Similarity"
                     hint="Cao = sát chất giọng mẫu hơn (giảm cảm giác trẻ hóa)"
-                    value={similarityBoost}
-                    onChange={(next) => patchCustom({ similarityBoost: next })}
+                    value={toUnit(similarityBoost)}
+                    min={UNIT_MIN}
+                    max={UNIT_MAX}
+                    onChange={(next) =>
+                      patchCustom({ similarityBoost: fromUnit(next) })
+                    }
                   />
                   <TtsStepper
                     label="Stability"
                     hint="Cao = đều, trầm ổn hơn · Thấp = biểu cảm"
-                    value={stability}
-                    onChange={(next) => patchCustom({ stability: next })}
+                    value={toUnit(stability)}
+                    min={UNIT_MIN}
+                    max={UNIT_MAX}
+                    onChange={(next) =>
+                      patchCustom({ stability: fromUnit(next) })
+                    }
                   />
                   <TtsStepper
                     label="Style"
                     hint="Nhẹ = giữ đúng mẫu · Cao = phóng đại cách nói (dễ lệch)"
-                    value={styleExaggeration}
-                    onChange={(next) => patchCustom({ style: next })}
+                    value={toUnit(styleExaggeration)}
+                    min={UNIT_MIN}
+                    max={UNIT_MAX}
+                    onChange={(next) => patchCustom({ style: fromUnit(next) })}
                   />
                 </>
               )}
@@ -836,10 +993,9 @@ export default function VoiceSpeakScreen() {
                 </View>
               )}
               <Text style={styles.advancedNote}>
-                Thiết lập được ghi nhớ riêng cho từng giọng.
-                {isMinimax
-                  ? ` ${voiceProviderLabel(provider)} chỉ nhận Tốc độ và Nghỉ giữa câu.`
-                  : ""}
+                Thiết lập được ghi nhớ riêng cho từng giọng. Mỗi dịch vụ có bộ
+                tuỳ chỉnh riêng — đổi bản clone sẽ hiện đúng phần{" "}
+                {voiceProviderLabel(provider)} nhận được.
               </Text>
             </View>
           ) : null}
@@ -1052,6 +1208,7 @@ const styles = StyleSheet.create({
   chipActive: { backgroundColor: colors.brand, borderColor: colors.brand },
   chipText: { fontSize: 13, fontWeight: "600", color: colors.inkSoft },
   chipTextActive: { color: "#fff" },
+  presetSummary: { fontSize: 12, color: colors.inkSoft, lineHeight: 16 },
   advancedPanel: { gap: 12, paddingTop: 4 },
   advancedHeading: {
     fontSize: 14,
@@ -1108,6 +1265,21 @@ const styles = StyleSheet.create({
     color: colors.ink,
     fontVariant: ["tabular-nums"],
   },
+  pickerValue: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    minWidth: 116,
+    justifyContent: "flex-end",
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: colors.line,
+    backgroundColor: "#fff",
+    paddingHorizontal: 12,
+    paddingVertical: 9,
+  },
+  pickerValueText: { fontSize: 15, fontWeight: "700", color: colors.ink },
+  pickerValueChevron: { fontSize: 13, color: colors.inkSoft },
   btn: {
     backgroundColor: colors.brand,
     borderRadius: 10,

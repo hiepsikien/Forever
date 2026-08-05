@@ -51,6 +51,13 @@ def tts_models(provider: str) -> tuple[str, ...]:
     return el.VI_TTS_MODELS
 
 
+def tts_emotions(provider: str, model_id: str | None = None) -> tuple[str, ...]:
+    """Emotion presets a provider/model pair accepts; empty when unsupported."""
+    if normalize(provider) == MINIMAX:
+        return mm.emotions_for_model(model_id or "")
+    return ()
+
+
 def default_model(provider: str, settings: Settings) -> str:
     if normalize(provider) == MINIMAX:
         return settings.minimax_tts_model
@@ -126,11 +133,15 @@ def text_to_speech(
     speed: float | None = None,
     use_speaker_boost: bool | None = None,
     lengthen_pauses: bool | None = None,
+    emotion: str | None = None,
+    pitch: int | None = None,
+    intensity: int | None = None,
+    timbre: int | None = None,
 ) -> bytes:
     with _translated(provider):
         if normalize(provider) == MINIMAX:
-            # MiniMax exposes speed and pacing only — the ElevenLabs voice
-            # settings have no counterpart and are dropped, not faked.
+            # The ElevenLabs voice settings have no MiniMax counterpart and are
+            # dropped, not faked; MiniMax gets its own knobs instead.
             return mm.text_to_speech(
                 settings=settings,
                 api_key=api_key,
@@ -139,6 +150,10 @@ def text_to_speech(
                 model_id=model_id,
                 speed=speed,
                 lengthen_pauses=lengthen_pauses,
+                emotion=emotion,
+                pitch=pitch,
+                intensity=intensity,
+                timbre=timbre,
             )
         return el.text_to_speech(
             settings=settings,
