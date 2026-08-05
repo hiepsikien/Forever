@@ -42,6 +42,8 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
+apps/mobile/eas-*.log
+apps/mobile/fastlane-*.log
 
 # env
 .env

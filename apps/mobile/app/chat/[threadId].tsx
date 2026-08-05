@@ -48,6 +48,32 @@ function isVoiceMessage(item: ChatMessage): boolean {
   return (item.kind ?? "text") === "voice";
 }
 
+function nextTypewriterChunk(full: string, from: number): string {
+  if (from >= full.length) return "";
+  const rest = full.slice(from);
+  const word = rest.match(/^[^\s]+(?:\s+)?/);
+  if (word?.[0]) return word[0];
+  return rest.charAt(0);
+}
+
+function HeritageTypingRow({ label }: { label: string }) {
+  const [dots, setDots] = useState(0);
+  useEffect(() => {
+    const timer = setInterval(() => setDots((d) => (d + 1) % 4), 420);
+    return () => clearInterval(timer);
+  }, []);
+  return (
+    <View style={[styles.row, styles.rowTheirs]}>
+      <Text style={[styles.sender, styles.senderHeritage]}>{label}</Text>
+      <View style={[styles.bubble, styles.bubbleHeritage, styles.typingBubble]}>
+        <Text style={styles.typingText}>
+          đang soạn{".".repeat(dots)}
+        </Text>
+      </View>
+    </View>
+  );
+}
+
 export default function ChatScreen() {
   const { threadId } = useLocalSearchParams<{ threadId: string }>();
   const { api, user } = useAuth();
@@ -66,6 +92,15 @@ export default function ChatScreen() {
   const listRef = useRef<FlatList<ChatMessage>>(null);
   const sendingRef = useRef(false);
   const recordingRef = useRef(false);
+  const knownMessageIdsRef = useRef<Set<string>>(new Set());
+  const [heritageTyping, setHeritageTyping] = useState(false);
+  const [typewriter, setTypewriter] = useState<{ id: string; full: string; pos: number } | null>(
+    null,
+  );
+
+  const isHeritageThread = threadMeta?.kind === "heritage";
+  const heritageTypingLabel =
+    threadMeta?.title ?? threadMeta?.heritage?.display_name ?? "Ký ức";
 
   const load = useCallback(async () => {
     if (!threadId) return;
@@ -76,7 +111,9 @@ export default function ChatScreen() {
       ]);
       setThreadMeta(thread);
       setSpaceId(thread.space_id);
-      setMessages(uniqueById(res.messages));
+      const next = uniqueById(res.messages);
+      setMessages(next);
+      knownMessageIdsRef.current = new Set(next.map((m) => m.id));
     } finally {
       setLoading(false);
     }
@@ -107,6 +144,23 @@ export default function ChatScreen() {
   }, [api, threadId]);
 
   useEffect(() => {
+    if (!typewriter) return;
+    if (typewriter.pos >= typewriter.full.length) {
+      setTypewriter(null);
+      return;
+    }
+    const chunk = nextTypewriterChunk(typewriter.full, typewriter.pos);
+    const delay = 24 + Math.min(chunk.length * 8, 48);
+    const timer = setTimeout(() => {
+      setTypewriter((prev) =>
+        prev ? { ...prev, pos: Math.min(prev.pos + chunk.length, prev.full.length) } : null,
+      );
+      requestAnimationFrame(() => listRef.current?.scrollToEnd({ animated: false }));
+    }, delay);
+    return () => clearTimeout(timer);
+  }, [typewriter]);
+
+  useEffect(() => {
     recordingRef.current = recording;
   }, [recording]);
 
@@ -124,20 +178,50 @@ export default function ChatScreen() {
 
   const send = async () => {
     const body = text.trim();
-    if (!body || !threadId || sending || recording) return;
+    if (!body || !threadId || sending || recording || !user) return;
+    const previousIds = new Set(knownMessageIdsRef.current);
+    const optimistic: ChatMessage = {
+      id: `local-${Date.now()}`,
+      thread_id: threadId,
+      sender_user_id: user.id,
+      sender_kind: "user",
+      sender_name: user.name,
+      sender_handle: user.handle ?? null,
+      kind: "text",
+      body,
+      created_at: new Date().toISOString(),
+    };
     setSending(true);
     sendingRef.current = true;
     setText("");
+    setMessages((prev) => uniqueById([...prev, optimistic]));
+    if (isHeritageThread) setHeritageTyping(true);
+    requestAnimationFrame(() => listRef.current?.scrollToEnd({ animated: true }));
     try {
       await api.sendMessage(threadId, body);
       const res = await api.listMessages(threadId, { limit: 100 });
-      setMessages(uniqueById(res.messages));
+      const next = uniqueById(res.messages);
+      setMessages(next);
+      knownMessageIdsRef.current = new Set(next.map((m) => m.id));
+      const freshHeritage = [...next]
+        .reverse()
+        .find(
+          (m) =>
+            m.sender_kind === "heritage" &&
+            !previousIds.has(m.id) &&
+            (m.kind ?? "text") === "text",
+        );
+      if (freshHeritage?.body) {
+        setTypewriter({ id: freshHeritage.id, full: freshHeritage.body, pos: 0 });
+      }
       requestAnimationFrame(() => listRef.current?.scrollToEnd({ animated: true }));
     } catch {
       setText(body);
+      setMessages((prev) => prev.filter((m) => m.id !== optimistic.id));
     } finally {
       sendingRef.current = false;
       setSending(false);
+      setHeritageTyping(false);
     }
   };
 
@@ -268,11 +352,18 @@ export default function ChatScreen() {
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.list}
         onContentSizeChange={() => listRef.current?.scrollToEnd({ animated: false })}
+        ListFooterComponent={
+          heritageTyping ? <HeritageTypingRow label={heritageTypingLabel} /> : null
+        }
         renderItem={({ item }) => {
           const mine = item.sender_user_id === user?.id;
           const isAgent = item.sender_kind === "agent";
           const isHeritage = item.sender_kind === "heritage";
           const voice = isVoiceMessage(item);
+          const displayBody =
+            typewriter && typewriter.id === item.id
+              ? typewriter.full.slice(0, typewriter.pos)
+              : item.body;
           return (
             <Pressable
               onLongPress={() => saveToLibrary(item)}
@@ -325,7 +416,7 @@ export default function ChatScreen() {
                     </View>
                   </Pressable>
                 ) : (
-                  <Text style={[styles.body, mine && styles.bodyMine]}>{item.body}</Text>
+                  <Text style={[styles.body, mine && styles.bodyMine]}>{displayBody}</Text>
                 )}
               </View>
             </Pressable>
@@ -415,7 +506,7 @@ export default function ChatScreen() {
               disabled={sending || !text.trim()}
               style={[styles.send, (!text.trim() || sending) && { opacity: 0.5 }]}
             >
-              <Text style={styles.sendText}>Gửi</Text>
+              <Text style={styles.sendText}>{sending ? "…" : "Gửi"}</Text>
             </Pressable>
           </>
         )}
@@ -477,6 +568,16 @@ const styles = StyleSheet.create({
     backgroundColor: "#f7f1e6",
     borderWidth: 1,
     borderColor: "rgba(196, 165, 116, 0.45)",
+  },
+  typingBubble: {
+    paddingVertical: 12,
+    minWidth: 96,
+  },
+  typingText: {
+    fontSize: 15,
+    lineHeight: 20,
+    color: colors.inkSoft,
+    fontStyle: "italic",
   },
   body: { fontSize: 16, lineHeight: 22, color: colors.ink },
   bodyMine: { color: "#f4efe6" },

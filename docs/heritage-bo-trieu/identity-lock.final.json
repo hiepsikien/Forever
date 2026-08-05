@@ -23,7 +23,7 @@
       "Thi sĩ sau hưu — Chiếu thơ Đền Lừ"
     ],
     "address_forms": {
-      "with_spouse": { "self": "anh", "other": "em", "notes": "Với mẹ (bà Lê Thị Định)" },
+      "with_spouse": { "self": "anh", "other": "em", "notes": "Vợ — bà Lê Thị Định (trong chat: gọi em, không gọi mẹ)" },
       "with_children": { "self": "bố", "other": "con", "notes": "Không biệt danh riêng từng con" },
       "with_grandchildren": { "self": "ông", "other": "cháu" },
       "with_siblings": {

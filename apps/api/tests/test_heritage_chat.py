@@ -7,6 +7,13 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app.services.heritage_chat import (
+    _detect_audience,
+    _finalize_reply_text,
+    _fix_child_address,
+    _fix_spouse_address,
+    _infer_audience_from_message,
+    _is_child_profile,
+    _is_spouse_profile,
     build_system_prompt,
     looks_like_fabrication_request,
     looks_like_taboo,
@@ -173,6 +180,132 @@ def test_taboo_and_fabrication_detectors():
 def test_post_process_blocks_taboo_llm_output():
     bad = "Đây là nội dung chính trị đảng phái chi tiết."
     assert "không bàn được" in post_process_reply(bad).lower()
+
+
+def test_finalize_reply_text_trims_dangling_tail():
+    cut = (
+        "Con ơi, bố nghe em rồi. Cả nhà bình an là bố vui nhất, "
+        "mong em luôn khỏe và th"
+    )
+    fixed = _finalize_reply_text(cut, "MAX_TOKENS")
+    assert fixed.endswith(".")
+    assert "th" not in fixed
+
+
+def test_finalize_reply_text_keeps_complete_reply():
+    ok = "Con ơi, bố nghe em rồi. Bình an nhé."
+    assert _finalize_reply_text(ok, "STOP") == ok
+
+
+def test_fix_spouse_address_replaces_mẹ_vocative():
+    raw = "Nghe mẹ nói thế, lòng bố cũng thắt lại. Bố chào mẹ nhé."
+    fixed = _fix_spouse_address(raw)
+    assert "mẹ" not in fixed.lower()
+    assert "em" in fixed.lower()
+    assert "anh" in fixed.lower()
+
+
+def test_infer_audience_steward_is_child_not_spouse(client):
+    from app.db import SessionLocal
+    from app.models import IdentityProfile, User
+
+    db = SessionLocal()
+    try:
+        user = (
+            db.query(User)
+            .filter(User.email == "anh.nguyendinh.cs@gmail.com")
+            .one_or_none()
+        )
+        if not user:
+            pytest.skip("local steward user not seeded")
+        profile = (
+            db.query(IdentityProfile)
+            .filter(
+                IdentityProfile.linked_user_id == user.id,
+                IdentityProfile.space_id == "5K__lcaDoIozrdKA5r0NL",
+            )
+            .one_or_none()
+        )
+        assert profile is not None
+        assert _is_child_profile(profile)
+        assert not _is_spouse_profile(profile)
+        assert (
+            _detect_audience(
+                db,
+                space_id="5K__lcaDoIozrdKA5r0NL",
+                sender_user_id=user.id,
+                user_text="Con đang chat với bố trên server local ạ.",
+            )
+            == "child"
+        )
+    finally:
+        db.close()
+
+
+def test_infer_audience_from_message():
+    assert _infer_audience_from_message("Con đang chat với bố") == "child"
+    assert _infer_audience_from_message("Em nhớ anh") == "spouse"
+
+
+def test_fix_child_address_replaces_spouse_voice():
+    raw = "Chào em,\n\nAnh đây em. Nghe em nói về công nghệ..."
+    fixed = _fix_child_address(raw)
+    assert fixed.startswith("Con ơi")
+    assert "Anh đây em" not in fixed
+
+
+def test_build_system_prompt_child_audience():
+    from app.models import IdentityProfile
+
+    identity = IdentityProfile(
+        id="id1",
+        space_id="s",
+        display_name="Nguyễn Đình Triệu",
+        relation_label="Bố",
+        status="remembered",
+        created_by="u",
+        address_forms_json='{"with_children":{"self":"bố","other":"con"}}',
+    )
+    prompt = build_system_prompt(
+        identity,
+        signature_poems=[],
+        retrieved_poems=[],
+        knowledge=[],
+        live_context=None,
+        quote_mode="paraphrase",
+        audience="child",
+    )
+    assert "KHÔNG phải vợ" in prompt
+    assert "Xưng «bố»" in prompt
+
+
+def test_build_system_prompt_spouse_audience():
+    from app.models import IdentityProfile
+
+    identity = IdentityProfile(
+        id="id1",
+        space_id="s",
+        display_name="Nguyễn Đình Triệu",
+        relation_label="Bố",
+        status="remembered",
+        created_by="u",
+        roles_json='["Người chồng của bà Lê Thị Định"]',
+        address_forms_json='{"with_spouse":{"self":"anh","other":"em","notes":"Với mẹ (bà Lê Thị Định)"}}',
+        speech_style_json='{"traits":["Điềm đạm"]}',
+        taboos_json='{"hard":["Chính trị"]}',
+    )
+    prompt = build_system_prompt(
+        identity,
+        signature_poems=[],
+        retrieved_poems=[],
+        knowledge=[],
+        live_context=None,
+        quote_mode="paraphrase",
+        audience="spouse",
+    )
+    assert "gọi vợ là «em»" in prompt
+    assert "Không gọi em là «mẹ»" in prompt
+    assert "NGƯỜI ĐANG NHẮN" in prompt
 
 
 def test_retrieve_poems_prefers_signature_and_theme():
@@ -448,7 +581,7 @@ def test_heritage_history_includes_prior_turns(client: TestClient, tmp_path, mon
 
     def fake_gemini(settings, *, system_prompt, user_text, history):
         captured["roles"] = [m.sender_kind for m in history]
-        return "Bố nghe con."
+        return "Bố nghe con.", "STOP"
 
     with patch("app.services.heritage_chat._gemini_heritage_reply", side_effect=fake_gemini):
         client.post(
