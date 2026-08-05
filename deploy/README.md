@@ -81,6 +81,13 @@ rsync -avz --delete \
   --exclude '.env' --exclude '*firebase-adminsdk*.json' --exclude '*service-account*.json' \
   apps/api/ angi-vm:~/Forever/apps/api/
 
+# Worker build context — compose builds forever-extract-worker from ../Extract,
+# so this must be synced too or the VM rebuilds stale worker code silently.
+rsync -avz --delete \
+  --exclude '.venv' --exclude '__pycache__' --exclude '.pytest_cache' \
+  --exclude '.env' --exclude 'out' --exclude '*.egg-info' --exclude '.DS_Store' \
+  Extract/ angi-vm:~/Forever/Extract/
+
 rsync -avz deploy/docker-compose.prod.yml deploy/.env.prod.example deploy/README.md \
   angi-vm:~/Forever/deploy/
 ```
@@ -107,25 +114,43 @@ EXPO_PUBLIC_API_URL=https://forever-api.antunai.com
 
 Rebuild the family APK after changing the URL (`npm run android:apk`).
 
-Extract worker is included in compose. Set `HF_TOKEN` in `.env.prod` (pyannote model terms on Hugging Face), then:
+## Extract worker
+
+Included in compose. Set `HF_TOKEN` in `.env.prod` (pyannote model terms on Hugging Face). Sync `Extract/` first (see above), then:
 
 ```bash
 docker compose -p forever -f docker-compose.prod.yml --env-file .env.prod up -d --build forever-extract-worker
-docker logs -f forever-extract-worker
+docker logs -f forever-extract-worker --timestamps
 ```
 
+Expected: one line `[worker] api=http://forever-api:8000 poll=3.0s` and nothing else. The worker only logs on start, on error, and per job — so `--tail` alone can surface a stale error as if it were current. Always read timestamps.
+
+A `Connection refused` to `forever-api:8000` right at startup is self-healing: compose waits for the API healthcheck, but a rebuild that recreates the API can leave a short gap where the worker polls a port with no listener. It retries and recovers.
+
 Local dev fallback: `./scripts/run-extract-worker.sh` with `FOREVER_API_URL=https://forever-api.antunai.com`.
+
+### Disk
+
+The worker image is ~2.8GB (torch CPU ~914MB, pyannote tree ~640MB) and BuildKit keeps a second copy as build cache, so each build generation costs ~4.5GB on a 20GB disk. Check before building and reclaim orphaned cache after:
+
+```bash
+df -h /
+docker system df
+docker builder prune -f    # orphaned cache only; keeps what current images use
+```
 
 ## Checklist (first deploy)
 
 1. DNS `forever-api.antunai.com` → `34.124.179.140`
 2. Postgres role/DB `forever` created
 3. Caddy block added + reloaded
-4. `deploy/.env.prod` filled on VM
+4. `deploy/.env.prod` filled on VM (incl. `EXTRACT_WORKER_TOKEN`, `HF_TOKEN`)
 5. `deploy/firebase-service-account.json` present on VM
-6. `docker compose … up -d --build` succeeds
-7. `curl https://forever-api.antunai.com/health` OK
-8. Mobile `EXPO_PUBLIC_API_URL` updated (+ APK rebuild if shipping)
+6. `apps/api/` **and** `Extract/` rsynced to `~/Forever/`
+7. `docker compose … up -d --build` succeeds
+8. `curl https://forever-api.antunai.com/health` OK
+9. `docker logs forever-extract-worker --timestamps` shows the poll line
+10. Mobile `EXPO_PUBLIC_API_URL` updated (+ APK rebuild if shipping)
 
 ## Scale later
 
