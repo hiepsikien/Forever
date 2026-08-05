@@ -718,6 +718,33 @@ def test_thread_memory_grows_across_turns(client, tmp_path, monkeypatch):
     get_settings.cache_clear()
 
 
+def test_a_fabricated_year_is_recorded_on_the_message(client, tmp_path, monkeypatch):
+    """End to end: the guard runs on the saved reply, not just in isolation."""
+    _compose_only(monkeypatch, tmp_path)
+    from app.config import get_settings
+
+    _, _, thread_id, headers = _ready_heritage(
+        client, email="heritage-grounding@example.com", name="Con"
+    )
+
+    mock_client, _ = _canned_gemini("Bố đây con. Năm 1975 bố dạy ở trường làng.")
+    with patch("app.services.heritage_chat.httpx.Client", return_value=mock_client):
+        send = client.post(
+            f"/api/threads/{thread_id}/messages",
+            headers=headers,
+            json={"body": "Bố ơi, hồi ấy bố dạy ở đâu ạ?"},
+        )
+        assert send.status_code == 200
+
+    messages = client.get(
+        f"/api/threads/{thread_id}/messages", headers=headers
+    ).json()["messages"]
+    reply = next(m for m in messages if m["sender_kind"] == "heritage")
+    assert reply["meta"]["grounding"] == {"years": ["1975"], "action": "flagged"}
+
+    get_settings.cache_clear()
+
+
 def test_second_turn_prompt_carries_the_memory(client, tmp_path, monkeypatch):
     _compose_only(monkeypatch, tmp_path)
     from app.config import get_settings

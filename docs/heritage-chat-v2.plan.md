@@ -1,6 +1,6 @@
 # Heritage Chat v2 — Context-Aware Pipeline
 
-> Trạng thái: Phase 0–3.5 đã xong; Phase 4 (grounding check + critic) là bước kế.
+> Trạng thái: Phase 0–4 đã xong; Phase 5 (MemoryCandidate + steward review) là bước kế.
 > Bối cảnh: sau buổi thử đầu tiên với mẹ, chat của Bố Triệu bị hai lỗi lớn —
 > xác định sai người đối thoại, và trả lời dài như một bức thư.
 > Bản v1 (`services/heritage_chat.py`) đã vá tạm bằng rule; v2 dựng lại luồng
@@ -114,12 +114,42 @@ Thứ tự trong `systemInstruction`: Identity Lock → Audience → Value Lens 
 | Check | Cách làm | Khi fail |
 |---|---|---|
 | Xưng hô | `_fix_spouse_address` / `_fix_child_address` | thay thế tại chỗ |
-| Grounding | năm `\b(19\|20)\d{2}\b` + danh từ riêng phải có trong EvidencePack/Lock | critic rewrite |
+| Grounding | năm + danh từ riêng phải có trong ngữ liệu | critic rewrite |
 | Anti-repeat | xem mục Trí nhớ | regenerate 1 lần |
 | Độ dài | so với `depth` | cắt theo câu |
 | Taboo | `looks_like_taboo` | câu từ chối |
 
-Critic là lời gọi Gemini thứ ba, **chỉ chạy khi có flag** (~10% lượt).
+### Grounding
+
+«Đã neo» = **xuất hiện trong chính system prompt vừa sinh ra câu đó, hoặc trong
+lời người nhà tự nói**. Không liệt kê lại từng nguồn evidence — lấy luôn prompt
+làm ngữ liệu nên check tự đúng khi prompt lớn thêm. Reply heritage cũ **bị loại
+khỏi ngữ liệu**: nếu tính, một cái năm bịa sẽ tự rửa mình lan tiếp cả thread.
+
+Tên riêng tiếng Việt là phần khó, hai cái bẫy đã trả giá mới thấy:
+
+- So khớp stoplist vai vế phải **giữ dấu**. Bỏ dấu thì "hạ" nuốt "Hà", "bác" nuốt
+  "Bắc" — "Hà Nội" bị xé còn "Nội", một mảnh không gì neo nổi.
+- Chỉ bỏ từ chỉ vai ở **đầu** cụm. "Bà Phú" → "Phú", nhưng "Quốc Anh" và
+  "Đình Anh" phải giữ nguyên, vì cắt ra thì mảnh còn lại chắc chắn báo động sai.
+- Từ đơn viết hoa **mở đầu câu** thì bỏ qua: trong tiếng Việt đó thường là văn
+  xuôi thường, và báo động sai ở đây tốn một lần viết lại mỗi lượt.
+
+Đo trên 22 reply thật của Bố Triệu: 0 lần nhận sai tên, 1 lần cờ lên
+(«Hồ Chí Minh» — kiến thức phổ thông, không phải tiểu sử).
+
+Phản ứng theo bậc, và **critic tắt thì không sửa gì**:
+
+| Tình huống | Xử lý |
+|---|---|
+| `heritage_critic_enabled=false` | chỉ ghi cờ vào `meta.grounding`, giữ nguyên chữ |
+| Critic viết lại, recheck sạch | dùng bản mới (`action: rewritten`) |
+| Viết lại vẫn bẩn | bỏ đúng câu chứa chi tiết đó (`trimmed`) |
+| Không còn câu nào | trả câu trung tính `_FALLBACK` (`replaced`) |
+
+Nhận diện tên là heuristic, mà cắt một câu trong thư của bố người ta dựa trên
+heuristic thì tệ hơn cả điều nó định chặn. Nên grounding bật sẵn để **quan sát**,
+còn bật critic mới là hành động — đúng nghĩa "lời gọi Gemini thứ ba chỉ khi có flag".
 
 ## Trí nhớ (Stage 5)
 
@@ -216,6 +246,7 @@ services/heritage_codex.py      alias resolve, entity lookup
 services/heritage_retrieval.py  EvidencePack
 services/heritage_analyzer.py   Stage 1 (Phase 2)
 services/heritage_memory.py     ThreadMemory + anti-repeat (Phase 3)
+services/heritage_grounding.py  grounding check + critic (Phase 4)
 services/heritage_chat.py       orchestrator (đã có)
 ```
 
@@ -242,7 +273,7 @@ p50 ≈ 2–3s → Phase 0 bắt buộc chuyển reply sang background.
 | 2 ✅ | Context Analyzer + Value Lens + depth control | Câu meta → ack 1 câu; hỏi sâu → 4–6 câu có trục giá trị |
 | 3 ✅ | ThreadMemory + anti-repeat | 10 lượt liên tiếp không lặp câu hỏi thăm |
 | 3.5 ✅ | Thread 1-1 + phòng cả nhà, fact có cấu trúc | Phòng riêng kín với người khác; «thứ bảy này» lưu thành ngày tuyệt đối |
-| 4 | Grounding check + critic | Bịa năm/tên = 0 trên bộ golden |
+| 4 ✅ | Grounding check + critic | Bịa năm/tên = 0 trên bộ golden |
 | 5 | MemoryCandidate + steward review UI | Fact từ chat vào Thư viện sau khi duyệt |
 
 ## Đánh đổi
@@ -252,6 +283,7 @@ p50 ≈ 2–3s → Phase 0 bắt buộc chuyển reply sang background.
 | 2 lời gọi Gemini/lượt | Tách "hiểu" khỏi "nói" → prompt ngắn, test được | +latency, +cost ~2x |
 | Bảng `family_entities` riêng | Không làm rối `IdentityProfile`/Voice DNA UI | Duplicate nhẹ với identity |
 | Fact mới cần steward duyệt | Hard rule không bịa tiểu sử | Bố "nhớ" chậm hơn một nhịp |
+| Grounding chỉ ghi cờ khi critic tắt | Không cắt thư dựa trên heuristic | Muốn chặn thật phải bật critic |
 | Reply async | Chat không treo | Mobile cần refetch (đã có typing indicator) |
 
 ## Riêng tư

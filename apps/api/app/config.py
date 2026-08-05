@@ -26,6 +26,7 @@ class Settings(BaseSettings):
     heritage_async_reply: bool = True
     heritage_codex_enabled: bool = True
     heritage_analyzer_enabled: bool = False
+    heritage_grounding_enabled: bool = True
     heritage_critic_enabled: bool = False
     heritage_memory_enabled: bool = True
     heritage_anti_repeat_enabled: bool = True

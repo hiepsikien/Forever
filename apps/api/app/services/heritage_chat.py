@@ -27,6 +27,11 @@ from .heritage_codex import (
     entity_lines,
     resolve_mentions,
 )
+from .heritage_grounding import (
+    critic_rewrite,
+    drop_ungrounded_sentences,
+    find_ungrounded,
+)
 from .heritage_memory import (
     MemoryState,
     avoid_block,
@@ -786,6 +791,51 @@ def _retry_if_repetitive(
     return reply, finish_reason, reason
 
 
+def _enforce_grounding(
+    settings: Settings,
+    *,
+    body: str,
+    corpus: str,
+    audience: str | None,
+    max_output_tokens: int,
+) -> tuple[str, dict | None]:
+    """Rewrite, trim, or replace a reply that asserts something we cannot show."""
+    if not settings.heritage_grounding_enabled:
+        return body, None
+    found = find_ungrounded(body, corpus=corpus)
+    if found.clean:
+        return body, None
+
+    info = found.as_meta()
+    if not settings.heritage_critic_enabled:
+        # Spotting a name is a heuristic, and cutting a sentence out of a letter
+        # from someone's father on a heuristic is worse than the fabrication.
+        # Turning the critic on is the deliberate opt-in to acting on this.
+        info["action"] = "flagged"
+        return body, info
+
+    rewritten = critic_rewrite(
+        settings,
+        reply=body,
+        ungrounded=found,
+        max_output_tokens=max_output_tokens,
+    )
+    if rewritten:
+        fixed = post_process_reply(rewritten, audience=audience)
+        if find_ungrounded(fixed, corpus=corpus).clean:
+            info["action"] = "rewritten"
+            return fixed, info
+
+    trimmed = drop_ungrounded_sentences(body, found)
+    if trimmed:
+        info["action"] = "trimmed"
+        return trimmed, info
+    # Nothing survived. Saying less is the whole point of the hard rule, so the
+    # family gets the neutral line instead of an invented life.
+    info["action"] = "replaced"
+    return _FALLBACK, info
+
+
 def generate_heritage_reply(
     db: Session,
     *,
@@ -899,6 +949,23 @@ def generate_heritage_reply(
 
     body = post_process_reply(llm or _FALLBACK, audience=audience)
 
+    # Only what we showed the model and what the family said counts as grounded.
+    # Past heritage replies are left out on purpose: including them would let one
+    # invented year launder itself forward through the whole thread.
+    body, grounding = _enforce_grounding(
+        settings,
+        body=body,
+        corpus="\n".join(
+            [
+                system_prompt,
+                user_text,
+                *(m.body or "" for m in history if m.sender_kind == "user"),
+            ]
+        ),
+        audience=audience,
+        max_output_tokens=frame.max_output_tokens,
+    )
+
     all_poems = signature + retrieved
     citations = _detect_citations(body, all_poems, quote_mode=quote_mode)
     meta: dict = {
@@ -927,6 +994,8 @@ def generate_heritage_reply(
         meta["new_facts"] = [fact.as_dict() for fact in frame.new_facts]
     if repeat_reason:
         meta["repeat_guard"] = repeat_reason
+    if grounding:
+        meta["grounding"] = grounding
     if not memory.is_empty:
         meta["thread_memory"] = memory.as_meta()
     return body, meta
