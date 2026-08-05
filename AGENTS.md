@@ -24,6 +24,21 @@ Canonical plan: `docs/PROJECT.md`.
 
 `AUTH_DEV_MODE=true` + `POST /api/auth/dev-login`. Demo users seeded: `me@forever.family` / `con@forever.family` (`forever123`).
 
+## Heritage chat
+
+Pipeline + rationale: `docs/heritage-chat-v2.plan.md`. Code is flat in
+`apps/api/app/services/heritage_*.py`; every stage sits behind a `heritage_*`
+flag in `config.py`.
+
+- Each remembered person has one family thread and one private thread per member
+  (`threads.audience_scope`). Never widen `require_thread_access`.
+- Audience in a private thread comes from the thread, not from guessing wording.
+- Chat may only ever *propose* a fact. `memory_candidates` → a human approves →
+  `MemoryItem`. A private thread's candidates are reviewed by that member, not
+  the steward.
+- Only `stated` facts become memory; `implied` ones stay in message meta.
+- The compactor may retire a fact, never reword one.
+
 ## Extract (Voice DNA từ ký ức)
 
 - Engine + worker: `Extract/` (`extract-worker` polls Forever internal API)

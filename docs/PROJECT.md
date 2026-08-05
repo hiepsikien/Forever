@@ -3,7 +3,9 @@
 > **Định danh:** Két sắt ký ức gia tộc (*The Family Vault*) — không cạnh tranh Zalo/Messenger (nhắn nhanh) hay Facebook (phô diễn xã hội).  
 > **Tầm nhìn:** phòng khách số riêng tư — chat người thân + shared library + thực thể ký ức sống (cognitive heritage).  
 > **Người nhận đầu tiên:** mẹ. Bắt đầu từ gia đình mình, piece by piece.  
-> **Nguồn luận:** Forever App Brainstorm (31/7/2026).
+> **Nguồn luận:** Forever App Brainstorm (31/7/2026).  
+> **Chi tiết thực thể ký ức:** `docs/heritage-chat-v2.plan.md` (pipeline, guardrails,
+> trí nhớ). Tài liệu này giữ phần sản phẩm và lộ trình.
 
 ## 1. Core needs (khác mạng xã hội)
 
@@ -38,7 +40,7 @@ Nút thắt thực tế: bố mẹ giữ oai nghiêm; con trẻ cần riêng tư
 | Đứt gãy ký ức, sợ lãng quên | Trường tồn bản sắc & cội nguồn | **Family Codex** — niên giám sống / timeline mạch lạc |
 | Sống vội, ngại tương tác sâu | Gắn kết nhẹ, không gánh nặng | **Micro-rituals** — nghi thức ngắn định kỳ (1 câu hỏi / tuần) |
 | Lời quan tâm hóa phán xét | Được hiểu đúng ý thương | **Emotional Translator** (post-MVP) — dịch cảm xúc giữa thế hệ |
-| Con cần riêng tư | Tôn trọng ranh giới | **Private compartments** (post-MVP) — nhật ký riêng, chia sẻ chọn lọc |
+| Con cần riêng tư | Tôn trọng ranh giới | **Private compartments** — đã có phòng riêng 1-1 với thực thể ký ức; nhật ký riêng vẫn post-MVP |
 
 ## 4. GTM & mũi khoan (wedge)
 
@@ -78,24 +80,31 @@ CÁI BIẾN ĐỔI (Context Key)
 4. AI là neo tinh thần — không thay thế tang lễ hay trị liệu chuyên nghiệp.  
 5. Bảo vệ tôn nghiêm thực thể số — không biến thành công cụ giải trí / deepfake tùy tiện.
 
+Rule 1 không còn là lời nhắc trong prompt. Nó có bộ máy: grounding check chặn năm
+và tên không có trong tư liệu, và fact nghe được từ trò chuyện phải qua người
+duyệt mới vào Thư viện. Chi tiết: `docs/heritage-chat-v2.plan.md`.
+
 ## 6. MVP scope (1 gia đình — gift for mother)
 
-### In scope (gần)
-- Auth + invite  
+### Đã xong
+- Auth + invite; Owner / Member / steward  
 - Family space + chat (living members)  
-- Shared library (ảnh, ghi chú, audio)  
-- Identity profile + heritage AI **text** (RAG + system prompt)  
-- Time-capsule interview prompts (ít nhất bản tối giản)  
-- Owner / Member  
+- Shared library (ảnh, ghi chú, audio, thơ)  
+- Identity profile + heritage AI **text** — pipeline đầy đủ, xem §7 Phase 3  
+- Time-capsule interview prompts  
+- Voice DNA + Extract (vượt scope MVP ban đầu)  
+- Phòng riêng 1-1 với thực thể ký ức  
 
-### Out of scope gần (giữ trong roadmap)
-- Voice clone / conversational voice production  
+### Còn ngoài scope (giữ trong roadmap)
 - Emotional Translator tự động  
-- Private compartments đầy đủ  
+- Nhật ký riêng / chia sẻ chọn lọc từng `MemoryItem`  
 - E2E / IPFS / on-chain family tree  
 - Social graph, marketplace  
 
 ## 7. Lộ trình piece by piece
+
+> Số phase ở đây là lộ trình sản phẩm, **không trùng** với Phase 0–5 trong
+> `heritage-chat-v2.plan.md` (đó là các tầng của riêng pipeline chat).
 
 ### Phase 0 — Thu thập & làm sạch nguyên liệu
 | Nguồn | Việc cần làm |
@@ -105,45 +114,55 @@ CÁI BIẾN ĐỔI (Context Key)
 | Triết lý | Worksheet: câu cửa miệng, cách an ủi mẹ, cách khuyên con, taboo |
 | Ảnh | Album mốc đời + caption/ngữ cảnh |
 
-Checklist Identity Lock:
-- [ ] 5 giá trị cốt lõi (+ ví dụ hành vi)  
-- [ ] Giọng điệu + mẫu câu  
-- [ ] Taboo / điều không nói  
-- [ ] Quan hệ với mẹ (xưng hô, biệt danh, thói quen quan tâm)  
-- [ ] 10 kỷ niệm neo  
-- [ ] Export FB (nếu có quyền / Legacy Contact)  
+Checklist Identity Lock — trạng thái cho **bố Triệu** (đã chốt 5/8/2026,
+`docs/heritage-bo-trieu/`). Mỗi người được nhớ sau này làm lại từ đầu:
 
-### Phase 1 — Family chat skeleton *(scaffold hiện tại)*
+- [x] 5 giá trị cốt lõi (+ ví dụ hành vi) — 6 giá trị  
+- [x] Giọng điệu + mẫu câu  
+- [x] Taboo / điều không nói — 4  
+- [x] Quan hệ với mẹ (xưng hô, biệt danh, thói quen quan tâm) — 5 lối xưng hô, 7 vai  
+- [x] 10 kỷ niệm neo — 14 mốc, 18 bài thơ  
+- [ ] Export FB (nếu có quyền / Legacy Contact)  
+- [ ] Thư / sổ tay dạng văn bản — chưa có món nào vào Thư viện  
+
+### Phase 1 — Family chat skeleton ✅
 Vehicle quen thuộc cho mẹ & anh chị em.  
 Done: ≥2 người chat ổn trên điện thoại thật.
 
-### Phase 1b — Time-Capsule Interview (wedge UX)
+### Phase 1b — Time-Capsule Interview (wedge UX) ✅
 - Bộ câu hỏi cội nguồn  
 - Trả lời bằng voice note → lưu vào library  
 - Playback bất đồng bộ cho thành viên  
 
-### Phase 2 — Shared Memory Library → mầm Family Codex
+### Phase 2 — Shared Memory Library → mầm Family Codex ✅
 - `MemoryItem` + save-from-chat  
 - Timeline theo thời gian (+ tag người / sự kiện)  
-- Sau: Memory Curator tổng hợp niên giám  
+- `family_entities` là mầm Codex đang chạy: alias → người thật, dùng để chat gọi
+  đúng tên. Memory Curator tổng hợp niên giám vẫn còn phía trước.
 
-### Phase 3 — Cognitive Twin (text)
-- `IdentityProfile` + embeddings + RAG  
-- System prompt tính cách; refuse khi thiếu data  
-- Context Key từ chat đời sống  
+### Phase 3 — Cognitive Twin (text) ✅ — nhưng **không** bằng embeddings
+Đã chạy qua pipeline 5 tầng (`docs/heritage-chat-v2.plan.md`): phân tích ngữ cảnh
+bằng Gemini → Codex + truy hồi → lăng kính giá trị → guardrails → trí nhớ.
 
-### Phase 4 — Voice DNA
+Chệch có chủ ý so với kế hoạch cũ: **chưa dùng embeddings/vector RAG**. Ở quy mô
+một gia đình (vài chục bài thơ, vài chục mốc đời), truy hồi theo từ khoá có chấm
+điểm + Codex có cấu trúc cho kết quả kiểm được và gỡ được, còn vector thì mờ.
+pgvector chỉ thêm khi có bằng chứng là truy hồi trượt, không phải vì nó hiện đại.
+
+### Phase 4 — Voice DNA ✅
 - Audio clean → Instant Voice Clone (ElevenLabs); API key trong **Cài đặt không gian**
 - Hai luồng: giọng sống (self) + giọng ký ức (steward/owner + Identity Profile)
 - TTS optional, **không auto-play**
-- Voice DNA thường vài chục MB–<1GB (raw + model)  
+- Voice DNA thường vài chục MB–<1GB (raw + model)
+- Thêm ngoài kế hoạch: **Extract** — tách giọng bố khỏi video/ghi âm cũ thành
+  `VoiceSample`, có bước người xem lại trước khi nhận (`Extract/`, `extract_jobs`)
 
-### Phase 5 — Micro-rituals & Bridge soft features
+### Phase 5 — Micro-rituals & Bridge soft features *(chưa bắt đầu)*
 - Nghi thức tuần (1 câu hỏi / 1 ảnh cũ)  
 - Gợi ý kể chuyện bất đồng bộ thay vì ép “nói chuyện thẳng”  
 
-### Phase 6 — Trường tồn & chủ quyền
-Blockchain **không** để lưu video/ảnh nặng. Vai trò dài hạn:
+### Phase 6 — Trường tồn & chủ quyền *(chưa bắt đầu, trừ steward transfer)*
+`steward_successions` đã có. Blockchain **không** để lưu video/ảnh nặng. Vai trò dài hạn:
 
 1. **Data sovereignty** — quyền sở hữu / khóa gia tộc (kèm storage phi tập trung kiểu IPFS cho bản hash/metadata)  
 2. **Proof of authenticity** — timestamp + hash tư liệu gốc chống giả mạo khi GenAI phổ biến  
@@ -151,16 +170,20 @@ Blockchain **không** để lưu video/ảnh nặng. Vai trò dài hạn:
 
 Trước mắt: export archive ZIP/JSON + steward chỉ định trong app + encryption-at-rest roadmap.
 
-## 8. Schema (Phase 1 hiện tại)
+## 8. Schema (hiện tại)
 
-- `users`  
-- `family_spaces`  
-- `memberships` (owner|member)  
-- `threads` (family|heritage)  
-- `messages` (sender_kind: user|heritage)  
-- `invites`  
+| Nhóm | Bảng |
+|---|---|
+| Người & không gian | `users`, `family_spaces`, `memberships`, `invites`, `space_settings`, `steward_successions` |
+| Trò chuyện | `threads`, `messages` |
+| Thư viện & phỏng vấn | `memory_items`, `interview_prompts`, `interview_answers` |
+| Thực thể ký ức | `identity_profiles`, `family_entities`, `thread_memory`, `memory_candidates` |
+| Voice DNA | `voice_profiles`, `voice_samples`, `voice_renders`, `extract_jobs`, `extract_segments` |
 
-Sắp tới: `memory_items`, `identity_profiles`, `interview_prompts`, `interview_answers`, `voice_profiles`, `space_settings`.
+`threads` mang thêm `heritage_identity_id` + `audience_scope` (`family` \| `direct`)
++ `member_user_id`: mỗi người được nhớ có một phòng cả nhà và một phòng riêng cho
+từng thành viên. Chưa có Alembic — bảng mới qua `create_all`, cột mới thêm vào
+`schema_patch.ensure_schema()`.
 
 ## 9. Success (món quà gửi mẹ)
 
@@ -172,8 +195,14 @@ Sắp tới: `memory_items`, `identity_profiles`, `interview_prompts`, `intervie
 
 ## 10. Ưu tiên engineering sắp tới
 
-1. Phase 0 data pack (song song với code)  
-2. Ổn định Phase 1 chat trên device thật  
-3. Library + interview prompts (wedge)  
-4. Heritage text twin  
-5. Voice layer khi text đã “đúng bố” theo đánh giá gia đình  
+1. **Bộ golden ~20 câu hỏi** — đo bịa đặt và độ đúng giọng bằng số, thay vì cảm
+   tính từng lượt. Đây là thứ chặn đường mọi tinh chỉnh tiếp theo.  
+2. **`visibility` trên `MemoryItem`** — hiện fact chỉ có hai lựa chọn: chia sẻ cả
+   nhà, hoặc không thành ký ức lâu dài. Chưa có chỗ cho «riêng mà vẫn giữ».  
+3. Bật critic (`HERITAGE_CRITIC_ENABLED`) sau khi có golden set để biết nó sửa
+   đúng hay sửa hỏng.  
+4. Giọng đọc trong chat — TTS cho reply của thực thể, không auto-play.  
+5. Micro-rituals (Phase 5) và export archive (Phase 6) khi mẹ đã dùng đều.  
+
+Nợ kỹ thuật đáng ghi: chưa có Alembic, `_knowledge_snippets` vẫn lấy «3 cái mới
+nhất» thay vì theo độ liên quan như `retrieve_learned`.
