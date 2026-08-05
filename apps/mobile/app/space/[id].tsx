@@ -255,6 +255,22 @@ export default function SpaceScreen() {
           <Text style={styles.memoryTitle}>Voice DNA</Text>
           <Text style={styles.memorySub}>Giọng & TTS</Text>
         </Pressable>
+        <Pressable
+          style={styles.memoryTile}
+          onPress={() => id && router.push(`/review/${id}`)}
+        >
+          <View style={styles.memoryTitleRow}>
+            <Text style={styles.memoryTitle}>Điều nghe được</Text>
+            {pendingCount > 0 ? (
+              <View style={styles.memoryCount}>
+                <Text style={styles.memoryCountText}>{pendingCount}</Text>
+              </View>
+            ) : null}
+          </View>
+          <Text style={styles.memorySub}>
+            {pendingCount > 0 ? "Chờ bạn duyệt" : "Từ trò chuyện"}
+          </Text>
+        </Pressable>
       </View>
 
       <Text style={styles.section}>
@@ -400,9 +416,10 @@ const styles = StyleSheet.create({
     letterSpacing: 0.4,
     marginTop: 4,
   },
-  memoryRow: { flexDirection: "row", gap: 8 },
+  memoryRow: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
   memoryTile: {
-    flex: 1,
+    flexBasis: "47%",
+    flexGrow: 1,
     backgroundColor: colors.card,
     borderRadius: 12,
     paddingVertical: 12,
@@ -412,11 +429,29 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 4,
   },
+  memoryTitleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
   memoryTitle: {
     fontSize: 13,
     fontWeight: "700",
     color: colors.ink,
     textAlign: "center",
+  },
+  memoryCount: {
+    minWidth: 18,
+    paddingHorizontal: 5,
+    paddingVertical: 1,
+    borderRadius: 9,
+    backgroundColor: colors.brand,
+    alignItems: "center",
+  },
+  memoryCountText: {
+    fontSize: 11,
+    fontWeight: "800",
+    color: "#f4efe6",
   },
   memorySub: {
     fontSize: 11,

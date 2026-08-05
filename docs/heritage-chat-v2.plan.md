@@ -243,6 +243,15 @@ Chống trùng theo văn bản đã chuẩn hoá, xét cả hàng đợi (`pendi
 cả Thư viện, nên cùng một điều kể lại lần nữa không sinh thêm việc cho người duyệt.
 Trần `MAX_PENDING_PER_IDENTITY = 40` để hàng đợi không thành bãi rác.
 
+Chỗ vào phải **luôn thấy được**: ô «Điều nghe được» ở màn không gian có mặt kể cả
+khi hàng đợi rỗng, có số đếm khi có việc. Ban đầu nó chỉ là banner hiện khi
+`pendingCount > 0` — nghĩa là lúc rỗng thì không ai biết tính năng tồn tại.
+
+Lượt chat có trước Stage 5b vẫn còn nguyên fact trong `meta_json.new_facts` nhưng
+chưa từng được xếp hàng. `scripts/backfill-memory-candidates.py` gom lại (chỉ
+`stated`, dedupe qua service nên chạy lại vô hại) — cần mỗi khi hàng đợi ra sau
+cuộc trò chuyện.
+
 ## Hình thái thread
 
 Mỗi người được nhớ có **một phòng cả nhà** và **một phòng riêng cho từng thành
