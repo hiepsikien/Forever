@@ -152,7 +152,8 @@ pgvector chỉ thêm khi có bằng chứng là truy hồi trượt, không ph�
 ### Phase 4 — Voice DNA ✅
 - Audio clean → Instant Voice Clone (ElevenLabs); API key trong **Cài đặt không gian**
 - Hai luồng: giọng sống (self) + giọng ký ức (steward/owner + Identity Profile)
-- TTS optional, **không auto-play**
+- TTS optional, **không auto-play** — trừ trong phiên «Gọi cho Bố», nơi mẹ vừa
+  bấm nói và câu trả lời là thứ bà đang chờ (`docs/voice-to-voice.plan.md` §3)
 - Voice DNA thường vài chục MB–<1GB (raw + model)
 - Thêm ngoài kế hoạch: **Extract** — tách giọng bố khỏi video/ghi âm cũ thành
   `VoiceSample`, có bước người xem lại trước khi nhận (`Extract/`, `extract_jobs`)
@@ -204,8 +205,10 @@ từng thành viên. Chưa có Alembic — bảng mới qua `create_all`, cột 
 2. **Quy hoạch lại trang Ký ức** — hub theo người + bốn kệ (A–E):
    `apps/mobile/app/library/[spaceId]/`, helpers `lib/libraryShelves.ts`,
    plan `docs/library-ia.plan.md`.  
-3. Bật critic (`HERITAGE_CRITIC_ENABLED`) sau khi golden live đạt *bịa năm/tên = 0*.  
-4. Giọng đọc trong chat — TTS cho reply của thực thể, không auto-play.  
+3. **Voice-to-voice cho mẹ** — mẹ không chat được; nói và nghe thì được. STT
+   (chưa có gì) → pipeline sẵn có → TTS gắn vào reply → màn «Gọi cho Bố».
+   Kế hoạch: `docs/voice-to-voice.plan.md`. Bao trùm luôn mục «TTS trong chat».  
+4. Bật critic (`HERITAGE_CRITIC_ENABLED`) sau khi golden live đạt *bịa năm/tên = 0*.  
 5. Micro-rituals (Phase 5) và export archive (Phase 6) khi mẹ đã dùng đều.  
 
 Đã xong: `visibility` trên `MemoryItem` (`family` / `private`) — fact nghe trong
