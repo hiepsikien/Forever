@@ -1,6 +1,7 @@
 import {
   FamilySpace,
   IdentityProfile,
+  SpaceRole,
   SpaceSettings,
   StewardshipStatus,
 } from "@forever/api-client";
@@ -23,6 +24,20 @@ import { colors, fonts } from "@/lib/theme";
 
 type SettingsTab = "account" | "space";
 
+const ROLE_CHOICES: Array<{ role: SpaceRole; label: string; help: string }> = [
+  { role: "owner", label: "Quản trị", help: "Mời và gỡ người, giữ Voice DNA." },
+  {
+    role: "moderator",
+    label: "Biên tập",
+    help: "Duyệt điều nghe được và sửa trang kỷ niệm.",
+  },
+  { role: "member", label: "Thành viên", help: "Trò chuyện, thêm ký ức, nghe giọng." },
+];
+
+function roleLabel(role: string | undefined): string {
+  return ROLE_CHOICES.find((r) => r.role === role)?.label ?? "Thành viên";
+}
+
 export default function SettingsScreen() {
   const { spaceId } = useLocalSearchParams<{ spaceId: string }>();
   const { api, user, signOut } = useAuth();
@@ -37,6 +52,8 @@ export default function SettingsScreen() {
   const [saving, setSaving] = useState(false);
   const [allIdentities, setAllIdentities] = useState<IdentityProfile[]>([]);
   const [archiveBusy, setArchiveBusy] = useState(false);
+  const [adminBusy, setAdminBusy] = useState(false);
+  const [linkingIdentityId, setLinkingIdentityId] = useState<string | null>(null);
 
   useSpaceScreenOptions({
     spaceId,
@@ -110,6 +127,65 @@ export default function SettingsScreen() {
                 "Lỗi",
                 e instanceof Error ? e.message : "Không gỡ được.",
               );
+            }
+          },
+        },
+      ],
+    );
+  };
+
+  const changeRole = async (
+    member: { id: string; name: string },
+    role: SpaceRole,
+  ) => {
+    if (!spaceId) return;
+    setAdminBusy(true);
+    try {
+      await api.setMemberRole(spaceId, member.id, role);
+      await load();
+    } catch (e) {
+      Alert.alert("Lỗi", e instanceof Error ? e.message : "Không đổi được vai trò.");
+    } finally {
+      setAdminBusy(false);
+    }
+  };
+
+  const linkAccount = async (identity: IdentityProfile, memberUserId: string) => {
+    if (!spaceId) return;
+    setAdminBusy(true);
+    try {
+      await api.linkIdentityUser(spaceId, identity.id, memberUserId);
+      setLinkingIdentityId(null);
+      await load();
+    } catch (e) {
+      Alert.alert("Lỗi", e instanceof Error ? e.message : "Không ghép được.");
+    } finally {
+      setAdminBusy(false);
+    }
+  };
+
+  const confirmUnlink = (identity: IdentityProfile) => {
+    if (!spaceId) return;
+    Alert.alert(
+      `Gỡ tài khoản khỏi ${identity.display_name}?`,
+      "Hồ sơ và mọi ký ức giữ nguyên. Người đó thôi tự quản lý Voice DNA của hồ sơ này.",
+      [
+        { text: "Huỷ", style: "cancel" },
+        {
+          text: "Gỡ",
+          style: "destructive",
+          onPress: async () => {
+            setAdminBusy(true);
+            try {
+              await api.unlinkIdentityUser(spaceId, identity.id);
+              await load();
+            } catch (e) {
+              Alert.alert(
+                "Lỗi",
+                e instanceof Error ? e.message : "Không gỡ được.",
+              );
+            } finally {
+              setAdminBusy(false);
             }
           },
         },
@@ -223,9 +299,22 @@ export default function SettingsScreen() {
   const iAmNominee = succession?.nominee?.id === user?.id;
   const isOwner = space?.role === "owner";
   const canArchive = isOwner || Boolean(stewardship?.is_steward);
+  // Same tier the API gates role changes and account linking behind.
+  const canAdmin = canArchive;
+  // Mirrors `require_moderator_or_above` — who may tend the Identity Lock.
+  const canEditLock =
+    space?.role === "owner" ||
+    space?.role === "moderator" ||
+    Boolean(stewardship?.is_steward);
   const archivedIdentities = allIdentities.filter((i) => i.archived_at);
   const archivableIdentities = allIdentities.filter(
     (i) => !i.archived_at && !i.linked_user_id,
+  );
+  const editableIdentities = allIdentities.filter((i) => !i.archived_at);
+  const members = space?.members ?? [];
+  const memberById = new Map(members.map((m) => [m.id, m]));
+  const linkableIdentities = allIdentities.filter(
+    (i) => !i.archived_at && i.status === "living",
   );
 
   return (
@@ -326,29 +415,195 @@ export default function SettingsScreen() {
             ) : null}
           </View>
 
-          <Text style={styles.section}>Thành viên</Text>
+        </>
+      ) : null}
+
+      {canAdmin ? (
+        <>
+          <Text style={styles.section}>Thành viên và vai trò</Text>
+          <Text style={styles.help}>
+            Biên tập viên duyệt điều nghe được từ phòng chung và sửa trang kỷ niệm.
+            Điều ai đó nói riêng với người đã mất vẫn chỉ mình họ duyệt.
+          </Text>
           <View style={styles.card}>
-            {(space?.members ?? []).map((member) => (
-              <View key={member.id} style={styles.archiveRow}>
-                <View style={styles.archiveRowMain}>
-                  <Text style={styles.value}>{member.name}</Text>
-                  <Text style={styles.metaLine}>
-                    {member.email}
-                    {member.role === "owner" ? " · Quản trị" : ""}
-                    {member.id === stewardship?.steward?.id ? " · Steward" : ""}
-                  </Text>
+            {members.map((member) => {
+              const isSteward = member.id === stewardship?.steward?.id;
+              const isMe = member.id === user?.id;
+              const locked = isSteward || isMe;
+              return (
+                <View key={member.id} style={styles.memberBlock}>
+                  <View style={styles.archiveRow}>
+                    <View style={styles.archiveRowMain}>
+                      <Text style={styles.value}>{member.name}</Text>
+                      <Text style={styles.metaLine}>
+                        {member.email}
+                        {isSteward ? " · Steward" : ""}
+                        {isMe ? " · Bạn" : ""}
+                      </Text>
+                    </View>
+                    {isOwner && !locked ? (
+                      <Pressable
+                        style={styles.smallBtnGhost}
+                        onPress={() => confirmRemoveMember(member)}
+                      >
+                        <Text style={styles.smallBtnGhostText}>Gỡ</Text>
+                      </Pressable>
+                    ) : null}
+                  </View>
+                  {locked ? (
+                    <Text style={styles.metaLine}>
+                      {roleLabel(member.role)}
+                      {isSteward
+                        ? " · Người giữ nhà luôn là Quản trị"
+                        : " · Không tự đổi vai trò của mình"}
+                    </Text>
+                  ) : (
+                    <View style={styles.chipRow}>
+                      {ROLE_CHOICES.map((choice) => {
+                        const active = member.role === choice.role;
+                        return (
+                          <Pressable
+                            key={choice.role}
+                            style={[styles.chip, active && styles.chipActive]}
+                            disabled={adminBusy || active}
+                            onPress={() => void changeRole(member, choice.role)}
+                          >
+                            <Text
+                              style={[
+                                styles.chipText,
+                                active && styles.chipTextActive,
+                              ]}
+                            >
+                              {choice.label}
+                            </Text>
+                          </Pressable>
+                        );
+                      })}
+                    </View>
+                  )}
                 </View>
-                {member.id !== user?.id &&
-                member.id !== stewardship?.steward?.id ? (
+              );
+            })}
+          </View>
+
+          <Text style={styles.section}>Ghép tài khoản với hồ sơ</Text>
+          <Text style={styles.help}>
+            Nói cho Forever biết hồ sơ nào là người đang đăng nhập. Người được ghép
+            sẽ tự thu và clone giọng của chính mình, không cần nhờ ai.
+          </Text>
+          <View style={styles.card}>
+            {linkableIdentities.length ? (
+              linkableIdentities.map((identity) => {
+                const linked = identity.linked_user_id
+                  ? memberById.get(identity.linked_user_id)
+                  : undefined;
+                const picking = linkingIdentityId === identity.id;
+                const unlinked = members.filter(
+                  (m) =>
+                    !allIdentities.some(
+                      (i) => i.id !== identity.id && i.linked_user_id === m.id,
+                    ),
+                );
+                return (
+                  <View key={identity.id} style={styles.memberBlock}>
+                    <View style={styles.archiveRow}>
+                      <View style={styles.archiveRowMain}>
+                        <Text style={styles.value}>{identity.display_name}</Text>
+                        <Text style={styles.metaLine}>
+                          {identity.linked_user_id
+                            ? `Đã ghép: ${linked?.name ?? "tài khoản đã rời nhà"}`
+                            : identity.relation_label || "Chưa ghép tài khoản"}
+                        </Text>
+                      </View>
+                      {identity.linked_user_id ? (
+                        <Pressable
+                          style={[
+                            styles.smallBtnGhost,
+                            adminBusy && styles.btnDisabled,
+                          ]}
+                          disabled={adminBusy}
+                          onPress={() => confirmUnlink(identity)}
+                        >
+                          <Text style={styles.smallBtnGhostText}>Gỡ</Text>
+                        </Pressable>
+                      ) : (
+                        <Pressable
+                          style={[styles.smallBtn, adminBusy && styles.btnDisabled]}
+                          disabled={adminBusy}
+                          onPress={() =>
+                            setLinkingIdentityId(picking ? null : identity.id)
+                          }
+                        >
+                          <Text style={styles.smallBtnText}>
+                            {picking ? "Đóng" : "Ghép"}
+                          </Text>
+                        </Pressable>
+                      )}
+                    </View>
+                    {picking ? (
+                      <View style={styles.chipRow}>
+                        {unlinked.length ? (
+                          unlinked.map((member) => (
+                            <Pressable
+                              key={member.id}
+                              style={[styles.chip, adminBusy && styles.btnDisabled]}
+                              disabled={adminBusy}
+                              onPress={() => void linkAccount(identity, member.id)}
+                            >
+                              <Text style={styles.chipText}>{member.name}</Text>
+                            </Pressable>
+                          ))
+                        ) : (
+                          <Text style={styles.body}>
+                            Mọi tài khoản đều đã ghép với một hồ sơ khác.
+                          </Text>
+                        )}
+                      </View>
+                    ) : null}
+                  </View>
+                );
+              })
+            ) : (
+              <Text style={styles.body}>
+                Chưa có hồ sơ người đang sống nào để ghép.
+              </Text>
+            )}
+          </View>
+        </>
+      ) : null}
+
+      {canEditLock ? (
+        <>
+          <Text style={styles.section}>Bản sắc</Text>
+          <Text style={styles.help}>
+            Khóa nhân dạng đằng sau giọng nói — giá trị sống, khẩu khí, cách xưng hô.
+            Chỉ mở từ đây, không từ thư viện.
+          </Text>
+          <View style={styles.card}>
+            {editableIdentities.length ? (
+              editableIdentities.map((identity) => (
+                <View key={identity.id} style={styles.archiveRow}>
+                  <View style={styles.archiveRowMain}>
+                    <Text style={styles.value}>{identity.display_name}</Text>
+                    <Text style={styles.metaLine}>
+                      {identity.relation_label ||
+                        (identity.status === "remembered" ? "Ký ức" : "Đang sống")}
+                      {identity.profile_reviewed_at ? " · Đã duyệt" : " · Chưa duyệt"}
+                    </Text>
+                  </View>
                   <Pressable
-                    style={styles.smallBtnGhost}
-                    onPress={() => confirmRemoveMember(member)}
+                    style={styles.smallBtn}
+                    onPress={() =>
+                      router.push(`/profile/${spaceId}/${identity.id}` as never)
+                    }
                   >
-                    <Text style={styles.smallBtnGhostText}>Gỡ</Text>
+                    <Text style={styles.smallBtnText}>Sửa</Text>
                   </Pressable>
-                ) : null}
-              </View>
-            ))}
+                </View>
+              ))
+            ) : (
+              <Text style={styles.body}>Chưa có hồ sơ nào để chỉnh.</Text>
+            )}
           </View>
         </>
       ) : null}
@@ -623,6 +878,19 @@ const styles = StyleSheet.create({
     borderTopColor: colors.line,
   },
   archiveRowMain: { flex: 1, gap: 2 },
+  memberBlock: { paddingBottom: 8 },
+  chipRow: { flexDirection: "row", flexWrap: "wrap", gap: 8, paddingTop: 4 },
+  chip: {
+    borderRadius: 999,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderWidth: 1,
+    borderColor: colors.line,
+    backgroundColor: "#fff",
+  },
+  chipActive: { backgroundColor: colors.brand, borderColor: colors.brand },
+  chipText: { fontSize: 13, fontWeight: "600", color: colors.inkSoft },
+  chipTextActive: { color: "#f4efe6" },
   btnSecondary: {
     alignSelf: "flex-start",
     backgroundColor: "#fff",

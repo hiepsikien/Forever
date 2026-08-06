@@ -12,7 +12,8 @@
     "web": "expo start --web",
     "typecheck": "tsc --noEmit",
     "android:keystore": "bash scripts/ensure-keystore.sh",
-    "android:apk": "bash scripts/build-apk.sh"
+    "android:apk": "bash scripts/build-apk.sh",
+    "postinstall": "patch-package"
   },
   "dependencies": {
     "@expo/metro-runtime": "~6.1.2",
@@ -20,6 +21,7 @@
     "@forever/philosophy": "file:../../packages/philosophy",
     "@react-native-async-storage/async-storage": "2.2.0",
     "@react-native/virtualized-lists": "^0.81.5",
+    "@sentry/react-native": "^8.22.0",
     "expo": "~54.0.0",
     "expo-asset": "~12.0.13",
     "expo-audio": "~1.1.1",
@@ -49,6 +51,7 @@
   },
   "devDependencies": {
     "@types/react": "~19.1.10",
+    "patch-package": "^8.0.1",
     "typescript": "~5.9.2"
   }
 }

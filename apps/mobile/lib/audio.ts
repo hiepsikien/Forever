@@ -1,11 +1,19 @@
 import {
   AudioPlayer,
+  AudioStatus,
   createAudioPlayer,
   setAudioModeAsync,
 } from "expo-audio";
 
 let activePlayer: AudioPlayer | null = null;
 let finishSub: { remove: () => void } | null = null;
+
+export type PlayLocalAudioOptions = {
+  onFinish?: () => void;
+  onProgress?: (status: Pick<AudioStatus, "currentTime" | "duration" | "isLoaded">) => void;
+  /** Status poll interval in ms. Default 200 for follow-along UI. */
+  updateInterval?: number;
+};
 
 export async function stopActivePlayback(): Promise<void> {
   if (finishSub) {
@@ -53,18 +61,33 @@ export function hasActivePlayer(): boolean {
 /** Play a local file URI; returns the player. Call stopActivePlayback to cancel. */
 export async function playLocalAudio(
   uri: string,
-  onFinish?: () => void,
+  onFinishOrOpts?: (() => void) | PlayLocalAudioOptions,
 ): Promise<AudioPlayer> {
+  const opts: PlayLocalAudioOptions =
+    typeof onFinishOrOpts === "function"
+      ? { onFinish: onFinishOrOpts }
+      : onFinishOrOpts ?? {};
+
   await stopActivePlayback();
   await setAudioModeAsync({
     playsInSilentMode: true,
     allowsRecording: false,
   });
 
-  const player = createAudioPlayer({ uri });
+  const player = createAudioPlayer(
+    { uri },
+    { updateInterval: opts.updateInterval ?? (opts.onProgress ? 200 : 500) },
+  );
   activePlayer = player;
 
   finishSub = player.addListener("playbackStatusUpdate", (status) => {
+    if (status.isLoaded && opts.onProgress) {
+      opts.onProgress({
+        currentTime: status.currentTime,
+        duration: status.duration,
+        isLoaded: status.isLoaded,
+      });
+    }
     if (!status.didJustFinish) return;
     finishSub?.remove();
     finishSub = null;
@@ -76,7 +99,7 @@ export async function playLocalAudio(
       }
       activePlayer = null;
     }
-    onFinish?.();
+    opts.onFinish?.();
   });
 
   player.play();

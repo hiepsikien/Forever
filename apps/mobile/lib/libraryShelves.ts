@@ -106,6 +106,11 @@ export function buildPersonHubRows(
     counts.heard += pendingByIdentity.get(identity.id) ?? 0;
     const total =
       counts.life + counts.poems + counts.artifacts + counts.heard;
+    // Linked living profiles (including your own "Tôi") are Voice DNA mirrors,
+    // not memorial pages. The app creates one per member on first touch, so an
+    // empty row would just read «Tôi · Chưa có ký ức». Once the family keeps
+    // something about them, they earn the shelf. Add still tags people via form.
+    if (total === 0 && identity.linked_user_id) continue;
     rows.push({
       identityId: identity.id,
       label: identityChipLabel(identity, userId),

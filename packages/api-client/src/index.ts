@@ -33,10 +33,18 @@ export interface StewardshipStatus {
   succession: StewardSuccession | null;
 }
 
+/**
+ * Membership roles, widest authority first.
+ *
+ * `moderator` approves what the chat heard and tends the memorial pages. It
+ * carries no authority over voices, invites or who belongs to the house.
+ */
+export type SpaceRole = "owner" | "moderator" | "member";
+
 export interface FamilySpace {
   id: string;
   name: string;
-  role: "owner" | "member" | string;
+  role: SpaceRole | string;
   member_count: number;
   steward_user_id: string;
   created_at: string;
@@ -45,7 +53,7 @@ export interface FamilySpace {
     name: string;
     handle?: string | null;
     email: string;
-    role: string;
+    role: SpaceRole | string;
   }>;
 }
 
@@ -212,9 +220,22 @@ export interface IdentityProfile {
   taboos?: unknown;
   poetry_quote_mode?: "paraphrase" | "verbatim" | string;
   dynamic_context?: string;
+  family_context_opt_in?: boolean;
   profile_reviewed_at?: string | null;
   profile_reviewed_by?: string | null;
   archived_at?: string | null;
+}
+
+export interface IdentityProfileRevision {
+  id: string;
+  space_id: string;
+  identity_id: string;
+  created_at: string;
+  created_by: string;
+  created_by_name?: string | null;
+  display_name?: string | null;
+  relation_label?: string | null;
+  profile_reviewed?: boolean;
 }
 
 export interface VoiceSample {
@@ -600,6 +621,18 @@ function isTimeoutError(e: unknown): boolean {
   );
 }
 
+function isNetworkError(e: unknown): boolean {
+  if (!e || typeof e !== "object") return false;
+  const name = String((e as { name?: unknown }).name || "");
+  const message = String((e as { message?: unknown }).message || "");
+  return (
+    /network request failed/i.test(message) ||
+    /failed to fetch/i.test(message) ||
+    /network error/i.test(message) ||
+    (name === "TypeError" && /fetch/i.test(message))
+  );
+}
+
 export function createApiClient({
   baseUrl,
   getToken,
@@ -641,9 +674,10 @@ export function createApiClient({
       if (!res.ok) throw new ApiError(res.status, body);
       return body as T;
     } catch (e) {
-      if (isTimeoutError(e)) {
+      if (e instanceof ApiError) throw e;
+      if (isTimeoutError(e) || isNetworkError(e)) {
         throw new Error(
-          `Không kết nối được API (${root}). Kiểm tra máy và điện thoại cùng mạng, API đang chạy --host 0.0.0.0.`,
+          `Không kết nối được API (${root}${path}). Kiểm tra máy và điện thoại cùng Wi‑Fi, API đang chạy --host 0.0.0.0.`,
         );
       }
       throw e;
@@ -719,6 +753,11 @@ export function createApiClient({
         `/api/spaces/${spaceId}/members/${memberUserId}`,
         { method: "DELETE" },
       ),
+    setMemberRole: (spaceId: string, memberUserId: string, role: SpaceRole) =>
+      request<{ user_id: string; role: SpaceRole }>(
+        `/api/spaces/${spaceId}/members/${memberUserId}/role`,
+        { method: "PATCH", body: JSON.stringify({ role }) },
+      ),
     joinSpace: (code: string) =>
       request<FamilySpace>("/api/spaces/join", {
         method: "POST",
@@ -766,10 +805,11 @@ export function createApiClient({
         name: payload.name,
         type: payload.mimeType,
       } as unknown as Blob);
+      // Voice upload + STT kickoff can exceed the default chat timeout on slow LAN.
       return request<ChatMessage>(
         `/api/threads/${threadId}/messages/voice`,
         { method: "POST", body: form as unknown as BodyInit },
-        { json: false },
+        { json: false, timeoutMs: 120_000 },
       );
     },
     messageMediaUrl: (messageId: string) =>
@@ -920,6 +960,16 @@ export function createApiClient({
           includeArchived ? "?include_archived=true" : ""
         }`,
       ),
+    linkIdentityUser: (spaceId: string, identityId: string, userId: string) =>
+      request<IdentityProfile>(
+        `/api/spaces/${spaceId}/identities/${identityId}/link-user`,
+        { method: "POST", body: JSON.stringify({ user_id: userId }) },
+      ),
+    unlinkIdentityUser: (spaceId: string, identityId: string) =>
+      request<IdentityProfile>(
+        `/api/spaces/${spaceId}/identities/${identityId}/unlink-user`,
+        { method: "POST" },
+      ),
     archiveIdentity: (spaceId: string, identityId: string) =>
       request<IdentityProfile>(
         `/api/spaces/${spaceId}/identities/${identityId}/archive`,
@@ -958,6 +1008,7 @@ export function createApiClient({
         taboos?: unknown;
         poetry_quote_mode?: "paraphrase" | "verbatim";
         dynamic_context?: string;
+        family_context_opt_in?: boolean;
         mark_profile_reviewed?: boolean;
       },
     ) =>
@@ -967,6 +1018,22 @@ export function createApiClient({
           method: "PATCH",
           body: JSON.stringify(payload),
         },
+      ),
+    listIdentityRevisions: (spaceId: string, identityId: string) =>
+      request<{ revisions: IdentityProfileRevision[] }>(
+        `/api/spaces/${spaceId}/identities/${identityId}/revisions`,
+      ),
+    restoreIdentityRevision: (
+      spaceId: string,
+      identityId: string,
+      revisionId: string,
+    ) =>
+      request<{
+        identity: IdentityProfile;
+        restored_revision_id: string;
+      }>(
+        `/api/spaces/${spaceId}/identities/${identityId}/revisions/${revisionId}/restore`,
+        { method: "POST" },
       ),
     listMemoryCandidates: (
       spaceId: string,

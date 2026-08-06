@@ -11,6 +11,7 @@ import re
 from datetime import datetime, timezone
 
 from nanoid import generate
+from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
 
 from ..models import (
@@ -217,16 +218,39 @@ def dismiss(db: Session, *, candidate: MemoryCandidate, user_id: str) -> None:
     db.commit()
 
 
-def candidates_for_reviewer(
-    db: Session, *, space_id: str, user_id: str, status: str = "pending"
-) -> list[MemoryCandidate]:
-    return (
-        db.query(MemoryCandidate)
-        .filter(
-            MemoryCandidate.space_id == space_id,
-            MemoryCandidate.reviewer_user_id == user_id,
-            MemoryCandidate.status == status,
-        )
-        .order_by(MemoryCandidate.created_at.desc())
-        .all()
+def family_thread_ids(db: Session, space_id: str):
+    """Threads the whole family shares — everything except a member's own room."""
+    return select(Thread.id).where(
+        Thread.space_id == space_id,
+        or_(Thread.audience_scope.is_(None), Thread.audience_scope != "direct"),
     )
+
+
+def candidates_for_reviewer(
+    db: Session,
+    *,
+    space_id: str,
+    user_id: str,
+    status: str = "pending",
+    include_family_scope: bool = False,
+) -> list[MemoryCandidate]:
+    """The queue this person may act on.
+
+    `include_family_scope` widens it for a moderator, but only to what was said
+    in a shared thread. A fact overheard in someone's private room stays on
+    that member's desk no matter who is asking.
+    """
+    query = db.query(MemoryCandidate).filter(
+        MemoryCandidate.space_id == space_id,
+        MemoryCandidate.status == status,
+    )
+    if include_family_scope:
+        query = query.filter(
+            or_(
+                MemoryCandidate.reviewer_user_id == user_id,
+                MemoryCandidate.thread_id.in_(family_thread_ids(db, space_id)),
+            )
+        )
+    else:
+        query = query.filter(MemoryCandidate.reviewer_user_id == user_id)
+    return query.order_by(MemoryCandidate.created_at.desc()).all()

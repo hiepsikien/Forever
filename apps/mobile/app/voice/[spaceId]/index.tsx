@@ -19,6 +19,7 @@ import {
 } from "react-native";
 
 import { useAuth } from "@/lib/auth";
+import { identityChipLabel } from "@/lib/identityDisplay";
 import { useSpaceScreenOptions } from "@/lib/spaceHeader";
 import { colors, fonts } from "@/lib/theme";
 
@@ -177,15 +178,13 @@ export default function VoiceDnaScreen() {
   }, [selectedIdentity, voices]);
 
   const chipLabel = (item: IdentityProfile) => {
-    if (item.linked_user_id === user?.id) return "Tôi";
-    const base = item.display_name;
-    if (item.relation_label && item.relation_label !== base) {
-      return item.status === "remembered"
-        ? `${base} · ${item.relation_label}`
-        : `${base} · ${item.relation_label}`;
+    const label = identityChipLabel(item, user?.id);
+    // Voice DNA lists the living and the remembered side by side, so mark the
+    // ones being remembered when no relation already says who they are.
+    if (item.status === "remembered" && label === item.display_name) {
+      return `${item.display_name} · Ký ức`;
     }
-    if (item.status === "remembered") return `${base} · Ký ức`;
-    return base;
+    return label;
   };
 
   const displayIdentities = identities;
@@ -407,8 +406,36 @@ export default function VoiceDnaScreen() {
   const cloneFailed = activeVoice?.status === "failed";
   const canClone = !!activeVoice && processedCount >= 1;
 
+  /**
+   * May this person collect, review and clone *this* voice?
+   *
+   * Mirrors `_can_mutate_voice` on the API. Getting it wrong here only shows a
+   * button that 403s, which is how mẹ used to meet this screen: every control
+   * visible, none of them hers. Speaking and listening are open to the family
+   * and stay outside this gate.
+   */
+  const isOwnVoice =
+    (!!user?.id && selectedIdentity?.linked_user_id === user.id) ||
+    (!!user?.id && activeVoice?.subject_user_id === user.id);
+  const canBuildVoice = canManage || isOwnVoice;
+
   const primaryAction = useMemo(() => {
     if (!selectedIdentity) return null;
+    if (!canBuildVoice) {
+      // Nothing to build here, but a ready voice is still theirs to speak with.
+      return ready
+        ? {
+            label: "Tạo câu nói",
+            subtext: `Nghe thử giọng ${personShort} từ câu chữ`,
+            onPress: () => go("speak"),
+            kind: "nav" as const,
+          }
+        : {
+            label: "",
+            subtext: `Giọng của ${personShort} do người giữ nhà thu và dựng. Khi xong, bạn sẽ nói được bằng giọng ấy.`,
+            kind: "readonly" as const,
+          };
+    }
     if (!activeVoice) {
       return {
         label: "Tạo Voice DNA",
@@ -456,6 +483,7 @@ export default function VoiceDnaScreen() {
   }, [
     selectedIdentity,
     activeVoice,
+    canBuildVoice,
     isHeritageProfile,
     personShort,
     processedCount,
@@ -571,7 +599,7 @@ export default function VoiceDnaScreen() {
           </Text>
         )}
 
-        {activeVoice ? (
+        {activeVoice && canBuildVoice ? (
           <View style={styles.stepper}>
             {STEP_LABELS.map((label, idx) => {
               const step = idx as WorkflowStep;
@@ -786,7 +814,7 @@ export default function VoiceDnaScreen() {
           </View>
         ) : null}
 
-        {!selectedIdentity ? null : !activeVoice ? (
+        {!selectedIdentity ? null : !activeVoice && canBuildVoice ? (
           <View style={styles.heroCard}>
             <Text style={styles.heroTitle}>Bước tiếp theo</Text>
             <Text style={styles.heroSub}>
@@ -816,9 +844,12 @@ export default function VoiceDnaScreen() {
         ) : primaryAction ? (
           <>
             <View style={styles.heroCard}>
-              <Text style={styles.heroTitle}>Bước tiếp theo</Text>
+              <Text style={styles.heroTitle}>
+                {primaryAction.kind === "readonly" ? "Giọng này" : "Bước tiếp theo"}
+              </Text>
               <Text style={styles.heroSub}>{primaryAction.subtext}</Text>
-              {primaryAction.kind === "create" ? null : (
+              {primaryAction.kind === "create" ||
+              primaryAction.kind === "readonly" ? null : (
                 <Pressable
                   style={[
                     styles.btn,
@@ -830,7 +861,7 @@ export default function VoiceDnaScreen() {
                   <Text style={styles.btnText}>{primaryAction.label}</Text>
                 </Pressable>
               )}
-              {activeVoice && unprocessedCount + processedCount > 0 ? (
+              {canBuildVoice && activeVoice && unprocessedCount + processedCount > 0 ? (
                 <Pressable
                   style={styles.heroLink}
                   onPress={() => goSamples("unprocessed")}
@@ -848,18 +879,22 @@ export default function VoiceDnaScreen() {
               ) : null}
             </View>
 
-            <Pressable
-              style={styles.toolsToggle}
-              onPress={() => setShowTools((v) => !v)}
-            >
-              <Text style={styles.toolsToggleText}>
-                {showTools ? "Ẩn thêm & lịch sử" : "Thêm & lịch sử"}
-              </Text>
-              <Text style={styles.toolsChevron}>{showTools ? "▾" : "▸"}</Text>
-            </Pressable>
+            {activeVoice ? (
+              <Pressable
+                style={styles.toolsToggle}
+                onPress={() => setShowTools((v) => !v)}
+              >
+                <Text style={styles.toolsToggleText}>
+                  {showTools ? "Ẩn thêm & lịch sử" : "Thêm & lịch sử"}
+                </Text>
+                <Text style={styles.toolsChevron}>{showTools ? "▾" : "▸"}</Text>
+              </Pressable>
+            ) : null}
 
-            {showTools ? (
+            {showTools && activeVoice ? (
               <View style={styles.group}>
+                {canBuildVoice ? (
+                  <>
                 <Text style={styles.kicker}>Thêm mẫu</Text>
                 {isHeritageProfile ? (
                   <>
@@ -916,13 +951,15 @@ export default function VoiceDnaScreen() {
                     Chọn bản mặc định hoặc xoá bản cũ
                   </Text>
                 </Pressable>
+                  </>
+                ) : null}
                 <Pressable style={styles.action} onPress={() => go("renders")}>
                   <Text style={styles.actionTitle}>Câu đã tạo</Text>
                   <Text style={styles.actionSub}>
                     Nghe / chia sẻ các lần TTS trước
                   </Text>
                 </Pressable>
-                {archivedCount > 0 ? (
+                {canBuildVoice && archivedCount > 0 ? (
                   <Pressable
                     style={styles.action}
                     onPress={() => goSamples("archived")}

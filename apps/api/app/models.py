@@ -256,6 +256,26 @@ class IdentityProfile(Base):
     )
 
 
+class IdentityProfileRevision(Base):
+    """Snapshot of an Identity Lock before someone changed it.
+
+    Each save that actually alters the lock writes the previous state here, so
+    a moderator can walk back to any earlier version. Restore also snapshots
+    the live row first — undo is itself reversible.
+    """
+
+    __tablename__ = "identity_profile_revisions"
+
+    id: Mapped[str] = mapped_column(String(32), primary_key=True)
+    space_id: Mapped[str] = mapped_column(ForeignKey("family_spaces.id"), index=True)
+    identity_id: Mapped[str] = mapped_column(
+        ForeignKey("identity_profiles.id"), index=True
+    )
+    snapshot_json: Mapped[str] = mapped_column(Text, default="")
+    created_by: Mapped[str] = mapped_column(ForeignKey("users.id"))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
+
+
 class FamilyEntity(Base):
     """Family Codex row — a person the heritage entity can be asked about.
 

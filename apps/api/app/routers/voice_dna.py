@@ -15,6 +15,7 @@ from sqlalchemy.orm import Session
 from ..access import (
     get_space_or_404,
     require_membership,
+    require_moderator_or_above,
     require_steward_or_owner,
 )
 from ..auth import get_current_user
@@ -22,6 +23,7 @@ from ..config import get_settings
 from ..db import get_db
 from ..models import (
     IdentityProfile,
+    IdentityProfileRevision,
     SpaceSettings,
     Thread,
     User,
@@ -37,6 +39,13 @@ from ..services.heritage import (
     heritage_thread_title,
     mark_profile_reviewed,
     sync_heritage_thread_title,
+)
+from ..services.identity_revisions import (
+    apply_lock_snapshot,
+    list_revisions,
+    lock_would_change,
+    record_revision,
+    revision_payload,
 )
 from ..services.audio_combine import AudioCombineError, combine_audio_files, probe_duration_ms
 from ..services.audio_info import probe_audio_info
@@ -827,8 +836,13 @@ def update_identity(
     user: Annotated[User, Depends(get_current_user)],
     db: Annotated[Session, Depends(get_db)],
 ):
-    """Light edit: name, relation, living/remembered status."""
-    require_steward_or_owner(db, space_id=space_id, user=user)
+    """Edit the memorial page: name, relation, and the Identity Lock.
+
+    A moderator tends what this person was like. Moving someone between living
+    and remembered is a different kind of statement, so that stays with the
+    steward.
+    """
+    require_moderator_or_above(db, space_id=space_id, user=user)
     row = (
         db.query(IdentityProfile)
         .filter(
@@ -840,11 +854,19 @@ def update_identity(
     if not row:
         raise HTTPException(status_code=404, detail="Identity profile not found.")
 
+    if body.status is not None and body.status != row.status:
+        require_steward_or_owner(db, space_id=space_id, user=user)
+
     if body.status == "remembered" and row.linked_user_id:
         raise HTTPException(
             status_code=400,
             detail="Hồ sơ gắn tài khoản (Tôi) không thể đặt là Ký ức.",
         )
+
+    # Remember what stood here before this edit — but only when the lock
+    # itself is about to change. A status flip alone is not a lock revision.
+    if lock_would_change(row, body):
+        record_revision(db, row=row, user_id=user.id)
 
     if body.display_name is not None:
         row.display_name = body.display_name.strip()
@@ -914,6 +936,80 @@ def update_identity(
     db.commit()
     db.refresh(row)
     return _identity_payload(row, voice=voice)
+
+
+@router.get("/api/spaces/{space_id}/identities/{identity_id}/revisions")
+def list_identity_revisions(
+    space_id: str,
+    identity_id: str,
+    user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[Session, Depends(get_db)],
+):
+    """Earlier versions of this person's Identity Lock, newest first."""
+    require_moderator_or_above(db, space_id=space_id, user=user)
+    _get_identity_or_404(db, space_id=space_id, identity_id=identity_id)
+    rows = list_revisions(db, space_id=space_id, identity_id=identity_id)
+    return {"revisions": [revision_payload(db, row) for row in rows]}
+
+
+@router.post(
+    "/api/spaces/{space_id}/identities/{identity_id}/revisions/{revision_id}/restore"
+)
+def restore_identity_revision(
+    space_id: str,
+    identity_id: str,
+    revision_id: str,
+    user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[Session, Depends(get_db)],
+):
+    """Put this person's Identity Lock back to an earlier version.
+
+    The live state is snapshotted first, so restoring is itself reversible.
+    """
+    require_moderator_or_above(db, space_id=space_id, user=user)
+    row = _get_identity_or_404(db, space_id=space_id, identity_id=identity_id)
+    rev = (
+        db.query(IdentityProfileRevision)
+        .filter(
+            IdentityProfileRevision.id == revision_id,
+            IdentityProfileRevision.identity_id == identity_id,
+            IdentityProfileRevision.space_id == space_id,
+        )
+        .one_or_none()
+    )
+    if not rev:
+        raise HTTPException(status_code=404, detail="Không tìm thấy bản chỉnh sửa.")
+
+    try:
+        snapshot = json.loads(rev.snapshot_json or "{}")
+    except json.JSONDecodeError as exc:
+        raise HTTPException(
+            status_code=500, detail="Bản chỉnh sửa bị hỏng."
+        ) from exc
+    if not isinstance(snapshot, dict):
+        raise HTTPException(status_code=500, detail="Bản chỉnh sửa bị hỏng.")
+
+    record_revision(db, row=row, user_id=user.id)
+    apply_lock_snapshot(row, snapshot)
+    sync_heritage_thread_title(db, row)
+
+    voice = (
+        db.query(VoiceProfile)
+        .filter(VoiceProfile.identity_profile_id == row.id)
+        .one_or_none()
+    )
+    if voice:
+        voice.display_name = _voice_display_label(row)
+        if voice.subject_kind != "self":
+            voice.subject_kind = _subject_kind_for_identity(row)
+        voice.updated_at = datetime.now(timezone.utc)
+
+    db.commit()
+    db.refresh(row)
+    return {
+        "identity": _identity_payload(row, voice=voice),
+        "restored_revision_id": revision_id,
+    }
 
 
 @router.get("/api/spaces/{space_id}/identities/{identity_id}/heritage-readiness")
@@ -1061,6 +1157,85 @@ def _get_identity_or_404(db: Session, *, space_id: str, identity_id: str) -> Ide
     if not row:
         raise HTTPException(status_code=404, detail="Identity profile not found.")
     return row
+
+
+class LinkUserBody(BaseModel):
+    user_id: str = Field(min_length=1, max_length=32)
+
+
+@router.post("/api/spaces/{space_id}/identities/{identity_id}/link-user")
+def link_identity_user(
+    space_id: str,
+    identity_id: str,
+    body: LinkUserBody,
+    user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[Session, Depends(get_db)],
+):
+    """Say that this person in the vault is this person who logs in.
+
+    Until now the only linked profile was the "Tôi" mirror the app created for
+    you. Linking by hand is what lets mẹ own the profile the family already
+    built for her — including the right to manage her own Voice DNA, which
+    `_can_mutate_voice` grants through this field.
+    """
+    require_steward_or_owner(db, space_id=space_id, user=user)
+    row = _get_identity_or_404(db, space_id=space_id, identity_id=identity_id)
+
+    target = db.query(User).filter(User.id == body.user_id).one_or_none()
+    if not target:
+        raise HTTPException(status_code=404, detail="Không tìm thấy tài khoản.")
+    require_membership(db, space_id=space_id, user=target)
+
+    if row.status != "living":
+        raise HTTPException(
+            status_code=400,
+            detail="Chỉ hồ sơ người đang sống mới ghép được với tài khoản.",
+        )
+    if row.archived_at is not None:
+        raise HTTPException(
+            status_code=400,
+            detail="Hồ sơ đã lưu trữ. Khôi phục trước khi ghép tài khoản.",
+        )
+    if row.linked_user_id and row.linked_user_id != target.id:
+        raise HTTPException(
+            status_code=409,
+            detail="Hồ sơ này đã ghép với một tài khoản khác. Gỡ trước đã.",
+        )
+    existing = (
+        db.query(IdentityProfile)
+        .filter(
+            IdentityProfile.space_id == space_id,
+            IdentityProfile.linked_user_id == target.id,
+            IdentityProfile.id != row.id,
+        )
+        .one_or_none()
+    )
+    if existing:
+        raise HTTPException(
+            status_code=409,
+            detail=f"Tài khoản này đã ghép với hồ sơ «{existing.display_name}».",
+        )
+
+    row.linked_user_id = target.id
+    db.commit()
+    db.refresh(row)
+    return _identity_payload(row)
+
+
+@router.post("/api/spaces/{space_id}/identities/{identity_id}/unlink-user")
+def unlink_identity_user(
+    space_id: str,
+    identity_id: str,
+    user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[Session, Depends(get_db)],
+):
+    """Detach the login without touching a single memory on the profile."""
+    require_steward_or_owner(db, space_id=space_id, user=user)
+    row = _get_identity_or_404(db, space_id=space_id, identity_id=identity_id)
+    row.linked_user_id = None
+    db.commit()
+    db.refresh(row)
+    return _identity_payload(row)
 
 
 @router.post("/api/spaces/{space_id}/identities/{identity_id}/archive")

@@ -8,7 +8,13 @@ from nanoid import generate
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
-from ..access import require_membership, require_owner
+from ..access import (
+    OWNER,
+    ROLES,
+    require_membership,
+    require_owner,
+    require_steward_or_owner,
+)
 from ..auth import get_current_user
 from ..db import get_db
 from ..models import FamilySpace, Invite, Membership, Thread, User
@@ -22,6 +28,10 @@ class CreateSpaceBody(BaseModel):
 
 class JoinBody(BaseModel):
     code: str = Field(min_length=4, max_length=32)
+
+
+class SetRoleBody(BaseModel):
+    role: str = Field(min_length=1, max_length=32)
 
 
 def _space_payload(space: FamilySpace, role: str, member_count: int) -> dict:
@@ -215,6 +225,67 @@ def remove_member(
     db.delete(membership)
     db.commit()
     return {"removed": True, "user_id": member_user_id}
+
+
+@router.patch("/{space_id}/members/{member_user_id}/role")
+def set_member_role(
+    space_id: str,
+    member_user_id: str,
+    body: SetRoleBody,
+    user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[Session, Depends(get_db)],
+):
+    """Say who helps decide what the family keeps.
+
+    Promoting a moderator hands over the review queue and the memorial pages,
+    so the same people who can invite and remove decide it.
+    """
+    space = require_steward_or_owner(db, space_id=space_id, user=user)
+    if body.role not in ROLES:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Vai trò phải là một trong: {', '.join(ROLES)}.",
+        )
+    if member_user_id == user.id:
+        raise HTTPException(
+            status_code=400,
+            detail="Bạn không thể tự đổi vai trò của mình.",
+        )
+    membership = (
+        db.query(Membership)
+        .filter(
+            Membership.space_id == space_id,
+            Membership.user_id == member_user_id,
+        )
+        .one_or_none()
+    )
+    if not membership:
+        raise HTTPException(status_code=404, detail="Member not found in this space.")
+    # The steward answers for this house; demoting them by role would leave
+    # them holding the duty with none of the standing.
+    if space.steward_user_id == member_user_id and body.role != OWNER:
+        raise HTTPException(
+            status_code=400,
+            detail="Steward phải giữ vai trò Owner. Chuyển giao quyền giữ nhà trước đã.",
+        )
+    if membership.role == OWNER and body.role != OWNER:
+        remaining_owners = (
+            db.query(Membership)
+            .filter(
+                Membership.space_id == space_id,
+                Membership.role == OWNER,
+                Membership.user_id != member_user_id,
+            )
+            .count()
+        )
+        if remaining_owners == 0:
+            raise HTTPException(
+                status_code=400,
+                detail="Nhà phải còn ít nhất một Owner.",
+            )
+    membership.role = body.role
+    db.commit()
+    return {"user_id": member_user_id, "role": membership.role}
 
 
 @router.post("/join")

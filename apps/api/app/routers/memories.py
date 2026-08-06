@@ -10,7 +10,11 @@ from pydantic import BaseModel, Field
 from sqlalchemy import desc, nulls_last
 from sqlalchemy.orm import Session
 
-from ..access import require_membership, require_steward_or_owner
+from ..access import (
+    is_moderator_or_above,
+    require_membership,
+    require_steward_or_owner,
+)
 from ..auth import get_current_user
 from ..db import get_db
 from ..models import IdentityProfile, MemoryItem, Message, Thread, User
@@ -522,6 +526,29 @@ def get_memory_thumbnail(
     return FileResponse(path, media_type="image/jpeg", filename=path.name)
 
 
+def _require_can_edit_memory(db: Session, item: MemoryItem, user: User) -> None:
+    """Who may change or remove something already kept.
+
+    The person who saved it, and the people the family trusts to tend the
+    memorial pages. Everyone else may read it and add their own — a shared
+    library is not a place where anyone can quietly delete your grandmother.
+
+    A memory kept private stays invisible here, so a moderator cannot reach
+    what was never shared with them in the first place.
+    """
+    require_membership(db, space_id=item.space_id, user=user)
+    if not visible_to(item, user.id):
+        raise HTTPException(status_code=404, detail="Memory not found.")
+    if item.created_by == user.id:
+        return
+    if is_moderator_or_above(db, space_id=item.space_id, user=user):
+        return
+    raise HTTPException(
+        status_code=403,
+        detail="Chỉ người lưu ký ức này hoặc người quản lý mới sửa được.",
+    )
+
+
 @router.delete("/api/memories/{memory_id}")
 def delete_memory(
     memory_id: str,
@@ -531,7 +558,7 @@ def delete_memory(
     item = db.query(MemoryItem).filter(MemoryItem.id == memory_id).one_or_none()
     if not item:
         raise HTTPException(status_code=404, detail="Memory not found.")
-    require_membership(db, space_id=item.space_id, user=user)
+    _require_can_edit_memory(db, item, user)
     media_path = item.media_path
     db.delete(item)
     db.commit()
@@ -553,9 +580,7 @@ def update_memory(
     item = db.query(MemoryItem).filter(MemoryItem.id == memory_id).one_or_none()
     if not item:
         raise HTTPException(status_code=404, detail="Memory not found.")
-    require_membership(db, space_id=item.space_id, user=user)
-    if not visible_to(item, user.id):
-        raise HTTPException(status_code=404, detail="Memory not found.")
+    _require_can_edit_memory(db, item, user)
     if body.visibility is not None:
         if body.visibility not in VISIBILITIES:
             raise HTTPException(status_code=400, detail="Visibility không hợp lệ.")

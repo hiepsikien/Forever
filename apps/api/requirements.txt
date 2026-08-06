@@ -14,3 +14,4 @@ nanoid==2.0.0
 httpx==0.28.1
 pytest==8.4.1
 firebase-admin==6.5.0
+sentry-sdk[fastapi]==2.42.0

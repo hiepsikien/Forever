@@ -1,17 +1,27 @@
 import { ChatMessage, ThreadSummary } from "@forever/api-client";
 import {
+  AudioRecorder,
   requestRecordingPermissionsAsync,
   useAudioRecorder,
   useAudioRecorderState,
 } from "expo-audio";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import {
+  memo,
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from "react";
 import {
   ActivityIndicator,
   Alert,
   FlatList,
   Keyboard,
   KeyboardAvoidingView,
+  NativeScrollEvent,
+  NativeSyntheticEvent,
   Platform,
   Pressable,
   StyleSheet,
@@ -50,6 +60,16 @@ function isVoiceMessage(item: ChatMessage): boolean {
   return (item.kind ?? "text") === "voice";
 }
 
+/** Stable enough to skip FlatList refreshes when the poll returns the same chat. */
+function messagesFingerprint(items: ChatMessage[]): string {
+  return items
+    .map(
+      (m) =>
+        `${m.id}\0${m.kind ?? ""}\0${m.body}\0${m.has_media ? 1 : 0}\0${m.sender_kind}\0${m.sender_name ?? ""}\0${m.sender_handle ?? ""}`,
+    )
+    .join("\n");
+}
+
 const POLL_IDLE_MS = 4000;
 const POLL_WAITING_MS = 1200;
 const HERITAGE_REPLY_TIMEOUT_MS = 60000;
@@ -73,10 +93,129 @@ function HeritageTypingRow({ label }: { label: string }) {
       <Text style={[styles.sender, styles.senderHeritage]}>{label}</Text>
       <View style={[styles.bubble, styles.bubbleHeritage, styles.typingBubble]}>
         <Text style={styles.typingText}>
-          đang soạn{".".repeat(dots)}
+          {`đang soạn${".".repeat(dots)}${"\u00a0".repeat(3 - dots)}`}
         </Text>
       </View>
     </View>
+  );
+}
+
+type MessageRowProps = {
+  item: ChatMessage;
+  mine: boolean;
+  playing: boolean;
+  displayBody: string;
+  onPlay: (item: ChatMessage) => void;
+  onSave: (item: ChatMessage) => void;
+};
+
+const ChatMessageRow = memo(function ChatMessageRow({
+  item,
+  mine,
+  playing,
+  displayBody,
+  onPlay,
+  onSave,
+}: MessageRowProps) {
+  const isAgent = item.sender_kind === "agent";
+  const isHeritage = item.sender_kind === "heritage";
+  const voice = isVoiceMessage(item);
+  return (
+    <Pressable
+      onLongPress={() => onSave(item)}
+      delayLongPress={350}
+      style={[styles.row, mine ? styles.rowMine : styles.rowTheirs]}
+    >
+      {!mine ? (
+        <Text
+          style={[
+            styles.sender,
+            isAgent && styles.senderAgent,
+            isHeritage && styles.senderHeritage,
+          ]}
+        >
+          {item.sender_name ?? (isAgent ? "Người giữ nhà" : "Thành viên")}
+          {item.sender_handle ? (
+            <Text style={styles.handle}> @{item.sender_handle}</Text>
+          ) : isAgent ? (
+            <Text style={styles.handle}> @giunhà</Text>
+          ) : null}
+        </Text>
+      ) : null}
+      <View
+        style={[
+          styles.bubble,
+          mine && styles.bubbleMine,
+          !mine && !isAgent && !isHeritage && styles.bubbleTheirs,
+          isAgent && styles.bubbleAgent,
+          isHeritage && styles.bubbleHeritage,
+        ]}
+      >
+        {voice ? (
+          <Pressable
+            onPress={() => onPlay(item)}
+            style={styles.voiceRow}
+            hitSlop={8}
+          >
+            <Text style={[styles.voicePlay, mine && styles.bodyMine]}>
+              {playing ? "Dừng" : "Phát"}
+            </Text>
+            <View style={styles.voiceMeta}>
+              <Text style={[styles.body, mine && styles.bodyMine]}>
+                Giọng nói
+              </Text>
+              {item.body.trim() ? (
+                <Text style={[styles.caption, mine && styles.captionMine]}>
+                  {item.body.trim()}
+                </Text>
+              ) : null}
+            </View>
+          </Pressable>
+        ) : (
+          <Text style={[styles.body, mine && styles.bodyMine]}>{displayBody}</Text>
+        )}
+      </View>
+    </Pressable>
+  );
+});
+
+/** Owns the 80ms metering subscription so the message list is not redrawn with it. */
+function ActiveRecordingBar({
+  recorder,
+  sending,
+  onCancel,
+  onSend,
+}: {
+  recorder: AudioRecorder;
+  sending: boolean;
+  onCancel: () => void;
+  onSend: () => void;
+}) {
+  const recorderState = useAudioRecorderState(recorder, 80);
+  return (
+    <>
+      <Pressable
+        onPress={onCancel}
+        disabled={sending}
+        style={[styles.micBtn, styles.cancelBtn]}
+      >
+        <Text style={styles.cancelText}>Huỷ</Text>
+      </Pressable>
+      <View style={styles.recordingPill}>
+        <RecordingLevelMeter
+          active
+          metering={recorderState.metering}
+          durationMillis={recorderState.durationMillis}
+        />
+      </View>
+      <Pressable
+        onPress={onSend}
+        disabled={sending}
+        style={[styles.send, sending && { opacity: 0.5 }]}
+      >
+        <Text style={styles.sendText}>{sending ? "…" : "Dừng & gửi"}</Text>
+      </Pressable>
+    </>
   );
 }
 
@@ -87,7 +226,6 @@ export default function ChatScreen() {
   const insets = useSafeAreaInsets();
   const headerHeight = useHeaderHeight();
   const recorder = useAudioRecorder(VOICE_RECORDING_OPTIONS);
-  const recorderState = useAudioRecorderState(recorder, 80);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [text, setText] = useState("");
   const [loading, setLoading] = useState(true);
@@ -98,6 +236,16 @@ export default function ChatScreen() {
   const [spaceId, setSpaceId] = useState<string | null>(null);
   const [threadMeta, setThreadMeta] = useState<ThreadSummary | null>(null);
   const listRef = useRef<FlatList<ChatMessage>>(null);
+  /**
+   * Whether the list should follow new content.
+   *
+   * The list used to scroll to the end on every content size change. Polling
+   * replaces the array every few seconds, and Android re-measures on that,
+   * so reading back through the conversation kept snapping to the newest
+   * message. Only follow when she is already at the bottom.
+   */
+  const stickToBottomRef = useRef(true);
+  const lastContentHeightRef = useRef(0);
   const sendingRef = useRef(false);
   const recordingRef = useRef(false);
   const knownMessageIdsRef = useRef<Set<string>>(new Set());
@@ -107,6 +255,27 @@ export default function ChatScreen() {
   const [heritageTyping, setHeritageTyping] = useState(false);
   const [typewriter, setTypewriter] = useState<{ id: string; full: string; pos: number } | null>(
     null,
+  );
+  const [newBelow, setNewBelow] = useState(false);
+
+  /** Follow the conversation again, after sending or on request. */
+  const jumpToLatest = useCallback((animated = true) => {
+    stickToBottomRef.current = true;
+    setNewBelow(false);
+    requestAnimationFrame(() => listRef.current?.scrollToEnd({ animated }));
+  }, []);
+
+  const onListScroll = useCallback(
+    (e: NativeSyntheticEvent<NativeScrollEvent>) => {
+      const { contentOffset, contentSize, layoutMeasurement } = e.nativeEvent;
+      const fromBottom =
+        contentSize.height - layoutMeasurement.height - contentOffset.y;
+      // A little slack so a rounding wobble does not read as "scrolled away".
+      const atBottom = fromBottom <= 48;
+      stickToBottomRef.current = atBottom;
+      if (atBottom) setNewBelow(false);
+    },
+    [],
   );
 
   const isHeritageThread = threadMeta?.kind === "heritage";
@@ -128,8 +297,18 @@ export default function ChatScreen() {
             .reverse()
             .find((m) => m.sender_kind === "heritage" && !known.has(m.id))
         : undefined;
+      // Something arrived while she was reading further up: say so rather than
+      // dragging her down to it.
+      if (!stickToBottomRef.current && next.some((m) => !known.has(m.id))) {
+        setNewBelow(true);
+      }
       knownMessageIdsRef.current = new Set(next.map((m) => m.id));
-      setMessages(next);
+      // Polling used to feed FlatList a fresh array every few seconds even when
+      // nothing changed — green voice bubbles remounted and looked like they
+      // were blinking while she scrolled.
+      setMessages((prev) =>
+        messagesFingerprint(prev) === messagesFingerprint(next) ? prev : next,
+      );
       if (freshHeritage) {
         replyDeadlineRef.current = 0;
         setHeritageTyping(false);
@@ -216,7 +395,11 @@ export default function ChatScreen() {
       setTypewriter((prev) =>
         prev ? { ...prev, pos: Math.min(prev.pos + chunk.length, prev.full.length) } : null,
       );
-      requestAnimationFrame(() => listRef.current?.scrollToEnd({ animated: false }));
+      if (stickToBottomRef.current) {
+        requestAnimationFrame(() =>
+          listRef.current?.scrollToEnd({ animated: false }),
+        );
+      }
     }, delay);
     return () => clearTimeout(timer);
   }, [typewriter]);
@@ -234,14 +417,13 @@ export default function ChatScreen() {
     const subs = [
       Keyboard.addListener(shown, () => {
         setKeyboardUp(true);
-        requestAnimationFrame(() =>
-          listRef.current?.scrollToEnd({ animated: true }),
-        );
+        // Opening the keyboard means she is writing, not reading back.
+        jumpToLatest();
       }),
       Keyboard.addListener(hidden, () => setKeyboardUp(false)),
     ];
     return () => subs.forEach((sub) => sub.remove());
-  }, []);
+  }, [jumpToLatest]);
 
   useEffect(() => {
     return () => {
@@ -278,13 +460,13 @@ export default function ChatScreen() {
       setHeritageTyping(true);
       replyDeadlineRef.current = Date.now() + HERITAGE_REPLY_TIMEOUT_MS;
     }
-    requestAnimationFrame(() => listRef.current?.scrollToEnd({ animated: true }));
+    jumpToLatest();
     try {
       await api.sendMessage(threadId, body);
       pendingMessageRef.current = null;
       const list = await fetchMessages();
       if (list) applyMessages(list, { animateNewHeritage: true });
-      requestAnimationFrame(() => listRef.current?.scrollToEnd({ animated: true }));
+      jumpToLatest();
     } catch {
       pendingMessageRef.current = null;
       replyDeadlineRef.current = 0;
@@ -298,7 +480,7 @@ export default function ChatScreen() {
   };
 
   const startRecording = async () => {
-    if (sending || recording || recorderState.isRecording) return;
+    if (sending || recording || recorder.isRecording) return;
     try {
       const perm = await requestRecordingPermissionsAsync();
       if (!perm.granted) {
@@ -353,7 +535,7 @@ export default function ChatScreen() {
       });
       const list = await fetchMessages();
       if (list) applyMessages(list, { animateNewHeritage: true });
-      requestAnimationFrame(() => listRef.current?.scrollToEnd({ animated: true }));
+      jumpToLatest();
     } catch (e) {
       replyDeadlineRef.current = 0;
       setHeritageTyping(false);
@@ -364,47 +546,83 @@ export default function ChatScreen() {
     }
   };
 
-  const playVoice = async (item: ChatMessage) => {
-    if (!isVoiceMessage(item) || !item.has_media) return;
-    try {
-      if (playingId === item.id) {
-        await stopActivePlayback();
-        setPlayingId(null);
-        return;
-      }
-      const uri = await fetchAuthedMediaUri(
-        api.messageMediaUrl(item.id),
-        `msg-${item.id}`,
-        item.media_mime ?? "audio/mp4",
-      );
-      setPlayingId(item.id);
-      await playLocalAudio(uri, () => setPlayingId(null));
-    } catch (e) {
-      setPlayingId(null);
-      Alert.alert("Lỗi", e instanceof Error ? e.message : "Không phát được.");
-    }
-  };
-
-  const saveToLibrary = (item: ChatMessage) => {
-    if (!spaceId || item.sender_kind === "agent") return;
-    const preview = isVoiceMessage(item)
-      ? item.body.trim() || "Giọng nói"
-      : item.body.slice(0, 120);
-    Alert.alert("Lưu vào thư viện?", preview, [
-      { text: "Huỷ", style: "cancel" },
-      {
-        text: "Lưu",
-        onPress: async () => {
-          try {
-            await api.memoryFromMessage(spaceId, item.id, "Từ Phòng khách");
-            Alert.alert("Đã lưu", "Tin nhắn đã vào Thư viện ký ức.");
-          } catch (e) {
-            Alert.alert("Lỗi", e instanceof Error ? e.message : "Không lưu được.");
-          }
+  const saveToLibrary = useCallback(
+    (item: ChatMessage) => {
+      if (!spaceId || item.sender_kind === "agent") return;
+      const preview = isVoiceMessage(item)
+        ? item.body.trim() || "Giọng nói"
+        : item.body.slice(0, 120);
+      Alert.alert("Lưu vào thư viện?", preview, [
+        { text: "Huỷ", style: "cancel" },
+        {
+          text: "Lưu",
+          onPress: async () => {
+            try {
+              await api.memoryFromMessage(spaceId, item.id, "Từ Phòng khách");
+              Alert.alert("Đã lưu", "Tin nhắn đã vào Thư viện ký ức.");
+            } catch (e) {
+              Alert.alert("Lỗi", e instanceof Error ? e.message : "Không lưu được.");
+            }
+          },
         },
-      },
-    ]);
-  };
+      ]);
+    },
+    [api, spaceId],
+  );
+
+  const playVoice = useCallback(
+    async (item: ChatMessage) => {
+      if (!isVoiceMessage(item) || !item.has_media) return;
+      try {
+        if (playingId === item.id) {
+          await stopActivePlayback();
+          setPlayingId(null);
+          return;
+        }
+        const uri = await fetchAuthedMediaUri(
+          api.messageMediaUrl(item.id),
+          `msg-${item.id}`,
+          item.media_mime ?? "audio/mp4",
+        );
+        setPlayingId(item.id);
+        await playLocalAudio(uri, () => setPlayingId(null));
+      } catch (e) {
+        setPlayingId(null);
+        Alert.alert("Lỗi", e instanceof Error ? e.message : "Không phát được.");
+      }
+    },
+    [api, playingId],
+  );
+
+  const renderMessage = useCallback(
+    ({ item }: { item: ChatMessage }) => {
+      const displayBody =
+        typewriter && typewriter.id === item.id
+          ? typewriter.full.slice(0, typewriter.pos)
+          : item.body;
+      return (
+        <ChatMessageRow
+          item={item}
+          mine={item.sender_user_id === user?.id}
+          playing={playingId === item.id}
+          displayBody={displayBody}
+          onPlay={playVoice}
+          onSave={saveToLibrary}
+        />
+      );
+    },
+    [playingId, playVoice, saveToLibrary, typewriter, user?.id],
+  );
+
+  const onContentSizeChange = useCallback((_w: number, h: number) => {
+    const grew = h > lastContentHeightRef.current + 1;
+    lastContentHeightRef.current = h;
+    // Remeasure noise from cell recycle used to call scrollToEnd and fight her
+    // finger. Only follow when content actually grew and she is at the bottom.
+    if (grew && stickToBottomRef.current) {
+      listRef.current?.scrollToEnd({ animated: false });
+    }
+  }, []);
 
   if (loading) {
     return (
@@ -430,78 +648,26 @@ export default function ChatScreen() {
         data={messages}
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.list}
-        onContentSizeChange={() => listRef.current?.scrollToEnd({ animated: false })}
+        onScroll={onListScroll}
+        scrollEventThrottle={32}
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="interactive"
+        onContentSizeChange={onContentSizeChange}
+        windowSize={9}
+        maxToRenderPerBatch={6}
+        updateCellsBatchingPeriod={50}
+        removeClippedSubviews={Platform.OS === "android"}
         ListFooterComponent={
           heritageTyping ? <HeritageTypingRow label={heritageTypingLabel} /> : null
         }
-        renderItem={({ item }) => {
-          const mine = item.sender_user_id === user?.id;
-          const isAgent = item.sender_kind === "agent";
-          const isHeritage = item.sender_kind === "heritage";
-          const voice = isVoiceMessage(item);
-          const displayBody =
-            typewriter && typewriter.id === item.id
-              ? typewriter.full.slice(0, typewriter.pos)
-              : item.body;
-          return (
-            <Pressable
-              onLongPress={() => saveToLibrary(item)}
-              delayLongPress={350}
-              style={[styles.row, mine ? styles.rowMine : styles.rowTheirs]}
-            >
-              {!mine ? (
-                <Text
-                  style={[
-                    styles.sender,
-                    isAgent && styles.senderAgent,
-                    isHeritage && styles.senderHeritage,
-                  ]}
-                >
-                  {item.sender_name ?? (isAgent ? "Người giữ nhà" : "Thành viên")}
-                  {item.sender_handle ? (
-                    <Text style={styles.handle}> @{item.sender_handle}</Text>
-                  ) : isAgent ? (
-                    <Text style={styles.handle}> @giunhà</Text>
-                  ) : null}
-                </Text>
-              ) : null}
-              <View
-                style={[
-                  styles.bubble,
-                  mine && styles.bubbleMine,
-                  !mine && !isAgent && !isHeritage && styles.bubbleTheirs,
-                  isAgent && styles.bubbleAgent,
-                  isHeritage && styles.bubbleHeritage,
-                ]}
-              >
-                {voice ? (
-                  <Pressable
-                    onPress={() => playVoice(item)}
-                    style={styles.voiceRow}
-                    hitSlop={8}
-                  >
-                    <Text style={[styles.voicePlay, mine && styles.bodyMine]}>
-                      {playingId === item.id ? "Dừng" : "Phát"}
-                    </Text>
-                    <View style={styles.voiceMeta}>
-                      <Text style={[styles.body, mine && styles.bodyMine]}>
-                        Giọng nói
-                      </Text>
-                      {item.body.trim() ? (
-                        <Text style={[styles.caption, mine && styles.captionMine]}>
-                          {item.body.trim()}
-                        </Text>
-                      ) : null}
-                    </View>
-                  </Pressable>
-                ) : (
-                  <Text style={[styles.body, mine && styles.bodyMine]}>{displayBody}</Text>
-                )}
-              </View>
-            </Pressable>
-          );
-        }}
+        renderItem={renderMessage}
+        extraData={`${playingId ?? ""}:${typewriter?.id ?? ""}:${typewriter?.pos ?? 0}`}
       />
+      {newBelow ? (
+        <Pressable style={styles.newBelow} onPress={() => jumpToLatest()}>
+          <Text style={styles.newBelowText}>Tin mới ↓</Text>
+        </Pressable>
+      ) : null}
       <Text style={styles.hint}>
         {heritageBlocked
           ? "Cần thổi hồn trước khi trò chuyện Ký ức"
@@ -552,29 +718,12 @@ export default function ChatScreen() {
         ]}
       >
         {recording ? (
-          <>
-            <Pressable
-              onPress={cancelRecording}
-              disabled={sending}
-              style={[styles.micBtn, styles.cancelBtn]}
-            >
-              <Text style={styles.cancelText}>Huỷ</Text>
-            </Pressable>
-            <View style={styles.recordingPill}>
-              <RecordingLevelMeter
-                active={recording}
-                metering={recorderState.metering}
-                durationMillis={recorderState.durationMillis}
-              />
-            </View>
-            <Pressable
-              onPress={stopAndSendVoice}
-              disabled={sending}
-              style={[styles.send, sending && { opacity: 0.5 }]}
-            >
-              <Text style={styles.sendText}>{sending ? "…" : "Dừng & gửi"}</Text>
-            </Pressable>
-          </>
+          <ActiveRecordingBar
+            recorder={recorder}
+            sending={sending}
+            onCancel={cancelRecording}
+            onSend={stopAndSendVoice}
+          />
         ) : (
           <>
             <Pressable
@@ -683,6 +832,15 @@ const styles = StyleSheet.create({
     color: colors.inkSoft,
     paddingBottom: 6,
   },
+  newBelow: {
+    alignSelf: "center",
+    backgroundColor: colors.brand,
+    borderRadius: 999,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    marginBottom: 8,
+  },
+  newBelowText: { color: "#f4efe6", fontWeight: "700", fontSize: 13 },
   callHint: {
     alignSelf: "center",
     paddingBottom: 8,

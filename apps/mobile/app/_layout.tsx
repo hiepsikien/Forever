@@ -1,11 +1,21 @@
 import { Stack, useRouter, useSegments } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useEffect } from "react";
-import { ActivityIndicator, View } from "react-native";
+import { ActivityIndicator, LogBox, View } from "react-native";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 
 import { AuthProvider, useAuth } from "@/lib/auth";
+import { Sentry } from "@/lib/sentry";
 import { colors } from "@/lib/theme";
+
+// Expo Go on Android: keep-awake can fail if the Activity isn't ready. Harmless,
+// but without ignoreLogs it surfaces as a full-screen Console Error.
+if (__DEV__) {
+  LogBox.ignoreLogs([
+    "Unable to activate keep awake",
+    "Unable to deactivate keep awake",
+  ]);
+}
 
 function Gate({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
@@ -30,7 +40,7 @@ function Gate({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
-export default function RootLayout() {
+function RootLayout() {
   return (
     <SafeAreaProvider>
       <AuthProvider>
@@ -61,6 +71,10 @@ export default function RootLayout() {
             <Stack.Screen
               name="library/[spaceId]/person/[identityId]"
               options={{ title: "Ký ức", headerBackTitle: "Thư viện" }}
+            />
+            <Stack.Screen
+              name="profile/[spaceId]/[identityId]"
+              options={{ title: "Bản sắc", headerBackTitle: "Cài đặt" }}
             />
             <Stack.Screen name="interview/[spaceId]" options={{ title: "Time-Capsule" }} />
             <Stack.Screen name="voice/[spaceId]/index" options={{ title: "Voice DNA" }} />
@@ -107,3 +121,5 @@ export default function RootLayout() {
     </SafeAreaProvider>
   );
 }
+
+export default Sentry.wrap(RootLayout);

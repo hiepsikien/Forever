@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
-from ..access import require_membership
+from ..access import is_moderator_or_above, require_membership
 from ..auth import get_current_user
 from ..db import get_db
 from ..models import IdentityProfile, MemoryCandidate, Message, Thread, User
@@ -54,7 +54,7 @@ def _payload(db: Session, row: MemoryCandidate) -> dict:
     }
 
 
-def _mine_or_404(db: Session, candidate_id: str, user: User) -> MemoryCandidate:
+def _reviewable_or_404(db: Session, candidate_id: str, user: User) -> MemoryCandidate:
     row = (
         db.query(MemoryCandidate)
         .filter(MemoryCandidate.id == candidate_id)
@@ -63,12 +63,15 @@ def _mine_or_404(db: Session, candidate_id: str, user: User) -> MemoryCandidate:
     if not row:
         raise HTTPException(status_code=404, detail="Không tìm thấy đề xuất.")
     require_membership(db, space_id=row.space_id, user=user)
-    # Only the assigned reviewer, so a private confidence never lands on someone
-    # else's desk — being owner or steward does not open this.
     if row.reviewer_user_id != user.id:
-        raise HTTPException(
-            status_code=403, detail="Đề xuất này thuộc phần duyệt của người khác."
-        )
+        thread = db.query(Thread).filter(Thread.id == row.thread_id).one_or_none()
+        is_private = getattr(thread, "audience_scope", "family") == "direct"
+        # A moderator helps with what the family said together. What was said in
+        # someone's own room stays theirs to judge — no role opens that door.
+        if is_private or not is_moderator_or_above(db, space_id=row.space_id, user=user):
+            raise HTTPException(
+                status_code=403, detail="Đề xuất này thuộc phần duyệt của người khác."
+            )
     if row.status != "pending":
         raise HTTPException(status_code=409, detail="Đề xuất này đã được xử lý.")
     return row
@@ -85,7 +88,11 @@ def list_memory_candidates(
     if status not in _STATUSES:
         raise HTTPException(status_code=400, detail="Trạng thái không hợp lệ.")
     rows = candidates_for_reviewer(
-        db, space_id=space_id, user_id=user.id, status=status
+        db,
+        space_id=space_id,
+        user_id=user.id,
+        status=status,
+        include_family_scope=is_moderator_or_above(db, space_id=space_id, user=user),
     )
     return {"candidates": [_payload(db, row) for row in rows]}
 
@@ -102,7 +109,7 @@ def approve_memory_candidate(
     body: ApproveBody | None = None,
 ):
     """Keep the fact — shared with the family, or kept just for the reviewer."""
-    row = _mine_or_404(db, candidate_id, user)
+    row = _reviewable_or_404(db, candidate_id, user)
     visibility = (body or ApproveBody()).visibility
     if visibility not in VISIBILITIES:
         raise HTTPException(status_code=400, detail="Visibility không hợp lệ.")
@@ -116,6 +123,6 @@ def dismiss_memory_candidate(
     user: Annotated[User, Depends(get_current_user)],
     db: Annotated[Session, Depends(get_db)],
 ):
-    row = _mine_or_404(db, candidate_id, user)
+    row = _reviewable_or_404(db, candidate_id, user)
     dismiss(db, candidate=row, user_id=user.id)
     return {"candidate": _payload(db, row)}

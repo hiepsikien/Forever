@@ -1,0 +1,34 @@
+diff --git a/node_modules/expo-keep-awake/src/index.ts b/node_modules/expo-keep-awake/src/index.ts
+index b7a856e..4bb9595 100644
+--- a/node_modules/expo-keep-awake/src/index.ts
++++ b/node_modules/expo-keep-awake/src/index.ts
+@@ -30,17 +30,23 @@ export function useKeepAwake(tag?: string, options?: KeepAwakeOptions): void {
+ 
+   useEffect(() => {
+     let isMounted = true;
+-    activateKeepAwakeAsync(tagOrDefault).then(() => {
+-      if (isMounted && ExpoKeepAwake.addListenerForTag && options?.listener) {
+-        addListener(tagOrDefault, options.listener);
+-      }
+-    });
++    // Android Expo Go often rejects when the Activity isn't resumed yet
++    // (screen off during reload, app backgrounded). Never leave it uncaught —
++    // LogBox turns it into a full-screen "Console Error" and looks like the
++    // app is broken (recording/call flows especially).
++    activateKeepAwakeAsync(tagOrDefault)
++      .then(() => {
++        if (isMounted && ExpoKeepAwake.addListenerForTag && options?.listener) {
++          addListener(tagOrDefault, options.listener);
++        }
++      })
++      .catch(() => {});
+     return () => {
+       isMounted = false;
+       if (options?.suppressDeactivateWarnings) {
+         deactivateKeepAwake(tagOrDefault).catch(() => {});
+       } else {
+-        deactivateKeepAwake(tagOrDefault);
++        deactivateKeepAwake(tagOrDefault).catch(() => {});
+       }
+     };
+   }, [tagOrDefault]);

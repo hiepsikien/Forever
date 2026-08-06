@@ -26,6 +26,7 @@ import {
   sendPasswordReset,
   signInWithEmail,
 } from "./firebase";
+import { Sentry } from "./sentry";
 
 type AuthContextValue = {
   user: SessionUser | null;
@@ -59,6 +60,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   );
 
   const api = useMemo(() => createMobileApi(getToken), [getToken]);
+
+  // Id only — never email/name. Enough to map a crash back to a member.
+  useEffect(() => {
+    Sentry.setUser(user ? { id: user.id } : null);
+  }, [user]);
 
   const refresh = useCallback(async () => {
     const token = await getToken();

@@ -95,6 +95,12 @@ class Settings(BaseSettings):
     # Re-queue running jobs with no worker heartbeat after this many minutes.
     extract_job_stale_minutes: int = 60
 
+    # Sentry (forever-api). Empty DSN = disabled. Never enable send_default_pii —
+    # Authorization and chat/memory bodies must not leave the server.
+    sentry_dsn: str = ""
+    sentry_environment: str = "development"
+    sentry_traces_sample_rate: float = 0.2
+
     @property
     def cors_origin_list(self) -> list[str]:
         return [origin.strip() for origin in self.cors_origins.split(",") if origin.strip()]

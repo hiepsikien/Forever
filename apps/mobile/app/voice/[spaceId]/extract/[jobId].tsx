@@ -16,20 +16,10 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { playLocalAudio, stopActivePlayback } from "@/lib/audio";
 import { useAuth } from "@/lib/auth";
+import { identityChipLabel } from "@/lib/identityDisplay";
 import { fetchAuthedMediaUri } from "@/lib/media";
 import { useSpaceScreenOptions } from "@/lib/spaceHeader";
 import { colors, fonts } from "@/lib/theme";
-
-function identityChipLabel(
-  ident: IdentityProfile,
-  userId?: string | null,
-): string {
-  if (ident.linked_user_id && ident.linked_user_id === userId) return "Tôi";
-  if (ident.relation_label) {
-    return `${ident.display_name} · ${ident.relation_label}`;
-  }
-  return ident.display_name;
-}
 
 function statusLabel(status: string): string {
   switch (status) {

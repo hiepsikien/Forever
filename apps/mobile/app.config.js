@@ -102,6 +102,16 @@ module.exports = ({ config }) => {
           },
         },
       ],
+      [
+        "@sentry/react-native/expo",
+        {
+          url: "https://sentry.io/",
+          // Sourcemap upload at prebuild/Xcode/Gradle time. Set in .env:
+          // SENTRY_ORG, SENTRY_AUTH_TOKEN (and optionally SENTRY_PROJECT).
+          organization: process.env.SENTRY_ORG || undefined,
+          project: process.env.SENTRY_PROJECT || "forever-mobile",
+        },
+      ],
       "./plugins/withAutomaticSigning",
     ],
     experiments: {

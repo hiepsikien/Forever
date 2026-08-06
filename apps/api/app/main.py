@@ -1,10 +1,13 @@
 from pathlib import Path
 
+import sentry_sdk
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
+from sentry_sdk.integrations.fastapi import FastApiIntegration
+from sentry_sdk.integrations.starlette import StarletteIntegration
 
 from .config import get_settings
 from .db import Base, SessionLocal, engine
@@ -16,6 +19,29 @@ from .seed import seed_if_empty, seed_interview_prompts
 
 settings = get_settings()
 Path(settings.upload_dir).mkdir(parents=True, exist_ok=True)
+
+_dsn = settings.sentry_dsn.strip()
+if _dsn:
+    # Init before FastAPI() so middleware can wrap the app. Bodies stay off
+    # Sentry — chat and memory payloads must not leave the server.
+    _server_errors = frozenset(range(500, 600))
+    sentry_sdk.init(
+        dsn=_dsn,
+        environment=settings.sentry_environment.strip() or "development",
+        send_default_pii=False,
+        max_request_body_size="never",
+        traces_sample_rate=settings.sentry_traces_sample_rate,
+        integrations=[
+            StarletteIntegration(
+                transaction_style="endpoint",
+                failed_request_status_codes=_server_errors,
+            ),
+            FastApiIntegration(
+                transaction_style="endpoint",
+                failed_request_status_codes=_server_errors,
+            ),
+        ],
+    )
 
 # Synced from brand/logo/app via scripts/generate-brand-kit.py
 _STATIC_BRAND = Path(__file__).resolve().parents[1] / "static" / "brand"

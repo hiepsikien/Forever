@@ -44,6 +44,34 @@ the turn she just spoke.
   `./scripts/link-family-accounts.py` — `upsert_user_from_claims` matches on email,
   so they skip the invite code.
 
+## Roles and permissions
+
+Helpers live in `apps/api/app/access.py`; keep authorization there rather than
+inline in routers. `Membership.role` is `owner | moderator | member`, and
+**steward is not a role** — it is `FamilySpace.steward_user_id`.
+
+- `require_steward_or_owner` — heritage/space admin: settings, identities,
+  extract, archiving, roles, account linking, Voice DNA for other people.
+- `require_moderator_or_above` — what the family chooses to remember: the
+  family review queue and the memorial pages. Never a private room.
+- Mobile mirrors these predicates to hide controls. The gate that counts is the
+  API; a mobile check that drifts only produces a button that 403s.
+
+Two lines nothing may cross, however senior the caller:
+
+- Candidates from a `direct` thread stay with `reviewer_user_id`. A moderator
+  and the steward both get 403 there.
+- A `private` memory is invisible to everyone but its saver, so moderator edit
+  and delete cannot reach it (404, not 403).
+
+Voice DNA follows `_can_mutate_voice`: steward/owner for anyone's voice, plus
+the person themselves for their own. Generating TTS and hearing renders are open
+to every member — collecting, reviewing and cloning are not.
+
+Linking a login to an `IdentityProfile` (`linked_user_id`) grants that person
+Voice DNA rights over the profile, so it is steward/owner only, one account per
+profile, living profiles only.
+
 ## Archiving
 
 `IdentityProfile.archived_at` / `VoiceProfile.archived_at` hide a person from lists,
@@ -62,7 +90,7 @@ flag in `config.py`.
 - Audience in a private thread comes from the thread, not from guessing wording.
 - Chat may only ever *propose* a fact. `memory_candidates` → a human approves →
   `MemoryItem`. A private thread's candidates are reviewed by that member, not
-  the steward.
+  the steward and not a moderator.
 - Only `stated` facts become memory; `implied` ones stay in message meta.
 - The compactor may retire a fact, never reword one.
 
