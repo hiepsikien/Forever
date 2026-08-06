@@ -195,12 +195,15 @@ từng thành viên. Chưa có Alembic — bảng mới qua `create_all`, cột 
 
 ## 10. Ưu tiên engineering sắp tới
 
-1. **Bộ golden ~20 câu hỏi** — đo bịa đặt và độ đúng giọng bằng số, thay vì cảm
-   tính từng lượt. Đây là thứ chặn đường mọi tinh chỉnh tiếp theo.  
+1. **Bộ golden ~20 câu hỏi** — file + checker cứng đã có:
+   `docs/heritage-bo-trieu/golden-set.json`, chấm bằng
+   `app.services.heritage_golden`, chạy tay
+   `./scripts/run-heritage-golden.py --identity <id>`. Soft score (đúng giọng)
+   vẫn do mẹ/steward; bước tiếp theo là chạy live trên API local rồi mới bật
+   critic / tinh chỉnh pipeline theo số.  
 2. **Quy hoạch lại trang Ký ức** — xem `docs/library-ia.plan.md`. Thư viện đang là
    một dòng chảy phẳng; 48 món đã khó tìm, 300 món thì không dùng được.  
-3. Bật critic (`HERITAGE_CRITIC_ENABLED`) sau khi có golden set để biết nó sửa
-   đúng hay sửa hỏng.  
+3. Bật critic (`HERITAGE_CRITIC_ENABLED`) sau khi golden live đạt *bịa năm/tên = 0*.  
 4. Giọng đọc trong chat — TTS cho reply của thực thể, không auto-play.  
 5. Micro-rituals (Phase 5) và export archive (Phase 6) khi mẹ đã dùng đều.  
 

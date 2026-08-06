@@ -117,11 +117,23 @@ def candidate_names(text: str) -> list[str]:
     return found
 
 
-def find_ungrounded(reply: str, *, corpus: str) -> Ungrounded:
-    haystack = normalize_text(corpus)
+def find_ungrounded(
+    reply: str, *, corpus: str, year_corpus: str | None = None
+) -> Ungrounded:
+    """Flag years/names in the reply that the evidence corpus cannot show.
+
+    `year_corpus` defaults to `corpus`. Pass a stricter haystack when the live
+    user turn must not authorize years it merely asked about («năm 2030…»).
+    """
+    year_haystack = year_corpus if year_corpus is not None else corpus
+    name_haystack = normalize_text(corpus)
     return Ungrounded(
-        years=[y for y in dict.fromkeys(YEAR_RE.findall(reply)) if y not in corpus],
-        names=[n for n in candidate_names(reply) if normalize_text(n) not in haystack],
+        years=[
+            y for y in dict.fromkeys(YEAR_RE.findall(reply)) if y not in year_haystack
+        ],
+        names=[
+            n for n in candidate_names(reply) if normalize_text(n) not in name_haystack
+        ],
     )
 
 

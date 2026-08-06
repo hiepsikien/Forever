@@ -28,6 +28,7 @@ from .heritage_codex import (
     resolve_mentions,
 )
 from .heritage_grounding import (
+    Ungrounded,
     critic_rewrite,
     drop_ungrounded_sentences,
     find_ungrounded,
@@ -590,7 +591,11 @@ Hard rules:
 - Chỉ dựa vào Lock, thơ, và ký ức neo đã cung cấp — KHÔNG bịa tiểu sử hay sự kiện.
 - Từ chối nhẹ nhàng: chính trị, tình dục, trái pháp luật, nội dung trái đạo đức.
 - Không giả vờ còn sống; không đóng vai “bố/mẹ còn ở đây”.
-- Thiếu dữ liệu thì thừa nhận, mời gia đình bổ sung ký ức thật.
+- Thiếu dữ liệu thì thừa nhận rõ (chưa nhớ / chưa có trong ký ức), rồi mời gia đình
+  ghi thêm vào Thư viện — một câu ngắn là đủ. Không đoán cho xong.
+- Không đoán năm tương lai, kể cả năm người hỏi vừa nêu, nếu năm đó không có trong
+  bằng chứng bên dưới. Đừng nhắc lại năm hỏi khi đang thừa nhận là chưa biết.
+- Không bịa tên người (bạn học, đồng nghiệp…) khi bằng chứng không nêu tên.
 - {quote_rule}
 - Đây là nhắn tin (Zalo), KHÔNG phải viết thư: {length_rule}
 - Trả lời đúng ý câu hỏi trước; tránh mở đầu sáo «Chào em/con» dài.
@@ -813,19 +818,36 @@ def _enforce_grounding(
     corpus: str,
     audience: str | None,
     max_output_tokens: int,
+    year_corpus: str | None = None,
 ) -> tuple[str, dict | None]:
     """Rewrite, trim, or replace a reply that asserts something we cannot show."""
     if not settings.heritage_grounding_enabled:
         return body, None
-    found = find_ungrounded(body, corpus=corpus)
+    found = find_ungrounded(body, corpus=corpus, year_corpus=year_corpus)
     if found.clean:
         return body, None
 
     info = found.as_meta()
     if not settings.heritage_critic_enabled:
-        # Spotting a name is a heuristic, and cutting a sentence out of a letter
-        # from someone's father on a heuristic is worse than the fabrication.
-        # Turning the critic on is the deliberate opt-in to acting on this.
+        # Names are a heuristic — flag only. Years are reliable digits: drop the
+        # sentence even with the critic off, so a user-asked «2030» cannot stay
+        # in the letter just because critic is disabled.
+        if found.years:
+            trimmed = drop_ungrounded_sentences(
+                body, Ungrounded(years=list(found.years), names=[])
+            )
+            if trimmed:
+                fixed = post_process_reply(trimmed, audience=audience)
+                leftover = find_ungrounded(
+                    fixed, corpus=corpus, year_corpus=year_corpus
+                )
+                out = leftover.as_meta()
+                out["action"] = "trimmed_years"
+                if found.years:
+                    out["years"] = list(found.years)
+                return fixed, out
+            info["action"] = "replaced"
+            return _FALLBACK, info
         info["action"] = "flagged"
         return body, info
 
@@ -837,7 +859,7 @@ def _enforce_grounding(
     )
     if rewritten:
         fixed = post_process_reply(rewritten, audience=audience)
-        if find_ungrounded(fixed, corpus=corpus).clean:
+        if find_ungrounded(fixed, corpus=corpus, year_corpus=year_corpus).clean:
             info["action"] = "rewritten"
             return fixed, info
 
@@ -978,19 +1000,23 @@ def generate_heritage_reply(
 
     body = post_process_reply(llm or _FALLBACK, audience=audience)
 
-    # Only what we showed the model and what the family said counts as grounded.
-    # Past heritage replies are left out on purpose: including them would let one
-    # invented year launder itself forward through the whole thread.
+    # Years must appear in Lock + evidence the model was given — never in chat
+    # turns. A question like «năm 2030…» (this turn or an earlier one on the
+    # same thread) must not launder that year into an allowed assertion.
+    name_corpus = "\n".join(
+        part
+        for part in (
+            system_prompt,
+            user_text,
+            *(m.body or "" for m in history if m.sender_kind == "user"),
+        )
+        if part
+    )
     body, grounding = _enforce_grounding(
         settings,
         body=body,
-        corpus="\n".join(
-            [
-                system_prompt,
-                user_text,
-                *(m.body or "" for m in history if m.sender_kind == "user"),
-            ]
-        ),
+        corpus=name_corpus,
+        year_corpus=system_prompt,
         audience=audience,
         max_output_tokens=frame.max_output_tokens,
     )

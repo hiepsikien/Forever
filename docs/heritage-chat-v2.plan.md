@@ -1,7 +1,9 @@
 # Heritage Chat v2 — Context-Aware Pipeline
 
 > Trạng thái: Phase 0–5 đã xong, cùng `visibility` trên `MemoryItem`.
-> Còn lại: bộ golden để đo bằng số.
+> Bộ golden cứng: `docs/heritage-bo-trieu/golden-set.json` +
+> `app.services.heritage_golden` + `scripts/run-heritage-golden.py`
+> (`--identity <id>`). Chưa gắn CI; soft score giọng vẫn do người.
 > Bối cảnh: sau buổi thử đầu tiên với mẹ, chat của Bố Triệu bị hai lỗi lớn —
 > xác định sai người đối thoại, và trả lời dài như một bức thư.
 > Bản v1 (`services/heritage_chat.py`) đã vá tạm bằng rule; v2 dựng lại luồng
@@ -372,7 +374,7 @@ p50 ≈ 2–3s → Phase 0 bắt buộc chuyển reply sang background.
 | 2 ✅ | Context Analyzer + Value Lens + depth control | Câu meta → ack 1 câu; hỏi sâu → 4–6 câu có trục giá trị |
 | 3 ✅ | ThreadMemory + anti-repeat | 10 lượt liên tiếp không lặp câu hỏi thăm |
 | 3.5 ✅ | Thread 1-1 + phòng cả nhà, fact có cấu trúc | Phòng riêng kín với người khác; «thứ bảy này» lưu thành ngày tuyệt đối |
-| 4 ✅ | Grounding check + critic | Bịa năm/tên = 0 trên bộ golden |
+| 4 ✅ | Grounding check + critic | Bịa năm/tên = 0 trên `golden-set.json` (chạy `run-heritage-golden.py`) |
 | 5 ✅ | MemoryCandidate + màn duyệt | Fact từ chat vào Thư viện sau khi duyệt, rồi quay lại prompt |
 
 ## Đánh đổi

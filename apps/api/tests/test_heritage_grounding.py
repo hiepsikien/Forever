@@ -126,8 +126,8 @@ CORPUS = "Bố là thầy giáo dạy Hóa, nhà ở Hà Nội."
 DIRTY = "Bố nghe con rồi. Năm 1975 bố dạy ở trường làng."
 
 
-def test_guard_only_flags_while_the_critic_is_off():
-    """Cutting a father's letter on a heuristic is worse than the flag."""
+def test_guard_trims_ungrounded_years_even_when_critic_is_off():
+    """Years are digits we trust; names stay flag-only until the critic is on."""
     body, info = _enforce_grounding(
         _settings(heritage_critic_enabled=False),
         body=DIRTY,
@@ -135,8 +135,58 @@ def test_guard_only_flags_while_the_critic_is_off():
         audience="child",
         max_output_tokens=512,
     )
-    assert body == DIRTY
-    assert info == {"years": ["1975"], "action": "flagged"}
+    assert "1975" not in body
+    assert info["action"] == "trimmed_years"
+    assert info["years"] == ["1975"]
+
+
+def test_guard_only_flags_ungrounded_names_when_critic_is_off():
+    body, info = _enforce_grounding(
+        _settings(heritage_critic_enabled=False),
+        body="Bố nhớ thầy Trần Văn Bảo lắm.",
+        corpus=CORPUS,
+        audience="child",
+        max_output_tokens=512,
+    )
+    assert "Trần Văn Bảo" in body
+    assert info == {"names": ["Trần Văn Bảo"], "action": "flagged"}
+
+
+def test_year_in_the_user_turn_does_not_ground_the_reply():
+    """«Năm 2030…» in the question must not launder a future assertion."""
+    found = find_ungrounded(
+        "Đến năm 2030 các cháu đã lớn.",
+        corpus="Lock…\nĐến năm 2030 gia đình thế nào?",
+        year_corpus="Lock…",
+    )
+    assert found.years == ["2030"]
+
+
+def test_year_only_in_prior_chat_does_not_ground_the_reply():
+    """A earlier turn asking about 2030 must not authorize echoing it later."""
+    found = find_ungrounded(
+        "Bố không đoán năm 2030 đâu.",
+        corpus="Lock…\nBố nghĩ năm 2030 thế nào?\nBố không đoán năm 2030 đâu.",
+        year_corpus="Lock và mốc 1966.",
+    )
+    assert found.years == ["2030"]
+
+
+def test_guard_trims_echoed_future_year_while_refusing():
+    body, info = _enforce_grounding(
+        _settings(heritage_critic_enabled=False),
+        body=(
+            "Bố không đoán trước được chuyện tương lai như năm 2030 đâu con. "
+            "Bố chỉ mong các con luôn bình an."
+        ),
+        corpus="Lock…\nBố nghĩ năm 2030 gia đình thế nào?",
+        year_corpus="Lock… neo tuổi 2015.",
+        audience="child",
+        max_output_tokens=512,
+    )
+    assert "2030" not in body
+    assert "bình an" in body.lower() or "Bố" in body
+    assert info["action"] == "trimmed_years"
 
 
 def test_guard_keeps_a_clean_reply_untouched():

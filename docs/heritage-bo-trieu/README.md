@@ -9,6 +9,7 @@
 | [`identity-lock.draft.json`](./identity-lock.draft.json) | Profile neo 75 tuổi / 2015 (bản gốc) |
 | [`identity-lock.final.json`](./identity-lock.final.json) | **Đã chốt với mẹ** — đã PATCH local API |
 | [`milestones.draft.json`](./milestones.draft.json) | Mốc từ Profile |
+| [`golden-set.json`](./golden-set.json) | ~20 câu đo bịa / xưng hô / độ sâu — `./scripts/run-heritage-golden.py --identity <id>` |
 | [`poetry-themes.md`](./poetry-themes.md) | Theme tags |
 | [`samples/`](./samples/) | Bài seed mẫu |
 | [`../heritage-soul-plan.md`](../heritage-soul-plan.md) | Kế hoạch kỹ thuật |

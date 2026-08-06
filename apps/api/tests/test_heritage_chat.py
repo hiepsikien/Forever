@@ -740,7 +740,9 @@ def test_a_fabricated_year_is_recorded_on_the_message(client, tmp_path, monkeypa
         f"/api/threads/{thread_id}/messages", headers=headers
     ).json()["messages"]
     reply = next(m for m in messages if m["sender_kind"] == "heritage")
-    assert reply["meta"]["grounding"] == {"years": ["1975"], "action": "flagged"}
+    assert "1975" not in (reply["body"] or "")
+    assert reply["meta"]["grounding"]["action"] == "trimmed_years"
+    assert reply["meta"]["grounding"]["years"] == ["1975"]
 
     get_settings.cache_clear()
 
