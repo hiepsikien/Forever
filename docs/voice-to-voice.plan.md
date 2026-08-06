@@ -1,6 +1,7 @@
 # Nói với Bố bằng giọng — voice-to-voice
 
-> Trạng thái: **kế hoạch**, chưa code dòng nào.
+> Trạng thái: **V0–V4 đã code** trên `cursor/voice-to-voice`. Layout Gọi + chọn
+> clone/setting chat TTS (`tts_prefs` / «Dùng cho Gọi») đã bổ sung.
 > Đọc cùng `docs/PROJECT.md` §7 Phase 4 và `docs/heritage-chat-v2.plan.md`.
 
 ## 1. Vì sao

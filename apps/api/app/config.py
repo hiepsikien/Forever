@@ -38,6 +38,20 @@ class Settings(BaseSettings):
     # Token overlap above which two replies count as the same reply.
     heritage_repeat_threshold: float = 0.6
 
+    # Speech-to-text for chat voice notes (Gemini inline audio). See
+    # docs/voice-to-voice.plan.md V0. Empty stt_model → gemini_model.
+    stt_enabled: bool = True
+    stt_provider: str = "gemini"
+    stt_model: str = ""
+    # Skip base64 STT above this size (Gemini inline limit; chat max is 25MB).
+    stt_max_bytes: int = 10 * 1024 * 1024
+
+    # Attach cloned-voice audio to heritage replies. Off = text-only (rollback).
+    # docs/voice-to-voice.plan.md V2. On by default so «Gọi cho Bố» works locally.
+    heritage_tts_enabled: bool = True
+    # Replies longer than this stay text-only (cost + awkward reads).
+    heritage_tts_max_chars: int = 800
+
     # Shared ElevenLabs key (primary for now). Space Cài đặt can override later.
     elevenlabs_api_key: str = ""
     # eleven_v3: best quality + Vietnamese (70+ langs). multilingual_v2 does NOT list VI.

@@ -53,6 +53,10 @@ export default function RootLayout() {
               options={{ title: "Thổi hồn", headerBackTitle: "Nhà" }}
             />
             <Stack.Screen name="chat/[threadId]" options={{ title: "Trò chuyện" }} />
+            <Stack.Screen
+              name="call/[threadId]"
+              options={{ title: "Gọi", headerBackTitle: "Nhà" }}
+            />
             <Stack.Screen name="library/[spaceId]/index" options={{ title: "Thư viện ký ức" }} />
             <Stack.Screen
               name="library/[spaceId]/person/[identityId]"

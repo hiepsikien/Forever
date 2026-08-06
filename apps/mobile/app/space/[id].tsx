@@ -19,7 +19,10 @@ import { colors, fonts } from "@/lib/theme";
 function threadPreview(item: ThreadSummary): string {
   const last = item.last_message;
   if (!last) return "Chưa có tin nhắn";
-  if (last.kind === "voice") return "Tin nhắn thoại";
+  if (last.kind === "voice") {
+    const caption = (last.body || "").trim();
+    return caption || "Tin nhắn thoại";
+  }
   return last.body || "Chưa có tin nhắn";
 }
 
@@ -35,7 +38,7 @@ function threadKindLabel(item: ThreadSummary): string | null {
   return isDirect(item) ? "Riêng" : "Cả nhà";
 }
 
-function threadRowMeta(item: ThreadSummary): { preview: string; cta: string } {
+function threadRowMeta(item: ThreadSummary): { preview: string; cta: string; callReady?: boolean } {
   if (item.kind === "heritage" && item.heritage) {
     const h = item.heritage;
     if (h.chat_ready) {
@@ -43,17 +46,20 @@ function threadRowMeta(item: ThreadSummary): { preview: string; cta: string } {
         return {
           preview: threadPreview(item),
           cta: "Vào trò chuyện →",
+          callReady: true,
         };
       }
       if (isDirect(item)) {
         return {
           preview: "Chỉ bạn đọc được — không ai khác trong nhà thấy",
           cta: "Nói riêng →",
+          callReady: true,
         };
       }
       return {
         preview: "Sẵn sàng trò chuyện — gửi lời chào",
         cta: "Bắt đầu chat →",
+        callReady: true,
       };
     }
     return {
@@ -329,7 +335,20 @@ export default function SpaceScreen() {
             <Text style={styles.threadPreview} numberOfLines={2}>
               {meta.preview}
             </Text>
-            <Text style={styles.threadCta}>{meta.cta}</Text>
+            <View style={styles.threadActions}>
+              <Text style={styles.threadCta}>{meta.cta}</Text>
+              {meta.callReady && !item.pendingDirectFor ? (
+                <Pressable
+                  onPress={(e) => {
+                    e.stopPropagation?.();
+                    router.push(`/call/${item.id}`);
+                  }}
+                  hitSlop={8}
+                >
+                  <Text style={styles.callCta}>Gọi bằng giọng →</Text>
+                </Pressable>
+              ) : null}
+            </View>
           </Pressable>
         );
       }}
@@ -513,10 +532,22 @@ const styles = StyleSheet.create({
   },
   threadPreview: { marginTop: 6, color: colors.inkSoft, lineHeight: 20 },
   threadCta: {
-    marginTop: 8,
     fontSize: 14,
     fontWeight: "700",
     color: colors.brand,
+  },
+  threadActions: {
+    marginTop: 8,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 12,
+    flexWrap: "wrap",
+  },
+  callCta: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: colors.brandSoft,
   },
   empty: { color: colors.inkSoft, lineHeight: 22, marginTop: 4 },
   error: { color: colors.danger, marginTop: 12 },

@@ -510,6 +510,23 @@ export function voiceTtsModelLabel(modelId: string | null | undefined): string {
   return found?.label ?? modelId;
 }
 
+export interface VoiceTtsPrefs {
+  provider?: string | null;
+  provider_voice_id?: string | null;
+  provider_voice_name?: string | null;
+  model_id?: string | null;
+  speed?: number | null;
+  lengthen_pauses?: boolean | null;
+  stability?: number | null;
+  similarity_boost?: number | null;
+  style?: number | null;
+  use_speaker_boost?: boolean | null;
+  emotion?: string | null;
+  pitch?: number | null;
+  intensity?: number | null;
+  timbre?: number | null;
+}
+
 export interface VoiceProfile {
   id: string;
   space_id: string;
@@ -522,6 +539,8 @@ export interface VoiceProfile {
   display_name: string;
   consent_at?: string | null;
   error_message?: string | null;
+  /** Clone + knobs used by heritage chat / Gọi. */
+  tts_prefs?: VoiceTtsPrefs | null;
   sample_count: number;
   unprocessed_count?: number;
   processed_count?: number;
@@ -1196,6 +1215,22 @@ export function createApiClient({
             provider_voice_id: providerVoiceId,
             ...(provider ? { provider } : {}),
           }),
+        },
+        { timeoutMs: VOICE_PROVIDER_TIMEOUT_MS },
+      ),
+    setChatTtsPrefs: (
+      voiceId: string,
+      prefs: VoiceTtsOptions & {
+        provider_voice_id: string;
+        provider?: VoiceProvider;
+        provider_voice_name?: string;
+      },
+    ) =>
+      request<VoiceProfile>(
+        `/api/voices/${voiceId}/chat-tts-prefs`,
+        {
+          method: "POST",
+          body: JSON.stringify(prefs),
         },
         { timeoutMs: VOICE_PROVIDER_TIMEOUT_MS },
       ),

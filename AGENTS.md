@@ -12,6 +12,12 @@ Canonical plan: `docs/PROJECT.md`.
 - Keep the Read book product separate — this repo is Forever only.
 - Prefer mobile-first UX; mother is the first real user.
 
+## Voice-to-voice (mẹ)
+
+Plan: `docs/voice-to-voice.plan.md`. Flags: `STT_ENABLED`, `HERITAGE_TTS_ENABLED`
+(default on). Mobile entry: `/call/[threadId]` — auto-play only for the reply to
+the turn she just spoke.
+
 ## Stack
 
 - `apps/api` — FastAPI + Postgres

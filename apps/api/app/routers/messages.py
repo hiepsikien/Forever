@@ -28,6 +28,7 @@ from ..models import Message, Thread, User
 from ..services.agent import maybe_reply, sender_display_name, sender_handle
 from ..services.heritage_chat import heritage_display_name, identity_for_heritage_thread, maybe_heritage_reply
 from ..services.storage import absolute_media_path, save_upload
+from ..services.stt import transcribe
 
 router = APIRouter(prefix="/api/threads", tags=["messages"])
 media_router = APIRouter(prefix="/api/messages", tags=["messages"])
@@ -48,6 +49,40 @@ def _heritage_sender_name(db: Session, thread: Thread, sender_kind: str) -> str 
     return heritage_display_name(identity)
 
 
+def _apply_stt(db: Session, message: Message) -> None:
+    """Fill Message.body from audio when caption is empty. Never raises."""
+    settings = get_settings()
+    if not settings.stt_enabled:
+        return
+    if (message.kind or "") != "voice":
+        return
+    if not message.media_path:
+        return
+    if (message.body or "").strip():
+        return
+
+    path = absolute_media_path(message.media_path)
+    transcript = transcribe(
+        settings, path=path, mime=getattr(message, "media_mime", None)
+    )
+    meta: dict = {}
+    raw = getattr(message, "meta_json", None) or ""
+    if raw.strip():
+        try:
+            loaded = json.loads(raw)
+            if isinstance(loaded, dict):
+                meta = loaded
+        except json.JSONDecodeError:
+            meta = {}
+    meta["stt"] = transcript.as_meta()
+    if transcript.ok:
+        message.body = transcript.text.strip()[:8000]
+    message.meta_json = json.dumps(meta, ensure_ascii=False)
+    db.add(message)
+    db.commit()
+    db.refresh(message)
+
+
 def _heritage_reply_job(thread_id: str, message_id: str) -> None:
     """Run the heritage pipeline on its own session, after the response is sent.
 
@@ -60,9 +95,30 @@ def _heritage_reply_job(thread_id: str, message_id: str) -> None:
         thread = db.query(Thread).filter(Thread.id == thread_id).one_or_none()
         message = db.query(Message).filter(Message.id == message_id).one_or_none()
         if thread and message:
+            if (message.kind or "") == "voice":
+                _apply_stt(db, message)
             maybe_heritage_reply(db, thread=thread, user_message=message)
     except Exception:
         logger.exception("heritage reply failed for message %s", message_id)
+    finally:
+        db.close()
+
+
+def _voice_message_job(thread_id: str, message_id: str) -> None:
+    """STT a voice note, then run the usual auto-reply path for that thread."""
+    db = SessionLocal()
+    try:
+        thread = db.query(Thread).filter(Thread.id == thread_id).one_or_none()
+        message = db.query(Message).filter(Message.id == message_id).one_or_none()
+        if not thread or not message:
+            return
+        _apply_stt(db, message)
+        if thread.kind == "heritage":
+            maybe_heritage_reply(db, thread=thread, user_message=message)
+        else:
+            maybe_reply(db, thread=thread, user_message=message)
+    except Exception:
+        logger.exception("voice message job failed for message %s", message_id)
     finally:
         db.close()
 
@@ -80,7 +136,31 @@ def _dispatch_auto_reply(
     if background is not None and get_settings().heritage_async_reply:
         background.add_task(_heritage_reply_job, thread.id, user_message.id)
         return
+    if (user_message.kind or "") == "voice":
+        _apply_stt(db, user_message)
     maybe_heritage_reply(db, thread=thread, user_message=user_message)
+
+
+def _dispatch_voice_message(
+    db: Session,
+    *,
+    thread: Thread,
+    user_message: Message,
+    background: BackgroundTasks | None = None,
+) -> None:
+    """Voice notes always STT before any reply so heritage reads a real body."""
+    settings = get_settings()
+    async_ok = background is not None and (
+        thread.kind != "heritage" or settings.heritage_async_reply
+    )
+    if async_ok:
+        background.add_task(_voice_message_job, thread.id, user_message.id)
+        return
+    _apply_stt(db, user_message)
+    if thread.kind == "heritage":
+        maybe_heritage_reply(db, thread=thread, user_message=user_message)
+    else:
+        maybe_reply(db, thread=thread, user_message=user_message)
 
 
 def _message_payload(
@@ -249,7 +329,9 @@ async def send_voice_message(
     db.commit()
     db.refresh(message)
 
-    _dispatch_auto_reply(db, thread=thread, user_message=message, background=background)
+    _dispatch_voice_message(
+        db, thread=thread, user_message=message, background=background
+    )
 
     return _message_payload(
         message,

@@ -644,6 +644,36 @@ export default function VoiceSpeakScreen() {
     }
   };
 
+  const applySetForCall = async () => {
+    if (!selectedProfileId || !selectedElVoiceId || busy) return;
+    setBusy(true);
+    try {
+      const provider = (selectedElVoice?.provider ||
+        selectedProfile?.provider ||
+        "elevenlabs") as VoiceProvider;
+      const updated = await api.setChatTtsPrefs(selectedProfileId, {
+        ...ttsOpts,
+        provider_voice_id: selectedElVoiceId,
+        provider,
+        provider_voice_name: selectedElVoice?.name,
+      });
+      setProfiles((prev) =>
+        prev.map((p) => (p.id === updated.id ? { ...p, ...updated } : p)),
+      );
+      Alert.alert(
+        "Đã gắn cho Gọi",
+        "Cuộc gọi / chat ký ức sẽ nói bằng bản clone và setting này.",
+      );
+    } catch (e) {
+      Alert.alert(
+        "Không gắn được",
+        e instanceof Error ? e.message : "Thử lại sau.",
+      );
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const pickerTitle =
     openPicker === "voice"
       ? "Bản clone"
@@ -1033,17 +1063,27 @@ export default function VoiceSpeakScreen() {
           </Text>
         </Pressable>
         <Pressable
-          onPress={() =>
-            spaceId &&
-            router.push(
-              `/voice/${spaceId}/renders${
-                selectedProfileId ? `?voiceId=${selectedProfileId}` : ""
-              }`,
-            )
-          }
+          style={[
+            styles.btnSecondary,
+            (busy || !selectedElVoiceId) && styles.disabled,
+          ]}
+          onPress={() => void applySetForCall()}
+          disabled={busy || !selectedElVoiceId}
+        >
+          <Text style={styles.btnSecondaryText}>Dùng cho Gọi</Text>
+        </Pressable>
+        <Pressable
+          onPress={() => {
+            if (!spaceId) return;
+            const q = new URLSearchParams();
+            if (selectedProfileId) q.set("voiceId", selectedProfileId);
+            if (selectedElVoiceId) q.set("providerVoiceId", selectedElVoiceId);
+            const qs = q.toString();
+            router.push(`/voice/${spaceId}/renders${qs ? `?${qs}` : ""}`);
+          }}
           hitSlop={6}
         >
-          <Text style={styles.link}>Xem bản đã tạo</Text>
+          <Text style={styles.link}>Nghe các bản TTS của set này</Text>
         </Pressable>
       </View>
 
@@ -1287,6 +1327,15 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   btnText: { color: "#fff", fontWeight: "700", fontSize: 15 },
+  btnSecondary: {
+    backgroundColor: colors.card,
+    borderRadius: 10,
+    paddingVertical: 12,
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: colors.brand,
+  },
+  btnSecondaryText: { color: colors.brand, fontWeight: "700", fontSize: 15 },
   link: {
     textAlign: "center",
     color: colors.brand,

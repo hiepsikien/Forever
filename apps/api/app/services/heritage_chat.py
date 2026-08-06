@@ -18,6 +18,7 @@ from .heritage import (
     identity_for_thread,
     normalize_text,
     tag_tokens,
+    voice_for_identity,
 )
 from .heritage_analyzer import ContextFrame, analyze_turn
 from .heritage_codex import (
@@ -103,6 +104,12 @@ _REFUSE_FABRICATION = (
 _REFUSE_PAUSED = (
     "Thực thể ký ức đang tạm dừng. Steward có thể mở lại trong màn Thổi hồn "
     "khi gia đình sẵn sàng."
+)
+
+# Voice note with no usable transcript — do not invent an answer to a
+# question we did not hear (docs/voice-to-voice.plan.md V1).
+_REFUSE_UNHEARD = (
+    "Bố chưa nghe rõ, con nói lại giúp bố nhé."
 )
 
 _FALLBACK = (
@@ -1070,19 +1077,24 @@ def maybe_heritage_reply(
         return None
     if thread.kind != "heritage":
         return None
-    if getattr(user_message, "kind", "text") == "voice":
-        return None
 
     identity = identity_for_heritage_thread(db, thread.id)
     if not identity:
         return None
 
     entity_status = getattr(identity, "heritage_entity_status", None) or "dormant"
+    user_kind = getattr(user_message, "kind", "text") or "text"
+    user_text = (user_message.body or "").strip()
+
     if entity_status == "paused":
         body = _REFUSE_PAUSED
-        meta = {"heritage_refusal": "paused"}
+        meta: dict = {"heritage_refusal": "paused"}
     elif entity_status != "ready":
         return None
+    elif user_kind == "voice" and not user_text:
+        # STT empty or missing — refuse rather than invent an answer.
+        body = _REFUSE_UNHEARD
+        meta = {"heritage_refusal": "unheard"}
     else:
         body, meta = generate_heritage_reply(
             db,
@@ -1092,15 +1104,32 @@ def maybe_heritage_reply(
             settings=settings,
         )
 
+    kind = "text"
+    media_path = None
+    media_mime = None
+    if settings.heritage_tts_enabled and (body or "").strip():
+        from .heritage_tts import synthesize_chat_reply
+
+        voice = voice_for_identity(db, identity)
+        if voice is not None:
+            tts = synthesize_chat_reply(
+                db, voice=voice, text=body, settings=settings
+            )
+            if tts is not None:
+                kind = "voice"
+                media_path = tts.media_path
+                media_mime = tts.media_mime
+                meta = {**meta, "tts": tts.meta}
+
     heritage_message = Message(
         id=generate(),
         thread_id=thread.id,
         sender_user_id=None,
         sender_kind="heritage",
-        kind="text",
+        kind=kind,
         body=body,
-        media_path=None,
-        media_mime=None,
+        media_path=media_path,
+        media_mime=media_mime,
         meta_json=json.dumps(meta, ensure_ascii=False),
         created_at=datetime.now(timezone.utc),
     )

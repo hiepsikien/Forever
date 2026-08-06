@@ -378,6 +378,9 @@ class VoiceProfile(Base):
     )
     error_message: Mapped[str] = mapped_column(Text, default="")
     display_name: Mapped[str] = mapped_column(String(160), default="")
+    # JSON: knobs + clone used for heritage chat / «Gọi cho Bố» TTS.
+    # Set from Speak via "Dùng cho Gọi" or when saving a render as the chat set.
+    tts_prefs_json: Mapped[str] = mapped_column(Text, default="")
     created_by: Mapped[str] = mapped_column(ForeignKey("users.id"))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))

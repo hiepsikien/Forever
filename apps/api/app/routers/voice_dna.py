@@ -53,6 +53,7 @@ from ..services.storage import (
     save_bytes,
     save_upload,
 )
+from ..services.heritage_tts import apply_tts_prefs, prefs_payload
 from ..services.voice_script import generate_voice_sample_script
 
 router = APIRouter(tags=["voice-dna"])
@@ -188,6 +189,25 @@ class TtsBody(BaseModel):
 class SelectCloneBody(BaseModel):
     provider_voice_id: str = Field(min_length=1, max_length=120)
     provider: str | None = Field(default=None, pattern="^(elevenlabs|minimax)$")
+
+
+class ChatTtsPrefsBody(BaseModel):
+    """Attach a clone + TTS knobs as the set used by heritage chat / Gọi."""
+
+    provider_voice_id: str = Field(min_length=1, max_length=120)
+    provider: str | None = Field(default=None, pattern="^(elevenlabs|minimax)$")
+    provider_voice_name: str | None = Field(default=None, max_length=200)
+    model_id: str | None = Field(default=None, max_length=64)
+    stability: float | None = Field(default=None, ge=0, le=1)
+    similarity_boost: float | None = Field(default=None, ge=0, le=1)
+    style: float | None = Field(default=None, ge=0, le=1)
+    speed: float | None = Field(default=None, ge=0.7, le=1.2)
+    use_speaker_boost: bool | None = None
+    lengthen_pauses: bool | None = None
+    emotion: str | None = Field(default=None, max_length=32)
+    pitch: int | None = Field(default=None, ge=-12, le=12)
+    intensity: int | None = Field(default=None, ge=-100, le=100)
+    timbre: int | None = Field(default=None, ge=-100, le=100)
 
 
 def _resolve_tts_model(requested: str | None, default: str, provider: str) -> str:
@@ -469,6 +489,7 @@ def _voice_payload(
         "display_name": row.display_name,
         "consent_at": row.consent_at.isoformat() if row.consent_at else None,
         "error_message": row.error_message or None,
+        "tts_prefs": prefs_payload(row),
         "sample_count": stats["sample_count"],
         "unprocessed_count": stats["unprocessed_count"],
         "processed_count": stats["processed_count"],
@@ -2354,6 +2375,70 @@ def select_clone(
     voice.provider_voice_id = el_id
     voice.status = "ready"
     voice.error_message = ""
+    voice.updated_at = datetime.now(timezone.utc)
+    db.commit()
+    samples = (
+        db.query(VoiceSample)
+        .filter(VoiceSample.voice_profile_id == voice.id)
+        .order_by(VoiceSample.created_at.asc())
+        .all()
+    )
+    return _voice_payload(voice, samples)
+
+
+@router.post("/api/voices/{voice_id}/chat-tts-prefs")
+def set_chat_tts_prefs(
+    voice_id: str,
+    body: ChatTtsPrefsBody,
+    user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[Session, Depends(get_db)],
+):
+    """Mark this clone + knobs as the set heritage chat / Gọi will speak with."""
+    voice = _get_voice_or_404(db, voice_id)
+    require_membership(db, space_id=voice.space_id, user=user)
+    if not _can_mutate_voice(db, voice, user):
+        raise HTTPException(status_code=403, detail="Không được sửa Voice DNA này.")
+    if voice.status == "paused":
+        raise HTTPException(status_code=400, detail="Voice đang tạm dừng.")
+
+    settings = get_settings()
+    provider = vp.normalize(body.provider or voice.provider, settings)
+    el_id = body.provider_voice_id.strip()
+    api_key = vp.resolve_api_key(provider, settings, _space_api_key(db, voice.space_id))
+    try:
+        clones = vp.list_voices(
+            provider, settings=settings, api_key=api_key, cloned_only=True
+        )
+    except vp.VoiceProviderError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=exc.message) from exc
+    if not any(str(v.get("voice_id") or "") == el_id for v in clones):
+        raise HTTPException(
+            status_code=404,
+            detail=f"Không tìm thấy bản clone trên tài khoản {vp.label(provider)}.",
+        )
+
+    model_id = _resolve_tts_model(
+        body.model_id, vp.default_model(provider, settings), provider
+    )
+    apply_tts_prefs(
+        voice,
+        {
+            "provider": provider,
+            "provider_voice_id": el_id,
+            "provider_voice_name": (body.provider_voice_name or "").strip(),
+            "model_id": model_id,
+            "speed": body.speed,
+            "lengthen_pauses": body.lengthen_pauses,
+            "stability": body.stability,
+            "similarity_boost": body.similarity_boost,
+            "style": body.style,
+            "use_speaker_boost": body.use_speaker_boost,
+            "emotion": body.emotion,
+            "pitch": body.pitch,
+            "intensity": body.intensity,
+            "timbre": body.timbre,
+        },
+    )
     voice.updated_at = datetime.now(timezone.utc)
     db.commit()
     samples = (

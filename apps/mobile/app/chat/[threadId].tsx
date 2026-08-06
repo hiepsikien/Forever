@@ -126,19 +126,20 @@ export default function ChatScreen() {
       const freshHeritage = options?.animateNewHeritage
         ? [...next]
             .reverse()
-            .find(
-              (m) =>
-                m.sender_kind === "heritage" &&
-                (m.kind ?? "text") === "text" &&
-                !known.has(m.id),
-            )
+            .find((m) => m.sender_kind === "heritage" && !known.has(m.id))
         : undefined;
       knownMessageIdsRef.current = new Set(next.map((m) => m.id));
       setMessages(next);
-      if (freshHeritage?.body) {
+      if (freshHeritage) {
         replyDeadlineRef.current = 0;
         setHeritageTyping(false);
-        setTypewriter({ id: freshHeritage.id, full: freshHeritage.body, pos: 0 });
+        if ((freshHeritage.kind ?? "text") === "text" && freshHeritage.body) {
+          setTypewriter({
+            id: freshHeritage.id,
+            full: freshHeritage.body,
+            pos: 0,
+          });
+        }
       }
     },
     [],
@@ -340,6 +341,11 @@ export default function ChatScreen() {
       const uri = recorder.uri;
       if (!uri) throw new Error("Không có file ghi âm.");
 
+      if (isHeritageThread) {
+        setHeritageTyping(true);
+        replyDeadlineRef.current = Date.now() + HERITAGE_REPLY_TIMEOUT_MS;
+      }
+
       await api.sendVoiceMessage(threadId, {
         uri,
         name: "voice.m4a",
@@ -349,6 +355,8 @@ export default function ChatScreen() {
       if (list) applyMessages(list, { animateNewHeritage: true });
       requestAnimationFrame(() => listRef.current?.scrollToEnd({ animated: true }));
     } catch (e) {
+      replyDeadlineRef.current = 0;
+      setHeritageTyping(false);
       Alert.alert("Lỗi", e instanceof Error ? e.message : "Không gửi được giọng nói.");
     } finally {
       sendingRef.current = false;
@@ -499,8 +507,18 @@ export default function ChatScreen() {
           ? "Cần thổi hồn trước khi trò chuyện Ký ức"
           : recording
             ? "Nói vào micro — nhấn Dừng & gửi khi xong"
-            : "Giữ tin nhắn để lưu vào thư viện"}
+            : isHeritageThread
+              ? "Giữ tin nhắn để lưu · Gọi bằng giọng nếu không muốn gõ"
+              : "Giữ tin nhắn để lưu vào thư viện"}
       </Text>
+      {isHeritageThread && !heritageBlocked && !recording ? (
+        <Pressable
+          onPress={() => threadId && router.push(`/call/${threadId}`)}
+          style={styles.callHint}
+        >
+          <Text style={styles.callHintText}>Gọi bằng giọng →</Text>
+        </Pressable>
+      ) : null}
       {heritageBlocked ? (
         <View
           style={[
@@ -664,6 +682,15 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: colors.inkSoft,
     paddingBottom: 6,
+  },
+  callHint: {
+    alignSelf: "center",
+    paddingBottom: 8,
+  },
+  callHintText: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: colors.brand,
   },
   composer: {
     flexDirection: "row",

@@ -325,6 +325,11 @@ def ensure_schema() -> None:
         ),
     ):
         _add_column_if_missing("threads", col, ddl)
+    _add_column_if_missing(
+        "voice_profiles",
+        "tts_prefs_json",
+        "ALTER TABLE voice_profiles ADD COLUMN tts_prefs_json TEXT DEFAULT ''",
+    )
     _backfill_heritage_threads()
     try:
         with engine.begin() as conn:
