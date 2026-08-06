@@ -39,6 +39,41 @@ def test_create_note_and_list_memories(client):
     assert memories[0]["id"] == memory["id"]
 
 
+def test_create_milestone_and_poem_from_app(client):
+    token = _login(client, "mem-kinds@example.com", "Con")
+    headers = {"Authorization": f"Bearer {token}"}
+    space_id, _ = _space_and_thread(client, headers)
+
+    mile = client.post(
+        f"/api/spaces/{space_id}/memories/note",
+        headers=headers,
+        json={
+            "kind": "milestone",
+            "title": "Sinh tại Bắc Ninh",
+            "body": "Sinh ngày 01/06/1940.",
+            "occurred_at": "1940-06-01",
+            "tags": "heritage:abc",
+        },
+    )
+    assert mile.status_code == 200, mile.text
+    assert mile.json()["kind"] == "milestone"
+    assert mile.json()["occurred_at"].startswith("1940")
+
+    poem = client.post(
+        f"/api/spaces/{space_id}/memories/note",
+        headers=headers,
+        json={
+            "kind": "poem",
+            "title": "TUỔI BẢY NHĂM",
+            "body": "Bảy nhăm đâu phải đã già\nCứ vui vẻ thảnh thơi",
+            "tags": "heritage:abc",
+        },
+    )
+    assert poem.status_code == 200, poem.text
+    assert poem.json()["kind"] == "poem"
+    assert "tho" in poem.json()["tags"]
+    assert poem.json()["occurred_at"] is None
+
 def test_memory_from_message(client):
     token = _login(client, "chatmem@example.com", "Con")
     headers = {"Authorization": f"Bearer {token}"}

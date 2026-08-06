@@ -1,6 +1,7 @@
 # Quy hoạch lại trang Ký ức
 
-> Trạng thái: đề xuất, chưa làm. Đọc cùng `docs/PROJECT.md` §10.
+> Trạng thái: **A–E đã ship** (mobile hub + kệ + Thêm + duyệt trong kệ).
+> Đọc cùng `docs/PROJECT.md` §10.
 > Bối cảnh: Thư viện của "Nhà tôi ở Đền Lừ" đang có 48 món và đã khó dùng.
 
 ## 1. Trang này đang sai ở đâu
@@ -72,23 +73,15 @@ hiện vật hiện thumbnail; fact hiện một dòng + câu gốc trong hội 
 
 ## 4. Làm theo bước, mỗi bước tự đứng được
 
-**Bước A — lọc, tìm, và thẻ theo loại.** Chip lọc theo `kind`, một ô tìm trên
-`title` + `body`, và `renderCard` chia nhánh theo loại. Không cần API mới, không
-cần đổi schema. Đây là bước lấy lại được nhiều nhất trên mỗi dòng code.
+**Bước A — lọc, tìm, và thẻ theo loại.** ✅ Chip lọc theo kệ, ô tìm, `MemoryKindCard` theo loại.
 
-**Bước B — tách hai trục thời gian.** Kệ Dòng đời sắp theo `occurred_at` tăng dần;
-mọi kệ khác sắp theo `created_at` giảm dần. Không list nào trộn hai trục nữa.
+**Bước B — tách hai trục thời gian.** ✅ Dòng đời `occurred_at` asc + thập kỷ; kệ khác `created_at` desc (`libraryShelves.ts`).
 
-**Bước C — hub theo người.** Màn danh sách identity kèm số đếm, dùng lại
-`parseHeritageIdentityIds`. Thêm kệ "Chưa neo ai" để món mới upload không lặng lẽ
-mất khỏi tầm nhìn của chat.
+**Bước C — hub theo người.** ✅ `library/[spaceId]/index` + `person/[identityId]`; hàng «Chưa neo ai».
 
-**Bước D — thêm mốc đời và thêm thơ từ trong app.** Hiện hai loại giá trị nhất chỉ
-vào được bằng script. Gộp ba nút "Thêm ghi chú / ảnh / video" thành một nút, mở
-sheet đủ loại.
+**Bước D — thêm mốc đời và thêm thơ từ trong app.** ✅ Một nút Thêm → sheet; `POST …/memories/note` nhận `kind=milestone|poem`.
 
-**Bước E — gộp hàng đợi duyệt vào kệ Điều nghe được**, và thêm chip "Chỉ mình tôi"
-lọc theo `visibility`.
+**Bước E — gộp hàng đợi duyệt vào kệ Điều nghe được**, chip «Chỉ mình tôi». ✅
 
 ## 5. Chưa làm bây giờ
 

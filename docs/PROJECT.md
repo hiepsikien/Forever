@@ -201,8 +201,9 @@ từng thành viên. Chưa có Alembic — bảng mới qua `create_all`, cột 
    `./scripts/run-heritage-golden.py --identity <id>`. Soft score (đúng giọng)
    vẫn do mẹ/steward; bước tiếp theo là chạy live trên API local rồi mới bật
    critic / tinh chỉnh pipeline theo số.  
-2. **Quy hoạch lại trang Ký ức** — xem `docs/library-ia.plan.md`. Thư viện đang là
-   một dòng chảy phẳng; 48 món đã khó tìm, 300 món thì không dùng được.  
+2. **Quy hoạch lại trang Ký ức** — hub theo người + bốn kệ (A–E):
+   `apps/mobile/app/library/[spaceId]/`, helpers `lib/libraryShelves.ts`,
+   plan `docs/library-ia.plan.md`.  
 3. Bật critic (`HERITAGE_CRITIC_ENABLED`) sau khi golden live đạt *bịa năm/tên = 0*.  
 4. Giọng đọc trong chat — TTS cho reply của thực thể, không auto-play.  
 5. Micro-rituals (Phase 5) và export archive (Phase 6) khi mẹ đã dùng đều.  

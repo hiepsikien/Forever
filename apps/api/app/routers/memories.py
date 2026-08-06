@@ -40,6 +40,11 @@ class CreateNoteBody(BaseModel):
     body: str = Field(min_length=1, max_length=8000)
     tags: str = Field(default="", max_length=500)
     occurred_at: str | None = None
+    # note (default) | milestone | poem — steward/member typed entries from the app.
+    kind: str = Field(default="note", max_length=32)
+
+
+CREATE_TEXT_KINDS = frozenset({"note", "milestone", "poem"})
 
 
 class FromMessageBody(BaseModel):
@@ -168,18 +173,44 @@ def create_note_memory(
     text = body.body.strip()
     if not text:
         raise HTTPException(status_code=400, detail="Body cannot be empty.")
+    kind = (body.kind or "note").strip().lower() or "note"
+    if kind not in CREATE_TEXT_KINDS:
+        raise HTTPException(
+            status_code=400,
+            detail=f"kind must be one of: {', '.join(sorted(CREATE_TEXT_KINDS))}.",
+        )
+    title = (body.title or "").strip()
+    if kind == "milestone":
+        title = title or "Mốc đời"
+    elif kind == "poem":
+        title = title or UNTITLED_POEM
+    else:
+        title = title or "Ghi chú"
+
+    tags = (body.tags or "").strip()
+    if kind == "poem" and "tho" not in tag_tokens(tags):
+        tags = f"{tags} tho".strip()[:500]
+
+    occurred = _parse_occurred_at(body.occurred_at)
+    if kind == "note" and occurred is None:
+        occurred = now
+    # milestone / poem: leave occurred_at null when unknown (timeline «chưa rõ năm»).
+
     item = MemoryItem(
         id=generate(),
         space_id=space_id,
         created_by=user.id,
-        kind="note",
-        title=(body.title or "").strip() or "Ghi chú",
-        body=text,
+        kind=kind,
+        title=title,
+        body=text if kind != "poem" else format_body(clean_body_lines(text)),
+        body_tts=(
+            format_body_tts(clean_body_lines(text)) if kind == "poem" else ""
+        ),
         media_path=None,
         media_mime=None,
         source_message_id=None,
-        tags=(body.tags or "").strip(),
-        occurred_at=_parse_occurred_at(body.occurred_at) or now,
+        tags=tags,
+        occurred_at=occurred,
         created_at=now,
     )
     db.add(item)

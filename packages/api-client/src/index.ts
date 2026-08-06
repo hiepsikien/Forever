@@ -752,6 +752,7 @@ export function createApiClient({
         body: string;
         tags?: string;
         occurred_at?: string;
+        kind?: "note" | "milestone" | "poem" | string;
       },
     ) =>
       request<MemoryItem>(`/api/spaces/${spaceId}/memories/note`, {

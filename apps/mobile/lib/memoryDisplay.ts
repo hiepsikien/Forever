@@ -44,6 +44,8 @@ export function kindEmoji(kind: string): string {
   if (kind === "voice") return "🎙";
   if (kind === "note") return "📝";
   if (kind === "poem") return "📜";
+  if (kind === "milestone") return "◇";
+  if (kind === "knowledge") return "·";
   return "•";
 }
 
@@ -53,5 +55,16 @@ export function kindLabel(kind: string): string {
   if (kind === "video") return "Video";
   if (kind === "photo") return "Ảnh";
   if (kind === "note") return "Ghi chú";
+  if (kind === "milestone") return "Mốc đời";
+  if (kind === "knowledge") return "Điều nghe được";
   return kind;
+}
+
+/** First two non-empty lines of a poem body for shelf cards. */
+export function poemPreview(body: string, maxLines = 2): string {
+  const lines = body
+    .split(/\n+/)
+    .map((l) => l.trim())
+    .filter(Boolean);
+  return lines.slice(0, maxLines).join("\n");
 }
