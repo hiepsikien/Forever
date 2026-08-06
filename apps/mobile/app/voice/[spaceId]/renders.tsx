@@ -3,6 +3,7 @@ import {
   VoiceProfile,
   VoiceRender,
   VoiceSample,
+  type VoiceProvider,
   voiceProviderForModel,
   voiceProviderLabel,
   voiceTtsModelLabel,
@@ -40,7 +41,7 @@ import { colors, fonts } from "@/lib/theme";
 
 type PlaybackKind = "render" | "sample";
 type Playback = { id: string; kind: PlaybackKind; paused: boolean } | null;
-type BusyAction = { id: string; kind: "share" } | null;
+type BusyAction = { id: string; kind: "share" | "apply" } | null;
 
 function exportBaseName(item: VoiceRender): string {
   const voice = item.voice_display_name || "Voice-DNA";
@@ -296,6 +297,64 @@ export default function VoiceRendersScreen() {
     }
   };
 
+  const applyRenderForCall = async (item: VoiceRender) => {
+    if (busy) return;
+    const cloneId = (item.provider_voice_id || "").trim();
+    if (!cloneId) {
+      Alert.alert(
+        "Thiếu bản clone",
+        "Bản TTS này không ghi clone. Tạo lại từ «Tạo câu nói» rồi dùng nút này.",
+      );
+      return;
+    }
+    const who = item.voice_display_name || "người này";
+    Alert.alert(
+      "Dùng cho Gọi?",
+      `Gắn model và setting của bản này cho cuộc gọi / chat ký ức của ${who}.`,
+      [
+        { text: "Huỷ", style: "cancel" },
+        {
+          text: "Dùng",
+          onPress: async () => {
+            setBusy({ id: item.id, kind: "apply" });
+            try {
+              const provider = (item.provider ??
+                voiceProviderForModel(item.model_id) ??
+                "elevenlabs") as VoiceProvider;
+              await api.setChatTtsPrefs(item.voice_profile_id, {
+                provider_voice_id: cloneId,
+                provider,
+                provider_voice_name: item.provider_voice_name || undefined,
+                model_id: item.model_id || undefined,
+                speed: item.speed ?? undefined,
+                lengthen_pauses: item.lengthen_pauses ?? undefined,
+                stability: item.stability ?? undefined,
+                similarity_boost: item.similarity_boost ?? undefined,
+                style: item.style ?? undefined,
+                use_speaker_boost: item.use_speaker_boost ?? undefined,
+                emotion: item.emotion || undefined,
+                pitch: item.pitch ?? undefined,
+                intensity: item.intensity ?? undefined,
+                timbre: item.timbre ?? undefined,
+              });
+              Alert.alert(
+                "Đã gắn cho Gọi",
+                `${who} sẽ nói bằng clone và setting của bản này.`,
+              );
+            } catch (e) {
+              Alert.alert(
+                "Không gắn được",
+                e instanceof Error ? e.message : "Thử lại sau.",
+              );
+            } finally {
+              setBusy(null);
+            }
+          },
+        },
+      ],
+    );
+  };
+
   const remove = (item: VoiceRender) => {
     Alert.alert("Xóa bản TTS?", item.text.slice(0, 80), [
       { text: "Huỷ", style: "cancel" },
@@ -359,8 +418,8 @@ export default function VoiceRendersScreen() {
             </Text>
             <Text style={styles.sub}>
               {providerVoiceId
-                ? `Các câu nói tạo từ “${cloneName || "bản clone này"}”.`
-                : "Lọc theo người — nghe, xem thông số, hoặc chia sẻ từng bản."}
+                ? `Các câu nói tạo từ “${cloneName || "bản clone này"}”. Nhấn «Dùng cho Gọi» để gắn set đó.`
+                : "Lọc theo người — nghe, gắn cho Gọi, hoặc chia sẻ từng bản."}
             </Text>
             {!providerVoiceId ? (
               <View style={styles.chips}>
@@ -475,9 +534,11 @@ export default function VoiceRendersScreen() {
           const when = formatLocalDateTime(item.created_at);
           const voiceName = item.voice_display_name || "Voice DNA";
           const sharing = busy?.id === item.id && busy.kind === "share";
-          const itemBusy = sharing;
+          const applying = busy?.id === item.id && busy.kind === "apply";
+          const itemBusy = sharing || applying;
           const expanded = expandedId === item.id;
           const params = renderParamRows(item);
+          const canApply = Boolean((item.provider_voice_id || "").trim());
 
           return (
             <View style={styles.card}>
@@ -535,6 +596,25 @@ export default function VoiceRendersScreen() {
                     <Text style={styles.detailInfoText}>Thông số audio</Text>
                   </Pressable>
                 </View>
+              ) : null}
+              <Pressable
+                style={[
+                  styles.applyBtn,
+                  (!canApply || itemBusy) && styles.disabled,
+                ]}
+                onPress={() => void applyRenderForCall(item)}
+                disabled={!canApply || itemBusy}
+              >
+                {applying ? (
+                  <ActivityIndicator size="small" color="#fff" />
+                ) : (
+                  <Text style={styles.applyBtnText}>Dùng cho Gọi</Text>
+                )}
+              </Pressable>
+              {!canApply ? (
+                <Text style={styles.applyHint}>
+                  Bản cũ thiếu clone — tạo lại từ «Tạo câu nói» để gắn được.
+                </Text>
               ) : null}
               <View style={styles.row}>
                 <Pressable
@@ -722,6 +802,20 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
   },
   compareInfoText: { fontSize: 13, fontWeight: "700", color: colors.inkSoft },
+  applyBtn: {
+    backgroundColor: colors.brand,
+    borderRadius: 10,
+    paddingVertical: 12,
+    alignItems: "center",
+    marginBottom: 4,
+  },
+  applyBtnText: { color: "#fff", fontWeight: "700", fontSize: 15 },
+  applyHint: {
+    fontSize: 12,
+    lineHeight: 17,
+    color: colors.inkSoft,
+    marginBottom: 6,
+  },
   row: {
     flexDirection: "row",
     alignItems: "center",
@@ -729,7 +823,7 @@ const styles = StyleSheet.create({
     flexWrap: "wrap",
   },
   play: {
-    backgroundColor: colors.brand,
+    backgroundColor: colors.brandSoft,
     borderRadius: 8,
     paddingVertical: 8,
     paddingHorizontal: 14,
