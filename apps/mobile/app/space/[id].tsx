@@ -33,6 +33,25 @@ function isDirect(item: ThreadSummary): boolean {
   return (item.audience_scope ?? "family") === "direct";
 }
 
+/** Phòng khách hero → heritage family room (Cả nhà), not kind=family. */
+function isLivingRoomCandidate(item: ThreadSummary): boolean {
+  return (
+    item.kind === "heritage" &&
+    !isDirect(item) &&
+    Boolean(item.heritage?.chat_ready)
+  );
+}
+
+function pickLivingRoomThread(threads: ThreadSummary[]): ThreadSummary | null {
+  const ready = threads.filter(isLivingRoomCandidate);
+  if (!ready.length) return null;
+  return ready.reduce((best, item) => {
+    const bestAt = best.last_message?.created_at ?? best.created_at;
+    const itemAt = item.last_message?.created_at ?? item.created_at;
+    return itemAt > bestAt ? item : best;
+  });
+}
+
 function threadKindLabel(item: ThreadSummary): string | null {
   if (item.kind !== "heritage") return null;
   return isDirect(item) ? "Riêng" : "Cả nhà";
@@ -140,19 +159,21 @@ export default function SpaceScreen() {
     showSettings: true,
   });
 
-  const familyThread = useMemo(
-    () => threads.find((t) => t.kind === "family") ?? null,
+  // docs/phong-khach.md — hero is a link to Cả nhà với người được nhớ.
+  const livingRoomThread = useMemo(
+    () => pickLivingRoomThread(threads),
     [threads],
   );
 
   /** Every remembered person gets two rows: the family room and your own. */
   const otherThreads = useMemo<ThreadRow[]>(() => {
-    const visible = familyThread
-      ? threads.filter((t) => t.id !== familyThread.id)
+    const visible = livingRoomThread
+      ? threads.filter((t) => t.id !== livingRoomThread.id)
       : threads;
-    const rows: ThreadRow[] = [];
-    for (const thread of visible) {
-      rows.push(thread);
+    const rows: ThreadRow[] = visible.map((thread) => ({ ...thread }));
+    // Pending directs must consider the hero room too — otherwise «Riêng với Bố»
+    // disappears when Cả nhà is elevated to Phòng khách.
+    for (const thread of threads) {
       const identityId = thread.heritage?.identity_id;
       if (
         thread.kind !== "heritage" ||
@@ -162,11 +183,12 @@ export default function SpaceScreen() {
       ) {
         continue;
       }
-      const hasDirect = visible.some(
+      const hasDirect = threads.some(
         (other) =>
           isDirect(other) && other.heritage?.identity_id === identityId,
       );
       if (hasDirect) continue;
+      if (rows.some((row) => row.pendingDirectFor === identityId)) continue;
       rows.push({
         ...thread,
         id: `direct:${identityId}`,
@@ -176,7 +198,7 @@ export default function SpaceScreen() {
       });
     }
     return rows;
-  }, [threads, familyThread]);
+  }, [threads, livingRoomThread]);
 
   const openThread = async (item: ThreadRow) => {
     if (
@@ -213,14 +235,16 @@ export default function SpaceScreen() {
         {space?.role === "owner" ? " · Bạn quản trị" : ""}
       </Text>
 
-      {familyThread ? (
+      {livingRoomThread ? (
         <Pressable
           style={styles.hero}
-          onPress={() => openThread(familyThread)}
+          onPress={() => openThread(livingRoomThread)}
         >
           <Text style={styles.heroKicker}>Phòng khách</Text>
           <Text style={styles.heroPreview} numberOfLines={2}>
-            {threadPreview(familyThread)}
+            {livingRoomThread.last_message
+              ? threadPreview(livingRoomThread)
+              : "Sẵn sàng trò chuyện — gửi lời chào"}
           </Text>
           <Text style={styles.heroCta}>Vào trò chuyện →</Text>
         </Pressable>
@@ -289,7 +313,7 @@ export default function SpaceScreen() {
       <Text style={styles.section}>
         {otherThreads.length ? "Cuộc trò chuyện khác" : "Cuộc trò chuyện"}
       </Text>
-      {!otherThreads.length && familyThread ? (
+      {!otherThreads.length && livingRoomThread ? (
         <Text style={styles.emptyHint}>
           Các phòng Ký ức (người thân) sẽ hiện ở đây khi được tạo.
         </Text>
@@ -353,7 +377,7 @@ export default function SpaceScreen() {
         );
       }}
       ListEmptyComponent={
-        !familyThread ? (
+        !livingRoomThread ? (
           <Text style={styles.empty}>Chưa có cuộc trò chuyện nào.</Text>
         ) : null
       }
