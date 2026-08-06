@@ -151,6 +151,72 @@ def create_invite(
     }
 
 
+@router.post("/{space_id}/invites/{code}/revoke")
+def revoke_invite(
+    space_id: str,
+    code: str,
+    user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[Session, Depends(get_db)],
+):
+    """Burn a code that got forwarded further than intended.
+
+    Codes live 14 days and anyone holding one can walk into the family space,
+    so the owner needs a way to close the door before it expires.
+    """
+    require_owner(db, space_id=space_id, user=user)
+    invite = (
+        db.query(Invite)
+        .filter(Invite.space_id == space_id, Invite.code == code.strip().upper())
+        .one_or_none()
+    )
+    if not invite:
+        raise HTTPException(status_code=404, detail="Invite code not found.")
+    db.delete(invite)
+    db.commit()
+    return {"revoked": True, "code": code.strip().upper()}
+
+
+@router.delete("/{space_id}/members/{member_user_id}")
+def remove_member(
+    space_id: str,
+    member_user_id: str,
+    user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[Session, Depends(get_db)],
+):
+    """Revoke someone's access without touching what they contributed.
+
+    Their messages, memories and private threads stay in the vault — losing a
+    member must never quietly erase family history.
+    """
+    require_owner(db, space_id=space_id, user=user)
+    if member_user_id == user.id:
+        raise HTTPException(
+            status_code=400,
+            detail="Bạn không thể tự gỡ mình. Hãy chuyển giao quyền trước.",
+        )
+    space = db.query(FamilySpace).filter(FamilySpace.id == space_id).one_or_none()
+    if not space:
+        raise HTTPException(status_code=404, detail="Family space not found.")
+    if space.steward_user_id == member_user_id:
+        raise HTTPException(
+            status_code=400,
+            detail="Không thể gỡ Steward. Chuyển giao quyền giữ nhà trước đã.",
+        )
+    membership = (
+        db.query(Membership)
+        .filter(
+            Membership.space_id == space_id,
+            Membership.user_id == member_user_id,
+        )
+        .one_or_none()
+    )
+    if not membership:
+        raise HTTPException(status_code=404, detail="Member not found in this space.")
+    db.delete(membership)
+    db.commit()
+    return {"removed": True, "user_id": member_user_id}
+
+
 @router.post("/join")
 def join_space(
     body: JoinBody,

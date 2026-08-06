@@ -3,7 +3,7 @@ import * as MediaLibrary from "expo-media-library";
 import * as Sharing from "expo-sharing";
 import { Platform } from "react-native";
 
-import { getStoredToken } from "./api";
+import { resolveAuthToken } from "./api";
 
 const EXT_BY_MIME: Record<string, string> = {
   "audio/mpeg": ".mp3",
@@ -154,7 +154,7 @@ export async function fetchAuthedMediaUri(
   mimeType?: string | null,
   fileName?: string | null,
 ): Promise<string> {
-  const token = await getStoredToken();
+  const token = await resolveAuthToken();
   const dir = FileSystem.cacheDirectory;
   if (!dir) {
     throw new Error("Cache directory unavailable.");
@@ -174,6 +174,9 @@ export async function fetchAuthedMediaUri(
   });
   if (result.status !== 200) {
     await FileSystem.deleteAsync(target, { idempotent: true });
+    if (result.status === 401 || result.status === 403) {
+      throw new Error("Phiên đăng nhập đã hết hạn. Đăng nhập lại rồi thử lại.");
+    }
     throw new Error(`Không tải được media (${result.status}).`);
   }
   const info = await FileSystem.getInfoAsync(result.uri);

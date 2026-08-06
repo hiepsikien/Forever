@@ -105,14 +105,67 @@ Expected: `{"ok":true,"service":"forever"}`.
 
 ## Mobile / APK
 
-Point the client at the public API:
+The family APK reads `apps/mobile/.env.family` (copied from `.env.family.example`,
+already pointed at this API), so `.env` can stay on localhost for development:
 
 ```bash
-# apps/mobile/.env
-EXPO_PUBLIC_API_URL=https://forever-api.antunai.com
+cd apps/mobile
+FOREVER_ENV_FILE=.env.family npm run android:apk
 ```
 
-Rebuild the family APK after changing the URL (`npm run android:apk`).
+Rebuild after changing the API URL or Firebase project.
+
+## Auth on production
+
+`AUTH_DEV_MODE=false` is required here, and the stakes are higher than "an extra
+login form". Dev tokens are signed with `AUTH_DEV_SECRET` (symmetric HS256), and
+`verify_id_token` falls back to them whenever dev mode is on — so anyone who knows
+or guesses that secret can sign a token naming *any* email, and
+`upsert_user_from_claims` resolves the caller by email. A blank or placeholder
+secret is therefore a full account takeover, not a weaker login.
+
+The API now fails closed: it refuses to start when `AUTH_DEV_MODE=true` and
+`AUTH_DEV_SECRET` is blank, the published placeholder, or under 16 characters.
+`auth_dev_mode` also defaults to `false`, so a missing variable is safe.
+
+With dev mode off, `POST /api/auth/dev-login` returns 404 and only Firebase ID
+tokens are accepted — verify after each deploy:
+
+```bash
+curl -s -o /dev/null -w '%{http_code}\n' -X POST \
+  https://forever-api.antunai.com/api/auth/dev-login \
+  -H 'Content-Type: application/json' \
+  -d '{"email":"probe@example.com","password":"x"}'
+# expect 404
+```
+
+A 200 here means the endpoint just created that user. Delete any account it made.
+
+Turning dev mode off does not lock out the family: everyone signs in through
+Firebase, and `upsert_user_from_claims` matches an existing row by email and
+re-links its `firebase_uid`. Only `dev-*` test accounts stop working.
+
+### Outstanding on the live VM
+
+As of the last check, `deploy/.env.prod` on the VM still has `AUTH_DEV_MODE=true`
+with an **empty** `AUTH_DEV_SECRET`, which is the takeover case above. The next
+deploy will refuse to boot until it is fixed — that is intended. Before shipping:
+
+1. Set `AUTH_DEV_MODE=false` in `deploy/.env.prod` on the VM.
+2. Delete the accounts dev-login created: `probe@example.com`,
+   `me@forever.favorite`, and the seeded `dev-*` users once they are unused.
+3. Re-check that `anh.nguyendinh.cs@gmail.com` still holds `owner` on
+   "Nhà tôi ở Đền Lừ" — on prod it is still a `dev-` uid and will re-link by
+   email at the first real Firebase sign-in.
+4. Seat mẹ (`lethidinh315@gmail.com`), who has signed in but belongs to no space:
+
+```bash
+./scripts/link-family-accounts.py --space 5K__lcaDoIozrdKA5r0NL \
+  --member 'lethidinh315@gmail.com:Mẹ'          # add --commit to apply
+```
+
+`archived_at` needs no manual migration: `ensure_schema()` runs on startup and
+adds the column.
 
 ## Extract worker
 
@@ -150,7 +203,10 @@ docker builder prune -f    # orphaned cache only; keeps what current images use
 7. `docker compose … up -d --build` succeeds
 8. `curl https://forever-api.antunai.com/health` OK
 9. `docker logs forever-extract-worker --timestamps` shows the poll line
-10. Mobile `EXPO_PUBLIC_API_URL` updated (+ APK rebuild if shipping)
+10. `AUTH_DEV_MODE=false` in `.env.prod`; dev-login probe returns 404
+11. Mobile `.env.family` points here (+ APK rebuild if shipping)
+12. Family seated in their space (`scripts/link-family-accounts.py`), dev-login
+    leftovers deleted — see [Outstanding on the live VM](#outstanding-on-the-live-vm)
 
 ## Scale later
 

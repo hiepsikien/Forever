@@ -26,9 +26,30 @@ the turn she just spoke.
 - `packages/api-client` — typed client
 - `packages/philosophy` — shared Triết lý / landing copy (keep web + mobile in sync)
 
-## Local auth
+## Auth
 
-`AUTH_DEV_MODE=true` + `POST /api/auth/dev-login`. Demo users seeded: `me@forever.family` / `con@forever.family` (`forever123`).
+- Family + production: **Firebase email/password only**. No Google, no phone, no
+  `google-services.json`, no SHA-1 — the JS SDK covers it.
+- The client never stores a long-lived token; `getToken` asks Firebase for an ID
+  token per request so it refreshes itself. Session survives restarts through
+  `initializeAuth` + AsyncStorage persistence. Do not reintroduce a static Bearer.
+- Local dev only: `AUTH_DEV_MODE=true` + `POST /api/auth/dev-login`. Seeded demo
+  users `me@forever.family` / `con@forever.family` (`forever123`). Production runs
+  `AUTH_DEV_MODE=false`, where that route 404s.
+- Dev tokens are HS256 on a shared secret and `verify_id_token` falls back to them
+  whenever dev mode is on, so a known `AUTH_DEV_SECRET` signs a session for *any*
+  email. `auth_dev_mode` therefore defaults to `false`, and the API refuses to boot
+  on a blank/placeholder/short secret. Never weaken that guard to make a deploy pass.
+- Seat a real member before their first sign-in with
+  `./scripts/link-family-accounts.py` — `upsert_user_from_claims` matches on email,
+  so they skip the invite code.
+
+## Archiving
+
+`IdentityProfile.archived_at` / `VoiceProfile.archived_at` hide a person from lists,
+threads and pickers without deleting anything; `?include_archived=true` reveals them.
+Bulk tool: `./scripts/archive-profiles.py`. A `ready` heritage entity must be paused
+first, and a profile linked to a login account can never be archived.
 
 ## Heritage chat
 

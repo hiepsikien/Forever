@@ -214,6 +214,7 @@ export interface IdentityProfile {
   dynamic_context?: string;
   profile_reviewed_at?: string | null;
   profile_reviewed_by?: string | null;
+  archived_at?: string | null;
 }
 
 export interface VoiceSample {
@@ -550,6 +551,7 @@ export interface VoiceProfile {
   created_by: string;
   created_at: string;
   updated_at: string;
+  archived_at?: string | null;
 }
 
 export class ApiError extends Error {
@@ -706,6 +708,16 @@ export function createApiClient({
       request<{ id: string; code: string; expires_at: string | null }>(
         `/api/spaces/${spaceId}/invites`,
         { method: "POST" },
+      ),
+    revokeInvite: (spaceId: string, code: string) =>
+      request<{ revoked: boolean; code: string }>(
+        `/api/spaces/${spaceId}/invites/${code}/revoke`,
+        { method: "POST" },
+      ),
+    removeMember: (spaceId: string, memberUserId: string) =>
+      request<{ removed: boolean; user_id: string }>(
+        `/api/spaces/${spaceId}/members/${memberUserId}`,
+        { method: "DELETE" },
       ),
     joinSpace: (code: string) =>
       request<FamilySpace>("/api/spaces/join", {
@@ -902,9 +914,21 @@ export function createApiClient({
         method: "PATCH",
         body: JSON.stringify(payload),
       }),
-    listIdentities: (spaceId: string) =>
+    listIdentities: (spaceId: string, includeArchived = false) =>
       request<{ identities: IdentityProfile[] }>(
-        `/api/spaces/${spaceId}/identities`,
+        `/api/spaces/${spaceId}/identities${
+          includeArchived ? "?include_archived=true" : ""
+        }`,
+      ),
+    archiveIdentity: (spaceId: string, identityId: string) =>
+      request<IdentityProfile>(
+        `/api/spaces/${spaceId}/identities/${identityId}/archive`,
+        { method: "POST" },
+      ),
+    unarchiveIdentity: (spaceId: string, identityId: string) =>
+      request<IdentityProfile>(
+        `/api/spaces/${spaceId}/identities/${identityId}/unarchive`,
+        { method: "POST" },
       ),
     createIdentity: (
       spaceId: string,
@@ -983,8 +1007,21 @@ export function createApiClient({
         `/api/spaces/${spaceId}/identities/${identityId}/resume-heritage`,
         { method: "POST" },
       ),
-    listVoices: (spaceId: string) =>
-      request<{ voices: VoiceProfile[] }>(`/api/spaces/${spaceId}/voices`),
+    listVoices: (spaceId: string, includeArchived = false) =>
+      request<{ voices: VoiceProfile[] }>(
+        `/api/spaces/${spaceId}/voices${
+          includeArchived ? "?include_archived=true" : ""
+        }`,
+      ),
+    archiveVoice: (spaceId: string, voiceId: string) =>
+      request<VoiceProfile>(`/api/spaces/${spaceId}/voices/${voiceId}/archive`, {
+        method: "POST",
+      }),
+    unarchiveVoice: (spaceId: string, voiceId: string) =>
+      request<VoiceProfile>(
+        `/api/spaces/${spaceId}/voices/${voiceId}/unarchive`,
+        { method: "POST" },
+      ),
     getVoice: (voiceId: string) =>
       request<VoiceProfile>(`/api/voices/${voiceId}`),
     listElevenLabsVoices: (

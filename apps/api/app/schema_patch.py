@@ -131,6 +131,16 @@ def ensure_schema() -> None:
         "ALTER TABLE voice_profiles ADD COLUMN identity_profile_id VARCHAR(32)",
     )
     _add_column_if_missing(
+        "identity_profiles",
+        "archived_at",
+        "ALTER TABLE identity_profiles ADD COLUMN archived_at TIMESTAMP WITH TIME ZONE",
+    )
+    _add_column_if_missing(
+        "voice_profiles",
+        "archived_at",
+        "ALTER TABLE voice_profiles ADD COLUMN archived_at TIMESTAMP WITH TIME ZONE",
+    )
+    _add_column_if_missing(
         "voice_samples",
         "extract_job_id",
         "ALTER TABLE voice_samples ADD COLUMN extract_job_id VARCHAR(32)",

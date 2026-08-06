@@ -243,6 +243,10 @@ class IdentityProfile(Base):
     profile_reviewed_by: Mapped[str | None] = mapped_column(
         ForeignKey("users.id"), nullable=True
     )
+    # Set when the steward shelves a person without destroying anything.
+    archived_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True, index=True
+    )
     created_by: Mapped[str] = mapped_column(ForeignKey("users.id"))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
 
@@ -381,6 +385,9 @@ class VoiceProfile(Base):
     # JSON: knobs + clone used for heritage chat / «Gọi cho Bố» TTS.
     # Set from Speak via "Dùng cho Gọi" or when saving a render as the chat set.
     tts_prefs_json: Mapped[str] = mapped_column(Text, default="")
+    archived_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True, index=True
+    )
     created_by: Mapped[str] = mapped_column(ForeignKey("users.id"))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))

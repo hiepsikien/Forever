@@ -3,6 +3,8 @@ import * as SecureStore from "expo-secure-store";
 import { Platform } from "react-native";
 import { createApiClient } from "@forever/api-client";
 
+import { firebaseIdToken, isFirebaseConfigured } from "./firebase";
+
 const TOKEN_KEY = "forever_token";
 
 function metroHost(): string | null {
@@ -83,6 +85,23 @@ export async function setStoredToken(token: string | null): Promise<void> {
     return;
   }
   await SecureStore.setItemAsync(TOKEN_KEY, token);
+}
+
+/**
+ * The one place that answers "who is calling?".
+ *
+ * A Firebase sign-in never writes SecureStore — the SDK holds the session and
+ * mints a fresh ID token on demand. Anything that reads SecureStore alone gets
+ * `null` for a real family member and sends an unauthenticated request, which
+ * the API answers with 401. Every authenticated call, including raw file
+ * downloads that bypass the API client, must resolve its token through here.
+ */
+export async function resolveAuthToken(): Promise<string | null> {
+  if (isFirebaseConfigured()) {
+    const idToken = await firebaseIdToken();
+    if (idToken) return idToken;
+  }
+  return getStoredToken();
 }
 
 export function createMobileApi(getToken: () => Promise<string | null>) {

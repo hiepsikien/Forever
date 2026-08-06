@@ -468,6 +468,9 @@ def _identity_payload(
             else None
         ),
         "profile_reviewed_by": getattr(row, "profile_reviewed_by", None),
+        "archived_at": (
+            row.archived_at.isoformat() if getattr(row, "archived_at", None) else None
+        ),
     }
     return payload
 
@@ -498,6 +501,9 @@ def _voice_payload(
         "created_by": row.created_by,
         "created_at": row.created_at.isoformat(),
         "updated_at": row.updated_at.isoformat(),
+        "archived_at": (
+            row.archived_at.isoformat() if getattr(row, "archived_at", None) else None
+        ),
     }
     if samples is not None:
         payload["samples"] = [_sample_payload(s, voice=row) for s in samples]
@@ -724,6 +730,7 @@ def list_identities(
     space_id: str,
     user: Annotated[User, Depends(get_current_user)],
     db: Annotated[Session, Depends(get_db)],
+    include_archived: bool = False,
 ):
     require_membership(db, space_id=space_id, user=user)
     _migrate_self_voices_to_identity(db, space_id=space_id, user=user)
@@ -732,12 +739,10 @@ def list_identities(
         _ensure_self_identity(db, space_id=space_id, user=user)
     db.commit()
 
-    rows = (
-        db.query(IdentityProfile)
-        .filter(IdentityProfile.space_id == space_id)
-        .order_by(IdentityProfile.created_at.asc())
-        .all()
-    )
+    query = db.query(IdentityProfile).filter(IdentityProfile.space_id == space_id)
+    if not include_archived:
+        query = query.filter(IdentityProfile.archived_at.is_(None))
+    rows = query.order_by(IdentityProfile.created_at.asc()).all()
     voices = (
         db.query(VoiceProfile)
         .filter(VoiceProfile.space_id == space_id)
@@ -1041,6 +1046,123 @@ def resume_heritage_entity(
     return heritage_readiness_payload(db, identity=row)
 
 
+# --- Archive ---
+
+
+def _get_identity_or_404(db: Session, *, space_id: str, identity_id: str) -> IdentityProfile:
+    row = (
+        db.query(IdentityProfile)
+        .filter(
+            IdentityProfile.id == identity_id,
+            IdentityProfile.space_id == space_id,
+        )
+        .one_or_none()
+    )
+    if not row:
+        raise HTTPException(status_code=404, detail="Identity profile not found.")
+    return row
+
+
+@router.post("/api/spaces/{space_id}/identities/{identity_id}/archive")
+def archive_identity(
+    space_id: str,
+    identity_id: str,
+    user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[Session, Depends(get_db)],
+):
+    """Shelve a person the family no longer wants listed, keeping every row."""
+    require_steward_or_owner(db, space_id=space_id, user=user)
+    row = _get_identity_or_404(db, space_id=space_id, identity_id=identity_id)
+    if row.linked_user_id:
+        raise HTTPException(
+            status_code=400,
+            detail="Hồ sơ gắn tài khoản thành viên không thể lưu trữ.",
+        )
+    # Archiving a live heritage entity would silence it with no trace in the UI.
+    if (row.heritage_entity_status or "") == "ready":
+        raise HTTPException(
+            status_code=400,
+            detail="Hãy tạm dừng thực thể ký ức trước khi lưu trữ.",
+        )
+    if row.archived_at is None:
+        row.archived_at = datetime.now(timezone.utc)
+        archived_voices = (
+            db.query(VoiceProfile)
+            .filter(
+                VoiceProfile.identity_profile_id == row.id,
+                VoiceProfile.archived_at.is_(None),
+            )
+            .all()
+        )
+        for voice in archived_voices:
+            voice.archived_at = row.archived_at
+        db.commit()
+        db.refresh(row)
+    return _identity_payload(row)
+
+
+@router.post("/api/spaces/{space_id}/identities/{identity_id}/unarchive")
+def unarchive_identity(
+    space_id: str,
+    identity_id: str,
+    user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[Session, Depends(get_db)],
+):
+    require_steward_or_owner(db, space_id=space_id, user=user)
+    row = _get_identity_or_404(db, space_id=space_id, identity_id=identity_id)
+    if row.archived_at is not None:
+        restored_voices = (
+            db.query(VoiceProfile)
+            .filter(
+                VoiceProfile.identity_profile_id == row.id,
+                VoiceProfile.archived_at.is_not(None),
+            )
+            .all()
+        )
+        for voice in restored_voices:
+            voice.archived_at = None
+        row.archived_at = None
+        db.commit()
+        db.refresh(row)
+    return _identity_payload(row)
+
+
+@router.post("/api/spaces/{space_id}/voices/{voice_id}/archive")
+def archive_voice(
+    space_id: str,
+    voice_id: str,
+    user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[Session, Depends(get_db)],
+):
+    require_steward_or_owner(db, space_id=space_id, user=user)
+    voice = _get_voice_or_404(db, voice_id)
+    if voice.space_id != space_id:
+        raise HTTPException(status_code=404, detail="Voice profile not found.")
+    if voice.archived_at is None:
+        voice.archived_at = datetime.now(timezone.utc)
+        db.commit()
+        db.refresh(voice)
+    return _voice_payload(voice)
+
+
+@router.post("/api/spaces/{space_id}/voices/{voice_id}/unarchive")
+def unarchive_voice(
+    space_id: str,
+    voice_id: str,
+    user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[Session, Depends(get_db)],
+):
+    require_steward_or_owner(db, space_id=space_id, user=user)
+    voice = _get_voice_or_404(db, voice_id)
+    if voice.space_id != space_id:
+        raise HTTPException(status_code=404, detail="Voice profile not found.")
+    if voice.archived_at is not None:
+        voice.archived_at = None
+        db.commit()
+        db.refresh(voice)
+    return _voice_payload(voice)
+
+
 # --- Voices ---
 
 
@@ -1049,14 +1171,13 @@ def list_voices(
     space_id: str,
     user: Annotated[User, Depends(get_current_user)],
     db: Annotated[Session, Depends(get_db)],
+    include_archived: bool = False,
 ):
     require_membership(db, space_id=space_id, user=user)
-    rows = (
-        db.query(VoiceProfile)
-        .filter(VoiceProfile.space_id == space_id)
-        .order_by(VoiceProfile.created_at.asc())
-        .all()
-    )
+    query = db.query(VoiceProfile).filter(VoiceProfile.space_id == space_id)
+    if not include_archived:
+        query = query.filter(VoiceProfile.archived_at.is_(None))
+    rows = query.order_by(VoiceProfile.created_at.asc()).all()
     voices = []
     for v in rows:
         samples = (

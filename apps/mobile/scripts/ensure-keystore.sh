@@ -37,9 +37,9 @@ keyPassword=$PASS
 EOF
 
 echo ""
-echo "=== Add this SHA-1 in Firebase Console → Project settings → Your apps (Android) ==="
+echo "Signing keystore: $STORE"
+# Firebase email/password goes through the JS SDK, so no SHA-1 registration is
+# needed. Keep this fingerprint anyway — reinstalls must be signed by the same key.
 keytool -list -v -keystore "$STORE" -alias "$ALIAS" -storepass "$PASS" 2>/dev/null \
   | awk '/SHA1:/{print; exit}'
-echo "Package name: com.nguyendinhanh.forever"
-echo "Also enable Google Sign-In and copy the *Web client* ID into EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID."
 echo ""

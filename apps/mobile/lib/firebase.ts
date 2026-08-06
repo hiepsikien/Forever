@@ -3,10 +3,11 @@ import Constants from "expo-constants";
 import { FirebaseApp, getApp, getApps, initializeApp } from "firebase/app";
 import {
   Auth,
-  GoogleAuthProvider,
-  PhoneAuthProvider,
   getAuth,
-  signInWithCredential,
+  getReactNativePersistence,
+  initializeAuth,
+  sendPasswordResetEmail,
+  signInWithEmailAndPassword,
 } from "firebase/auth";
 
 type Extra = {
@@ -15,8 +16,6 @@ type Extra = {
   firebaseProjectId?: string;
   firebaseAppId?: string;
   firebaseMessagingSenderId?: string;
-  googleWebClientId?: string;
-  googleIosClientId?: string;
   authDev?: boolean;
 };
 
@@ -38,22 +37,6 @@ export function isAuthDevEnabled(): boolean {
   const e = extra();
   if (typeof e.authDev === "boolean") return e.authDev;
   return true;
-}
-
-export function googleWebClientId(): string {
-  return (
-    process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID?.trim() ||
-    extra().googleWebClientId?.trim() ||
-    ""
-  );
-}
-
-export function googleIosClientId(): string {
-  return (
-    process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID?.trim() ||
-    extra().googleIosClientId?.trim() ||
-    ""
-  );
 }
 
 let auth: Auth | null = null;
@@ -83,26 +66,33 @@ export function getFirebaseAuth(): Auth {
   };
 
   const app: FirebaseApp = getApps().length ? getApp() : initializeApp(config);
-  auth = getAuth(app);
-  // Keep AsyncStorage import so Expo tree-shaking keeps the dependency for future RN persistence.
-  void AsyncStorage;
+  // Without AsyncStorage persistence the session dies with the process, so mẹ
+  // would retype her password every time she opens the app.
+  try {
+    auth = initializeAuth(app, {
+      persistence: getReactNativePersistence(AsyncStorage),
+    });
+  } catch {
+    // initializeAuth throws if it already ran for this app (fast refresh).
+    auth = getAuth(app);
+  }
   return auth;
 }
 
-export async function signInWithGoogleIdToken(idToken: string) {
-  const credential = GoogleAuthProvider.credential(idToken);
-  return signInWithCredential(getFirebaseAuth(), credential);
+export async function signInWithEmail(email: string, password: string) {
+  return signInWithEmailAndPassword(getFirebaseAuth(), email, password);
 }
 
-export async function confirmPhoneCode(verificationId: string, code: string) {
-  const credential = PhoneAuthProvider.credential(verificationId, code);
-  return signInWithCredential(getFirebaseAuth(), credential);
+export async function sendPasswordReset(email: string) {
+  return sendPasswordResetEmail(getFirebaseAuth(), email);
 }
 
-export async function firebaseIdToken(): Promise<string | null> {
+export async function firebaseIdToken(
+  forceRefresh = false,
+): Promise<string | null> {
   const current = getFirebaseAuth().currentUser;
   if (!current) return null;
-  return current.getIdToken();
+  return current.getIdToken(forceRefresh);
 }
 
 export async function firebaseSignOut() {

@@ -33,15 +33,49 @@ Full product plan: [docs/PROJECT.md](./docs/PROJECT.md)
 | Mother | `me@forever.family` | `forever123` |
 | Child | `con@forever.family` | `forever123` |
 
-Local auth uses `AUTH_DEV_MODE` stand-in tokens (can stay on alongside Firebase for demos).
+These demo accounts only exist with `AUTH_DEV_MODE=true`, which is local development only.
 
-### Auth (Firebase + Forever identity)
+### Auth (Firebase email/password)
+
+Family builds sign in with **Firebase email/password and nothing else**. Google and
+phone sign-in were removed: the Firebase JS SDK handles email/password without any
+native module, so an APK needs no `google-services.json` and no SHA-1 registration.
 
 1. Forever `User` is canonical (`id`, `@handle`, membership, steward). Firebase UID is a linked login.
-2. API: set `FIREBASE_PROJECT_ID` + `FIREBASE_CREDENTIALS_JSON`, keep `AUTH_DEV_MODE=true` until ready to cut over.
-3. Mobile: fill `apps/mobile/.env` from `.env.example` (`EXPO_PUBLIC_FIREBASE_*`, `EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID`).
-4. Stewardship: Owner chỉ định kế nhiệm trên màn space → nominee accept → activate handover (steward + owner role).
-5. Phone SMS needs Expo Dev Client + Firebase Phone provider; Google works with web client ID; Dev login remains for local demos.
+2. API: set `FIREBASE_PROJECT_ID` + `FIREBASE_CREDENTIALS_JSON`. Production runs `AUTH_DEV_MODE=false`.
+3. Mobile: fill the five `EXPO_PUBLIC_FIREBASE_*` values from `.env.example`.
+4. The app holds no long-lived token. Every request asks the Firebase SDK for an ID
+   token, which it refreshes on its own, and the session survives restarts via
+   AsyncStorage persistence.
+5. Stewardship: Owner chỉ định kế nhiệm trên màn space → nominee accept → activate handover (steward + owner role).
+
+#### Seating a family member before their first sign-in
+
+`upsert_user_from_claims` matches an existing user by email, so create the row and
+membership first and they land straight in the space with no invite code:
+
+```bash
+# 1. Firebase Console → Authentication → Add user (email + password)
+# 2. Create the Forever row + membership
+./scripts/link-family-accounts.py --space <space_id> \
+    --member anh.nguyendinh.cs@gmail.com:"Con":owner \
+    --member me@gmail.com:"Mẹ" \
+    --steward anh.nguyendinh.cs@gmail.com --commit
+```
+
+Drop `--commit` for a dry run. These rows carry no `password_hash`, so dev login
+cannot be used to impersonate a family member.
+
+### Archiving test profiles
+
+Identity profiles and their Voice DNA can be shelved instead of deleted — nothing is
+destroyed, and Steward → Cài đặt → **Lưu trữ hồ sơ** restores them. In bulk:
+
+```bash
+cd apps/api
+python ../../scripts/archive-profiles.py                          # inventory
+python ../../scripts/archive-profiles.py --space <id> --keep <identity_id> --commit
+```
 
 ## Run locally
 
@@ -103,22 +137,30 @@ Keep `EXTRACT_WORKER_TOKEN` in sync with `apps/api/.env` (default `forever-extra
 
 Sideloadable release APK via Gradle on this Mac. Does **not** use EAS cloud builds.
 
-### One-time: Google Sign-In for Android
+Sideloadable release APK via Gradle on this Mac. Family builds are the real app:
+package `com.nguyendinhanh.forever`, home-screen name **Forever**, Firebase
+email/password login, no dev login.
 
-1. Create/open the Firebase Android app with package `com.nguyendinhanh.forever` (same string as iOS bundle ID).
-2. Run `npm run android:keystore` in `apps/mobile` and paste the printed **SHA-1** into Firebase → Project settings → Android app.
-3. Enable **Authentication → Google**.
-4. Copy the **Web client ID** (`….apps.googleusercontent.com`) into `apps/mobile/.env` as `EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID`.
-5. Set `EXPO_PUBLIC_API_URL` to a URL family phones can reach — LAN IP on same Wi‑Fi, or production `https://forever-api.antunai.com`. `localhost` will not work on their devices.
+### One-time
+
+1. Firebase Console → **Authentication → Sign-in method → Email/Password → Enable**.
+2. Add each family member under **Authentication → Users**, then run
+   `scripts/link-family-accounts.py` (see Auth above) so they skip the invite code.
+3. No SHA-1 and no `google-services.json` are needed — email/password goes through
+   the Firebase JS SDK.
 
 ### Build
 
 ```bash
 cd apps/mobile
-cp .env.example .env   # then fill Google Web client ID + API URL
+cp .env.family.example .env.family     # already filled for forever-70614 + prod API
 npm install
-npm run android:apk
+FOREVER_ENV_FILE=.env.family npm run android:apk
 ```
+
+`FOREVER_ENV_FILE` keeps `.env` pointed at localhost for daily development. Building
+without it uses `.env`; the script refuses to build against `localhost`, since family
+phones cannot reach your Mac.
 
 APK output: `apps/mobile/dist/forever-0.1.0.apk`
 
@@ -128,7 +170,18 @@ Install on a phone:
 adb install -r dist/forever-0.1.0.apk
 ```
 
+Phones carrying the older **Forever (Dev)** build must uninstall it first — that was
+package `…forever.dev`, so this will not upgrade over it.
+
 Or share the APK file (Drive / Zalo). Recipients: Settings → allow install from that source.
+
+### Verify before handing the phone over
+
+1. Sign in with the Firebase email/password.
+2. Force-stop the app and reopen it — it must still be signed in.
+3. Leave it idle for over an hour, then send a message. This is what proves the ID
+   token refreshed instead of expiring.
+4. Open **Gọi cho Bố** and check that the reply plays back.
 
 Toolchain (already used for local builds): JDK 17 + Android command-line tools (`brew install openjdk@17` and `brew install --cask android-commandlinetools`).
 
@@ -140,7 +193,7 @@ Same pattern as Read: EAS project `@hiepsikien/forever`, local archive via `xcod
 
 ### One-time
 
-1. Firebase → add **iOS app** (`com.nguyendinhanh.forever`) → copy **iOS client ID** → `EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID` in `.env` (Google Sign-In on TestFlight; dev login still works without it).
+1. The five `EXPO_PUBLIC_FIREBASE_*` values are all iOS needs — same email/password login as Android.
 2. First TestFlight upload creates the App Store Connect app (needs Apple 2FA in Terminal once).
 
 ### Build + upload
@@ -174,4 +227,4 @@ After Apple processes (~5–10 min), open App Store Connect → **Forever** → 
 
 - **Mobile:** Expo 54 + React Native + expo-router  
 - **API:** FastAPI + SQLAlchemy + PostgreSQL  
-- **Auth:** Firebase ID tokens (with local `AUTH_DEV_MODE`)  
+- **Auth:** Firebase email/password ID tokens (`AUTH_DEV_MODE` for local dev only)  

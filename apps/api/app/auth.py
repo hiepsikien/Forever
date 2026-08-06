@@ -29,6 +29,10 @@ class TokenClaims:
     email: str
     name: str
     phone: str | None = None
+    # False when `name` is only a fallback derived from the email or phone.
+    # Email/password accounts usually carry no display name, and overwriting a
+    # carefully chosen "Mẹ" with "hongdinh" on every sign-in is not acceptable.
+    has_display_name: bool = False
 
 
 def hash_password(password: str) -> str:
@@ -111,8 +115,15 @@ def _verify_firebase_token(token: str) -> TokenClaims:
                 status_code=401,
                 detail="Authenticated email or phone is required.",
             )
-    name = (decoded.get("name") or "").strip() or (phone or email.split("@")[0])
-    return TokenClaims(uid=uid, email=email, name=name, phone=phone)
+    display_name = (decoded.get("name") or "").strip()
+    name = display_name or (phone or email.split("@")[0])
+    return TokenClaims(
+        uid=uid,
+        email=email,
+        name=name,
+        phone=phone,
+        has_display_name=bool(display_name),
+    )
 
 
 def _verify_dev_token(token: str) -> TokenClaims:
@@ -128,11 +139,18 @@ def _verify_dev_token(token: str) -> TokenClaims:
 
     uid = str(payload.get("uid") or payload.get("sub") or "").strip()
     email = str(payload.get("email") or "").strip().lower()
-    name = str(payload.get("name") or "").strip() or (email.split("@")[0] if email else "Member")
+    display_name = str(payload.get("name") or "").strip()
+    name = display_name or (email.split("@")[0] if email else "Member")
     phone = str(payload.get("phone") or "").strip() or None
     if not uid or not email:
         raise HTTPException(status_code=401, detail="Invalid session claims.")
-    return TokenClaims(uid=uid, email=email, name=name, phone=phone)
+    return TokenClaims(
+        uid=uid,
+        email=email,
+        name=name,
+        phone=phone,
+        has_display_name=bool(display_name),
+    )
 
 
 def mint_dev_id_token(*, uid: str, email: str, name: str) -> str:
@@ -183,7 +201,7 @@ def upsert_user_from_claims(db: Session, claims: TokenClaims) -> User:
         user.email = claims.email
         if claims.phone:
             user.phone = claims.phone
-        if claims.name:
+        if claims.has_display_name and claims.name:
             user.name = claims.name
         if not user.handle:
             user.handle = allocate_handle(db, name=user.name, email=user.email)

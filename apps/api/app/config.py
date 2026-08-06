@@ -1,6 +1,10 @@
 from functools import lru_cache
 
+from pydantic import model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+DEV_SECRET_PLACEHOLDER = "forever-dev-secret-change-me"
+_MIN_DEV_SECRET_LEN = 16
 
 
 class Settings(BaseSettings):
@@ -13,8 +17,10 @@ class Settings(BaseSettings):
 
     firebase_project_id: str = ""
     firebase_credentials_json: str = ""
-    auth_dev_mode: bool = True
-    auth_dev_secret: str = "forever-dev-secret-change-me"
+    # Off unless a deployment opts in. Dev tokens are signed with a shared
+    # secret, so anyone holding it can mint a token for any email.
+    auth_dev_mode: bool = False
+    auth_dev_secret: str = DEV_SECRET_PLACEHOLDER
 
     agent_enabled: bool = True
     gemini_api_key: str = ""
@@ -105,6 +111,33 @@ class Settings(BaseSettings):
     def firebase_enabled(self) -> bool:
         project_id = self.firebase_project_id.strip()
         return bool(project_id and not project_id.startswith("replace-with-"))
+
+    @model_validator(mode="after")
+    def _reject_guessable_dev_secret(self) -> "Settings":
+        """Refuse to boot rather than accept forgeable sessions.
+
+        `verify_id_token` falls back to dev tokens whenever `auth_dev_mode` is
+        on, so a blank or published secret lets anyone sign a token claiming
+        any email — and `upsert_user_from_claims` matches on email. That is
+        full account takeover, not a downgraded dev login.
+        """
+        if not self.auth_dev_mode:
+            return self
+        secret = self.auth_dev_secret.strip()
+        if secret == DEV_SECRET_PLACEHOLDER:
+            reason = "is still the published placeholder"
+        elif not secret:
+            reason = "is empty"
+        elif len(secret) < _MIN_DEV_SECRET_LEN:
+            reason = f"is shorter than {_MIN_DEV_SECRET_LEN} characters"
+        else:
+            return self
+        raise ValueError(
+            f"AUTH_DEV_MODE=true but AUTH_DEV_SECRET {reason}. Anyone could then "
+            "mint a session for any account. Set AUTH_DEV_MODE=false (production), "
+            "or set AUTH_DEV_SECRET to a random value: "
+            "python -c 'import secrets; print(secrets.token_urlsafe(32))'"
+        )
 
 
 @lru_cache

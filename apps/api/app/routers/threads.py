@@ -67,9 +67,20 @@ def list_threads(
         .order_by(Thread.created_at.asc())
         .all()
     )
+    archived_identity_ids = {
+        row.id
+        for row in db.query(IdentityProfile.id)
+        .filter(
+            IdentityProfile.space_id == space_id,
+            IdentityProfile.archived_at.is_not(None),
+        )
+        .all()
+    }
     result = []
     for thread in threads:
         if not _visible_to(thread, user):
+            continue
+        if getattr(thread, "heritage_identity_id", None) in archived_identity_ids:
             continue
         last = (
             db.query(Message)

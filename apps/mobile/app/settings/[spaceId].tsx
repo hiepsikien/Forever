@@ -1,4 +1,9 @@
-import { FamilySpace, SpaceSettings, StewardshipStatus } from "@forever/api-client";
+import {
+  FamilySpace,
+  IdentityProfile,
+  SpaceSettings,
+  StewardshipStatus,
+} from "@forever/api-client";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useCallback, useLayoutEffect, useState } from "react";
 import {
@@ -30,6 +35,8 @@ export default function SettingsScreen() {
   const [apiKey, setApiKey] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [allIdentities, setAllIdentities] = useState<IdentityProfile[]>([]);
+  const [archiveBusy, setArchiveBusy] = useState(false);
 
   useSpaceScreenOptions({
     spaceId,
@@ -42,14 +49,16 @@ export default function SettingsScreen() {
     if (!spaceId) return;
     setLoading(true);
     try {
-      const [spaceRes, settingsRes, stewardRes] = await Promise.all([
+      const [spaceRes, settingsRes, stewardRes, identityRes] = await Promise.all([
         api.getSpace(spaceId),
         api.getSpaceSettings(spaceId),
         api.getStewardship(spaceId),
+        api.listIdentities(spaceId, true),
       ]);
       setSpace(spaceRes);
       setSettings(settingsRes);
       setStewardship(stewardRes);
+      setAllIdentities(identityRes.identities);
     } catch (e) {
       Alert.alert("Lỗi", e instanceof Error ? e.message : "Không tải cài đặt.");
     } finally {
@@ -69,6 +78,43 @@ export default function SettingsScreen() {
     } catch (e) {
       Alert.alert("Lỗi", e instanceof Error ? e.message : "Không tạo mã được.");
     }
+  };
+
+  const revokeInvite = async () => {
+    if (!spaceId || !inviteCode) return;
+    try {
+      await api.revokeInvite(spaceId, inviteCode);
+      setInviteCode(null);
+      Alert.alert("Đã thu hồi", "Mã mời này không dùng được nữa.");
+    } catch (e) {
+      Alert.alert("Lỗi", e instanceof Error ? e.message : "Không thu hồi được.");
+    }
+  };
+
+  const confirmRemoveMember = (member: { id: string; name: string }) => {
+    if (!spaceId) return;
+    Alert.alert(
+      `Gỡ ${member.name}?`,
+      "Họ mất quyền vào nhà này. Tin nhắn và ký ức họ đã đóng góp vẫn được giữ nguyên.",
+      [
+        { text: "Huỷ", style: "cancel" },
+        {
+          text: "Gỡ",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              await api.removeMember(spaceId, member.id);
+              await load();
+            } catch (e) {
+              Alert.alert(
+                "Lỗi",
+                e instanceof Error ? e.message : "Không gỡ được.",
+              );
+            }
+          },
+        },
+      ],
+    );
   };
 
   const nominateMember = () => {
@@ -101,6 +147,40 @@ export default function SettingsScreen() {
           },
         })),
         { text: "Huỷ", style: "cancel" },
+      ],
+    );
+  };
+
+  const runArchive = async (
+    identity: IdentityProfile,
+    action: "archive" | "unarchive",
+  ) => {
+    if (!spaceId || archiveBusy) return;
+    setArchiveBusy(true);
+    try {
+      if (action === "archive") {
+        await api.archiveIdentity(spaceId, identity.id);
+      } else {
+        await api.unarchiveIdentity(spaceId, identity.id);
+      }
+      await load();
+    } catch (e) {
+      Alert.alert("Lỗi", e instanceof Error ? e.message : "Không thực hiện được.");
+    } finally {
+      setArchiveBusy(false);
+    }
+  };
+
+  const confirmArchive = (identity: IdentityProfile) => {
+    Alert.alert(
+      `Lưu trữ ${identity.display_name}?`,
+      "Hồ sơ sẽ ẩn khỏi Thư viện và Voice DNA. Không có gì bị xoá — bạn khôi phục lại bất cứ lúc nào.",
+      [
+        { text: "Huỷ", style: "cancel" },
+        {
+          text: "Lưu trữ",
+          onPress: () => void runArchive(identity, "archive"),
+        },
       ],
     );
   };
@@ -142,6 +222,11 @@ export default function SettingsScreen() {
   const succession = stewardship?.succession;
   const iAmNominee = succession?.nominee?.id === user?.id;
   const isOwner = space?.role === "owner";
+  const canArchive = isOwner || Boolean(stewardship?.is_steward);
+  const archivedIdentities = allIdentities.filter((i) => i.archived_at);
+  const archivableIdentities = allIdentities.filter(
+    (i) => !i.archived_at && !i.linked_user_id,
+  );
 
   return (
     <ScrollView contentContainerStyle={styles.root}>
@@ -234,6 +319,36 @@ export default function SettingsScreen() {
                 {inviteCode ? `Mã mời: ${inviteCode}` : "Tạo mã mời"}
               </Text>
             </Pressable>
+            {inviteCode ? (
+              <Pressable style={styles.smallBtnGhost} onPress={revokeInvite}>
+                <Text style={styles.smallBtnGhostText}>Thu hồi mã này</Text>
+              </Pressable>
+            ) : null}
+          </View>
+
+          <Text style={styles.section}>Thành viên</Text>
+          <View style={styles.card}>
+            {(space?.members ?? []).map((member) => (
+              <View key={member.id} style={styles.archiveRow}>
+                <View style={styles.archiveRowMain}>
+                  <Text style={styles.value}>{member.name}</Text>
+                  <Text style={styles.metaLine}>
+                    {member.email}
+                    {member.role === "owner" ? " · Quản trị" : ""}
+                    {member.id === stewardship?.steward?.id ? " · Steward" : ""}
+                  </Text>
+                </View>
+                {member.id !== user?.id &&
+                member.id !== stewardship?.steward?.id ? (
+                  <Pressable
+                    style={styles.smallBtnGhost}
+                    onPress={() => confirmRemoveMember(member)}
+                  >
+                    <Text style={styles.smallBtnGhostText}>Gỡ</Text>
+                  </Pressable>
+                ) : null}
+              </View>
+            ))}
           </View>
         </>
       ) : null}
@@ -315,6 +430,66 @@ export default function SettingsScreen() {
           ) : null}
         </View>
       </View>
+
+      {canArchive ? (
+        <>
+          <Text style={styles.section}>Lưu trữ hồ sơ</Text>
+          <Text style={styles.help}>
+            Hồ sơ lưu trữ biến mất khỏi Thư viện và Voice DNA nhưng vẫn giữ nguyên
+            ký ức, mẫu giọng và bản clone. Khôi phục lúc nào cũng được.
+          </Text>
+          <View style={styles.card}>
+            <Text style={styles.label}>Đang hiện</Text>
+            {archivableIdentities.length ? (
+              archivableIdentities.map((identity) => (
+                <View key={identity.id} style={styles.archiveRow}>
+                  <View style={styles.archiveRowMain}>
+                    <Text style={styles.value}>{identity.display_name}</Text>
+                    <Text style={styles.metaLine}>
+                      {identity.relation_label || "Chưa đặt quan hệ"}
+                      {identity.status === "remembered" ? " · Ký ức" : ""}
+                    </Text>
+                  </View>
+                  <Pressable
+                    style={[styles.smallBtnGhost, archiveBusy && styles.btnDisabled]}
+                    onPress={() => confirmArchive(identity)}
+                    disabled={archiveBusy}
+                  >
+                    <Text style={styles.smallBtnGhostText}>Lưu trữ</Text>
+                  </Pressable>
+                </View>
+              ))
+            ) : (
+              <Text style={styles.body}>
+                Không có hồ sơ nào để lưu trữ.
+              </Text>
+            )}
+
+            <Text style={[styles.label, { marginTop: 16 }]}>Đã lưu trữ</Text>
+            {archivedIdentities.length ? (
+              archivedIdentities.map((identity) => (
+                <View key={identity.id} style={styles.archiveRow}>
+                  <View style={styles.archiveRowMain}>
+                    <Text style={styles.value}>{identity.display_name}</Text>
+                    <Text style={styles.metaLine}>
+                      {identity.relation_label || "Chưa đặt quan hệ"}
+                    </Text>
+                  </View>
+                  <Pressable
+                    style={[styles.smallBtn, archiveBusy && styles.btnDisabled]}
+                    onPress={() => void runArchive(identity, "unarchive")}
+                    disabled={archiveBusy}
+                  >
+                    <Text style={styles.smallBtnText}>Khôi phục</Text>
+                  </Pressable>
+                </View>
+              ))
+            ) : (
+              <Text style={styles.body}>Chưa có hồ sơ nào được lưu trữ.</Text>
+            )}
+          </View>
+        </>
+      ) : null}
 
       <Text style={styles.section}>Voice DNA · ElevenLabs</Text>
       <Text style={styles.help}>
@@ -439,6 +614,15 @@ const styles = StyleSheet.create({
     borderColor: colors.line,
   },
   smallBtnGhostText: { color: colors.brand, fontWeight: "600", fontSize: 13 },
+  archiveRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    paddingVertical: 8,
+    borderTopWidth: 1,
+    borderTopColor: colors.line,
+  },
+  archiveRowMain: { flex: 1, gap: 2 },
   btnSecondary: {
     alignSelf: "flex-start",
     backgroundColor: "#fff",

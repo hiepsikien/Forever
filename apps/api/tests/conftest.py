@@ -1,6 +1,7 @@
 import os
 
 os.environ["AUTH_DEV_MODE"] = "true"
+os.environ["AUTH_DEV_SECRET"] = "test-only-secret-not-the-placeholder"
 os.environ["SEED_DEMO"] = "false"
 os.environ["AGENT_ENABLED"] = "true"
 os.environ["GEMINI_API_KEY"] = ""
