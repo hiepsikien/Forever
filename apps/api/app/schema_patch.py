@@ -48,6 +48,26 @@ def _backfill_heritage_threads() -> None:
         pass
 
 
+def _rename_agent_phong_khach() -> None:
+    """Restore agent onboard thread title if a prior patch renamed it away.
+
+    Hero «Phòng khách» is kind=family again; Cả nhà với bố stays a list item.
+    """
+    inspector = inspect(engine)
+    if "threads" not in inspector.get_table_names():
+        return
+    try:
+        with engine.begin() as conn:
+            conn.execute(
+                text(
+                    "UPDATE threads SET title = 'Phòng khách' "
+                    "WHERE kind = 'family' AND title = 'Người giữ nhà'"
+                )
+            )
+    except Exception:
+        pass
+
+
 def ensure_schema() -> None:
     """Additive schema tweaks for local create_all demos (no Alembic yet)."""
     _add_column_if_missing(
@@ -340,7 +360,23 @@ def ensure_schema() -> None:
         "tts_prefs_json",
         "ALTER TABLE voice_profiles ADD COLUMN tts_prefs_json TEXT DEFAULT ''",
     )
+    _add_column_if_missing(
+        "space_settings",
+        "heritage_daily_turn_limit",
+        "ALTER TABLE space_settings ADD COLUMN heritage_daily_turn_limit INTEGER DEFAULT 20",
+    )
+    _add_column_if_missing(
+        "space_settings",
+        "heritage_warn_remaining",
+        "ALTER TABLE space_settings ADD COLUMN heritage_warn_remaining INTEGER DEFAULT 3",
+    )
+    _add_column_if_missing(
+        "space_settings",
+        "heritage_max_utterance_sec",
+        "ALTER TABLE space_settings ADD COLUMN heritage_max_utterance_sec INTEGER DEFAULT 60",
+    )
     _backfill_heritage_threads()
+    _rename_agent_phong_khach()
     try:
         with engine.begin() as conn:
             conn.execute(

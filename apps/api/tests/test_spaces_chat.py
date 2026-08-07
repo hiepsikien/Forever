@@ -60,5 +60,19 @@ def test_create_space_and_chat(client):
     )
     assert mother_msg.status_code == 200
 
+    # Phòng khách belongs to the family: nobody answers a message between them.
     msgs = client.get(f"/api/threads/{thread_id}/messages", headers=headers)
-    assert len(msgs.json()["messages"]) == 4
+    assert len(msgs.json()["messages"]) == 3
+
+    called = client.post(
+        f"/api/threads/{thread_id}/messages",
+        headers=mother_headers,
+        json={"body": "@giunhà giúp mẹ mời thêm người với"},
+    )
+    assert called.status_code == 200
+
+    bodies = client.get(f"/api/threads/{thread_id}/messages", headers=headers).json()[
+        "messages"
+    ]
+    assert len(bodies) == 5
+    assert bodies[-1]["sender_kind"] == "agent"

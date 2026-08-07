@@ -73,6 +73,10 @@ export interface ThreadSummary {
     sender_kind: string;
   } | null;
   heritage?: HeritageReadiness | null;
+  /** On kind=family (Phòng khách): everyone remembered who sits in the room. */
+  living_room_members?: HeritageReadiness[] | null;
+  /** First of `living_room_members` — kept for older clients. */
+  living_room?: HeritageReadiness | null;
 }
 
 export interface MemoryCandidate {
@@ -98,6 +102,8 @@ export interface HeritageReadiness {
   identity_id: string;
   display_name: string;
   relation_label: string;
+  /** @handle shown on heritage bubbles and used to address them in Phòng khách. */
+  handle?: string | null;
   entity_status:
     | "dormant"
     | "gathering"
@@ -135,6 +141,8 @@ export interface ChatMessage {
   media_mime?: string | null;
   meta?: Record<string, unknown> | null;
   created_at: string;
+  /** Present on send responses: whether heritage will reply to this turn. */
+  heritage_awaiting_reply?: boolean;
 }
 
 export interface MemoryItem {
@@ -193,6 +201,9 @@ export interface SpaceSettings {
   can_edit: boolean;
   consent_self: string;
   consent_heritage: string;
+  heritage_daily_turn_limit: number;
+  heritage_warn_remaining: number;
+  heritage_max_utterance_sec: number;
   updated_at?: string | null;
 }
 
@@ -580,17 +591,91 @@ export class ApiError extends Error {
   body: unknown;
 
   constructor(status: number, body: unknown) {
-    const message =
-      typeof body === "object" &&
-      body &&
-      "error" in body &&
-      typeof (body as { error: unknown }).error === "string"
-        ? (body as { error: string }).error
-        : `Request failed (${status})`;
-    super(message);
+    super(messageFromErrorBody(body, status));
     this.status = status;
     this.body = body;
   }
+}
+
+function messageFromErrorBody(body: unknown, status: number): string {
+  if (typeof body === "object" && body) {
+    const rec = body as Record<string, unknown>;
+    if (typeof rec.error === "string" && rec.error.trim()) return rec.error;
+    if (typeof rec.message === "string" && rec.message.trim()) return rec.message;
+    const detail = rec.detail;
+    if (typeof detail === "string" && detail.trim()) return detail;
+    if (typeof detail === "object" && detail) {
+      const d = detail as Record<string, unknown>;
+      if (typeof d.error === "string" && d.error.trim()) return d.error;
+      if (typeof d.message === "string" && d.message.trim()) return d.message;
+    }
+  }
+  return `Request failed (${status})`;
+}
+
+/** Heritage daily turn cap — may be top-level (app handler) or under `detail`. */
+export interface QuotaExhaustedDetail {
+  code: "quota_exhausted" | string;
+  message: string;
+  error?: string;
+  used: number;
+  limit: number;
+  remaining: number;
+  resets_at: string;
+}
+
+export function quotaExhaustedFromError(err: unknown): QuotaExhaustedDetail | null {
+  if (!(err instanceof ApiError) || err.status !== 429) return null;
+  const body = err.body;
+  if (!body || typeof body !== "object") return null;
+  const detail = (body as { detail?: unknown }).detail;
+  const payload =
+    detail && typeof detail === "object"
+      ? (detail as Record<string, unknown>)
+      : (body as Record<string, unknown>);
+  if (payload.code !== "quota_exhausted" && typeof payload.resets_at !== "string") {
+    return null;
+  }
+  return {
+    code: String(payload.code || "quota_exhausted"),
+    message: String(
+      payload.message || payload.error || "Hôm nay đã nói đủ rồi. Mai gặp lại nhé.",
+    ),
+    error: typeof payload.error === "string" ? payload.error : undefined,
+    used: Number(payload.used) || 0,
+    limit: Number(payload.limit) || 0,
+    remaining: Number(payload.remaining) || 0,
+    resets_at: String(payload.resets_at || ""),
+  };
+}
+
+export interface HeritageUsage {
+  space_id: string;
+  user_id: string;
+  day_key: string;
+  used: number;
+  limit: number;
+  remaining: number;
+  warn: boolean;
+  warn_remaining: number;
+  max_utterance_sec: number;
+  estimated_tokens: number;
+  resets_at: string;
+  enabled: boolean;
+  user_name?: string;
+}
+
+export interface SpaceUsageOverview {
+  day_key: string;
+  resets_at: string;
+  policy: {
+    heritage_daily_turn_limit: number;
+    heritage_warn_remaining: number;
+    heritage_max_utterance_sec: number;
+  };
+  total_turns: number;
+  total_estimated_tokens: number;
+  members: HeritageUsage[];
 }
 
 export interface ApiClientOptions {
@@ -948,12 +1033,21 @@ export function createApiClient({
       request<SpaceSettings>(`/api/spaces/${spaceId}/settings`),
     updateSpaceSettings: (
       spaceId: string,
-      payload: { elevenlabs_api_key?: string | null },
+      payload: {
+        elevenlabs_api_key?: string | null;
+        heritage_daily_turn_limit?: number;
+        heritage_warn_remaining?: number;
+        heritage_max_utterance_sec?: number;
+      },
     ) =>
       request<SpaceSettings>(`/api/spaces/${spaceId}/settings`, {
         method: "PATCH",
         body: JSON.stringify(payload),
       }),
+    getMyUsage: (spaceId: string) =>
+      request<HeritageUsage>(`/api/spaces/${spaceId}/usage/me`),
+    getSpaceUsage: (spaceId: string) =>
+      request<SpaceUsageOverview>(`/api/spaces/${spaceId}/usage`),
     listIdentities: (spaceId: string, includeArchived = false) =>
       request<{ identities: IdentityProfile[] }>(
         `/api/spaces/${spaceId}/identities${

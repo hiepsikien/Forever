@@ -38,6 +38,57 @@ def heritage_thread_title(display_name: str, relation_label: str | None) -> str:
     return name
 
 
+_HANDLE_NAME_STOP = frozenset(
+    {
+        "nguyen",
+        "tran",
+        "le",
+        "pham",
+        "hoang",
+        "huynh",
+        "phan",
+        "vu",
+        "vo",
+        "dang",
+        "bui",
+        "do",
+        "ho",
+        "ngo",
+        "duong",
+        "ly",
+        "thi",
+        "van",
+        "dinh",
+    }
+)
+
+
+def heritage_handle(identity: IdentityProfile) -> str:
+    """Stable @handle for a remembered person (relation first, then given name).
+
+    Used on heritage message bubbles and for @mention address in Phòng khách.
+    ASCII-only so it matches living-member handle rules.
+    """
+    from .handles import normalize_handle
+
+    rel = normalize_handle(getattr(identity, "relation_label", None) or "")
+    if len(rel) >= 2:
+        return rel[:32]
+    name = (getattr(identity, "display_name", None) or "").strip()
+    tokens = [
+        normalize_handle(part)
+        for part in re.split(r"\s+", name)
+        if part.strip()
+    ]
+    tokens = [t for t in tokens if len(t) >= 2 and t not in _HANDLE_NAME_STOP]
+    if tokens:
+        return tokens[-1][:32]
+    full = normalize_handle(name)
+    if len(full) >= 2:
+        return full[:32]
+    return "kyuc"
+
+
 def tag_tokens(tags: str | None) -> list[str]:
     if not tags:
         return []
@@ -241,6 +292,7 @@ def heritage_readiness_payload(
         and voice_ok
         and knowledge_ok
         and profile_ready,
+        "handle": heritage_handle(identity),
     }
 
 
@@ -279,6 +331,35 @@ def identity_for_thread(db: Session, thread: Thread) -> IdentityProfile | None:
         .filter(IdentityProfile.heritage_thread_id == thread.id)
         .one_or_none()
     )
+
+
+def living_room_identities_for_space(
+    db: Session, space_id: str
+) -> list[IdentityProfile]:
+    """Everyone remembered who sits in Phòng khách alongside the living members.
+
+    They are ordinary participants there: present in the room, but they only
+    speak when the family calls them by name.
+    """
+    return (
+        db.query(IdentityProfile)
+        .filter(
+            IdentityProfile.space_id == space_id,
+            IdentityProfile.status == "remembered",
+            IdentityProfile.archived_at.is_(None),
+            IdentityProfile.heritage_entity_status == "ready",
+        )
+        .order_by(IdentityProfile.created_at.asc())
+        .all()
+    )
+
+
+def living_room_identity_for_space(
+    db: Session, space_id: str
+) -> IdentityProfile | None:
+    """The longest-remembered person in Phòng khách, when only one is needed."""
+    candidates = living_room_identities_for_space(db, space_id)
+    return candidates[0] if candidates else None
 
 
 def direct_thread_for(

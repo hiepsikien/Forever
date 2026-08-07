@@ -1,7 +1,9 @@
 import {
   ChatMessage,
+  HeritageUsage,
   ThreadSummary,
   VoiceProfile,
+  quotaExhaustedFromError,
   voiceProviderLabel,
   voiceTtsModelLabel,
 } from "@forever/api-client";
@@ -40,6 +42,12 @@ import { RecordingLevelMeter } from "@/lib/recordingMeter";
 import { VOICE_RECORDING_OPTIONS } from "@/lib/recordingOptions";
 import { useSpaceScreenOptions } from "@/lib/spaceHeader";
 import { colors, fonts } from "@/lib/theme";
+import {
+  DEFAULT_MAX_UTTERANCE_SEC,
+  usageExhausted,
+  usageStripText,
+  useMaxUtteranceTimer,
+} from "@/lib/usageQuota";
 
 type CallPhase =
   | "idle"
@@ -193,6 +201,7 @@ export default function CallScreen() {
   const [pendingUserText, setPendingUserText] = useState("");
   const [playingReplyId, setPlayingReplyId] = useState<string | null>(null);
   const [activeSentence, setActiveSentence] = useState<number | null>(null);
+  const [usage, setUsage] = useState<HeritageUsage | null>(null);
 
   const awaitingAfterIdRef = useRef<string | null>(null);
   const replyDeadlineRef = useRef(0);
@@ -248,6 +257,17 @@ export default function CallScreen() {
     [api],
   );
 
+  const refreshUsage = useCallback(
+    async (space: string) => {
+      try {
+        setUsage(await api.getMyUsage(space));
+      } catch {
+        // Keep last known strip; send path still enforces.
+      }
+    },
+    [api],
+  );
+
   const refreshTurns = useCallback(async () => {
     if (!threadId) return [];
     const res = await api.listMessages(threadId, { limit: 40 });
@@ -265,13 +285,16 @@ export default function CallScreen() {
       if (thread.space_id && thread.heritage?.identity_id) {
         await loadVoice(thread.space_id, thread.heritage.identity_id);
       }
+      if (thread.space_id && thread.kind === "heritage") {
+        await refreshUsage(thread.space_id);
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : "Không mở được cuộc gọi.");
       setPhase("error");
     } finally {
       setLoading(false);
     }
-  }, [api, threadId, loadVoice, refreshTurns]);
+  }, [api, threadId, loadVoice, refreshTurns, refreshUsage]);
 
   useEffect(() => {
     void load();
@@ -280,7 +303,8 @@ export default function CallScreen() {
   useFocusEffect(
     useCallback(() => {
       if (spaceId && identityId) void loadVoice(spaceId, identityId);
-    }, [spaceId, identityId, loadVoice]),
+      if (spaceId) void refreshUsage(spaceId);
+    }, [spaceId, identityId, loadVoice, refreshUsage]),
   );
 
   const scrollToSentence = useCallback(
@@ -442,6 +466,11 @@ export default function CallScreen() {
 
   const startListening = async () => {
     if (phase !== "idle" && phase !== "error") return;
+    if (usageExhausted(usage)) {
+      setError(usage ? usageStripText(usage) : "Hôm nay đã nói đủ rồi. Mai gặp lại nhé.");
+      setPhase("error");
+      return;
+    }
     setError(null);
     try {
       const perm = await requestRecordingPermissionsAsync();
@@ -491,13 +520,32 @@ export default function CallScreen() {
       replyDeadlineRef.current = Date.now() + REPLY_TIMEOUT_MS;
       if ((sent.body || "").trim()) setPendingUserText(sent.body.trim());
       setPhase("thinking");
+      if (spaceId) void refreshUsage(spaceId);
     } catch (e) {
       awaitingAfterIdRef.current = null;
       setPendingUserText("");
-      setError(e instanceof Error ? e.message : "Không gửi được giọng nói.");
+      const quota = quotaExhaustedFromError(e);
+      if (quota) {
+        setError(quota.message);
+        if (spaceId) void refreshUsage(spaceId);
+      } else {
+        setError(e instanceof Error ? e.message : "Không gửi được giọng nói.");
+      }
       setPhase("error");
     }
   };
+
+  const stopAndSendRef = useRef(stopAndSend);
+  stopAndSendRef.current = stopAndSend;
+
+  const maxUtteranceSec = usage?.max_utterance_sec ?? DEFAULT_MAX_UTTERANCE_SEC;
+  const { remainingSec, nearEnd } = useMaxUtteranceTimer(
+    phase === "listening",
+    maxUtteranceSec,
+    () => {
+      void stopAndSendRef.current();
+    },
+  );
 
   const onMainPress = () => {
     if (phase === "listening") {
@@ -505,6 +553,7 @@ export default function CallScreen() {
       return;
     }
     if (phase === "idle" || phase === "error") {
+      if (usageExhausted(usage)) return;
       void startListening();
     }
   };
@@ -532,6 +581,9 @@ export default function CallScreen() {
   const phaseLabel = (() => {
     switch (phase) {
       case "listening":
+        if (remainingSec != null && nearEnd) {
+          return `Còn ${remainingSec} giây — chạm để gửi`;
+        }
         return "Đang nghe con — chạm để gửi";
       case "sending":
         return "Đang gửi giọng…";
@@ -544,7 +596,7 @@ export default function CallScreen() {
       case "error":
         return "Có lỗi — chạm để thử lại";
       default:
-        return "Chạm để nói";
+        return usageExhausted(usage) ? "Hôm nay đã nói đủ" : "Chạm để nói";
     }
   })();
 
@@ -573,7 +625,8 @@ export default function CallScreen() {
     phase === "sending" ||
     phase === "thinking" ||
     phase === "loading" ||
-    phase === "speaking";
+    phase === "speaking" ||
+    usageExhausted(usage);
   const prefsReady = Boolean(
     voice?.tts_prefs?.provider_voice_id || voice?.provider_voice_id,
   );
@@ -593,6 +646,16 @@ export default function CallScreen() {
         <Text style={styles.bannerName} numberOfLines={1}>
           {displayName}
         </Text>
+        {usage ? (
+          <Text
+            style={[
+              styles.usageStrip,
+              usage.warn || usageExhausted(usage) ? styles.usageStripWarn : null,
+            ]}
+          >
+            {usageStripText(usage)}
+          </Text>
+        ) : null}
       </View>
 
       <Pressable
@@ -847,6 +910,15 @@ const styles = StyleSheet.create({
     fontSize: 22,
     color: colors.ink,
     marginTop: 2,
+  },
+  usageStrip: {
+    fontFamily: fonts.body,
+    fontSize: 13,
+    color: colors.inkSoft,
+    marginTop: 6,
+  },
+  usageStripWarn: {
+    color: colors.brand,
   },
   voiceStripToggle: {
     alignSelf: "flex-start",

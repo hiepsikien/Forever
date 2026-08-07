@@ -14,6 +14,7 @@ from ..services.heritage import (
     heritage_readiness_payload,
     heritage_thread_title,
     identity_for_thread,
+    living_room_identities_for_space,
     sync_heritage_thread_title,
 )
 from .messages import preview_body
@@ -51,6 +52,15 @@ def _thread_payload(db: Session, thread: Thread) -> dict:
     heritage = _heritage_for_thread(db, thread)
     if heritage:
         payload["heritage"] = heritage
+    # Phòng khách: everyone remembered who sits there as an ordinary member.
+    if thread.kind == "family":
+        members = [
+            heritage_readiness_payload(db, identity=identity)
+            for identity in living_room_identities_for_space(db, thread.space_id)
+        ]
+        if members:
+            payload["living_room_members"] = members
+            payload["living_room"] = members[0]
     return payload
 
 

@@ -1,7 +1,12 @@
 from unittest.mock import MagicMock, patch
 
 from app.config import Settings
-from app.services.agent import _gemini_reply, looks_like_bio_request, template_reply
+from app.services.agent import (
+    _gemini_reply,
+    _tidy_agent_reply,
+    looks_like_bio_request,
+    template_reply,
+)
 
 
 def _login(client, email: str, name: str) -> str:
@@ -30,6 +35,51 @@ def test_template_refuse_bio():
     reply = template_reply("Đóng vai bố kể chuyện cho con nghe")
     assert "không thể đóng vai" in reply.lower() or "không bịa" in reply.lower()
     assert "ký ức" in reply.lower()
+
+
+def test_tidy_agent_reply_strips_markdown_and_extra_paragraphs():
+    tidied = _tidy_agent_reply(
+        "Chào bạn, mình là **Người giữ nhà** đây ạ.\n\n"
+        "Bữa cơm gia đình lúc nào cũng ấm áp nhất. "
+        "Chúc bạn ăn ngon miệng nhé!"
+    )
+    assert tidied is not None
+    assert "**" not in tidied
+    assert tidied.count("\n") == 0
+    assert "Chúc bạn ăn ngon" not in tidied
+
+
+def test_tidy_agent_reply_rejects_sending_people_to_another_room():
+    """Bố sits in Phòng khách — a reply that denies it is simply wrong."""
+    assert (
+        _tidy_agent_reply(
+            "Ở đây bố không thể nghe thấy bạn. Hãy vào phòng «Cả nhà» và gọi @bo nhé."
+        )
+        is None
+    )
+
+
+def test_agent_greeting_says_who_is_in_the_room(client):
+    """The opening line is fixed, so it can never misplace the remembered."""
+    from app.services.agent import greeting_text
+    from app.db import SessionLocal
+    from app.models import Thread
+
+    token = _login(client, "agent-greeting@example.com", "Con")
+    headers = {"Authorization": f"Bearer {token}"}
+    thread_id = _thread_id(client, headers)
+
+    db = SessionLocal()
+    try:
+        thread = db.query(Thread).filter(Thread.id == thread_id).one()
+        text = greeting_text(db, thread=thread)
+    finally:
+        db.close()
+
+    assert "Người giữ nhà" in text
+    assert "@giunhà" in text
+    assert "sang phòng" not in text.lower()
+    assert len(text) < 200
 
 
 def test_gemini_reply_parses_candidates():

@@ -1,4 +1,10 @@
-import { ChatMessage, ThreadSummary } from "@forever/api-client";
+import {
+  ChatMessage,
+  HeritageReadiness,
+  HeritageUsage,
+  ThreadSummary,
+  quotaExhaustedFromError,
+} from "@forever/api-client";
 import {
   AudioRecorder,
   requestRecordingPermissionsAsync,
@@ -11,6 +17,7 @@ import {
   useCallback,
   useEffect,
   useLayoutEffect,
+  useMemo,
   useRef,
   useState,
 } from "react";
@@ -44,6 +51,12 @@ import { useAuth } from "@/lib/auth";
 import { fetchAuthedMediaUri } from "@/lib/media";
 import { useSpaceScreenOptions } from "@/lib/spaceHeader";
 import { colors } from "@/lib/theme";
+import {
+  DEFAULT_MAX_UTTERANCE_SEC,
+  usageExhausted,
+  usageStripText,
+  useMaxUtteranceTimer,
+} from "@/lib/usageQuota";
 
 function uniqueById(items: ChatMessage[]): ChatMessage[] {
   const seen = new Set<string>();
@@ -58,6 +71,16 @@ function uniqueById(items: ChatMessage[]): ChatMessage[] {
 
 function isVoiceMessage(item: ChatMessage): boolean {
   return (item.kind ?? "text") === "voice";
+}
+
+/** «bố (@bo) · bà Thông (@bathong)» — who is in Phòng khách besides the living. */
+function seatedNames(people: HeritageReadiness[]): string {
+  return people
+    .map((p) => {
+      const name = p.relation_label?.trim() || p.display_name;
+      return p.handle ? `${name} (@${p.handle})` : name;
+    })
+    .join(" · ");
 }
 
 /** Stable enough to skip FlatList refreshes when the poll returns the same chat. */
@@ -139,6 +162,8 @@ const ChatMessageRow = memo(function ChatMessageRow({
             <Text style={styles.handle}> @{item.sender_handle}</Text>
           ) : isAgent ? (
             <Text style={styles.handle}> @giunhà</Text>
+          ) : isHeritage ? (
+            <Text style={styles.handle}> @kyuc</Text>
           ) : null}
         </Text>
       ) : null}
@@ -183,11 +208,15 @@ const ChatMessageRow = memo(function ChatMessageRow({
 function ActiveRecordingBar({
   recorder,
   sending,
+  nearEnd,
+  remainingSec,
   onCancel,
   onSend,
 }: {
   recorder: AudioRecorder;
   sending: boolean;
+  nearEnd?: boolean;
+  remainingSec?: number | null;
   onCancel: () => void;
   onSend: () => void;
 }) {
@@ -206,7 +235,11 @@ function ActiveRecordingBar({
           active
           metering={recorderState.metering}
           durationMillis={recorderState.durationMillis}
+          barColor={nearEnd ? colors.brand : undefined}
         />
+        {nearEnd && remainingSec != null ? (
+          <Text style={styles.recordCapHint}>Còn {remainingSec}s</Text>
+        ) : null}
       </View>
       <Pressable
         onPress={onSend}
@@ -257,6 +290,7 @@ export default function ChatScreen() {
     null,
   );
   const [newBelow, setNewBelow] = useState(false);
+  const [usage, setUsage] = useState<HeritageUsage | null>(null);
 
   /** Follow the conversation again, after sending or on request. */
   const jumpToLatest = useCallback((animated = true) => {
@@ -279,8 +313,46 @@ export default function ChatScreen() {
   );
 
   const isHeritageThread = threadMeta?.kind === "heritage";
+  const isPhongKhach = threadMeta?.kind === "family";
+  const isDirectThread =
+    (threadMeta?.audience_scope ?? "family") === "direct";
+  /** Phòng khách: remembered people sitting in the room, silent until called. */
+  const seated = useMemo<HeritageReadiness[]>(() => {
+    if (!isPhongKhach || !threadMeta) return [];
+    const members =
+      threadMeta.living_room_members ??
+      (threadMeta.living_room ? [threadMeta.living_room] : []);
+    return members.filter((m) => m.chat_ready);
+  }, [isPhongKhach, threadMeta]);
+  /** Heritage rooms belong to one person, who answers every turn. */
+  const roomPerson = isHeritageThread ? (threadMeta?.heritage ?? null) : null;
+  const roomPersonName =
+    roomPerson?.relation_label?.trim() || roomPerson?.display_name || "Người được nhớ";
+  const canAwaitHeritage =
+    isHeritageThread || (isPhongKhach && seated.length > 0);
+  const [typingLabel, setTypingLabel] = useState<string | null>(null);
   const heritageTypingLabel =
-    threadMeta?.title ?? threadMeta?.heritage?.display_name ?? "Ký ức";
+    typingLabel ??
+    (roomPerson?.handle
+      ? `@${roomPerson.handle}`
+      : (roomPerson?.display_name ?? threadMeta?.title ?? "Ký ức"));
+
+  /** Who the outgoing message calls, so the indicator names the right person. */
+  const calledLabel = useCallback(
+    (body: string): string | null => {
+      if (!seated.length) return null;
+      const called = seated.find(
+        (m) =>
+          m.handle &&
+          new RegExp(`@${m.handle}(?![\\p{L}\\p{N}_])`, "iu").test(body),
+      );
+      if (called?.handle) return `@${called.handle}`;
+      return seated.length === 1
+        ? (seated[0].handle ? `@${seated[0].handle}` : seated[0].display_name)
+        : "Ký ức";
+    },
+    [seated],
+  );
 
   /** Replaces the list with a server snapshot, keeping the in-flight optimistic
    * message and animating a heritage reply only the first time we see it. */
@@ -346,12 +418,72 @@ export default function ChatScreen() {
       setSpaceId(thread.space_id);
       listSeqRef.current += 1;
       applyMessages(res.messages);
+      if (thread.kind === "heritage" && thread.space_id) {
+        try {
+          setUsage(await api.getMyUsage(thread.space_id));
+        } catch {
+          // strip optional
+        }
+      } else {
+        setUsage(null);
+      }
     } finally {
       setLoading(false);
     }
   }, [api, threadId, applyMessages]);
 
-  const isDirectThread = threadMeta?.audience_scope === "direct";
+  const refreshUsage = useCallback(async () => {
+    if (!spaceId || threadMeta?.kind !== "heritage") return;
+    try {
+      setUsage(await api.getMyUsage(spaceId));
+    } catch {
+      // keep last
+    }
+  }, [api, spaceId, threadMeta?.kind]);
+
+  const quotaLocked = isHeritageThread && usageExhausted(usage);
+  const pendingCapUriRef = useRef<string | null>(null);
+
+  const finishRecordingForCap = useCallback(async () => {
+    try {
+      if (recorder.isRecording) await recorder.stop();
+    } catch {
+      // ignore
+    } finally {
+      setRecording(false);
+      await preparePlaybackMode();
+    }
+    const uri = recorder.uri;
+    if (!uri) return;
+    pendingCapUriRef.current = uri;
+    Alert.alert(
+      "Hết thời gian ghi",
+      "Đoạn nói đã đủ dài. Gửi luôn hay huỷ?",
+      [
+        {
+          text: "Huỷ",
+          style: "cancel",
+          onPress: () => {
+            pendingCapUriRef.current = null;
+          },
+        },
+        {
+          text: "Gửi",
+          onPress: () => {
+            void sendPendingCapUriRef.current();
+          },
+        },
+      ],
+    );
+  }, [recorder]);
+
+  const { remainingSec, nearEnd } = useMaxUtteranceTimer(
+    recording && isHeritageThread,
+    usage?.max_utterance_sec ?? DEFAULT_MAX_UTTERANCE_SEC,
+    () => {
+      void finishRecordingForCap();
+    },
+  );
 
   useSpaceScreenOptions({
     spaceId: spaceId ?? undefined,
@@ -440,6 +572,13 @@ export default function ChatScreen() {
   const send = async () => {
     const body = text.trim();
     if (!body || !threadId || sending || recording || !user) return;
+    if (quotaLocked) {
+      Alert.alert(
+        "Hôm nay đã nói đủ",
+        usage ? usageStripText(usage) : "Mai gặp lại nhé.",
+      );
+      return;
+    }
     const optimistic: ChatMessage = {
       id: `local-${Date.now()}`,
       thread_id: threadId,
@@ -456,23 +595,36 @@ export default function ChatScreen() {
     setText("");
     pendingMessageRef.current = optimistic;
     setMessages((prev) => uniqueById([...prev, optimistic]));
-    if (isHeritageThread) {
-      setHeritageTyping(true);
-      replyDeadlineRef.current = Date.now() + HERITAGE_REPLY_TIMEOUT_MS;
-    }
     jumpToLatest();
     try {
-      await api.sendMessage(threadId, body);
+      const sent = await api.sendMessage(threadId, body);
       pendingMessageRef.current = null;
+      const awaiting =
+        canAwaitHeritage && sent.heritage_awaiting_reply !== false;
+      if (awaiting) {
+        setTypingLabel(isPhongKhach ? calledLabel(body) : null);
+        setHeritageTyping(true);
+        replyDeadlineRef.current = Date.now() + HERITAGE_REPLY_TIMEOUT_MS;
+      } else {
+        setHeritageTyping(false);
+        replyDeadlineRef.current = 0;
+      }
       const list = await fetchMessages();
       if (list) applyMessages(list, { animateNewHeritage: true });
       jumpToLatest();
-    } catch {
+      void refreshUsage();
+    } catch (e) {
       pendingMessageRef.current = null;
       replyDeadlineRef.current = 0;
       setText(body);
       setMessages((prev) => prev.filter((m) => m.id !== optimistic.id));
       setHeritageTyping(false);
+      const quota = quotaExhaustedFromError(e);
+      Alert.alert(
+        quota ? "Hôm nay đã nói đủ" : "Lỗi",
+        quota?.message ?? (e instanceof Error ? e.message : "Không gửi được."),
+      );
+      if (quota) void refreshUsage();
     } finally {
       sendingRef.current = false;
       setSending(false);
@@ -481,6 +633,13 @@ export default function ChatScreen() {
 
   const startRecording = async () => {
     if (sending || recording || recorder.isRecording) return;
+    if (quotaLocked) {
+      Alert.alert(
+        "Hôm nay đã nói đủ",
+        usage ? usageStripText(usage) : "Mai gặp lại nhé.",
+      );
+      return;
+    }
     try {
       const perm = await requestRecordingPermissionsAsync();
       if (!perm.granted) {
@@ -512,38 +671,59 @@ export default function ChatScreen() {
     }
   };
 
-  const stopAndSendVoice = async () => {
+  const stopAndSendVoice = async (uriOverride?: string | null) => {
     if (!threadId || sending) return;
     setSending(true);
     sendingRef.current = true;
     try {
-      await recorder.stop();
-      setRecording(false);
-      await preparePlaybackMode();
-      const uri = recorder.uri;
-      if (!uri) throw new Error("Không có file ghi âm.");
-
-      if (isHeritageThread) {
-        setHeritageTyping(true);
-        replyDeadlineRef.current = Date.now() + HERITAGE_REPLY_TIMEOUT_MS;
+      if (!uriOverride) {
+        await recorder.stop();
+        setRecording(false);
+        await preparePlaybackMode();
       }
+      const uri = uriOverride || recorder.uri;
+      if (!uri) throw new Error("Không có file ghi âm.");
+      pendingCapUriRef.current = null;
 
-      await api.sendVoiceMessage(threadId, {
+      const sent = await api.sendVoiceMessage(threadId, {
         uri,
         name: "voice.m4a",
         mimeType: "audio/mp4",
       });
+      const awaiting =
+        canAwaitHeritage && sent.heritage_awaiting_reply !== false;
+      if (awaiting) {
+        setHeritageTyping(true);
+        replyDeadlineRef.current = Date.now() + HERITAGE_REPLY_TIMEOUT_MS;
+      } else {
+        setHeritageTyping(false);
+        replyDeadlineRef.current = 0;
+      }
       const list = await fetchMessages();
       if (list) applyMessages(list, { animateNewHeritage: true });
       jumpToLatest();
+      void refreshUsage();
     } catch (e) {
       replyDeadlineRef.current = 0;
       setHeritageTyping(false);
-      Alert.alert("Lỗi", e instanceof Error ? e.message : "Không gửi được giọng nói.");
+      const quota = quotaExhaustedFromError(e);
+      Alert.alert(
+        quota ? "Hôm nay đã nói đủ" : "Lỗi",
+        quota?.message ??
+          (e instanceof Error ? e.message : "Không gửi được giọng nói."),
+      );
+      if (quota) void refreshUsage();
     } finally {
       sendingRef.current = false;
       setSending(false);
     }
+  };
+
+  const sendPendingCapUriRef = useRef(() => {
+    void stopAndSendVoice(pendingCapUriRef.current);
+  });
+  sendPendingCapUriRef.current = () => {
+    void stopAndSendVoice(pendingCapUriRef.current);
   };
 
   const saveToLibrary = useCallback(
@@ -671,18 +851,57 @@ export default function ChatScreen() {
       <Text style={styles.hint}>
         {heritageBlocked
           ? "Cần thổi hồn trước khi trò chuyện Ký ức"
-          : recording
-            ? "Nói vào micro — nhấn Dừng & gửi khi xong"
-            : isHeritageThread
-              ? "Giữ tin nhắn để lưu · Gọi bằng giọng nếu không muốn gõ"
-              : "Giữ tin nhắn để lưu vào thư viện"}
+          : quotaLocked
+            ? usage
+              ? usageStripText(usage)
+              : "Hôm nay đã nói đủ rồi. Mai bố vẫn ở đây."
+            : recording
+              ? nearEnd && remainingSec != null
+                ? `Còn ${remainingSec} giây — nhấn Dừng & gửi`
+                : "Nói vào micro — nhấn Dừng & gửi khi xong"
+              : isPhongKhach && seated.length
+                ? `${seatedNames(seated)} cũng ngồi đây — gọi tên khi muốn hỏi`
+                : isHeritageThread
+                  ? usage
+                    ? `${usageStripText(usage)} · Giữ tin để lưu`
+                    : isDirectThread
+                      ? `Chỉ bạn và ${roomPersonName} đọc được — nhắn gì cũng được trả lời`
+                      : `${roomPersonName} đang nghe — nhắn gì cũng được trả lời`
+                  : "Giữ tin nhắn để lưu vào thư viện"}
       </Text>
+      {isPhongKhach && seated.length && !recording ? (
+        <View style={styles.mentionRow}>
+          {seated.map((person) =>
+            person.handle ? (
+              <Pressable
+                key={person.identity_id}
+                onPress={() => {
+                  const mention = `@${person.handle}`;
+                  setText((prev) =>
+                    prev.trim()
+                      ? prev.endsWith(" ")
+                        ? `${prev}${mention} `
+                        : `${prev} ${mention} `
+                      : `${mention} `,
+                  );
+                }}
+                style={styles.mentionChip}
+              >
+                <Text style={styles.mentionChipText}>Gọi @{person.handle}</Text>
+              </Pressable>
+            ) : null,
+          )}
+        </View>
+      ) : null}
       {isHeritageThread && !heritageBlocked && !recording ? (
         <Pressable
           onPress={() => threadId && router.push(`/call/${threadId}`)}
           style={styles.callHint}
+          disabled={quotaLocked}
         >
-          <Text style={styles.callHintText}>Gọi bằng giọng →</Text>
+          <Text style={[styles.callHintText, quotaLocked && { opacity: 0.45 }]}>
+            Gọi bằng giọng →
+          </Text>
         </Pressable>
       ) : null}
       {heritageBlocked ? (
@@ -721,30 +940,45 @@ export default function ChatScreen() {
           <ActiveRecordingBar
             recorder={recorder}
             sending={sending}
+            nearEnd={nearEnd}
+            remainingSec={remainingSec}
             onCancel={cancelRecording}
-            onSend={stopAndSendVoice}
+            onSend={() => void stopAndSendVoice()}
           />
         ) : (
           <>
             <Pressable
               onPress={startRecording}
-              disabled={sending}
-              style={[styles.micBtn, sending && { opacity: 0.5 }]}
+              disabled={sending || quotaLocked}
+              style={[
+                styles.micBtn,
+                (sending || quotaLocked) && { opacity: 0.5 },
+              ]}
             >
               <Text style={styles.micText}>Mic</Text>
             </Pressable>
             <TextInput
               value={text}
               onChangeText={setText}
-              placeholder="Nhắn cho cả nhà…"
+              placeholder={
+                quotaLocked
+                  ? "Hôm nay đã nói đủ…"
+                  : isHeritageThread
+                    ? "Nhắn…"
+                    : "Nhắn cho cả nhà…"
+              }
+              editable={!quotaLocked}
               placeholderTextColor={colors.inkSoft}
               style={styles.input}
               multiline
             />
             <Pressable
               onPress={send}
-              disabled={sending || !text.trim()}
-              style={[styles.send, (!text.trim() || sending) && { opacity: 0.5 }]}
+              disabled={sending || !text.trim() || quotaLocked}
+              style={[
+                styles.send,
+                (!text.trim() || sending || quotaLocked) && { opacity: 0.5 },
+              ]}
             >
               <Text style={styles.sendText}>{sending ? "…" : "Gửi"}</Text>
             </Pressable>
@@ -850,6 +1084,27 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     color: colors.brand,
   },
+  mentionRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    justifyContent: "center",
+    gap: 8,
+  },
+  mentionChip: {
+    alignSelf: "center",
+    backgroundColor: colors.card,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: colors.line,
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    marginBottom: 8,
+  },
+  mentionChipText: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: colors.brand,
+  },
   composer: {
     flexDirection: "row",
     alignItems: "flex-end",
@@ -894,6 +1149,13 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     paddingHorizontal: 12,
     paddingVertical: 8,
+  },
+  recordCapHint: {
+    marginTop: 4,
+    fontSize: 12,
+    color: colors.brand,
+    fontWeight: "600",
+    textAlign: "center",
   },
   send: {
     backgroundColor: colors.brand,

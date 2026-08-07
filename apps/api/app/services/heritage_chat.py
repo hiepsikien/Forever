@@ -14,8 +14,10 @@ from .heritage import (
     HERITAGE_TAG_PREFIX,
     KNOWLEDGE_KINDS,
     POEM_KIND,
+    heritage_handle,
     heritage_thread_title,
     identity_for_thread,
+    living_room_identities_for_space,
     normalize_text,
     tag_tokens,
     voice_for_identity,
@@ -57,6 +59,7 @@ from .heritage_retrieval import (
 )
 from .heritage_values import select_value_lens, value_lens_block
 from .memory_scope import readable_by, reader_for_thread
+from .usage_quota import add_tokens, estimate_turn_tokens
 
 # Theme tags on imported poems (see memories.ALLOWED_POEM_THEMES).
 THEME_QUERY_HINTS: dict[str, tuple[str, ...]] = {
@@ -333,6 +336,203 @@ def looks_like_fabrication_request(text: str) -> bool:
     return bool(_FABRICATION_PATTERNS.search(text))
 
 
+# Kinship aliases (normalized, no tones) keyed by relation_label.
+_RELATION_SPEAK_ALIASES: dict[str, tuple[str, ...]] = {
+    "bo": ("bo", "ba", "cha", "papa", "daddy"),
+    "ba": ("ba", "ba noi", "ba ngoai"),
+    "me": ("me", "ma", "mama", "mommy"),
+    "ong": ("ong",),
+    "co": ("co",),
+    "chu": ("chu",),
+    "bac": ("bac",),
+    "cau": ("cau",),
+    "di": ("di",),
+}
+
+# Soft self-forms (e.g. spouse «anh») only count with a vocative / invite cue.
+_SOFT_SELF_FORMS = frozenset({"anh", "em", "chi"})
+
+_NAME_STOPWORDS = frozenset(
+    {
+        "nguyen",
+        "tran",
+        "le",
+        "pham",
+        "hoang",
+        "huynh",
+        "phan",
+        "vu",
+        "vo",
+        "dang",
+        "bui",
+        "do",
+        "ho",
+        "ngo",
+        "duong",
+        "ly",
+        "thi",
+        "van",
+        "dinh",
+    }
+)
+
+_WORD = r"(?<!\w){alias}(?!\w)"
+
+
+def _word_in(norm_text: str, alias: str) -> bool:
+    if not alias or not norm_text:
+        return False
+    return bool(re.search(_WORD.format(alias=re.escape(alias)), norm_text))
+
+
+def _vocative_or_invite(norm_text: str, alias: str) -> bool:
+    """True when alias is called («… ơi») or invited («hỏi …», «… nghĩ sao»)."""
+    if not alias or not norm_text:
+        return False
+    a = re.escape(alias)
+    patterns = (
+        rf"(?<!\w){a}\s+(?:oi|a|nhe|nha|nhi)(?!\w)",
+        rf"(?<!\w)(?:hoi|chao|goi|nho)\s+{a}(?!\w)",
+        rf"(?<!\w){a}\s+(?:nghi|ke|noi|thay|sao|the|nao)(?!\w)",
+    )
+    return any(re.search(p, norm_text) for p in patterns)
+
+
+def _strong_speak_aliases(identity: IdentityProfile) -> list[str]:
+    """Names/relations that alone mean the remembered person is being addressed."""
+    out: list[str] = []
+    rel = normalize_text((getattr(identity, "relation_label", None) or "").strip())
+    if rel:
+        out.append(rel)
+        out.extend(_RELATION_SPEAK_ALIASES.get(rel, ()))
+
+    address = _json_loads(getattr(identity, "address_forms_json", None) or "")
+    if isinstance(address, dict):
+        for key in ("with_children", "with_grandchildren", "with_spouse", "with_siblings"):
+            block = address.get(key)
+            if not isinstance(block, dict):
+                continue
+            self_form = normalize_text(str(block.get("self") or "").strip())
+            # Only take a single short kinship word (skip «anh hoặc em theo vai»).
+            if self_form and " " not in self_form and self_form not in _SOFT_SELF_FORMS:
+                out.append(self_form)
+                out.extend(_RELATION_SPEAK_ALIASES.get(self_form, ()))
+
+    name = (getattr(identity, "display_name", None) or "").strip()
+    full = normalize_text(name)
+    if len(full) >= 4:
+        out.append(full)
+    for token in re.split(r"\s+", name):
+        n = normalize_text(token)
+        if len(n) >= 4 and n not in _NAME_STOPWORDS:
+            out.append(n)
+
+    seen: set[str] = set()
+    ordered: list[str] = []
+    for alias in out:
+        if alias and alias not in seen:
+            seen.add(alias)
+            ordered.append(alias)
+    return ordered
+
+
+def _soft_speak_aliases(identity: IdentityProfile) -> list[str]:
+    """Spouse-style self forms — need vocative/invite, not a bare mention."""
+    out: list[str] = []
+    address = _json_loads(getattr(identity, "address_forms_json", None) or "")
+    if not isinstance(address, dict):
+        return out
+    for key in ("with_spouse", "with_siblings"):
+        block = address.get(key)
+        if not isinstance(block, dict):
+            continue
+        self_form = normalize_text(str(block.get("self") or "").strip())
+        if self_form and " " not in self_form and self_form in _SOFT_SELF_FORMS:
+            out.append(self_form)
+    seen: set[str] = set()
+    ordered: list[str] = []
+    for alias in out:
+        if alias not in seen:
+            seen.add(alias)
+            ordered.append(alias)
+    return ordered
+
+
+def should_heritage_speak(identity: IdentityProfile, text: str) -> bool:
+    """True when a Phòng khách message addresses this remembered person.
+
+    Only `kind=family` needs this gate. Their own rooms — shared or 1-1 — are
+    a conversation with them, so they answer every turn there.
+    """
+    raw = (text or "").strip()
+    if not raw:
+        return False
+    handle = heritage_handle(identity)
+    # Explicit @mention — primary living-room address («@bo ơi»).
+    if handle and re.search(rf"@{re.escape(handle)}\b", raw, re.IGNORECASE):
+        return True
+    norm = normalize_text(raw)
+    if handle:
+        norm_handle = normalize_text(handle)
+        if norm_handle and re.search(
+            rf"@{re.escape(norm_handle)}(?!\w)", norm
+        ):
+            return True
+    for alias in _strong_speak_aliases(identity):
+        if _word_in(norm, alias):
+            return True
+    for alias in _soft_speak_aliases(identity):
+        if _vocative_or_invite(norm, alias):
+            return True
+    return False
+
+
+def addressed_living_room_identity(
+    db: Session, *, space_id: str, text: str
+) -> IdentityProfile | None:
+    """Which remembered person a Phòng khách message calls, if any.
+
+    One turn is answered by one person — the first one called wins, so a
+    message naming several of them does not turn into a chorus.
+    """
+    if not (text or "").strip():
+        return None
+    for identity in living_room_identities_for_space(db, space_id):
+        if should_heritage_speak(identity, text):
+            return identity
+    return None
+
+
+def heritage_awaiting_reply(
+    db: Session,
+    *,
+    thread: Thread,
+    user_text: str,
+) -> bool:
+    """Whether the client should show a heritage typing indicator after send."""
+    kind = getattr(thread, "kind", None)
+    if kind == "family":
+        # Phòng khách: they sit with the family and answer only when called.
+        return (
+            addressed_living_room_identity(
+                db, space_id=thread.space_id, text=user_text
+            )
+            is not None
+        )
+    if kind != "heritage":
+        return False
+    identity = identity_for_thread(db, thread)
+    if not identity:
+        return False
+    status = getattr(identity, "heritage_entity_status", None) or "dormant"
+    if status == "paused":
+        return True
+    if status != "ready":
+        return False
+    # Their own room — shared or 1-1 — is a conversation with them: always reply.
+    return True
+
+
 def signature_poem_titles(identity: IdentityProfile) -> list[str]:
     philosophy = _json_loads(getattr(identity, "philosophy_json", None) or "")
     if not isinstance(philosophy, dict):
@@ -520,6 +720,7 @@ def build_system_prompt(
     clarify: str | None = None,
     frame: ContextFrame | None = None,
     memory: MemoryState | None = None,
+    living_room: bool = False,
 ) -> str:
     display = heritage_display_name(identity)
     quote_mode = (quote_mode or "paraphrase").strip().lower()
@@ -576,11 +777,23 @@ def build_system_prompt(
             topics=frame.topics if frame else [],
         )
     )
-    length_rule = (
-        frame.depth_rule
-        if frame
-        else "Kiểu chat nhắn tin (Zalo): 2–4 câu, tối đa 2 đoạn ngắn."
-    )
+    if living_room:
+        length_rule = (
+            "Phòng khách cả nhà: góp 1–3 câu ngắn khi được hỏi — "
+            "không độc thoại dài, không trả lời như chatbot 1-1."
+        )
+        living_section = (
+            "BẠN ĐANG NGỒI TRONG PHÒNG KHÁCH CẢ NHÀ.\n"
+            "Gia đình đang nói với nhau; bạn chỉ góp vài câu khi được gọi/hỏi. "
+            "Ngắn, ấm, đúng trọng tâm — rồi nhường lời."
+        )
+    else:
+        length_rule = (
+            frame.depth_rule
+            if frame
+            else "Kiểu chat nhắn tin (Zalo): 2–4 câu, tối đa 2 đoạn ngắn."
+        )
+        living_section = ""
     mood_rule = (
         f"Người gửi đang có tâm trạng «{frame.emotion}» — đáp cho hợp, đừng lệch nhịp."
         if frame and frame.emotion != "neutral"
@@ -607,6 +820,7 @@ Hard rules:
 - Đây là nhắn tin (Zalo), KHÔNG phải viết thư: {length_rule}
 - Trả lời đúng ý câu hỏi trước; tránh mở đầu sáo «Chào em/con» dài.
 - Luôn kết thúc bằng câu trọn vẹn — không dừng giữa chừng.
+{living_section}
 {audience_section}
 {mood_rule}
 {lens_section}
@@ -969,6 +1183,14 @@ def generate_heritage_reply(
         load_state(db, thread.id) if settings.heritage_memory_enabled else MemoryState()
     )
 
+    # Only Phòng khách is a room they merely sit in; their own rooms — shared or
+    # 1-1 — are a conversation with them and keep the normal depth.
+    living_room = thread.kind == "family"
+    max_tokens = frame.max_output_tokens
+    if living_room:
+        # Living-room replies stay short even if the analyzer picks «story».
+        max_tokens = min(max_tokens, 256)
+
     system_prompt = build_system_prompt(
         identity,
         signature_poems=signature,
@@ -982,6 +1204,7 @@ def generate_heritage_reply(
         clarify=clarify,
         frame=frame,
         memory=memory,
+        living_room=living_room,
     )
 
     llm, finish_reason = _gemini_heritage_reply(
@@ -989,7 +1212,7 @@ def generate_heritage_reply(
         system_prompt=system_prompt,
         user_text=user_text,
         history=history,
-        max_output_tokens=frame.max_output_tokens,
+        max_output_tokens=max_tokens,
     )
 
     repeat_reason = None
@@ -1002,7 +1225,7 @@ def generate_heritage_reply(
             user_text=user_text,
             history=history,
             memory=memory,
-            max_output_tokens=frame.max_output_tokens,
+            max_output_tokens=max_tokens,
         )
 
     body = post_process_reply(llm or _FALLBACK, audience=audience)
@@ -1075,26 +1298,42 @@ def maybe_heritage_reply(
     settings = settings or get_settings()
     if not settings.agent_enabled:
         return None
-    if thread.kind != "heritage":
+
+    user_kind = getattr(user_message, "kind", "text") or "text"
+    user_text = (user_message.body or "").strip()
+
+    identity: IdentityProfile | None = None
+    if thread.kind == "heritage":
+        # Their own room, shared or 1-1: every turn is meant for them.
+        identity = identity_for_heritage_thread(db, thread.id)
+    elif thread.kind == "family":
+        # Phòng khách: an ordinary member who speaks only when called by name.
+        # Only ready people are listed, so a paused one simply stays quiet.
+        identity = addressed_living_room_identity(
+            db, space_id=thread.space_id, text=user_text
+        )
+    else:
         return None
 
-    identity = identity_for_heritage_thread(db, thread.id)
     if not identity:
         return None
 
     entity_status = getattr(identity, "heritage_entity_status", None) or "dormant"
-    user_kind = getattr(user_message, "kind", "text") or "text"
-    user_text = (user_message.body or "").strip()
 
     if entity_status == "paused":
         body = _REFUSE_PAUSED
-        meta: dict = {"heritage_refusal": "paused"}
+        meta: dict = {
+            "heritage_identity_id": identity.id,
+            "heritage_refusal": "paused",
+        }
     elif entity_status != "ready":
         return None
     elif user_kind == "voice" and not user_text:
-        # STT empty or missing — refuse rather than invent an answer.
         body = _REFUSE_UNHEARD
-        meta = {"heritage_refusal": "unheard"}
+        meta = {
+            "heritage_identity_id": identity.id,
+            "heritage_refusal": "unheard",
+        }
     else:
         body, meta = generate_heritage_reply(
             db,
@@ -1136,6 +1375,32 @@ def maybe_heritage_reply(
     db.add(heritage_message)
     db.commit()
     db.refresh(heritage_message)
+
+    sender_id = getattr(user_message, "sender_user_id", None)
+    if sender_id:
+        user_meta = _json_loads(getattr(user_message, "meta_json", None) or "")
+        stt_meta = None
+        if isinstance(user_meta, dict):
+            raw_stt = user_meta.get("stt")
+            stt_meta = raw_stt if isinstance(raw_stt, dict) else None
+        tts_meta = meta.get("tts") if isinstance(meta.get("tts"), dict) else None
+        tokens = estimate_turn_tokens(
+            user_body=user_text,
+            reply_body=body or "",
+            stt_meta=stt_meta,
+            tts_meta=tts_meta,
+            heritage_meta=meta,
+        )
+        add_tokens(
+            db,
+            space_id=thread.space_id,
+            user_id=sender_id,
+            tokens=tokens,
+        )
+        try:
+            db.commit()
+        except Exception:
+            db.rollback()
 
     if settings.heritage_memory_enabled and meta.get("heritage_refusal") is None:
         _write_back_memory(

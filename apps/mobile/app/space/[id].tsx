@@ -1,4 +1,4 @@
-import { FamilySpace, ThreadSummary } from "@forever/api-client";
+import { FamilySpace, HeritageReadiness, ThreadSummary } from "@forever/api-client";
 import { useFocusEffect } from "@react-navigation/native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useCallback, useMemo, useRef, useState } from "react";
@@ -26,83 +26,79 @@ function threadPreview(item: ThreadSummary): string {
   return last.body || "Chưa có tin nhắn";
 }
 
-/** A row the family has not created yet — tapping it opens the private thread. */
-type ThreadRow = ThreadSummary & { pendingDirectFor?: string };
+/** One remembered person and the two rooms that belong to them. */
+type PersonRow = {
+  row: "person";
+  key: string;
+  person: HeritageReadiness;
+  shared: ThreadSummary | null;
+  direct: ThreadSummary | null;
+};
+
+/** Anything that is neither Phòng khách nor a room of a remembered person. */
+type OtherRow = { row: "thread"; key: string; thread: ThreadSummary };
+
+type HomeRow = PersonRow | OtherRow;
 
 function isDirect(item: ThreadSummary): boolean {
   return (item.audience_scope ?? "family") === "direct";
 }
 
-/** Phòng khách hero → heritage family room (Cả nhà), not kind=family. */
-function isLivingRoomCandidate(item: ThreadSummary): boolean {
-  return (
-    item.kind === "heritage" &&
-    !isDirect(item) &&
-    Boolean(item.heritage?.chat_ready)
-  );
+function personTitle(person: HeritageReadiness): string {
+  const rel = person.relation_label?.trim();
+  return rel ? `${person.display_name} · ${rel}` : person.display_name;
 }
 
-function pickLivingRoomThread(threads: ThreadSummary[]): ThreadSummary | null {
-  const ready = threads.filter(isLivingRoomCandidate);
-  if (!ready.length) return null;
-  return ready.reduce((best, item) => {
-    const bestAt = best.last_message?.created_at ?? best.created_at;
-    const itemAt = item.last_message?.created_at ?? item.created_at;
-    return itemAt > bestAt ? item : best;
-  });
-}
-
-function threadKindLabel(item: ThreadSummary): string | null {
-  if (item.kind !== "heritage") return null;
-  return isDirect(item) ? "Riêng" : "Cả nhà";
-}
-
-function threadRowMeta(item: ThreadSummary): { preview: string; cta: string; callReady?: boolean } {
-  if (item.kind === "heritage" && item.heritage) {
-    const h = item.heritage;
-    if (h.chat_ready) {
-      if (item.last_message) {
-        return {
-          preview: threadPreview(item),
-          cta: "Vào trò chuyện →",
-          callReady: true,
-        };
-      }
-      if (isDirect(item)) {
-        return {
-          preview: "Chỉ bạn đọc được — không ai khác trong nhà thấy",
-          cta: "Nói riêng →",
-          callReady: true,
-        };
-      }
-      return {
-        preview: "Sẵn sàng trò chuyện — gửi lời chào",
-        cta: "Bắt đầu chat →",
-        callReady: true,
-      };
-    }
-    return {
-      preview: `Giọng ${h.voice_ready ? "✓" : "…"} · Neo ${h.knowledge_count}/${h.knowledge_target}${h.profile_ready ? " · Bản sắc ✓" : " · Bản sắc …"} — chưa thể chat`,
-      cta:
-        h.entity_status === "dormant"
-          ? "Bắt đầu thổi hồn →"
-          : h.entity_status === "paused"
-            ? "Đã tạm dừng — mở Thổi hồn →"
-            : "Tiếp tục thổi hồn →",
-    };
+/** What is still missing before this person can talk, said in plain words. */
+function awakeningStatus(p: HeritageReadiness): string {
+  if (p.entity_status === "paused") {
+    return "Đang tạm dừng — mở lại khi cả nhà muốn nói chuyện tiếp.";
   }
+  const who = p.relation_label?.trim() || p.display_name;
+  const missing: string[] = [];
+  const anchors = Math.max(0, p.knowledge_target - p.knowledge_count);
+  if (anchors > 0) missing.push(`${anchors} điều nữa bạn kể về ${who}`);
+  if (!p.voice_ready) missing.push("một đoạn ghi âm giọng");
+  if (p.profile_ready === false) missing.push("bản sắc để bạn xem lại");
+  if (!missing.length) return "Đã đủ để thổi hồn.";
+  return `Chưa trò chuyện được — còn cần ${missing.join(", ")}.`;
+}
+
+function personPreview(item: PersonRow): string {
+  const p = item.person;
+  if (!p.chat_ready) return awakeningStatus(p);
+  if (item.shared?.last_message) return threadPreview(item.shared);
+  return `Phòng riêng của ${p.relation_label || p.display_name} — nhắn gì ${p.relation_label || "họ"} cũng trả lời`;
+}
+
+function awakeningCta(person: HeritageReadiness): string {
+  if (person.entity_status === "dormant") return "Bắt đầu thổi hồn →";
+  if (person.entity_status === "paused") return "Đã tạm dừng — mở Thổi hồn →";
+  return "Tiếp tục thổi hồn →";
+}
+
+/** Who is sitting in Phòng khách, e.g. «bố (@bo) · bà Thông (@bathong)». */
+function livingRoomLine(members: HeritageReadiness[]): string | null {
+  const seated = members
+    .filter((m) => m.chat_ready)
+    .map((m) => {
+      const name = m.relation_label?.trim() || m.display_name;
+      return m.handle ? `${name} (@${m.handle})` : name;
+    });
+  if (!seated.length) return null;
+  return `${seated.join(" · ")} cũng ngồi đây — gọi tên khi muốn hỏi`;
+}
+
+function otherRowMeta(item: ThreadSummary): { preview: string; cta: string } {
   if (!item.last_message) {
-    return {
-      preview: "Chưa có tin nhắn — gửi lời chào",
-      cta: "Bắt đầu chat →",
-    };
+    return { preview: "Chưa có tin nhắn — gửi lời chào", cta: "Bắt đầu chat →" };
   }
   return { preview: threadPreview(item), cta: "Vào trò chuyện →" };
 }
 
 export default function SpaceScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { api } = useAuth();
+  const { api, user } = useAuth();
   const router = useRouter();
   const [space, setSpace] = useState<FamilySpace | null>(null);
   const [threads, setThreads] = useState<ThreadSummary[]>([]);
@@ -159,102 +155,111 @@ export default function SpaceScreen() {
     showSettings: true,
   });
 
-  // docs/phong-khach.md — hero is a link to Cả nhà với người được nhớ.
-  const livingRoomThread = useMemo(
-    () => pickLivingRoomThread(threads),
+  // Hero = Phòng khách (kind=family): the living members, with the remembered
+  // ones sitting among them. Each remembered person keeps their own rooms below.
+  const familyThread = useMemo(
+    () => threads.find((t) => t.kind === "family") ?? null,
     [threads],
   );
 
-  /** Every remembered person gets two rows: the family room and your own. */
-  const otherThreads = useMemo<ThreadRow[]>(() => {
-    const visible = livingRoomThread
-      ? threads.filter((t) => t.id !== livingRoomThread.id)
-      : threads;
-    const rows: ThreadRow[] = visible.map((thread) => ({ ...thread }));
-    // Pending directs must consider the hero room too — otherwise «Riêng với Bố»
-    // disappears when Cả nhà is elevated to Phòng khách.
+  const livingRoomMembers = useMemo<HeritageReadiness[]>(() => {
+    if (!familyThread) return [];
+    if (familyThread.living_room_members?.length) {
+      return familyThread.living_room_members;
+    }
+    return familyThread.living_room ? [familyThread.living_room] : [];
+  }, [familyThread]);
+
+  /** Below the hero: one card per remembered person, then anything left over. */
+  const rows = useMemo<HomeRow[]>(() => {
+    const people = new Map<string, PersonRow>();
+    const leftovers: ThreadSummary[] = [];
+
     for (const thread of threads) {
-      const identityId = thread.heritage?.identity_id;
-      if (
-        thread.kind !== "heritage" ||
-        isDirect(thread) ||
-        !identityId ||
-        !thread.heritage?.chat_ready
-      ) {
+      if (thread.id === familyThread?.id) continue;
+      const person = thread.heritage;
+      if (thread.kind !== "heritage" || !person) {
+        leftovers.push(thread);
         continue;
       }
-      const hasDirect = threads.some(
-        (other) =>
-          isDirect(other) && other.heritage?.identity_id === identityId,
-      );
-      if (hasDirect) continue;
-      if (rows.some((row) => row.pendingDirectFor === identityId)) continue;
-      rows.push({
-        ...thread,
-        id: `direct:${identityId}`,
-        audience_scope: "direct",
-        last_message: null,
-        pendingDirectFor: identityId,
-      });
+      const entry = people.get(person.identity_id) ?? {
+        row: "person" as const,
+        key: `person:${person.identity_id}`,
+        person,
+        shared: null,
+        direct: null,
+      };
+      if (isDirect(thread)) entry.direct = thread;
+      else entry.shared = thread;
+      entry.person = person;
+      people.set(person.identity_id, entry);
     }
-    return rows;
-  }, [threads, livingRoomThread]);
 
-  const openThread = async (item: ThreadRow) => {
-    if (
-      item.kind === "heritage" &&
-      item.heritage &&
-      !item.heritage.chat_ready &&
-      id
-    ) {
-      router.push(
-        `/awakening/${id}?identityId=${item.heritage.identity_id}` as never,
-      );
-      return;
-    }
-    if (item.pendingDirectFor && id) {
-      try {
-        const thread = await api.openDirectHeritageThread(
-          id,
-          item.pendingDirectFor,
+    const activityAt = (item: PersonRow): string =>
+      [item.shared, item.direct]
+        .map((t) => t?.last_message?.created_at ?? t?.created_at ?? "")
+        .sort()
+        .pop() ?? "";
+
+    const personRows = [...people.values()].sort((a, b) => {
+      const readyDiff = Number(b.person.chat_ready) - Number(a.person.chat_ready);
+      if (readyDiff !== 0) return readyDiff;
+      const aAt = activityAt(a);
+      const bAt = activityAt(b);
+      return aAt < bAt ? 1 : aAt > bAt ? -1 : 0;
+    });
+
+    return [
+      ...personRows,
+      ...leftovers.map<OtherRow>((thread) => ({
+        row: "thread",
+        key: `thread:${thread.id}`,
+        thread,
+      })),
+    ];
+  }, [threads, familyThread]);
+
+  const personRowCount = rows.filter((r) => r.row === "person").length;
+
+  // Collecting and cloning a voice is steward/owner work; hearing one happens
+  // inside the rooms. The API gate is what counts — this only hides the tile.
+  const canManageVoice =
+    space?.role === "owner" ||
+    (Boolean(user?.id) && space?.steward_user_id === user?.id);
+
+  const openSharedRoom = (item: PersonRow) => {
+    if (!item.person.chat_ready) {
+      if (id) {
+        router.push(
+          `/awakening/${id}?identityId=${item.person.identity_id}` as never,
         );
-        router.push(`/chat/${thread.id}`);
-        load({ silent: true });
-      } catch (e) {
-        setError(e instanceof Error ? e.message : "Không mở được phòng riêng.");
       }
       return;
     }
-    router.push(`/chat/${item.id}`);
+    if (item.shared) router.push(`/chat/${item.shared.id}`);
   };
 
-  const renderHeader = () => (
-    <View style={styles.headerBlock}>
-      <Text style={styles.meta}>
-        {space?.member_count ?? 0} thành viên
-        {space?.role === "owner" ? " · Bạn quản trị" : ""}
-      </Text>
+  const openDirectRoom = async (item: PersonRow) => {
+    if (item.direct) {
+      router.push(`/chat/${item.direct.id}`);
+      return;
+    }
+    if (!id) return;
+    try {
+      const thread = await api.openDirectHeritageThread(
+        id,
+        item.person.identity_id,
+      );
+      router.push(`/chat/${thread.id}`);
+      load({ silent: true });
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Không mở được phòng riêng.");
+    }
+  };
 
-      {livingRoomThread ? (
-        <Pressable
-          style={styles.hero}
-          onPress={() => openThread(livingRoomThread)}
-        >
-          <Text style={styles.heroKicker}>Phòng khách</Text>
-          <Text style={styles.heroPreview} numberOfLines={2}>
-            {livingRoomThread.last_message
-              ? threadPreview(livingRoomThread)
-              : "Sẵn sàng trò chuyện — gửi lời chào"}
-          </Text>
-          <Text style={styles.heroCta}>Vào trò chuyện →</Text>
-        </Pressable>
-      ) : (
-        <View style={styles.heroMuted}>
-          <Text style={styles.heroKickerMuted}>Phòng khách</Text>
-          <Text style={styles.heroPreviewMuted}>Chưa có cuộc trò chuyện chung.</Text>
-        </View>
-      )}
-
+  /** Tools live under the rooms: they are for tending memory, not for talking. */
+  const renderFooter = () => (
+    <View style={styles.footerBlock}>
       {pendingCount > 0 ? (
         <Pressable
           style={styles.reviewBanner}
@@ -287,35 +292,69 @@ export default function SpaceScreen() {
         </Pressable>
         <Pressable
           style={styles.memoryTile}
-          onPress={() => id && router.push(`/voice/${id}`)}
-        >
-          <Text style={styles.memoryTitle}>Voice DNA</Text>
-          <Text style={styles.memorySub}>Giọng & TTS</Text>
-        </Pressable>
-        <Pressable
-          style={styles.memoryTile}
           onPress={() => id && router.push(`/review/${id}`)}
         >
-          <View style={styles.memoryTitleRow}>
-            <Text style={styles.memoryTitle}>Điều nghe được</Text>
-            {pendingCount > 0 ? (
-              <View style={styles.memoryCount}>
-                <Text style={styles.memoryCountText}>{pendingCount}</Text>
-              </View>
-            ) : null}
-          </View>
-          <Text style={styles.memorySub}>
-            {pendingCount > 0 ? "Chờ bạn duyệt" : "Từ trò chuyện"}
-          </Text>
+          <Text style={styles.memoryTitle}>Điều nghe được</Text>
+          <Text style={styles.memorySub}>Từ trò chuyện</Text>
         </Pressable>
+        {canManageVoice ? (
+          <Pressable
+            style={styles.memoryTile}
+            onPress={() => id && router.push(`/voice/${id}`)}
+          >
+            <Text style={styles.memoryTitle}>Voice DNA</Text>
+            <Text style={styles.memorySub}>Giọng & TTS</Text>
+          </Pressable>
+        ) : null}
       </View>
 
-      <Text style={styles.section}>
-        {otherThreads.length ? "Cuộc trò chuyện khác" : "Cuộc trò chuyện"}
+      {error ? <Text style={styles.error}>{error}</Text> : null}
+    </View>
+  );
+
+  const renderHeader = () => (
+    <View style={styles.headerBlock}>
+      <Text style={styles.meta}>
+        {space?.member_count ?? 0} thành viên
+        {space?.role === "owner" ? " · Bạn quản trị" : ""}
       </Text>
-      {!otherThreads.length && livingRoomThread ? (
+
+      {familyThread ? (
+        <Pressable
+          style={styles.hero}
+          onPress={() => router.push(`/chat/${familyThread.id}`)}
+        >
+          <Text style={styles.heroKicker}>Phòng khách</Text>
+          <Text style={styles.heroPreview} numberOfLines={2}>
+            {familyThread.last_message
+              ? threadPreview(familyThread)
+              : "Cả nhà nói chuyện với nhau"}
+          </Text>
+          {livingRoomLine(livingRoomMembers) ? (
+            <Text style={styles.heroSeated} numberOfLines={2}>
+              {livingRoomLine(livingRoomMembers)}
+            </Text>
+          ) : null}
+          <Text style={styles.heroCta}>Vào trò chuyện →</Text>
+        </Pressable>
+      ) : (
+        <View style={styles.heroMuted}>
+          <Text style={styles.heroKickerMuted}>Phòng khách</Text>
+          <Text style={styles.heroPreviewMuted}>Chưa có cuộc trò chuyện chung.</Text>
+        </View>
+      )}
+
+      <Text style={styles.section}>
+        {personRowCount ? "Người trong nhà" : "Cuộc trò chuyện"}
+      </Text>
+      {personRowCount ? (
         <Text style={styles.emptyHint}>
-          Các phòng Ký ức (người thân) sẽ hiện ở đây khi được tạo.
+          Mỗi người có phòng chung cả nhà và phòng riêng của bạn — ở đó họ trả
+          lời mọi lời nhắn.
+        </Text>
+      ) : familyThread ? (
+        <Text style={styles.emptyHint}>
+          Người thân được nhớ sẽ hiện ở đây khi được thổi hồn.
         </Text>
       ) : null}
     </View>
@@ -333,8 +372,8 @@ export default function SpaceScreen() {
     <FlatList
       style={styles.list}
       contentContainerStyle={styles.listContent}
-      data={otherThreads}
-      keyExtractor={(item) => item.id}
+      data={rows}
+      keyExtractor={(item) => item.key}
       ListHeaderComponent={renderHeader}
       refreshControl={
         <RefreshControl
@@ -343,47 +382,89 @@ export default function SpaceScreen() {
           tintColor={colors.brand}
         />
       }
-      renderItem={({ item }) => {
-        const badge = threadKindLabel(item);
-        const meta = threadRowMeta(item);
+      renderItem={({ item, index }) => {
+        if (item.row === "thread") {
+          const meta = otherRowMeta(item.thread);
+          return (
+            <>
+              {index === personRowCount && personRowCount ? (
+                <Text style={styles.sectionSmall}>Cuộc trò chuyện khác</Text>
+              ) : null}
+              <Pressable
+                style={styles.thread}
+                onPress={() => router.push(`/chat/${item.thread.id}`)}
+              >
+                <View style={styles.threadTop}>
+                  <Text style={styles.threadTitle}>{item.thread.title}</Text>
+                </View>
+                <Text style={styles.threadPreview} numberOfLines={2}>
+                  {meta.preview}
+                </Text>
+                <View style={styles.threadActions}>
+                  <Text style={styles.threadCta}>{meta.cta}</Text>
+                </View>
+              </Pressable>
+            </>
+          );
+        }
+
+        const ready = item.person.chat_ready;
         return (
-          <Pressable style={styles.thread} onPress={() => openThread(item)}>
+          <Pressable style={styles.thread} onPress={() => openSharedRoom(item)}>
             <View style={styles.threadTop}>
-              <Text style={styles.threadTitle}>{item.title}</Text>
-              {badge ? (
+              <Text style={styles.threadTitle}>{personTitle(item.person)}</Text>
+              {ready && item.person.handle ? (
                 <View style={styles.badge}>
-                  <Text style={styles.badgeText}>{badge}</Text>
+                  <Text style={styles.badgeText}>@{item.person.handle}</Text>
                 </View>
               ) : null}
             </View>
             <Text style={styles.threadPreview} numberOfLines={2}>
-              {meta.preview}
+              {personPreview(item)}
             </Text>
-            <View style={styles.threadActions}>
-              <Text style={styles.threadCta}>{meta.cta}</Text>
-              {meta.callReady && !item.pendingDirectFor ? (
-                <Pressable
-                  onPress={(e) => {
-                    e.stopPropagation?.();
-                    router.push(`/call/${item.id}`);
-                  }}
-                  hitSlop={8}
-                >
-                  <Text style={styles.callCta}>Gọi bằng giọng →</Text>
-                </Pressable>
-              ) : null}
+            <View style={styles.personActions}>
+              {ready ? (
+                <>
+                  <Text style={styles.threadCta}>Vào phòng chung →</Text>
+                  <View style={styles.subActions}>
+                    <Pressable
+                      onPress={(e) => {
+                        e.stopPropagation?.();
+                        void openDirectRoom(item);
+                      }}
+                      hitSlop={8}
+                    >
+                      <Text style={styles.subCta}>Nói riêng</Text>
+                    </Pressable>
+                    {item.shared ? (
+                      <>
+                        <Text style={styles.subDivider}>·</Text>
+                        <Pressable
+                          onPress={(e) => {
+                            e.stopPropagation?.();
+                            router.push(`/call/${item.shared!.id}`);
+                          }}
+                          hitSlop={8}
+                        >
+                          <Text style={styles.subCta}>Gọi bằng giọng</Text>
+                        </Pressable>
+                      </>
+                    ) : null}
+                  </View>
+                </>
+              ) : (
+                <Text style={styles.threadCta}>{awakeningCta(item.person)}</Text>
+              )}
             </View>
           </Pressable>
         );
       }}
       ListEmptyComponent={
-        !livingRoomThread ? (
+        !familyThread ? (
           <Text style={styles.empty}>Chưa có cuộc trò chuyện nào.</Text>
         ) : null
       }
-      ListFooterComponent={
-        error ? <Text style={styles.error}>{error}</Text> : null
-      }
+      ListFooterComponent={renderFooter()}
     />
   );
 }
@@ -400,6 +481,7 @@ const styles = StyleSheet.create({
   headerBtn: { marginRight: 4, paddingVertical: 4, paddingHorizontal: 2 },
   headerBtnText: { color: colors.brand, fontWeight: "600", fontSize: 16 },
   headerBlock: { gap: 12, marginBottom: 4 },
+  footerBlock: { gap: 10, marginTop: 18 },
   meta: { color: colors.inkSoft, fontSize: 14 },
   hero: {
     backgroundColor: colors.brand,
@@ -441,6 +523,11 @@ const styles = StyleSheet.create({
     lineHeight: 26,
     color: colors.inkSoft,
   },
+  heroSeated: {
+    fontSize: 13,
+    lineHeight: 19,
+    color: "rgba(244, 239, 230, 0.8)",
+  },
   heroCta: {
     marginTop: 4,
     fontSize: 15,
@@ -479,29 +566,11 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 4,
   },
-  memoryTitleRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-  },
   memoryTitle: {
     fontSize: 13,
     fontWeight: "700",
     color: colors.ink,
     textAlign: "center",
-  },
-  memoryCount: {
-    minWidth: 18,
-    paddingHorizontal: 5,
-    paddingVertical: 1,
-    borderRadius: 9,
-    backgroundColor: colors.brand,
-    alignItems: "center",
-  },
-  memoryCountText: {
-    fontSize: 11,
-    fontWeight: "800",
-    color: "#f4efe6",
   },
   memorySub: {
     fontSize: 11,
@@ -514,6 +583,13 @@ const styles = StyleSheet.create({
     fontSize: 22,
     color: colors.ink,
     marginTop: 8,
+  },
+  sectionSmall: {
+    fontFamily: fonts.display,
+    fontSize: 18,
+    color: colors.ink,
+    marginTop: 6,
+    marginBottom: 8,
   },
   emptyHint: {
     fontSize: 13,
@@ -568,11 +644,10 @@ const styles = StyleSheet.create({
     gap: 12,
     flexWrap: "wrap",
   },
-  callCta: {
-    fontSize: 14,
-    fontWeight: "700",
-    color: colors.brandSoft,
-  },
+  personActions: { marginTop: 10, gap: 8 },
+  subActions: { flexDirection: "row", alignItems: "center", gap: 10 },
+  subCta: { fontSize: 13, fontWeight: "600", color: colors.brandSoft },
+  subDivider: { fontSize: 13, color: colors.inkSoft },
   empty: { color: colors.inkSoft, lineHeight: 22, marginTop: 4 },
   error: { color: colors.danger, marginTop: 12 },
 });

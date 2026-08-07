@@ -198,10 +198,34 @@ class SpaceSettings(Base):
         ForeignKey("family_spaces.id"), primary_key=True
     )
     elevenlabs_api_key: Mapped[str | None] = mapped_column(String(256), nullable=True)
+    # Heritage usage policy — steward/owner. 0 on daily limit disables the cap.
+    heritage_daily_turn_limit: Mapped[int] = mapped_column(Integer, default=20)
+    heritage_warn_remaining: Mapped[int] = mapped_column(Integer, default=3)
+    heritage_max_utterance_sec: Mapped[int] = mapped_column(Integer, default=60)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     updated_by: Mapped[str | None] = mapped_column(ForeignKey("users.id"), nullable=True)
 
     space: Mapped[FamilySpace] = relationship(back_populates="settings")
+
+
+class UsageCounter(Base):
+    """Per-member daily heritage usage (turns + estimated tokens)."""
+
+    __tablename__ = "usage_counters"
+    __table_args__ = (
+        UniqueConstraint(
+            "space_id", "user_id", "day_key", name="uq_usage_counter_day"
+        ),
+    )
+
+    id: Mapped[str] = mapped_column(String(32), primary_key=True)
+    space_id: Mapped[str] = mapped_column(ForeignKey("family_spaces.id"), index=True)
+    user_id: Mapped[str] = mapped_column(ForeignKey("users.id"), index=True)
+    # Calendar day in Asia/Ho_Chi_Minh, e.g. "2026-08-06".
+    day_key: Mapped[str] = mapped_column(String(10), index=True)
+    heritage_turns: Mapped[int] = mapped_column(Integer, default=0)
+    estimated_tokens: Mapped[int] = mapped_column(Integer, default=0)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
 
 
 class IdentityProfile(Base):

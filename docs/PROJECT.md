@@ -208,8 +208,11 @@ từng thành viên. Chưa có Alembic — bảng mới qua `create_all`, cột 
 3. **Voice-to-voice cho mẹ** — mẹ không chat được; nói và nghe thì được. STT
    (chưa có gì) → pipeline sẵn có → TTS gắn vào reply → màn «Gọi cho Bố».
    Kế hoạch: `docs/voice-to-voice.plan.md`. Bao trùm luôn mục «TTS trong chat».  
-4. Bật critic (`HERITAGE_CRITIC_ENABLED`) sau khi golden live đạt *bịa năm/tên = 0*.  
-5. Micro-rituals (Phase 5) và export archive (Phase 6) khi mẹ đã dùng đều.  
+4. **Hạn mức lượt nói với ký ức** — Steward đặt trần cứng (mặc định 20
+   lượt/ngày) + trần giây mỗi lần ghi; meter token ước tính.
+   `docs/usage-quota.plan.md`.  
+5. Bật critic (`HERITAGE_CRITIC_ENABLED`) sau khi golden live đạt *bịa năm/tên = 0*.  
+6. Micro-rituals (Phase 5) và export archive (Phase 6) khi mẹ đã dùng đều.  
 
 Đã xong: `visibility` trên `MemoryItem` (`family` / `private`) — fact nghe trong
 phòng riêng có thể giữ lâu dài mà vẫn không thành chuyện của cả nhà. Luật đọc nằm

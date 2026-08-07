@@ -3,6 +3,7 @@ import {
   IdentityProfile,
   SpaceRole,
   SpaceSettings,
+  SpaceUsageOverview,
   StewardshipStatus,
 } from "@forever/api-client";
 import { useLocalSearchParams, useRouter } from "expo-router";
@@ -50,10 +51,15 @@ export default function SettingsScreen() {
   const [apiKey, setApiKey] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [savingQuota, setSavingQuota] = useState(false);
   const [allIdentities, setAllIdentities] = useState<IdentityProfile[]>([]);
   const [archiveBusy, setArchiveBusy] = useState(false);
   const [adminBusy, setAdminBusy] = useState(false);
   const [linkingIdentityId, setLinkingIdentityId] = useState<string | null>(null);
+  const [usageOverview, setUsageOverview] = useState<SpaceUsageOverview | null>(null);
+  const [turnLimit, setTurnLimit] = useState("20");
+  const [warnRemaining, setWarnRemaining] = useState("3");
+  const [maxUtterance, setMaxUtterance] = useState("60");
 
   useSpaceScreenOptions({
     spaceId,
@@ -76,6 +82,18 @@ export default function SettingsScreen() {
       setSettings(settingsRes);
       setStewardship(stewardRes);
       setAllIdentities(identityRes.identities);
+      setTurnLimit(String(settingsRes.heritage_daily_turn_limit ?? 20));
+      setWarnRemaining(String(settingsRes.heritage_warn_remaining ?? 3));
+      setMaxUtterance(String(settingsRes.heritage_max_utterance_sec ?? 60));
+      if (settingsRes.can_edit) {
+        try {
+          setUsageOverview(await api.getSpaceUsage(spaceId));
+        } catch {
+          setUsageOverview(null);
+        }
+      } else {
+        setUsageOverview(null);
+      }
     } catch (e) {
       Alert.alert("Lỗi", e instanceof Error ? e.message : "Không tải cài đặt.");
     } finally {
@@ -284,6 +302,53 @@ export default function SettingsScreen() {
       Alert.alert("Lỗi", e instanceof Error ? e.message : "Không lưu được.");
     } finally {
       setSaving(false);
+    }
+  };
+
+  const saveQuota = async () => {
+    if (!spaceId || savingQuota) return;
+    if (!settings?.can_edit) {
+      Alert.alert("Không đủ quyền", "Chỉ Steward hoặc Owner mới đổi hạn mức.");
+      return;
+    }
+    const limit = Number.parseInt(turnLimit, 10);
+    const warn = Number.parseInt(warnRemaining, 10);
+    const utterance = Number.parseInt(maxUtterance, 10);
+    if (
+      Number.isNaN(limit) ||
+      limit < 0 ||
+      Number.isNaN(warn) ||
+      warn < 0 ||
+      Number.isNaN(utterance) ||
+      utterance < 5
+    ) {
+      Alert.alert(
+        "Số không hợp lệ",
+        "Lượt ≥ 0, nhắc ≥ 0, giây tối đa ≥ 5.",
+      );
+      return;
+    }
+    setSavingQuota(true);
+    try {
+      const res = await api.updateSpaceSettings(spaceId, {
+        heritage_daily_turn_limit: limit,
+        heritage_warn_remaining: warn,
+        heritage_max_utterance_sec: utterance,
+      });
+      setSettings(res);
+      setTurnLimit(String(res.heritage_daily_turn_limit));
+      setWarnRemaining(String(res.heritage_warn_remaining));
+      setMaxUtterance(String(res.heritage_max_utterance_sec));
+      try {
+        setUsageOverview(await api.getSpaceUsage(spaceId));
+      } catch {
+        // ignore
+      }
+      Alert.alert("Đã lưu", "Hạn mức nói với ký ức đã cập nhật.");
+    } catch (e) {
+      Alert.alert("Lỗi", e instanceof Error ? e.message : "Không lưu được.");
+    } finally {
+      setSavingQuota(false);
     }
   };
 
@@ -745,6 +810,86 @@ export default function SettingsScreen() {
           </View>
         </>
       ) : null}
+
+      <Text style={styles.section}>Hạn mức nói với ký ức</Text>
+      <Text style={styles.help}>
+        Mỗi tin nhắn (chữ hoặc giọng) trên phòng ký ức tính một lượt. Hết lượt
+        trong ngày thì khóa cứng đến 0h VN. Đặt 0 để tắt hạn mức. Chỉ Steward /
+        Owner chỉnh.
+      </Text>
+      <View style={styles.card}>
+        {settings?.can_edit ? (
+          <>
+            <Text style={styles.label}>Lượt / thành viên / ngày</Text>
+            <TextInput
+              style={styles.input}
+              value={turnLimit}
+              onChangeText={setTurnLimit}
+              keyboardType="number-pad"
+              placeholder="20"
+              placeholderTextColor={colors.inkSoft}
+            />
+            <Text style={[styles.label, { marginTop: 12 }]}>
+              Nhắc khi còn ≤ (lượt)
+            </Text>
+            <TextInput
+              style={styles.input}
+              value={warnRemaining}
+              onChangeText={setWarnRemaining}
+              keyboardType="number-pad"
+              placeholder="3"
+              placeholderTextColor={colors.inkSoft}
+            />
+            <Text style={[styles.label, { marginTop: 12 }]}>
+              Giây tối đa mỗi lần ghi âm
+            </Text>
+            <TextInput
+              style={styles.input}
+              value={maxUtterance}
+              onChangeText={setMaxUtterance}
+              keyboardType="number-pad"
+              placeholder="60"
+              placeholderTextColor={colors.inkSoft}
+            />
+            <Pressable
+              style={[styles.btn, savingQuota && styles.btnDisabled]}
+              onPress={saveQuota}
+              disabled={savingQuota}
+            >
+              <Text style={styles.btnText}>
+                {savingQuota ? "Đang lưu…" : "Lưu hạn mức"}
+              </Text>
+            </Pressable>
+          </>
+        ) : (
+          <Text style={styles.body}>
+            {settings?.heritage_daily_turn_limit === 0
+              ? "Không giới hạn lượt."
+              : `${settings?.heritage_daily_turn_limit ?? 20} lượt/ngày · nhắc khi còn ≤ ${settings?.heritage_warn_remaining ?? 3} · tối đa ${settings?.heritage_max_utterance_sec ?? 60}s/lần ghi.`}
+          </Text>
+        )}
+        {usageOverview && settings?.can_edit ? (
+          <View style={{ marginTop: 16, gap: 8 }}>
+            <Text style={styles.label}>
+              Hôm nay ({usageOverview.day_key}) · {usageOverview.total_turns}{" "}
+              lượt · ~{usageOverview.total_estimated_tokens} token
+            </Text>
+            {usageOverview.members.length === 0 ? (
+              <Text style={styles.metaLine}>Chưa ai nói với ký ức hôm nay.</Text>
+            ) : (
+              usageOverview.members.map((m) => (
+                <Text key={m.user_id} style={styles.metaLine}>
+                  {m.user_name || m.user_id}: {m.used}
+                  {m.enabled ? `/${m.limit}` : ""} lượt
+                  {m.estimated_tokens
+                    ? ` · ~${m.estimated_tokens} token`
+                    : ""}
+                </Text>
+              ))
+            )}
+          </View>
+        ) : null}
+      </View>
 
       <Text style={styles.section}>Voice DNA · ElevenLabs</Text>
       <Text style={styles.help}>
