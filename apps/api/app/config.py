@@ -46,17 +46,18 @@ class Settings(BaseSettings):
 
     # Speech-to-text for chat voice notes (Gemini inline audio). See
     # docs/voice-to-voice.plan.md V0. Empty stt_model → gemini_model.
+    # Default Lite: STT does not need Flash-tier reasoning; ~3× cheaper audio.
     stt_enabled: bool = True
     stt_provider: str = "gemini"
-    stt_model: str = ""
+    stt_model: str = "gemini-3.1-flash-lite"
     # Skip base64 STT above this size (Gemini inline limit; chat max is 25MB).
     stt_max_bytes: int = 10 * 1024 * 1024
 
     # Attach cloned-voice audio to heritage replies. Off = text-only (rollback).
     # docs/voice-to-voice.plan.md V2. On by default so «Gọi cho Bố» works locally.
     heritage_tts_enabled: bool = True
-    # Replies longer than this stay text-only (cost + awkward reads).
-    heritage_tts_max_chars: int = 800
+    # Skip TTS (text-only) above this length — aligned with story depth budget.
+    heritage_tts_max_chars: int = 512
 
     # Shared ElevenLabs key (primary for now). Space Cài đặt can override later.
     elevenlabs_api_key: str = ""

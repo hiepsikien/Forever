@@ -152,7 +152,9 @@ def synthesize_chat_reply(
     if not body:
         return None
 
-    max_chars = max(1, int(settings.heritage_tts_max_chars or 800))
+    # Soft cost guard aligned with story depth (~512 tokens). Longer replies
+    # stay text-only; length is still steered upstream by analyzer depth.
+    max_chars = max(1, int(settings.heritage_tts_max_chars or 512))
     if len(body) > max_chars:
         logger.info(
             "heritage TTS skipped: %s chars > max %s",

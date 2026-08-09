@@ -53,12 +53,13 @@ CONFIDENCES = ("stated", "implied")
 _ISO_DATE = re.compile(r"^\d{4}(-\d{2}(-\d{2})?)?$")
 
 # Sentence counts the composer is told to hit for each depth.
+# Tuned ~70% of the first live lengths so Gọi stays chat-sized (cost + listen time).
 DEPTH_RULES: dict[str, str] = {
-    "ack": "Đáp gọn 1 câu, ấm áp — người ta chỉ đang báo tin vặt, không hỏi gì sâu.",
-    "short": "Trả lời 2–3 câu, đúng trọng tâm câu hỏi.",
-    "story": "Kể 4–6 câu, có chi tiết cụ thể từ bằng chứng — nhưng vẫn là nhắn tin, không phải viết thư.",
+    "ack": "Đáp gọn 1 câu ngắn, ấm áp — người ta chỉ đang báo tin vặt, không hỏi gì sâu.",
+    "short": "Trả lời 1–2 câu, đúng trọng tâm câu hỏi — đừng mở rộng.",
+    "story": "Kể 3–4 câu, có chi tiết cụ thể từ bằng chứng — vẫn là nhắn tin, không phải viết thư.",
 }
-DEPTH_TOKENS: dict[str, int] = {"ack": 192, "short": 384, "story": 768}
+DEPTH_TOKENS: dict[str, int] = {"ack": 128, "short": 256, "story": 512}
 
 _SCHEMA = {
     "type": "object",
@@ -96,7 +97,7 @@ Bạn là bộ phân tích ngữ cảnh cho app Forever. Bạn KHÔNG trả lờ
   ask_event (hỏi về sự kiện, mốc đời, kỷ niệm) | ask_advice (xin lời khuyên) |
   share_news (kể chuyện mình) | meta (nói về app, kỹ thuật, thử nghiệm) |
   grief (nhớ thương, mất mát)
-- depth: ack (chỉ cần đáp một câu) | short (2–3 câu) | story (muốn nghe kể)
+- depth: ack (chỉ cần đáp một câu ngắn) | short (1–2 câu) | story (3–4 câu, muốn nghe kể)
 - emotion: cảm xúc của NGƯỜI GỬI
 - entity_slugs: chỉ chọn trong danh sách người được cung cấp; không tự nghĩ ra slug mới
 - topics: chọn trong enum

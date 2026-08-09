@@ -81,8 +81,12 @@ def server_pipeline_defaults(settings: Settings | None = None) -> HeritagePipeli
     )
 
 
-def _parse_overrides(raw: str | None) -> dict[str, bool]:
-    if not raw or not str(raw).strip():
+def _parse_overrides(raw: object) -> dict[str, bool]:
+    if raw is None:
+        return {}
+    if not isinstance(raw, str):
+        return {}
+    if not raw.strip():
         return {}
     try:
         data = json.loads(raw)

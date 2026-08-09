@@ -111,7 +111,7 @@ def test_synthesize_chat_reply_saves_audio():
     db.query.return_value.filter.return_value.one_or_none.return_value = None
     settings = Settings(
         heritage_tts_enabled=True,
-        heritage_tts_max_chars=800,
+        heritage_tts_max_chars=512,
         elevenlabs_api_key="key",
         voice_default_provider="elevenlabs",
     )
