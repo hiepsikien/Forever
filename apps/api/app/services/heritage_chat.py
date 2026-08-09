@@ -4,7 +4,6 @@ import json
 import re
 from datetime import datetime, timezone
 
-import httpx
 from nanoid import generate
 from sqlalchemy.orm import Session
 
@@ -56,6 +55,8 @@ from .heritage_retrieval import (
     retrieve_milestones,
 )
 from .heritage_values import select_value_lens, value_lens_block
+from .ai_usage import UsageContext
+from .heritage_gemini import GeminiCall, call_gemini
 from .memory_scope import readable_by, reader_for_thread
 
 # Theme tags on imported poems (see memories.ALLOWED_POEM_THEMES).
@@ -675,11 +676,8 @@ def _gemini_heritage_reply(
     user_text: str,
     history: list[Message],
     max_output_tokens: int = 768,
+    usage: UsageContext | None = None,
 ) -> tuple[str | None, str | None]:
-    api_key = settings.gemini_api_key.strip()
-    if not api_key:
-        return None, None
-
     contents: list[dict] = []
     for msg in history[-12:]:
         if msg.sender_kind == "user":
@@ -691,33 +689,25 @@ def _gemini_heritage_reply(
     while contents and contents[0]["role"] == "model":
         contents.pop(0)
 
-    model = settings.gemini_model.strip() or "gemini-3.5-flash"
-    base = settings.gemini_api_base.rstrip("/")
-    url = f"{base}/models/{model}:generateContent"
-
-    try:
-        with httpx.Client(timeout=60.0) as client:
-            res = client.post(
-                url,
-                params={"key": api_key},
-                headers={"Content-Type": "application/json"},
-                json={
-                    "systemInstruction": {"parts": [{"text": system_prompt}]},
-                    "contents": contents,
-                    "generationConfig": {
-                        "temperature": 0.5,
-                        "maxOutputTokens": max_output_tokens,
-                        "thinkingConfig": {"thinkingBudget": 0},
-                    },
-                },
-            )
-            res.raise_for_status()
-            text, finish_reason = _extract_gemini_text(res.json())
-            if not text:
-                return None, finish_reason
-            return _finalize_reply_text(text, finish_reason), finish_reason
-    except Exception:
-        return None, None
+    model = settings.compose_model
+    result = call_gemini(
+        settings,
+        GeminiCall(
+            system_prompt=system_prompt,
+            contents=contents,
+            model=model,
+            temperature=0.5,
+            max_output_tokens=max_output_tokens,
+            timeout_s=60.0,
+            attempts=2,
+            usage=usage,
+        ),
+    )
+    if result.error and not result.text:
+        return None, result.finish_reason
+    if not result.text:
+        return None, result.finish_reason
+    return _finalize_reply_text(result.text, result.finish_reason), result.finish_reason
 
 
 def _detect_citations(
@@ -791,6 +781,7 @@ def _retry_if_repetitive(
     history: list[Message],
     memory: MemoryState,
     max_output_tokens: int,
+    usage: UsageContext | None = None,
 ) -> tuple[str, str | None, str | None]:
     """Rewrite once when the reply echoes a recent one. Keeps the fresher of the two."""
     previous = recent_heritage_bodies(history)
@@ -804,12 +795,20 @@ def _retry_if_repetitive(
     if not reason:
         return reply, finish_reason, None
 
+    repeat_usage = UsageContext(
+        space_id=usage.space_id if usage else None,
+        thread_id=usage.thread_id if usage else None,
+        message_id=usage.message_id if usage else None,
+        user_id=usage.user_id if usage else None,
+        operation="heritage_repeat",
+    )
     retry, retry_finish = _gemini_heritage_reply(
         settings,
         system_prompt=system_prompt + avoid_block(previous, asked),
         user_text=user_text,
         history=history,
         max_output_tokens=max_output_tokens,
+        usage=repeat_usage,
     )
     if not retry:
         return reply, finish_reason, reason
@@ -826,6 +825,7 @@ def _enforce_grounding(
     audience: str | None,
     max_output_tokens: int,
     year_corpus: str | None = None,
+    usage: UsageContext | None = None,
 ) -> tuple[str, dict | None]:
     """Rewrite, trim, or replace a reply that asserts something we cannot show."""
     if not settings.heritage_grounding_enabled:
@@ -863,6 +863,7 @@ def _enforce_grounding(
         reply=body,
         ungrounded=found,
         max_output_tokens=max_output_tokens,
+        usage=usage,
     )
     if rewritten:
         fixed = post_process_reply(rewritten, audience=audience)
@@ -909,9 +910,26 @@ def generate_heritage_reply(
     )
 
     frame = ContextFrame()
+    usage = UsageContext(
+        space_id=thread.space_id,
+        thread_id=thread.id,
+        message_id=user_message.id,
+        user_id=user_message.sender_user_id,
+        operation="heritage_compose",
+    )
     if settings.heritage_analyzer_enabled:
         frame = analyze_turn(
-            settings, user_text=user_text, history=history, entities=entities
+            settings,
+            user_text=user_text,
+            history=history,
+            entities=entities,
+            usage=UsageContext(
+                space_id=thread.space_id,
+                thread_id=thread.id,
+                message_id=user_message.id,
+                user_id=user_message.sender_user_id,
+                operation="heritage_analyzer",
+            ),
         )
 
     # The analyzer proposes wording the library is more likely to contain
@@ -990,6 +1008,7 @@ def generate_heritage_reply(
         user_text=user_text,
         history=history,
         max_output_tokens=frame.max_output_tokens,
+        usage=usage,
     )
 
     repeat_reason = None
@@ -1003,6 +1022,7 @@ def generate_heritage_reply(
             history=history,
             memory=memory,
             max_output_tokens=frame.max_output_tokens,
+            usage=usage,
         )
 
     body = post_process_reply(llm or _FALLBACK, audience=audience)
@@ -1026,6 +1046,7 @@ def generate_heritage_reply(
         year_corpus=system_prompt,
         audience=audience,
         max_output_tokens=frame.max_output_tokens,
+        usage=usage,
     )
 
     all_poems = signature + retrieved
@@ -1175,7 +1196,15 @@ def _write_back_memory(
             .all()
         )
         compact_thread_memory(
-            db, thread=thread, settings=settings, history=history
+            db,
+            thread=thread,
+            settings=settings,
+            history=history,
+            usage=UsageContext(
+                space_id=thread.space_id,
+                thread_id=thread.id,
+                operation="heritage_compact",
+            ),
         )
     except Exception:  # noqa: BLE001 — never fail a delivered reply
         db.rollback()

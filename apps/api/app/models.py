@@ -560,3 +560,30 @@ class VoiceRender(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
 
     voice_profile: Mapped[VoiceProfile] = relationship(back_populates="renders")
+
+
+class AiUsageEvent(Base):
+    """One AI API call (Gemini LLM/STT or TTS provider) for cost telemetry."""
+
+    __tablename__ = "ai_usage_events"
+
+    id: Mapped[str] = mapped_column(String(32), primary_key=True)
+    # Reference ids only — no FK so telemetry never blocks on missing rows.
+    space_id: Mapped[str | None] = mapped_column(String(32), nullable=True, index=True)
+    thread_id: Mapped[str | None] = mapped_column(String(32), nullable=True, index=True)
+    message_id: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    user_id: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    service: Mapped[str] = mapped_column(String(32), index=True)  # gemini | elevenlabs | minimax
+    provider: Mapped[str] = mapped_column(String(32), default="")
+    operation: Mapped[str] = mapped_column(String(48), index=True)
+    model: Mapped[str] = mapped_column(String(120), default="")
+    input_tokens: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    output_tokens: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    input_chars: Mapped[int] = mapped_column(Integer, default=0)
+    output_chars: Mapped[int] = mapped_column(Integer, default=0)
+    audio_bytes: Mapped[int] = mapped_column(Integer, default=0)
+    latency_ms: Mapped[int] = mapped_column(Integer, default=0)
+    estimated_cost_usd: Mapped[float] = mapped_column(Float, default=0.0)
+    ok: Mapped[bool] = mapped_column(Boolean, default=True)
+    meta_json: Mapped[str] = mapped_column(Text, default="")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)

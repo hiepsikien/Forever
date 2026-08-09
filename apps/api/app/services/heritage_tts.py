@@ -18,6 +18,7 @@ from sqlalchemy.orm import Session
 from ..config import Settings, get_settings
 from ..models import SpaceSettings, VoiceProfile
 from . import voice_providers as vp
+from .ai_usage import UsageContext, record_usage
 from .storage import save_bytes
 
 logger = logging.getLogger(__name__)
@@ -251,6 +252,16 @@ def synthesize_chat_reply(
         return None
 
     latency_ms = int((time.monotonic() - started) * 1000)
+    record_usage(
+        service=provider,
+        provider=provider,
+        operation="tts_chat",
+        model=model_id,
+        output_chars=len(body),
+        latency_ms=latency_ms,
+        context=UsageContext(space_id=voice.space_id, operation="tts_chat"),
+        meta={"voice_id": provider_voice_id},
+    )
     return ChatTtsResult(
         media_path=relative,
         media_mime="audio/mpeg",

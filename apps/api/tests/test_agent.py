@@ -1,7 +1,8 @@
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 from app.config import Settings
 from app.services.agent import _gemini_reply, looks_like_bio_request, template_reply
+from app.services.heritage_gemini import GeminiResult
 
 
 def _login(client, email: str, name: str) -> str:
@@ -37,26 +38,18 @@ def test_gemini_reply_parses_candidates():
         gemini_api_key="test-key",
         gemini_model="gemini-3.5-flash",
         gemini_api_base="https://generativelanguage.googleapis.com/v1beta",
+        seed_demo=False,
     )
-    mock_response = MagicMock()
-    mock_response.raise_for_status = MagicMock()
-    mock_response.json.return_value = {
-        "candidates": [
-            {"content": {"parts": [{"text": "Chào cả nhà, mình là Người giữ nhà."}]}}
-        ]
-    }
-    mock_client = MagicMock()
-    mock_client.__enter__.return_value = mock_client
-    mock_client.__exit__.return_value = False
-    mock_client.post.return_value = mock_response
 
-    with patch("app.services.agent.httpx.Client", return_value=mock_client):
+    def fake_call_gemini(_settings, call):
+        assert call.system_prompt
+        assert call.contents
+        return GeminiResult(text="Chào cả nhà, mình là Người giữ nhà.")
+
+    with patch("app.services.agent.call_gemini", side_effect=fake_call_gemini):
         text = _gemini_reply(settings, "Xin chào", [])
 
     assert text == "Chào cả nhà, mình là Người giữ nhà."
-    kwargs = mock_client.post.call_args.kwargs
-    assert kwargs["params"]["key"] == "test-key"
-    assert "systemInstruction" in kwargs["json"]
 
 
 def test_agent_replies_after_user_message(client):

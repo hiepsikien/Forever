@@ -62,8 +62,20 @@ def _apply_stt(db: Session, message: Message) -> None:
         return
 
     path = absolute_media_path(message.media_path)
+    thread = db.query(Thread).filter(Thread.id == message.thread_id).one_or_none()
+    from ..services.ai_usage import UsageContext
+
     transcript = transcribe(
-        settings, path=path, mime=getattr(message, "media_mime", None)
+        settings,
+        path=path,
+        mime=getattr(message, "media_mime", None),
+        usage=UsageContext(
+            space_id=thread.space_id if thread else None,
+            thread_id=message.thread_id,
+            message_id=message.id,
+            user_id=message.sender_user_id,
+            operation="stt",
+        ),
     )
     meta: dict = {}
     raw = getattr(message, "meta_json", None) or ""

@@ -1,4 +1,5 @@
 import {
+  AiUsageSummary,
   FamilySpace,
   IdentityProfile,
   SpaceRole,
@@ -22,7 +23,7 @@ import { useAuth } from "@/lib/auth";
 import { useSpaceScreenOptions } from "@/lib/spaceHeader";
 import { colors, fonts } from "@/lib/theme";
 
-type SettingsTab = "account" | "space";
+type SettingsTab = "account" | "space" | "ai";
 
 const ROLE_CHOICES: Array<{ role: SpaceRole; label: string; help: string }> = [
   { role: "owner", label: "Quản trị", help: "Mời và gỡ người, giữ Voice DNA." },
@@ -54,6 +55,9 @@ export default function SettingsScreen() {
   const [archiveBusy, setArchiveBusy] = useState(false);
   const [adminBusy, setAdminBusy] = useState(false);
   const [linkingIdentityId, setLinkingIdentityId] = useState<string | null>(null);
+  const [aiUsage, setAiUsage] = useState<AiUsageSummary | null>(null);
+  const [usageLoading, setUsageLoading] = useState(false);
+  const [usageDays, setUsageDays] = useState(30);
 
   useSpaceScreenOptions({
     spaceId,
@@ -83,9 +87,28 @@ export default function SettingsScreen() {
     }
   }, [api, spaceId]);
 
+  const loadUsage = useCallback(async () => {
+    if (!spaceId) return;
+    setUsageLoading(true);
+    try {
+      const res = await api.getAiUsage(spaceId, usageDays);
+      setAiUsage(res);
+    } catch (e) {
+      Alert.alert("Lỗi", e instanceof Error ? e.message : "Không tải chi phí AI.");
+    } finally {
+      setUsageLoading(false);
+    }
+  }, [api, spaceId, usageDays]);
+
   useLayoutEffect(() => {
     load();
   }, [load]);
+
+  useLayoutEffect(() => {
+    if (tab === "ai" && settings?.can_edit) {
+      void loadUsage();
+    }
+  }, [tab, settings?.can_edit, loadUsage]);
 
   const makeInvite = async () => {
     if (!spaceId) return;
@@ -317,6 +340,11 @@ export default function SettingsScreen() {
     (i) => !i.archived_at && i.status === "living",
   );
 
+  function formatUsd(value: number): string {
+    if (value < 0.01 && value > 0) return "< $0.01";
+    return `$${value.toFixed(2)}`;
+  }
+
   return (
     <ScrollView contentContainerStyle={styles.root}>
       <View style={styles.tabs}>
@@ -336,6 +364,16 @@ export default function SettingsScreen() {
             Nhà
           </Text>
         </Pressable>
+        {settings?.can_edit ? (
+          <Pressable
+            style={[styles.tab, tab === "ai" && styles.tabActive]}
+            onPress={() => setTab("ai")}
+          >
+            <Text style={[styles.tabText, tab === "ai" && styles.tabTextActive]}>
+              Chi phí AI
+            </Text>
+          </Pressable>
+        ) : null}
       </View>
 
       {tab === "account" ? (
@@ -381,6 +419,111 @@ export default function SettingsScreen() {
             </View>
             <Text style={styles.philosophyChevron}>›</Text>
           </Pressable>
+        </>
+      ) : tab === "ai" ? (
+        <>
+          <Text style={styles.section}>Chi phí AI</Text>
+          <Text style={styles.help}>
+            Ước tính từ số lần gọi Gemini (LLM, STT) và TTS (ElevenLabs/MiniMax).
+            Không phải hoá đơn thật.
+          </Text>
+          <View style={styles.row}>
+            {[7, 30, 90].map((d) => (
+              <Pressable
+                key={d}
+                style={[styles.chip, usageDays === d && styles.chipActive]}
+                onPress={() => setUsageDays(d)}
+              >
+                <Text style={[styles.chipText, usageDays === d && styles.chipTextActive]}>
+                  {d} ngày
+                </Text>
+              </Pressable>
+            ))}
+          </View>
+          {usageLoading ? (
+            <ActivityIndicator color={colors.brand} style={{ marginVertical: 24 }} />
+          ) : aiUsage ? (
+            <>
+              <View style={styles.card}>
+                <Text style={styles.label}>Tổng ước tính</Text>
+                <Text style={styles.usageTotal}>
+                  {formatUsd(aiUsage.totals.estimated_usd)}
+                </Text>
+                <Text style={styles.metaLine}>
+                  {aiUsage.totals.calls} lần gọi · {aiUsage.period_days} ngày qua
+                </Text>
+              </View>
+
+              {aiUsage.totals.by_service.length > 0 ? (
+                <>
+                  <Text style={styles.section}>Theo nhà cung cấp</Text>
+                  <View style={styles.card}>
+                    {aiUsage.totals.by_service.map((row) => (
+                      <View key={row.service} style={styles.usageRow}>
+                        <Text style={styles.usageRowLabel}>{row.label}</Text>
+                        <Text style={styles.usageRowValue}>
+                          {formatUsd(row.estimated_usd)} · {row.calls} lần
+                        </Text>
+                        {row.input_tokens || row.output_tokens ? (
+                          <Text style={styles.metaLine}>
+                            {row.input_tokens.toLocaleString()} token vào ·{" "}
+                            {row.output_tokens.toLocaleString()} token ra
+                          </Text>
+                        ) : row.output_chars ? (
+                          <Text style={styles.metaLine}>
+                            {row.output_chars.toLocaleString()} ký tự TTS
+                          </Text>
+                        ) : null}
+                      </View>
+                    ))}
+                  </View>
+                </>
+              ) : null}
+
+              {aiUsage.totals.by_operation.length > 0 ? (
+                <>
+                  <Text style={styles.section}>Theo loại việc</Text>
+                  <View style={styles.card}>
+                    {aiUsage.totals.by_operation.map((row) => (
+                      <View key={row.operation} style={styles.usageRow}>
+                        <Text style={styles.usageRowLabel}>{row.label}</Text>
+                        <Text style={styles.usageRowValue}>
+                          {formatUsd(row.estimated_usd)} · {row.calls} lần
+                        </Text>
+                      </View>
+                    ))}
+                  </View>
+                </>
+              ) : null}
+
+              {aiUsage.daily.length > 0 ? (
+                <>
+                  <Text style={styles.section}>Theo ngày</Text>
+                  <View style={styles.card}>
+                    {[...aiUsage.daily].reverse().slice(0, 14).map((day) => (
+                      <View key={day.date} style={styles.usageRow}>
+                        <Text style={styles.usageRowLabel}>{day.date}</Text>
+                        <Text style={styles.usageRowValue}>
+                          {formatUsd(day.estimated_usd)} · {day.calls} lần
+                        </Text>
+                      </View>
+                    ))}
+                  </View>
+                </>
+              ) : null}
+
+              {aiUsage.totals.calls === 0 ? (
+                <Text style={styles.help}>
+                  Chưa có dữ liệu trong khoảng thời gian này. Thử chat giọng hoặc
+                  gọi Bố — số liệu sẽ xuất hiện sau vài lượt.
+                </Text>
+              ) : null}
+
+              <Text style={styles.footnote}>{aiUsage.disclaimer}</Text>
+            </>
+          ) : (
+            <Text style={styles.help}>Chưa có dữ liệu chi phí.</Text>
+          )}
         </>
       ) : (
         <>
@@ -954,4 +1097,32 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     color: colors.inkSoft,
   },
+  chip: {
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: colors.line,
+    backgroundColor: colors.card,
+  },
+  chipActive: {
+    borderColor: colors.brand,
+    backgroundColor: "rgba(45, 74, 62, 0.08)",
+  },
+  chipText: { fontSize: 13, fontWeight: "600", color: colors.inkSoft },
+  chipTextActive: { color: colors.brand },
+  usageTotal: {
+    fontFamily: fonts.display,
+    fontSize: 32,
+    color: colors.ink,
+    marginTop: 4,
+  },
+  usageRow: {
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.line,
+    gap: 2,
+  },
+  usageRowLabel: { fontSize: 15, fontWeight: "600", color: colors.ink },
+  usageRowValue: { fontSize: 14, color: colors.inkSoft },
 });

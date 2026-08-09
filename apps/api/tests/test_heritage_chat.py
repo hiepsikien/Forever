@@ -553,7 +553,7 @@ def test_heritage_thread_replies_not_agent(client: TestClient, tmp_path, monkeyp
     mock_client.__exit__.return_value = False
     mock_client.post.return_value = mock_response
 
-    with patch("app.services.heritage_chat.httpx.Client", return_value=mock_client):
+    with patch("app.services.heritage_gemini.httpx.Client", return_value=mock_client):
         send = client.post(
             f"/api/threads/{thread_id}/messages",
             headers=headers,
@@ -630,7 +630,7 @@ def test_heritage_reply_records_codex_hit(client: TestClient, tmp_path, monkeypa
     mock_client.__exit__.return_value = False
     mock_client.post.return_value = mock_response
 
-    with patch("app.services.heritage_chat.httpx.Client", return_value=mock_client):
+    with patch("app.services.heritage_gemini.httpx.Client", return_value=mock_client):
         send = client.post(
             f"/api/threads/{thread_id}/messages",
             headers=headers,
@@ -691,7 +691,7 @@ def test_thread_memory_grows_across_turns(client, tmp_path, monkeypatch):
         "Bố đây con. Mẹ con dạo này ăn ngủ ra sao?",
         "Bố mừng lắm. Con nhớ ghé thắp cho bố nén hương nhé.",
     )
-    with patch("app.services.heritage_chat.httpx.Client", return_value=mock_client):
+    with patch("app.services.heritage_gemini.httpx.Client", return_value=mock_client):
         for body in ("Bố ơi, con đây.", "Thứ bảy con về bố ạ."):
             send = client.post(
                 f"/api/threads/{thread_id}/messages",
@@ -728,7 +728,7 @@ def test_a_fabricated_year_is_recorded_on_the_message(client, tmp_path, monkeypa
     )
 
     mock_client, _ = _canned_gemini("Bố đây con. Năm 1975 bố dạy ở trường làng.")
-    with patch("app.services.heritage_chat.httpx.Client", return_value=mock_client):
+    with patch("app.services.heritage_gemini.httpx.Client", return_value=mock_client):
         send = client.post(
             f"/api/threads/{thread_id}/messages",
             headers=headers,
@@ -756,7 +756,7 @@ def test_second_turn_prompt_carries_the_memory(client, tmp_path, monkeypatch):
     )
 
     mock_client, _ = _canned_gemini("Bố đây con. Dạo này con ăn ngủ thế nào?")
-    with patch("app.services.heritage_chat.httpx.Client", return_value=mock_client):
+    with patch("app.services.heritage_gemini.httpx.Client", return_value=mock_client):
         for body in ("Bố ơi.", "Con vẫn ổn ạ."):
             client.post(
                 f"/api/threads/{thread_id}/messages",
@@ -784,7 +784,7 @@ def test_repeated_reply_triggers_one_rewrite(client, tmp_path, monkeypatch):
 
     echo = "Bố đây con. Con dạo này thế nào, có khoẻ không?"
     mock_client, _ = _canned_gemini(echo)
-    with patch("app.services.heritage_chat.httpx.Client", return_value=mock_client):
+    with patch("app.services.heritage_gemini.httpx.Client", return_value=mock_client):
         for body in ("Bố ơi.", "Con vẫn ổn ạ."):
             client.post(
                 f"/api/threads/{thread_id}/messages",

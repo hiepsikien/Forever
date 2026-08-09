@@ -1,9 +1,8 @@
 from __future__ import annotations
 
-import httpx
-
 from ..config import Settings
-from .agent import _extract_gemini_text
+from .ai_usage import UsageContext
+from .heritage_gemini import GeminiCall, call_gemini
 
 SCRIPT_SYSTEM = """\
 Bạn giúp Forever thu sample Voice DNA (Instant Voice Clone).
@@ -54,51 +53,46 @@ def generate_voice_sample_script(
     *,
     theme: str | None = None,
     seed: int = 0,
+    space_id: str | None = None,
+    user_id: str | None = None,
 ) -> tuple[str, str]:
     """
     Returns (script, source) where source is 'gemini' | 'fallback'.
     """
-    api_key = settings.gemini_api_key.strip()
     user_prompt = (
         "Hãy viết một đoạn đọc to cho sample Voice DNA."
         + (f" Chủ đề gợi ý: {theme.strip()}." if theme and theme.strip() else "")
     )
 
-    if api_key:
+    if settings.gemini_api_key.strip():
         model = settings.gemini_model.strip() or "gemini-3.5-flash"
-        base = settings.gemini_api_base.rstrip("/")
-        url = f"{base}/models/{model}:generateContent"
-        try:
-            with httpx.Client(timeout=45.0) as client:
-                res = client.post(
-                    url,
-                    params={"key": api_key},
-                    headers={"Content-Type": "application/json"},
-                    json={
-                        "systemInstruction": {"parts": [{"text": SCRIPT_SYSTEM}]},
-                        "contents": [{"role": "user", "parts": [{"text": user_prompt}]}],
-                        "generationConfig": {
-                            "temperature": 0.85,
-                            "maxOutputTokens": 1024,
-                            "thinkingConfig": {"thinkingBudget": 0},
-                        },
-                    },
-                )
-                res.raise_for_status()
-                text = _extract_gemini_text(res.json())
-                if text:
-                    cleaned = _clean_script(text)
-                    if cleaned:
-                        return cleaned, "gemini"
-        except Exception:
-            pass
+        result = call_gemini(
+            settings,
+            GeminiCall(
+                system_prompt=SCRIPT_SYSTEM,
+                contents=[{"role": "user", "parts": [{"text": user_prompt}]}],
+                model=model,
+                temperature=0.85,
+                max_output_tokens=1024,
+                timeout_s=45.0,
+                attempts=1,
+                usage=UsageContext(
+                    space_id=space_id,
+                    user_id=user_id,
+                    operation="voice_script",
+                ),
+            ),
+        )
+        if result.text:
+            cleaned = _clean_script(result.text)
+            if cleaned:
+                return cleaned, "gemini"
 
     return _fallback_script(seed), "fallback"
 
 
 def _clean_script(text: str) -> str:
     lines = [ln.strip() for ln in text.strip().splitlines() if ln.strip()]
-    # Drop common lead-ins
     filtered = []
     for ln in lines:
         lower = ln.lower()

@@ -12,6 +12,7 @@ import re
 from dataclasses import dataclass, field
 
 from ..config import Settings
+from .ai_usage import UsageContext
 from .heritage import normalize_text
 from .heritage_gemini import GeminiCall, call_gemini
 
@@ -170,8 +171,12 @@ def critic_rewrite(
     reply: str,
     ungrounded: Ungrounded,
     max_output_tokens: int = 768,
+    usage: UsageContext | None = None,
 ) -> str | None:
     listed = "\n".join(f"- {span}" for span in ungrounded.spans)
+    grounding_usage = usage or UsageContext(operation="heritage_grounding")
+    if grounding_usage.operation == "unknown":
+        grounding_usage.operation = "heritage_grounding"
     result = call_gemini(
         settings,
         GeminiCall(
@@ -189,6 +194,7 @@ def critic_rewrite(
             max_output_tokens=max_output_tokens,
             timeout_s=20.0,
             attempts=1,
+            usage=grounding_usage,
         ),
     )
     text = (result.text or "").strip()

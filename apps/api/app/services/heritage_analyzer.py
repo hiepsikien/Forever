@@ -19,6 +19,7 @@ from datetime import date
 
 from ..config import Settings
 from ..models import FamilyEntity, Message
+from .ai_usage import UsageContext
 from .heritage_gemini import GeminiCall, call_gemini, parse_json_object
 
 INTENTS = (
@@ -283,6 +284,7 @@ def analyze_turn(
     history: list[Message],
     entities: list[FamilyEntity],
     today: date | None = None,
+    usage: UsageContext | None = None,
 ) -> ContextFrame:
     """Return a frame; fall back to safe defaults when the call fails."""
     if not user_text.strip():
@@ -302,6 +304,9 @@ def analyze_turn(
         f"Vài lượt gần đây:\n{transcript}\n\n"
         f"Tin nhắn mới nhất cần phân tích:\n{user_text[:1200]}"
     )
+    analyzer_usage = usage or UsageContext(operation="heritage_analyzer")
+    if analyzer_usage.operation == "unknown":
+        analyzer_usage.operation = "heritage_analyzer"
     result = call_gemini(
         settings,
         GeminiCall(
@@ -314,6 +319,7 @@ def analyze_turn(
             response_schema=_SCHEMA,
             timeout_s=20.0,
             attempts=1,
+            usage=analyzer_usage,
         ),
     )
     known = {entity.slug for entity in entities}

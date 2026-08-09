@@ -27,6 +27,7 @@ from sqlalchemy.orm import Session
 
 from ..config import Settings
 from ..models import Message, Thread, ThreadMemory
+from .ai_usage import UsageContext
 from .heritage import normalize_text
 from .heritage_gemini import GeminiCall, call_gemini, parse_json_object
 
@@ -410,6 +411,7 @@ def compact_thread_memory(
     thread: Thread,
     settings: Settings,
     history: list[Message],
+    usage: UsageContext | None = None,
 ) -> bool:
     """Ask Gemini to merge the transcript into the stored facts. Best-effort."""
     row = (
@@ -444,6 +446,11 @@ def compact_thread_memory(
         )
         + f"\n\nHội thoại:\n{transcript}"
     )
+    compact_usage = usage or UsageContext(
+        space_id=thread.space_id, thread_id=thread.id, operation="heritage_compact"
+    )
+    if compact_usage.operation == "unknown":
+        compact_usage.operation = "heritage_compact"
     result = call_gemini(
         settings,
         GeminiCall(
@@ -456,6 +463,7 @@ def compact_thread_memory(
             response_schema=_COMPACT_SCHEMA,
             timeout_s=20.0,
             attempts=1,
+            usage=compact_usage,
         ),
     )
     payload = parse_json_object(result.text)

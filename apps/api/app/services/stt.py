@@ -12,6 +12,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from ..config import Settings, get_settings
+from .ai_usage import UsageContext
 from .heritage_gemini import GeminiCall, call_gemini
 
 logger = logging.getLogger(__name__)
@@ -82,6 +83,7 @@ def transcribe(
     *,
     path: Path | str,
     mime: str | None = None,
+    usage: UsageContext | None = None,
 ) -> Transcript:
     """Transcribe an audio file. Never raises — errors live on Transcript.error."""
     settings = settings or get_settings()
@@ -113,6 +115,9 @@ def transcribe(
         return Transcript(provider=provider, model=model, error="too_large")
 
     b64 = base64.b64encode(data).decode("ascii")
+    stt_usage = usage or UsageContext(operation="stt")
+    if stt_usage.operation == "unknown":
+        stt_usage.operation = "stt"
     result = call_gemini(
         settings,
         GeminiCall(
@@ -136,6 +141,8 @@ def transcribe(
             max_output_tokens=1024,
             timeout_s=45.0,
             attempts=2,
+            usage=stt_usage,
+            audio_bytes=len(data),
         ),
     )
 

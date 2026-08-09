@@ -1488,6 +1488,8 @@ def generate_voice_script(
         settings,
         theme=body.theme or None,
         seed=body.seed,
+        space_id=space_id,
+        user_id=user.id,
     )
     return {
         "script": script,
@@ -2375,6 +2377,23 @@ def synthesize_tts(
         )
     except vp.VoiceProviderError as exc:
         raise HTTPException(status_code=exc.status_code, detail=exc.message) from exc
+
+    from ..services.ai_usage import UsageContext, record_usage
+
+    tts_text = body.text.strip()
+    record_usage(
+        service=provider,
+        provider=provider,
+        operation="tts_lab",
+        model=model_id,
+        output_chars=len(tts_text),
+        context=UsageContext(
+            space_id=voice.space_id,
+            user_id=user.id,
+            operation="tts_lab",
+        ),
+        meta={"voice_profile_id": voice.id, "saved": bool(body.save)},
+    )
 
     if not body.save:
         return Response(content=audio, media_type="audio/mpeg")

@@ -3,12 +3,13 @@ from __future__ import annotations
 import re
 from datetime import datetime, timezone
 
-import httpx
 from nanoid import generate
 from sqlalchemy.orm import Session
 
 from ..config import Settings, get_settings
 from ..models import Message, Thread
+from .ai_usage import UsageContext
+from .heritage_gemini import GeminiCall, call_gemini
 
 AGENT_DISPLAY_NAME = "Người giữ nhà"
 AGENT_HANDLE = "giunhà"
@@ -113,11 +114,13 @@ def _extract_gemini_text(data: dict) -> str | None:
     return text or None
 
 
-def _gemini_reply(settings: Settings, user_text: str, history: list[Message]) -> str | None:
-    api_key = settings.gemini_api_key.strip()
-    if not api_key:
-        return None
-
+def _gemini_reply(
+    settings: Settings,
+    user_text: str,
+    history: list[Message],
+    *,
+    usage: UsageContext | None = None,
+) -> str | None:
     contents: list[dict] = []
     for msg in history[-12:]:
         if msg.sender_kind == "user":
@@ -126,35 +129,27 @@ def _gemini_reply(settings: Settings, user_text: str, history: list[Message]) ->
             contents.append({"role": "model", "parts": [{"text": msg.body}]})
     contents.append({"role": "user", "parts": [{"text": user_text}]})
 
-    # Gemini requires alternating user/model; drop leading model turns if any.
     while contents and contents[0]["role"] == "model":
         contents.pop(0)
 
     model = settings.gemini_model.strip() or "gemini-3.5-flash"
-    base = settings.gemini_api_base.rstrip("/")
-    url = f"{base}/models/{model}:generateContent"
-
-    try:
-        with httpx.Client(timeout=45.0) as client:
-            res = client.post(
-                url,
-                params={"key": api_key},
-                headers={"Content-Type": "application/json"},
-                json={
-                    "systemInstruction": {"parts": [{"text": SYSTEM_PROMPT}]},
-                    "contents": contents,
-                    "generationConfig": {
-                        "temperature": 0.5,
-                        "maxOutputTokens": 2048,
-                        # Gemini 3.x thinking can consume the output budget — keep low for chat.
-                        "thinkingConfig": {"thinkingBudget": 0},
-                    },
-                },
-            )
-            res.raise_for_status()
-            return _extract_gemini_text(res.json())
-    except Exception:
-        return None
+    agent_usage = usage or UsageContext(operation="agent")
+    if agent_usage.operation == "unknown":
+        agent_usage.operation = "agent"
+    result = call_gemini(
+        settings,
+        GeminiCall(
+            system_prompt=SYSTEM_PROMPT,
+            contents=contents,
+            model=model,
+            temperature=0.5,
+            max_output_tokens=2048,
+            timeout_s=45.0,
+            attempts=1,
+            usage=agent_usage,
+        ),
+    )
+    return result.text
 
 
 def generate_agent_reply(
@@ -175,7 +170,18 @@ def generate_agent_reply(
         .order_by(Message.created_at.asc())
         .all()
     )
-    llm = _gemini_reply(settings, user_message.body, history)
+    llm = _gemini_reply(
+        settings,
+        user_message.body,
+        history,
+        usage=UsageContext(
+            space_id=thread.space_id,
+            thread_id=thread.id,
+            message_id=user_message.id,
+            user_id=user_message.sender_user_id,
+            operation="agent",
+        ),
+    )
     if llm:
         return llm
     return template_reply(user_message.body)

@@ -14,6 +14,7 @@ from dataclasses import dataclass, field
 import httpx
 
 from ..config import Settings
+from .ai_usage import UsageContext, _chars_from_gemini_contents, record_usage
 
 _JSON_FENCE = re.compile(r"^\s*```(?:json)?\s*|\s*```\s*$", re.IGNORECASE)
 
@@ -24,6 +25,9 @@ class GeminiResult:
     finish_reason: str | None = None
     error: str | None = None
     latency_ms: int = 0
+    prompt_tokens: int | None = None
+    completion_tokens: int | None = None
+    total_tokens: int | None = None
 
     @property
     def ok(self) -> bool:
@@ -42,6 +46,22 @@ class GeminiCall:
     timeout_s: float = 60.0
     attempts: int = 2
     generation_extra: dict = field(default_factory=dict)
+    usage: UsageContext | None = None
+    audio_bytes: int = 0
+
+
+def parse_usage_metadata(data: dict) -> tuple[int | None, int | None, int | None]:
+    usage = data.get("usageMetadata") or {}
+    if not isinstance(usage, dict):
+        return None, None, None
+    prompt = usage.get("promptTokenCount")
+    completion = usage.get("candidatesTokenCount")
+    total = usage.get("totalTokenCount")
+    return (
+        int(prompt) if prompt is not None else None,
+        int(completion) if completion is not None else None,
+        int(total) if total is not None else None,
+    )
 
 
 def extract_text(data: dict) -> tuple[str | None, str | None]:
@@ -65,12 +85,49 @@ def extract_text(data: dict) -> tuple[str | None, str | None]:
     return text or None, finish_reason
 
 
+def _telemetry(
+    *,
+    call: GeminiCall,
+    result: GeminiResult,
+    input_chars: int,
+    output_chars: int,
+) -> None:
+    ctx = call.usage
+    if ctx is None:
+        return
+    record_usage(
+        service="gemini",
+        provider="gemini",
+        operation=ctx.operation,
+        model=call.model,
+        input_tokens=result.prompt_tokens,
+        output_tokens=result.completion_tokens,
+        input_chars=input_chars + len(call.system_prompt or ""),
+        output_chars=output_chars,
+        audio_bytes=call.audio_bytes,
+        latency_ms=result.latency_ms,
+        ok=result.ok and not result.error,
+        error=result.error,
+        context=ctx,
+        meta={"finish_reason": result.finish_reason} if result.finish_reason else None,
+    )
+
+
 def call_gemini(settings: Settings, call: GeminiCall) -> GeminiResult:
     api_key = settings.gemini_api_key.strip()
     if not api_key:
-        return GeminiResult(error="no_api_key")
+        result = GeminiResult(error="no_api_key")
+        _telemetry(
+            call=call,
+            result=result,
+            input_chars=_chars_from_gemini_contents(call.contents),
+            output_chars=0,
+        )
+        return result
     if not call.contents:
-        return GeminiResult(error="empty_contents")
+        result = GeminiResult(error="empty_contents")
+        _telemetry(call=call, result=result, input_chars=0, output_chars=0)
+        return result
 
     generation: dict = {
         "temperature": call.temperature,
@@ -91,8 +148,13 @@ def call_gemini(settings: Settings, call: GeminiCall) -> GeminiResult:
         "generationConfig": generation,
     }
 
+    input_chars = _chars_from_gemini_contents(call.contents)
     started = time.monotonic()
     last_error = "unknown"
+    last_prompt_tokens: int | None = None
+    last_completion_tokens: int | None = None
+    last_total_tokens: int | None = None
+
     for attempt in range(max(1, call.attempts)):
         try:
             with httpx.Client(timeout=call.timeout_s) as client:
@@ -103,17 +165,44 @@ def call_gemini(settings: Settings, call: GeminiCall) -> GeminiResult:
                     json=payload,
                 )
                 res.raise_for_status()
-                text, finish_reason = extract_text(res.json())
+                data = res.json()
+                last_prompt_tokens, last_completion_tokens, last_total_tokens = (
+                    parse_usage_metadata(data)
+                )
+                text, finish_reason = extract_text(data)
                 elapsed = int((time.monotonic() - started) * 1000)
                 if not text:
-                    return GeminiResult(
+                    result = GeminiResult(
                         finish_reason=finish_reason,
                         error="empty_text",
                         latency_ms=elapsed,
+                        prompt_tokens=last_prompt_tokens,
+                        completion_tokens=last_completion_tokens,
+                        total_tokens=last_total_tokens,
                     )
-                return GeminiResult(
-                    text=text, finish_reason=finish_reason, latency_ms=elapsed
+                    _telemetry(
+                        call=call,
+                        result=result,
+                        input_chars=input_chars,
+                        output_chars=0,
+                    )
+                    return result
+                output_chars = len(text)
+                result = GeminiResult(
+                    text=text,
+                    finish_reason=finish_reason,
+                    latency_ms=elapsed,
+                    prompt_tokens=last_prompt_tokens,
+                    completion_tokens=last_completion_tokens,
+                    total_tokens=last_total_tokens,
                 )
+                _telemetry(
+                    call=call,
+                    result=result,
+                    input_chars=input_chars,
+                    output_chars=output_chars,
+                )
+                return result
         except httpx.HTTPStatusError as exc:
             status = exc.response.status_code
             last_error = f"http_{status}"
@@ -125,9 +214,16 @@ def call_gemini(settings: Settings, call: GeminiCall) -> GeminiResult:
         if attempt + 1 < max(1, call.attempts):
             time.sleep(0.4 * (attempt + 1))
 
-    return GeminiResult(
-        error=last_error, latency_ms=int((time.monotonic() - started) * 1000)
+    elapsed = int((time.monotonic() - started) * 1000)
+    result = GeminiResult(
+        error=last_error,
+        latency_ms=elapsed,
+        prompt_tokens=last_prompt_tokens,
+        completion_tokens=last_completion_tokens,
+        total_tokens=last_total_tokens,
     )
+    _telemetry(call=call, result=result, input_chars=input_chars, output_chars=0)
+    return result
 
 
 def parse_json_object(raw: str | None) -> dict | None:

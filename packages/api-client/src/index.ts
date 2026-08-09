@@ -196,6 +196,40 @@ export interface SpaceSettings {
   updated_at?: string | null;
 }
 
+export interface AiUsageBucket {
+  label: string;
+  service: string;
+  operation: string;
+  calls: number;
+  ok_calls: number;
+  estimated_usd: number;
+  input_tokens: number;
+  output_tokens: number;
+  input_chars: number;
+  output_chars: number;
+  latency_ms: number;
+}
+
+export interface AiUsageDaily {
+  date: string;
+  calls: number;
+  estimated_usd: number;
+}
+
+export interface AiUsageSummary {
+  period_days: number;
+  from: string;
+  to: string;
+  totals: {
+    estimated_usd: number;
+    calls: number;
+    by_service: AiUsageBucket[];
+    by_operation: AiUsageBucket[];
+  };
+  daily: AiUsageDaily[];
+  disclaimer: string;
+}
+
 export interface IdentityProfile {
   id: string;
   space_id: string;
@@ -954,6 +988,10 @@ export function createApiClient({
         method: "PATCH",
         body: JSON.stringify(payload),
       }),
+    getAiUsage: (spaceId: string, days = 30) =>
+      request<AiUsageSummary>(
+        `/api/spaces/${spaceId}/ai-usage?days=${Math.max(1, Math.min(366, days))}`,
+      ),
     listIdentities: (spaceId: string, includeArchived = false) =>
       request<{ identities: IdentityProfile[] }>(
         `/api/spaces/${spaceId}/identities${
