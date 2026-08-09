@@ -41,6 +41,7 @@ import {
 import { RecordingLevelMeter } from "@/lib/recordingMeter";
 import { VOICE_RECORDING_OPTIONS } from "@/lib/recordingOptions";
 import { useAuth } from "@/lib/auth";
+import { formatMessageTime } from "@/lib/datetime";
 import { fetchAuthedMediaUri } from "@/lib/media";
 import { useSpaceScreenOptions } from "@/lib/spaceHeader";
 import { colors } from "@/lib/theme";
@@ -120,11 +121,18 @@ const ChatMessageRow = memo(function ChatMessageRow({
   const isAgent = item.sender_kind === "agent";
   const isHeritage = item.sender_kind === "heritage";
   const voice = isVoiceMessage(item);
+  const transcript = voice ? item.body.trim() : displayBody;
+  const when = formatMessageTime(item.created_at);
   return (
     <Pressable
+      onPress={voice ? () => onPlay(item) : undefined}
       onLongPress={() => onSave(item)}
       delayLongPress={350}
       style={[styles.row, mine ? styles.rowMine : styles.rowTheirs]}
+      accessibilityRole={voice ? "button" : undefined}
+      accessibilityLabel={
+        voice ? (playing ? "Dừng phát" : "Chạm để nghe") : undefined
+      }
     >
       {!mine ? (
         <Text
@@ -149,32 +157,19 @@ const ChatMessageRow = memo(function ChatMessageRow({
           !mine && !isAgent && !isHeritage && styles.bubbleTheirs,
           isAgent && styles.bubbleAgent,
           isHeritage && styles.bubbleHeritage,
+          voice && playing && styles.bubblePlaying,
         ]}
       >
-        {voice ? (
-          <Pressable
-            onPress={() => onPlay(item)}
-            style={styles.voiceRow}
-            hitSlop={8}
-          >
-            <Text style={[styles.voicePlay, mine && styles.bodyMine]}>
-              {playing ? "Dừng" : "Phát"}
-            </Text>
-            <View style={styles.voiceMeta}>
-              <Text style={[styles.body, mine && styles.bodyMine]}>
-                Giọng nói
-              </Text>
-              {item.body.trim() ? (
-                <Text style={[styles.caption, mine && styles.captionMine]}>
-                  {item.body.trim()}
-                </Text>
-              ) : null}
-            </View>
-          </Pressable>
-        ) : (
-          <Text style={[styles.body, mine && styles.bodyMine]}>{displayBody}</Text>
-        )}
+        <Text style={[styles.body, mine && styles.bodyMine]}>
+          {transcript || (voice ? (playing ? "Đang phát…" : "Chạm để nghe") : "")}
+        </Text>
       </View>
+      {when ? (
+        <Text style={[styles.time, mine && styles.timeMine]}>
+          {playing && voice ? "Đang phát · " : ""}
+          {when}
+        </Text>
+      ) : null}
     </Pressable>
   );
 });
@@ -674,15 +669,15 @@ export default function ChatScreen() {
           : recording
             ? "Nói vào micro — nhấn Dừng & gửi khi xong"
             : isHeritageThread
-              ? "Giữ tin nhắn để lưu · Gọi bằng giọng nếu không muốn gõ"
-              : "Giữ tin nhắn để lưu vào thư viện"}
+              ? "Giữ tin nhắn để lưu · Chạm tin giọng để nghe"
+              : "Giữ tin nhắn để lưu vào thư viện · Chạm tin giọng để nghe"}
       </Text>
       {isHeritageThread && !heritageBlocked && !recording ? (
         <Pressable
           onPress={() => threadId && router.push(`/call/${threadId}`)}
           style={styles.callHint}
         >
-          <Text style={styles.callHintText}>Gọi bằng giọng →</Text>
+          <Text style={styles.callHintText}>← Quay lại gọi bằng giọng</Text>
         </Pressable>
       ) : null}
       {heritageBlocked ? (
@@ -821,11 +816,21 @@ const styles = StyleSheet.create({
   },
   body: { fontSize: 16, lineHeight: 22, color: colors.ink },
   bodyMine: { color: "#f4efe6" },
-  voiceRow: { flexDirection: "row", alignItems: "center", gap: 10, minWidth: 140 },
-  voicePlay: { fontSize: 14, fontWeight: "700", color: colors.ink, minWidth: 36 },
-  voiceMeta: { flexShrink: 1 },
-  caption: { fontSize: 13, color: colors.inkSoft, marginTop: 2 },
-  captionMine: { color: "rgba(244, 239, 230, 0.75)" },
+  bubblePlaying: {
+    opacity: 0.88,
+  },
+  time: {
+    fontSize: 11,
+    lineHeight: 14,
+    color: colors.inkSoft,
+    marginTop: 4,
+    marginLeft: 4,
+  },
+  timeMine: {
+    alignSelf: "flex-end",
+    marginLeft: 0,
+    marginRight: 4,
+  },
   hint: {
     textAlign: "center",
     fontSize: 12,

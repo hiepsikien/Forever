@@ -74,6 +74,12 @@ def test_record_and_aggregate():
         summary = aggregate_space_usage(db, space_id=space_id, days=30)
         assert summary["totals"]["calls"] == 2
         assert summary["totals"]["estimated_usd"] > 0
+        modalities = {
+            row["operation"]: row["calls"] for row in summary["totals"]["by_modality"]
+        }
+        assert modalities.get("stt") == 1
+        assert modalities.get("tts") == 1
+        assert "llm" not in modalities
     finally:
         db.query(AiUsageEvent).filter(AiUsageEvent.space_id == space_id).delete()
         db.commit()

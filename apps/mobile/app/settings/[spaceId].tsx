@@ -454,6 +454,32 @@ export default function SettingsScreen() {
                 </Text>
               </View>
 
+              {(aiUsage.totals.by_modality ?? []).length > 0 ? (
+                <>
+                  <Text style={styles.section}>Theo loại AI</Text>
+                  <View style={styles.card}>
+                    {aiUsage.totals.by_modality.map((row) => (
+                      <View key={row.operation || row.label} style={styles.usageRow}>
+                        <Text style={styles.usageRowLabel}>{row.label}</Text>
+                        <Text style={styles.usageRowValue}>
+                          {formatUsd(row.estimated_usd)} · {row.calls} lần
+                        </Text>
+                        {row.operation === "tts" && row.output_chars ? (
+                          <Text style={styles.metaLine}>
+                            {row.output_chars.toLocaleString()} ký tự
+                          </Text>
+                        ) : row.input_tokens || row.output_tokens ? (
+                          <Text style={styles.metaLine}>
+                            {row.input_tokens.toLocaleString()} token vào ·{" "}
+                            {row.output_tokens.toLocaleString()} token ra
+                          </Text>
+                        ) : null}
+                      </View>
+                    ))}
+                  </View>
+                </>
+              ) : null}
+
               {aiUsage.totals.by_service.length > 0 ? (
                 <>
                   <Text style={styles.section}>Theo nhà cung cấp</Text>

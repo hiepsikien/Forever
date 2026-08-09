@@ -171,6 +171,25 @@ def record_usage(
         logger.exception("ai usage record failed op=%s svc=%s", op, svc)
 
 
+_MODALITY_ORDER = ("llm", "tts", "stt")
+_MODALITY_LABELS = {
+    "llm": "LLM",
+    "tts": "TTS",
+    "stt": "STT",
+}
+_TTS_OPERATIONS = frozenset({"tts_chat", "tts_lab"})
+
+
+def modality_for_operation(operation: str) -> str:
+    """Roll fine-grained operations into LLM / TTS / STT."""
+    op = (operation or "").strip().lower()
+    if op == "stt":
+        return "stt"
+    if op in _TTS_OPERATIONS or op.startswith("tts"):
+        return "tts"
+    return "llm"
+
+
 def _bucket_label(service: str, operation: str) -> str:
     if service == "gemini":
         if operation == "stt":
@@ -218,15 +237,39 @@ def aggregate_space_usage(db: Session, *, space_id: str, days: int = 30) -> dict
     total_calls = len(rows)
     by_service: dict[str, dict] = {}
     by_operation: dict[str, dict] = {}
+    by_modality: dict[str, dict] = {
+        key: {
+            "label": _MODALITY_LABELS[key],
+            "service": key,
+            "operation": key,
+            "calls": 0,
+            "ok_calls": 0,
+            "estimated_usd": 0.0,
+            "input_tokens": 0,
+            "output_tokens": 0,
+            "input_chars": 0,
+            "output_chars": 0,
+            "latency_ms": 0,
+        }
+        for key in _MODALITY_ORDER
+    }
     daily: dict[str, dict] = {}
 
-    def _acc(bucket: dict, key: str, row: AiUsageEvent) -> None:
+    def _acc(
+        bucket: dict,
+        key: str,
+        row: AiUsageEvent,
+        *,
+        label: str | None = None,
+        service: str | None = None,
+        operation: str | None = None,
+    ) -> None:
         entry = bucket.setdefault(
             key,
             {
-                "label": _bucket_label(row.service, row.operation),
-                "service": row.service,
-                "operation": row.operation,
+                "label": label or _bucket_label(row.service, row.operation),
+                "service": service if service is not None else row.service,
+                "operation": operation if operation is not None else row.operation,
                 "calls": 0,
                 "ok_calls": 0,
                 "estimated_usd": 0.0,
@@ -255,6 +298,15 @@ def aggregate_space_usage(db: Session, *, space_id: str, days: int = 30) -> dict
         total_cost += row.estimated_cost_usd or 0
         _acc(by_service, row.service, row)
         _acc(by_operation, row.operation, row)
+        modality = modality_for_operation(row.operation)
+        _acc(
+            by_modality,
+            modality,
+            row,
+            label=_MODALITY_LABELS[modality],
+            service=modality,
+            operation=modality,
+        )
         day = row.created_at.date().isoformat()
         day_entry = daily.setdefault(
             day, {"date": day, "calls": 0, "estimated_usd": 0.0}
@@ -264,13 +316,18 @@ def aggregate_space_usage(db: Session, *, space_id: str, days: int = 30) -> dict
             day_entry["estimated_usd"] + (row.estimated_cost_usd or 0), 6
         )
 
-    # Round service totals
+    # Round bucket totals
     for entry in by_service.values():
         entry["estimated_usd"] = round(entry["estimated_usd"], 4)
     for entry in by_operation.values():
         entry["estimated_usd"] = round(entry["estimated_usd"], 4)
+    for entry in by_modality.values():
+        entry["estimated_usd"] = round(entry["estimated_usd"], 4)
 
     daily_list = sorted(daily.values(), key=lambda d: d["date"])
+    modality_list = [
+        by_modality[key] for key in _MODALITY_ORDER if by_modality[key]["calls"] > 0
+    ]
 
     return {
         "period_days": days,
@@ -279,6 +336,7 @@ def aggregate_space_usage(db: Session, *, space_id: str, days: int = 30) -> dict
         "totals": {
             "estimated_usd": round(total_cost, 4),
             "calls": total_calls,
+            "by_modality": modality_list,
             "by_service": sorted(
                 by_service.values(), key=lambda x: -x["estimated_usd"]
             ),

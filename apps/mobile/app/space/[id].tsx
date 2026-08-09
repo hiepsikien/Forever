@@ -64,20 +64,20 @@ function threadRowMeta(item: ThreadSummary): { preview: string; cta: string; cal
       if (item.last_message) {
         return {
           preview: threadPreview(item),
-          cta: "Vào trò chuyện →",
+          cta: "Gọi bằng giọng →",
           callReady: true,
         };
       }
       if (isDirect(item)) {
         return {
           preview: "Chỉ bạn đọc được — không ai khác trong nhà thấy",
-          cta: "Nói riêng →",
+          cta: "Nói riêng bằng giọng →",
           callReady: true,
         };
       }
       return {
-        preview: "Sẵn sàng trò chuyện — gửi lời chào",
-        cta: "Bắt đầu chat →",
+        preview: "Sẵn sàng trò chuyện — bấm để gọi bằng giọng",
+        cta: "Gọi bằng giọng →",
         callReady: true,
       };
     }
@@ -218,11 +218,16 @@ export default function SpaceScreen() {
           id,
           item.pendingDirectFor,
         );
-        router.push(`/chat/${thread.id}`);
+        // Mẹ vào nói chuyện trước — chat chữ vẫn mở được từ màn gọi.
+        router.push(`/call/${thread.id}`);
         load({ silent: true });
       } catch (e) {
         setError(e instanceof Error ? e.message : "Không mở được phòng riêng.");
       }
+      return;
+    }
+    if (item.kind === "heritage" && item.heritage?.chat_ready) {
+      router.push(`/call/${item.id}`);
       return;
     }
     router.push(`/chat/${item.id}`);
@@ -246,7 +251,7 @@ export default function SpaceScreen() {
               ? threadPreview(livingRoomThread)
               : "Sẵn sàng trò chuyện — gửi lời chào"}
           </Text>
-          <Text style={styles.heroCta}>Vào trò chuyện →</Text>
+          <Text style={styles.heroCta}>Gọi bằng giọng →</Text>
         </Pressable>
       ) : (
         <View style={styles.heroMuted}>
@@ -365,11 +370,11 @@ export default function SpaceScreen() {
                 <Pressable
                   onPress={(e) => {
                     e.stopPropagation?.();
-                    router.push(`/call/${item.id}`);
+                    router.push(`/chat/${item.id}`);
                   }}
                   hitSlop={8}
                 >
-                  <Text style={styles.callCta}>Gọi bằng giọng →</Text>
+                  <Text style={styles.callCta}>Xem chữ →</Text>
                 </Pressable>
               ) : null}
             </View>

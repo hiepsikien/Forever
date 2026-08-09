@@ -35,6 +35,7 @@ import {
   sentenceIndexForProgress,
   splitIntoSentences,
 } from "@/lib/callFollowAlong";
+import { formatMessageTime } from "@/lib/datetime";
 import { fetchAuthedMediaUri } from "@/lib/media";
 import { RecordingLevelMeter } from "@/lib/recordingMeter";
 import { VOICE_RECORDING_OPTIONS } from "@/lib/recordingOptions";
@@ -53,8 +54,10 @@ type CallPhase =
 type CallTurn = {
   userMessageId: string;
   userText: string;
+  userAt: string;
   replyId: string;
   replyText: string;
+  replyAt: string;
   hasMedia: boolean;
 };
 
@@ -99,18 +102,22 @@ function buildTurns(messages: ChatMessage[], limit = RECENT_TURN_LIMIT): CallTur
     if (!isHeritageReply(m)) continue;
     let userMessageId = "";
     let userText = "";
+    let userAt = "";
     for (let j = i - 1; j >= 0; j--) {
       if (isUserMessage(messages[j])) {
         userMessageId = messages[j].id;
         userText = (messages[j].body || "").trim();
+        userAt = messages[j].created_at || "";
         break;
       }
     }
     turns.push({
       userMessageId,
       userText,
+      userAt,
       replyId: m.id,
       replyText: (m.body || "").trim(),
+      replyAt: m.created_at || "",
       hasMedia: Boolean(m.has_media),
     });
   }
@@ -647,11 +654,6 @@ export default function CallScreen() {
         {turns.map((turn, turnIndex) => {
           const isLatest = turnIndex === turns.length - 1;
           const playingThis = playingReplyId === turn.replyId;
-          const showInlineListen =
-            turn.hasMedia &&
-            phase === "idle" &&
-            !isLatest &&
-            Boolean(turn.replyText);
           return (
             <View
               key={turn.replyId}
@@ -671,10 +673,15 @@ export default function CallScreen() {
                   <Text style={[styles.bubbleText, { color: "#fff" }]}>
                     {turn.userText}
                   </Text>
+                  {turn.userAt ? (
+                    <Text style={[styles.bubbleTime, { color: "rgba(244,239,230,0.7)" }]}>
+                      {formatMessageTime(turn.userAt)}
+                    </Text>
+                  ) : null}
                 </View>
               ) : null}
               {turn.replyText ? (
-                <View
+                <Pressable
                   style={[
                     styles.bubbleHeritage,
                     playingThis && styles.bubbleHeritagePlaying,
@@ -685,6 +692,15 @@ export default function CallScreen() {
                       e.nativeEvent.layout.y,
                     );
                   }}
+                  onPress={
+                    turn.hasMedia && phase === "idle"
+                      ? () => void playReply(turn.replyId, turn.replyText)
+                      : undefined
+                  }
+                  accessibilityRole={turn.hasMedia ? "button" : undefined}
+                  accessibilityLabel={
+                    turn.hasMedia ? "Chạm để nghe lại" : undefined
+                  }
                 >
                   <Text style={[styles.bubbleLabel, { color: colors.brandSoft }]}>
                     {relation} trả lời
@@ -703,17 +719,16 @@ export default function CallScreen() {
                       );
                     }}
                   />
-                  {showInlineListen ? (
-                    <Pressable
-                      onPress={() =>
-                        void playReply(turn.replyId, turn.replyText)
-                      }
-                      style={styles.inlineListenBtn}
-                      accessibilityRole="button"
-                      accessibilityLabel="Nghe lại câu này"
-                    >
-                      <Text style={styles.inlineListenText}>▶  Nghe lại</Text>
-                    </Pressable>
+                  {turn.replyAt || playingThis ? (
+                    <Text style={styles.bubbleTime}>
+                      {playingThis && phase !== "loading"
+                        ? "Đang phát"
+                        : ""}
+                      {playingThis && phase !== "loading" && turn.replyAt
+                        ? " · "
+                        : ""}
+                      {turn.replyAt ? formatMessageTime(turn.replyAt) : ""}
+                    </Text>
                   ) : null}
                   {playingThis && phase === "loading" ? (
                     <View style={styles.inlineLoading}>
@@ -721,7 +736,7 @@ export default function CallScreen() {
                       <Text style={styles.inlineLoadingText}>Đang tải…</Text>
                     </View>
                   ) : null}
-                </View>
+                </Pressable>
               ) : null}
             </View>
           );
@@ -958,6 +973,12 @@ const styles = StyleSheet.create({
     fontSize: 19,
     lineHeight: 28,
   },
+  bubbleTime: {
+    fontFamily: fonts.body,
+    fontSize: 12,
+    color: colors.inkSoft,
+    marginTop: 6,
+  },
   sentence: {
     fontFamily: fonts.body,
     fontSize: 19,
@@ -975,23 +996,6 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(45, 74, 62, 0.14)",
     color: colors.ink,
     fontWeight: "600",
-  },
-  inlineListenBtn: {
-    alignSelf: "stretch",
-    marginTop: 4,
-    backgroundColor: colors.brand,
-    borderRadius: 14,
-    paddingVertical: 14,
-    paddingHorizontal: 16,
-    alignItems: "center",
-    minHeight: 52,
-    justifyContent: "center",
-  },
-  inlineListenText: {
-    fontFamily: fonts.body,
-    fontSize: 18,
-    fontWeight: "700",
-    color: "#fff",
   },
   inlineLoading: {
     flexDirection: "row",

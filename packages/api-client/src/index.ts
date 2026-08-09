@@ -223,6 +223,7 @@ export interface AiUsageSummary {
   totals: {
     estimated_usd: number;
     calls: number;
+    by_modality: AiUsageBucket[];
     by_service: AiUsageBucket[];
     by_operation: AiUsageBucket[];
   };
