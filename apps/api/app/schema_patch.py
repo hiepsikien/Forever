@@ -340,6 +340,11 @@ def ensure_schema() -> None:
         "tts_prefs_json",
         "ALTER TABLE voice_profiles ADD COLUMN tts_prefs_json TEXT DEFAULT ''",
     )
+    _add_column_if_missing(
+        "space_settings",
+        "heritage_pipeline_json",
+        "ALTER TABLE space_settings ADD COLUMN heritage_pipeline_json TEXT DEFAULT ''",
+    )
     _backfill_heritage_threads()
     try:
         with engine.begin() as conn:

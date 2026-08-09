@@ -198,6 +198,8 @@ class SpaceSettings(Base):
         ForeignKey("family_spaces.id"), primary_key=True
     )
     elevenlabs_api_key: Mapped[str | None] = mapped_column(String(256), nullable=True)
+    # Optional JSON overrides for heritage AI stages — see heritage_pipeline.py.
+    heritage_pipeline_json: Mapped[str] = mapped_column(Text, default="")
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     updated_by: Mapped[str | None] = mapped_column(ForeignKey("users.id"), nullable=True)
 

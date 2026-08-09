@@ -187,6 +187,20 @@ export interface InterviewPrompt {
   memory_item_id?: string | null;
 }
 
+export interface HeritagePipelineFlag {
+  key: string;
+  label: string;
+  help: string;
+  enabled: boolean;
+  server_default: boolean;
+  overridden: boolean;
+}
+
+export interface HeritagePipelineSettings {
+  flags: HeritagePipelineFlag[];
+  note: string;
+}
+
 export interface SpaceSettings {
   elevenlabs_api_key_set: boolean;
   elevenlabs_api_key_hint: string;
@@ -194,6 +208,7 @@ export interface SpaceSettings {
   consent_self: string;
   consent_heritage: string;
   updated_at?: string | null;
+  heritage_pipeline?: HeritagePipelineSettings;
 }
 
 export interface AiUsageBucket {
@@ -983,7 +998,10 @@ export function createApiClient({
       request<SpaceSettings>(`/api/spaces/${spaceId}/settings`),
     updateSpaceSettings: (
       spaceId: string,
-      payload: { elevenlabs_api_key?: string | null },
+      payload: {
+        elevenlabs_api_key?: string | null;
+        heritage_pipeline?: Record<string, boolean | null>;
+      },
     ) =>
       request<SpaceSettings>(`/api/spaces/${spaceId}/settings`, {
         method: "PATCH",

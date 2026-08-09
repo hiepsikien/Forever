@@ -34,6 +34,7 @@ from .heritage_grounding import (
     find_ungrounded,
 )
 from .heritage_candidates import enqueue_facts
+from .heritage_pipeline import load_heritage_pipeline
 from .heritage_memory import (
     MemoryState,
     avoid_block,
@@ -826,16 +827,22 @@ def _enforce_grounding(
     max_output_tokens: int,
     year_corpus: str | None = None,
     usage: UsageContext | None = None,
+    grounding_enabled: bool | None = None,
+    critic_enabled: bool | None = None,
 ) -> tuple[str, dict | None]:
     """Rewrite, trim, or replace a reply that asserts something we cannot show."""
-    if not settings.heritage_grounding_enabled:
+    if grounding_enabled is None:
+        grounding_enabled = settings.heritage_grounding_enabled
+    if critic_enabled is None:
+        critic_enabled = settings.heritage_critic_enabled
+    if not grounding_enabled:
         return body, None
     found = find_ungrounded(body, corpus=corpus, year_corpus=year_corpus)
     if found.clean:
         return body, None
 
     info = found.as_meta()
-    if not settings.heritage_critic_enabled:
+    if not critic_enabled:
         # Names are a heuristic — flag only. Years are reliable digits: drop the
         # sentence even with the critic off, so a user-asked «2030» cannot stay
         # in the letter just because critic is disabled.
@@ -890,6 +897,7 @@ def generate_heritage_reply(
     settings: Settings | None = None,
 ) -> tuple[str, dict]:
     settings = settings or get_settings()
+    pipeline = load_heritage_pipeline(db, thread.space_id, settings=settings)
     user_text = (user_message.body or "").strip()
 
     if looks_like_taboo(user_text) or looks_like_fabrication_request(user_text):
@@ -917,7 +925,7 @@ def generate_heritage_reply(
         user_id=user_message.sender_user_id,
         operation="heritage_compose",
     )
-    if settings.heritage_analyzer_enabled:
+    if pipeline.analyzer:
         frame = analyze_turn(
             settings,
             user_text=user_text,
@@ -1012,7 +1020,7 @@ def generate_heritage_reply(
     )
 
     repeat_reason = None
-    if settings.heritage_anti_repeat_enabled and llm:
+    if pipeline.anti_repeat and llm:
         llm, finish_reason, repeat_reason = _retry_if_repetitive(
             settings,
             reply=llm,
@@ -1047,6 +1055,8 @@ def generate_heritage_reply(
         audience=audience,
         max_output_tokens=frame.max_output_tokens,
         usage=usage,
+        grounding_enabled=pipeline.grounding,
+        critic_enabled=pipeline.critic,
     )
 
     all_poems = signature + retrieved
@@ -1128,7 +1138,8 @@ def maybe_heritage_reply(
     kind = "text"
     media_path = None
     media_mime = None
-    if settings.heritage_tts_enabled and (body or "").strip():
+    pipeline = load_heritage_pipeline(db, thread.space_id, settings=settings)
+    if pipeline.tts and (body or "").strip():
         from .heritage_tts import synthesize_chat_reply
 
         voice = voice_for_identity(db, identity)

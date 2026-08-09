@@ -52,8 +52,6 @@ def _heritage_sender_name(db: Session, thread: Thread, sender_kind: str) -> str 
 def _apply_stt(db: Session, message: Message) -> None:
     """Fill Message.body from audio when caption is empty. Never raises."""
     settings = get_settings()
-    if not settings.stt_enabled:
-        return
     if (message.kind or "") != "voice":
         return
     if not message.media_path:
@@ -64,6 +62,13 @@ def _apply_stt(db: Session, message: Message) -> None:
     path = absolute_media_path(message.media_path)
     thread = db.query(Thread).filter(Thread.id == message.thread_id).one_or_none()
     from ..services.ai_usage import UsageContext
+    from ..services.heritage_pipeline import load_heritage_pipeline
+
+    if thread is not None:
+        if not load_heritage_pipeline(db, thread.space_id, settings=settings).stt:
+            return
+    elif not settings.stt_enabled:
+        return
 
     transcript = transcribe(
         settings,

@@ -14,6 +14,7 @@ import {
   Pressable,
   ScrollView,
   StyleSheet,
+  Switch,
   Text,
   TextInput,
   View,
@@ -58,6 +59,7 @@ export default function SettingsScreen() {
   const [aiUsage, setAiUsage] = useState<AiUsageSummary | null>(null);
   const [usageLoading, setUsageLoading] = useState(false);
   const [usageDays, setUsageDays] = useState(30);
+  const [pipelineBusyKey, setPipelineBusyKey] = useState<string | null>(null);
 
   useSpaceScreenOptions({
     spaceId,
@@ -99,6 +101,42 @@ export default function SettingsScreen() {
       setUsageLoading(false);
     }
   }, [api, spaceId, usageDays]);
+
+  const togglePipelineFlag = async (key: string, enabled: boolean) => {
+    if (!spaceId || !settings?.can_edit || pipelineBusyKey) return;
+    setPipelineBusyKey(key);
+    try {
+      const res = await api.updateSpaceSettings(spaceId, {
+        heritage_pipeline: { [key]: enabled },
+      });
+      setSettings(res);
+    } catch (e) {
+      Alert.alert(
+        "Lỗi",
+        e instanceof Error ? e.message : "Không lưu được cờ luồng AI.",
+      );
+    } finally {
+      setPipelineBusyKey(null);
+    }
+  };
+
+  const resetPipelineFlag = async (key: string) => {
+    if (!spaceId || !settings?.can_edit || pipelineBusyKey) return;
+    setPipelineBusyKey(key);
+    try {
+      const res = await api.updateSpaceSettings(spaceId, {
+        heritage_pipeline: { [key]: null },
+      });
+      setSettings(res);
+    } catch (e) {
+      Alert.alert(
+        "Lỗi",
+        e instanceof Error ? e.message : "Không đặt lại được.",
+      );
+    } finally {
+      setPipelineBusyKey(null);
+    }
+  };
 
   useLayoutEffect(() => {
     load();
@@ -370,7 +408,7 @@ export default function SettingsScreen() {
             onPress={() => setTab("ai")}
           >
             <Text style={[styles.tabText, tab === "ai" && styles.tabTextActive]}>
-              Chi phí AI
+              AI
             </Text>
           </Pressable>
         ) : null}
@@ -422,7 +460,58 @@ export default function SettingsScreen() {
         </>
       ) : tab === "ai" ? (
         <>
-          <Text style={styles.section}>Chi phí AI</Text>
+          <Text style={styles.section}>Luồng ký ức</Text>
+          <Text style={styles.help}>
+            Bật/tắt từng bước khi Bố trả lời. Mặc định theo server; chỉnh ở đây
+            chỉ áp dụng nhà này.
+          </Text>
+          <View style={styles.card}>
+            {(settings?.heritage_pipeline?.flags ?? []).map((flag, index, arr) => {
+              const busy = pipelineBusyKey === flag.key;
+              return (
+                <View
+                  key={flag.key}
+                  style={[
+                    styles.pipelineRow,
+                    index < arr.length - 1 && styles.pipelineRowBorder,
+                  ]}
+                >
+                  <View style={styles.pipelineMain}>
+                    <Text style={styles.pipelineLabel}>{flag.label}</Text>
+                    <Text style={styles.pipelineHelp}>{flag.help}</Text>
+                    <Text style={styles.metaLine}>
+                      Server: {flag.server_default ? "bật" : "tắt"}
+                      {flag.overridden ? " · đã ghi đè" : ""}
+                    </Text>
+                    {flag.overridden ? (
+                      <Pressable
+                        onPress={() => void resetPipelineFlag(flag.key)}
+                        disabled={busy}
+                        hitSlop={6}
+                      >
+                        <Text style={styles.pipelineReset}>Theo server →</Text>
+                      </Pressable>
+                    ) : null}
+                  </View>
+                  <Switch
+                    value={flag.enabled}
+                    onValueChange={(v) => void togglePipelineFlag(flag.key, v)}
+                    disabled={busy || !settings?.can_edit}
+                    trackColor={{
+                      false: colors.line,
+                      true: "rgba(45, 74, 62, 0.45)",
+                    }}
+                    thumbColor={flag.enabled ? colors.brand : "#f4efe6"}
+                  />
+                </View>
+              );
+            })}
+          </View>
+          {settings?.heritage_pipeline?.note ? (
+            <Text style={styles.footnote}>{settings.heritage_pipeline.note}</Text>
+          ) : null}
+
+          <Text style={[styles.section, { marginTop: 20 }]}>Chi phí AI</Text>
           <Text style={styles.help}>
             Ước tính từ số lần gọi Gemini (LLM, STT) và TTS (ElevenLabs/MiniMax).
             Không phải hoá đơn thật.
@@ -1123,20 +1212,25 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     color: colors.inkSoft,
   },
-  chip: {
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 999,
-    borderWidth: 1,
-    borderColor: colors.line,
-    backgroundColor: colors.card,
+  pipelineRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    paddingVertical: 12,
   },
-  chipActive: {
-    borderColor: colors.brand,
-    backgroundColor: "rgba(45, 74, 62, 0.08)",
+  pipelineRowBorder: {
+    borderBottomWidth: 1,
+    borderBottomColor: colors.line,
   },
-  chipText: { fontSize: 13, fontWeight: "600", color: colors.inkSoft },
-  chipTextActive: { color: colors.brand },
+  pipelineMain: { flex: 1, gap: 4 },
+  pipelineLabel: { fontSize: 16, fontWeight: "700", color: colors.ink },
+  pipelineHelp: { fontSize: 13, lineHeight: 18, color: colors.inkSoft },
+  pipelineReset: {
+    marginTop: 2,
+    fontSize: 13,
+    fontWeight: "600",
+    color: colors.brand,
+  },
   usageTotal: {
     fontFamily: fonts.display,
     fontSize: 32,
