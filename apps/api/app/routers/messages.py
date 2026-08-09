@@ -64,9 +64,12 @@ def _apply_stt(db: Session, message: Message) -> None:
     from ..services.ai_usage import UsageContext
     from ..services.heritage_pipeline import load_heritage_pipeline
 
+    stt_model = None
     if thread is not None:
-        if not load_heritage_pipeline(db, thread.space_id, settings=settings).stt:
+        pipeline = load_heritage_pipeline(db, thread.space_id, settings=settings)
+        if not pipeline.stt:
             return
+        stt_model = pipeline.stt_model
     elif not settings.stt_enabled:
         return
 
@@ -74,6 +77,7 @@ def _apply_stt(db: Session, message: Message) -> None:
         settings,
         path=path,
         mime=getattr(message, "media_mime", None),
+        model=stt_model,
         usage=UsageContext(
             space_id=thread.space_id if thread else None,
             thread_id=message.thread_id,

@@ -678,6 +678,7 @@ def _gemini_heritage_reply(
     history: list[Message],
     max_output_tokens: int = 768,
     usage: UsageContext | None = None,
+    model: str | None = None,
 ) -> tuple[str | None, str | None]:
     contents: list[dict] = []
     for msg in history[-12:]:
@@ -690,13 +691,12 @@ def _gemini_heritage_reply(
     while contents and contents[0]["role"] == "model":
         contents.pop(0)
 
-    model = settings.compose_model
     result = call_gemini(
         settings,
         GeminiCall(
             system_prompt=system_prompt,
             contents=contents,
-            model=model,
+            model=(model or "").strip() or settings.compose_model,
             temperature=0.5,
             max_output_tokens=max_output_tokens,
             timeout_s=60.0,
@@ -783,6 +783,7 @@ def _retry_if_repetitive(
     memory: MemoryState,
     max_output_tokens: int,
     usage: UsageContext | None = None,
+    model: str | None = None,
 ) -> tuple[str, str | None, str | None]:
     """Rewrite once when the reply echoes a recent one. Keeps the fresher of the two."""
     previous = recent_heritage_bodies(history)
@@ -810,6 +811,7 @@ def _retry_if_repetitive(
         history=history,
         max_output_tokens=max_output_tokens,
         usage=repeat_usage,
+        model=model,
     )
     if not retry:
         return reply, finish_reason, reason
@@ -829,6 +831,7 @@ def _enforce_grounding(
     usage: UsageContext | None = None,
     grounding_enabled: bool | None = None,
     critic_enabled: bool | None = None,
+    critic_model: str | None = None,
 ) -> tuple[str, dict | None]:
     """Rewrite, trim, or replace a reply that asserts something we cannot show."""
     if grounding_enabled is None:
@@ -871,6 +874,7 @@ def _enforce_grounding(
         ungrounded=found,
         max_output_tokens=max_output_tokens,
         usage=usage,
+        model=critic_model,
     )
     if rewritten:
         fixed = post_process_reply(rewritten, audience=audience)
@@ -931,6 +935,7 @@ def generate_heritage_reply(
             user_text=user_text,
             history=history,
             entities=entities,
+            model=pipeline.analyzer_model,
             usage=UsageContext(
                 space_id=thread.space_id,
                 thread_id=thread.id,
@@ -1017,6 +1022,7 @@ def generate_heritage_reply(
         history=history,
         max_output_tokens=frame.max_output_tokens,
         usage=usage,
+        model=pipeline.compose_model,
     )
 
     repeat_reason = None
@@ -1031,6 +1037,7 @@ def generate_heritage_reply(
             memory=memory,
             max_output_tokens=frame.max_output_tokens,
             usage=usage,
+            model=pipeline.compose_model,
         )
 
     body = post_process_reply(llm or _FALLBACK, audience=audience)
@@ -1057,6 +1064,7 @@ def generate_heritage_reply(
         usage=usage,
         grounding_enabled=pipeline.grounding,
         critic_enabled=pipeline.critic,
+        critic_model=pipeline.critic_model,
     )
 
     all_poems = signature + retrieved

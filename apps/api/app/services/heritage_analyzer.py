@@ -286,6 +286,7 @@ def analyze_turn(
     entities: list[FamilyEntity],
     today: date | None = None,
     usage: UsageContext | None = None,
+    model: str | None = None,
 ) -> ContextFrame:
     """Return a frame; fall back to safe defaults when the call fails."""
     if not user_text.strip():
@@ -313,7 +314,7 @@ def analyze_turn(
         GeminiCall(
             system_prompt=_SYSTEM,
             contents=[{"role": "user", "parts": [{"text": prompt}]}],
-            model=settings.analyzer_model,
+            model=(model or "").strip() or settings.analyzer_model,
             temperature=0.0,
             max_output_tokens=384,
             json_mode=True,

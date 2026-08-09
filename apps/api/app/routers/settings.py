@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
-from typing import Annotated
+from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
@@ -13,6 +13,7 @@ from ..config import get_settings
 from ..db import get_db
 from ..models import SpaceSettings, User
 from ..services.heritage_pipeline import (
+    LLM_MODEL_KEYS,
     PIPELINE_FLAG_KEYS,
     apply_pipeline_overrides,
     pipeline_admin_payload,
@@ -32,8 +33,38 @@ HERITAGE_CONSENT = (
 
 class SettingsUpdateBody(BaseModel):
     elevenlabs_api_key: str | None = Field(default=None, max_length=256)
-    # Per-flag bool, or null to clear space override (follow server default).
-    heritage_pipeline: dict[str, bool | None] | None = None
+    # Flat flag map (legacy) or { flags, models }.
+    heritage_pipeline: dict[str, Any] | None = None
+
+
+def _split_pipeline_update(
+    raw: dict[str, Any],
+) -> tuple[dict[str, bool | None] | None, dict[str, str | None] | None]:
+    """Accept legacy flat bools or {flags, models}."""
+    if "flags" in raw or "models" in raw:
+        flags = raw.get("flags")
+        models = raw.get("models")
+        if flags is not None and not isinstance(flags, dict):
+            raise HTTPException(status_code=400, detail="heritage_pipeline.flags must be an object.")
+        if models is not None and not isinstance(models, dict):
+            raise HTTPException(status_code=400, detail="heritage_pipeline.models must be an object.")
+        return flags, models
+
+    # Legacy: { "analyzer": true, "stt": false }
+    flags: dict[str, bool | None] = {}
+    for key, value in raw.items():
+        if key not in PIPELINE_FLAG_KEYS:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Unknown heritage_pipeline key: {key}",
+            )
+        if value is not None and not isinstance(value, bool):
+            raise HTTPException(
+                status_code=400,
+                detail=f"heritage_pipeline.{key} must be boolean or null.",
+            )
+        flags[key] = value
+    return flags or None, None
 
 
 def _settings_payload(db: Session, row: SpaceSettings | None, *, can_edit: bool, space_id: str) -> dict:
@@ -100,13 +131,18 @@ def update_settings(
         cleaned = body.elevenlabs_api_key.strip()
         row.elevenlabs_api_key = cleaned or None
     if body.heritage_pipeline is not None:
-        unknown = [k for k in body.heritage_pipeline if k not in PIPELINE_FLAG_KEYS]
-        if unknown:
-            raise HTTPException(
-                status_code=400,
-                detail=f"Unknown heritage_pipeline keys: {', '.join(unknown)}",
-            )
-        apply_pipeline_overrides(row, body.heritage_pipeline)
+        flags, models = _split_pipeline_update(body.heritage_pipeline)
+        if models:
+            unknown = [k for k in models if k not in LLM_MODEL_KEYS]
+            if unknown:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Unknown heritage_pipeline.models keys: {', '.join(unknown)}",
+                )
+        try:
+            apply_pipeline_overrides(row, flags=flags, models=models)
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
     row.updated_at = datetime.now(timezone.utc)
     row.updated_by = user.id
     db.commit()

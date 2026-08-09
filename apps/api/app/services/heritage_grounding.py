@@ -172,6 +172,7 @@ def critic_rewrite(
     ungrounded: Ungrounded,
     max_output_tokens: int = 768,
     usage: UsageContext | None = None,
+    model: str | None = None,
 ) -> str | None:
     listed = "\n".join(f"- {span}" for span in ungrounded.spans)
     grounding_usage = usage or UsageContext(operation="heritage_grounding")
@@ -189,7 +190,7 @@ def critic_rewrite(
                     ],
                 }
             ],
-            model=settings.compose_model,
+            model=(model or "").strip() or settings.compose_model,
             temperature=0.2,
             max_output_tokens=max_output_tokens,
             timeout_s=20.0,

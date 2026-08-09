@@ -196,8 +196,25 @@ export interface HeritagePipelineFlag {
   overridden: boolean;
 }
 
+export interface HeritagePipelineModelChoice {
+  id: string;
+  label: string;
+  help: string;
+}
+
+export interface HeritagePipelineModel {
+  key: string;
+  label: string;
+  help: string;
+  model: string;
+  server_default: string;
+  overridden: boolean;
+}
+
 export interface HeritagePipelineSettings {
   flags: HeritagePipelineFlag[];
+  models: HeritagePipelineModel[];
+  model_choices: HeritagePipelineModelChoice[];
   note: string;
 }
 
@@ -1000,7 +1017,12 @@ export function createApiClient({
       spaceId: string,
       payload: {
         elevenlabs_api_key?: string | null;
-        heritage_pipeline?: Record<string, boolean | null>;
+        heritage_pipeline?:
+          | Record<string, boolean | null>
+          | {
+              flags?: Record<string, boolean | null>;
+              models?: Record<string, string | null>;
+            };
       },
     ) =>
       request<SpaceSettings>(`/api/spaces/${spaceId}/settings`, {

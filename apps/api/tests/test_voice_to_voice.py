@@ -43,7 +43,10 @@ def test_transcribe_success(tmp_path: Path):
     audio = tmp_path / "ok.m4a"
     audio.write_bytes(b"fake-audio")
     settings = Settings(
-        stt_enabled=True, gemini_api_key="x", gemini_model="gemini-test"
+        stt_enabled=True,
+        gemini_api_key="x",
+        gemini_model="gemini-test",
+        stt_model="gemini-test",
     )
     mock = MagicMock()
     mock.text = "Bố ơi con chào bố"

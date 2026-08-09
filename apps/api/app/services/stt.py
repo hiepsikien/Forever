@@ -84,11 +84,12 @@ def transcribe(
     path: Path | str,
     mime: str | None = None,
     usage: UsageContext | None = None,
+    model: str | None = None,
 ) -> Transcript:
     """Transcribe an audio file. Never raises — errors live on Transcript.error."""
     settings = settings or get_settings()
     provider = (settings.stt_provider or "gemini").strip().lower()
-    model = _stt_model(settings)
+    model = (model or "").strip() or _stt_model(settings)
 
     if not settings.stt_enabled:
         return Transcript(provider=provider, model=model, error="disabled")

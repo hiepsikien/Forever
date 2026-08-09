@@ -107,7 +107,7 @@ export default function SettingsScreen() {
     setPipelineBusyKey(key);
     try {
       const res = await api.updateSpaceSettings(spaceId, {
-        heritage_pipeline: { [key]: enabled },
+        heritage_pipeline: { flags: { [key]: enabled } },
       });
       setSettings(res);
     } catch (e) {
@@ -125,7 +125,43 @@ export default function SettingsScreen() {
     setPipelineBusyKey(key);
     try {
       const res = await api.updateSpaceSettings(spaceId, {
-        heritage_pipeline: { [key]: null },
+        heritage_pipeline: { flags: { [key]: null } },
+      });
+      setSettings(res);
+    } catch (e) {
+      Alert.alert(
+        "Lỗi",
+        e instanceof Error ? e.message : "Không đặt lại được.",
+      );
+    } finally {
+      setPipelineBusyKey(null);
+    }
+  };
+
+  const setPipelineModel = async (key: string, model: string) => {
+    if (!spaceId || !settings?.can_edit || pipelineBusyKey) return;
+    setPipelineBusyKey(`model:${key}`);
+    try {
+      const res = await api.updateSpaceSettings(spaceId, {
+        heritage_pipeline: { models: { [key]: model } },
+      });
+      setSettings(res);
+    } catch (e) {
+      Alert.alert(
+        "Lỗi",
+        e instanceof Error ? e.message : "Không đổi được model.",
+      );
+    } finally {
+      setPipelineBusyKey(null);
+    }
+  };
+
+  const resetPipelineModel = async (key: string) => {
+    if (!spaceId || !settings?.can_edit || pipelineBusyKey) return;
+    setPipelineBusyKey(`model:${key}`);
+    try {
+      const res = await api.updateSpaceSettings(spaceId, {
+        heritage_pipeline: { models: { [key]: null } },
       });
       setSettings(res);
     } catch (e) {
@@ -503,6 +539,65 @@ export default function SettingsScreen() {
                     }}
                     thumbColor={flag.enabled ? colors.brand : "#f4efe6"}
                   />
+                </View>
+              );
+            })}
+          </View>
+          <Text style={[styles.section, { marginTop: 20 }]}>Model LLM</Text>
+          <Text style={styles.help}>
+            Chọn Gemini cho từng bước. STT nên Lite; Compose có thể 3.5 hoặc 3.6
+            Flash.
+          </Text>
+          <View style={styles.card}>
+            {(settings?.heritage_pipeline?.models ?? []).map((row, index, arr) => {
+              const busy = pipelineBusyKey === `model:${row.key}`;
+              const choices = settings?.heritage_pipeline?.model_choices ?? [];
+              return (
+                <View
+                  key={row.key}
+                  style={[
+                    styles.pipelineRow,
+                    { flexDirection: "column", alignItems: "stretch" },
+                    index < arr.length - 1 && styles.pipelineRowBorder,
+                  ]}
+                >
+                  <Text style={styles.pipelineLabel}>{row.label}</Text>
+                  <Text style={styles.pipelineHelp}>{row.help}</Text>
+                  <Text style={styles.metaLine}>
+                    Server: {row.server_default}
+                    {row.overridden ? " · đã ghi đè" : ""}
+                  </Text>
+                  <View style={styles.chipRow}>
+                    {choices.map((choice) => {
+                      const active = row.model === choice.id;
+                      return (
+                        <Pressable
+                          key={choice.id}
+                          style={[styles.chip, active && styles.chipActive]}
+                          disabled={busy || !settings?.can_edit}
+                          onPress={() => void setPipelineModel(row.key, choice.id)}
+                        >
+                          <Text
+                            style={[
+                              styles.chipText,
+                              active && styles.chipTextActive,
+                            ]}
+                          >
+                            {choice.label}
+                          </Text>
+                        </Pressable>
+                      );
+                    })}
+                  </View>
+                  {row.overridden ? (
+                    <Pressable
+                      onPress={() => void resetPipelineModel(row.key)}
+                      disabled={busy}
+                      hitSlop={6}
+                    >
+                      <Text style={styles.pipelineReset}>Theo server →</Text>
+                    </Pressable>
+                  ) : null}
                 </View>
               );
             })}
