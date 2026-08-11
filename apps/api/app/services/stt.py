@@ -8,20 +8,53 @@ from __future__ import annotations
 
 import base64
 import logging
+import re
 from dataclasses import dataclass
 from pathlib import Path
 
 from ..config import Settings, get_settings
 from .ai_usage import UsageContext
-from .heritage_gemini import GeminiCall, call_gemini
+from .heritage_gemini import GeminiCall, call_gemini, parse_json_object
 
 logger = logging.getLogger(__name__)
 
 _STT_SYSTEM = (
-    "Bạn là bộ máy ghi âm thành chữ tiếng Việt. "
-    "Ghi lại nguyên văn người nói — không dịch, không diễn giải, không thêm dấu câu thừa. "
-    "Chỉ trả về đúng nội dung đã nghe. "
-    "Nếu nghe không rõ hoặc không có lời nói, trả về chuỗi rỗng."
+    "Bạn là bộ lọc nghe tiếng Việt cho tin nhắn giọng. "
+    "heard=true chỉ khi nghe rõ người đang nói thành lời (từ, câu). "
+    "Im lặng, thở, tiếng nền, gõ máy, hoặc phải đoán mò → heard=false và text rỗng. "
+    "Không dịch, không diễn giải, không thêm chữ không có trong audio. "
+    "heard=true thì text là nguyên văn đã nghe."
+)
+
+_STT_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "heard": {"type": "boolean"},
+        "text": {"type": "string"},
+    },
+    "required": ["heard", "text"],
+}
+
+# Whole-string placeholders Gemini uses instead of empty.
+_EMPTY_MARKERS = {
+    "(rỗng)",
+    "(empty)",
+    "[empty]",
+    "…",
+    "...",
+    "silence",
+    "no speech",
+    "im lặng",
+    "không có lời nói",
+    "không có giọng nói",
+    "không nghe rõ",
+}
+
+_SILENCE_EXPLAIN = re.compile(
+    r"(?i)(không\s+có\s+(lời|giọng|tiếng)\s+nói|"
+    r"không\s+nghe\s+thấy\s+lời|"
+    r"no\s+(intelligible\s+)?speech|"
+    r"no\s+speech\s+detected)",
 )
 
 # Gemini generateContent accepts these audio MIME types for inline_data.
@@ -50,10 +83,11 @@ class Transcript:
     model: str = ""
     latency_ms: int = 0
     error: str | None = None
+    heard: bool = False
 
     @property
     def ok(self) -> bool:
-        return bool(self.text.strip()) and not self.error
+        return self.heard and bool(self.text.strip()) and not self.error
 
     def as_meta(self) -> dict:
         out: dict = {
@@ -61,10 +95,46 @@ class Transcript:
             "model": self.model,
             "latency_ms": self.latency_ms,
             "chars": len(self.text or ""),
+            "heard": self.heard,
         }
         if self.error:
             out["error"] = self.error
         return out
+
+
+def _letter_count(text: str) -> int:
+    return sum(1 for ch in text if ch.isalnum())
+
+
+def usable_speech(text: str) -> bool:
+    """True when `text` looks like a real utterance, not a silence placeholder."""
+    t = (text or "").strip()
+    if _letter_count(t) < 2:
+        return False
+    if t.casefold() in _EMPTY_MARKERS:
+        return False
+    if _SILENCE_EXPLAIN.search(t) and _letter_count(t) < 48:
+        return False
+    return True
+
+
+def parse_stt_payload(raw: str | None) -> tuple[bool, str]:
+    """Return (heard, text). Never invents words when the model is unsure."""
+    parsed = parse_json_object(raw)
+    if parsed is not None and "heard" in parsed:
+        heard = bool(parsed.get("heard"))
+        text = str(parsed.get("text") or "").strip()
+        if not heard:
+            return False, ""
+        if not usable_speech(text):
+            return True, ""
+        return True, text
+    text = (raw or "").strip()
+    if not text or text.casefold() in _EMPTY_MARKERS:
+        return False, ""
+    if not usable_speech(text):
+        return False, ""
+    return True, text
 
 
 def _resolve_mime(mime: str | None) -> str | None:
@@ -130,8 +200,10 @@ def transcribe(
                         {"inline_data": {"mime_type": gemini_mime, "data": b64}},
                         {
                             "text": (
-                                "Ghi lại nguyên văn tiếng Việt trong đoạn ghi âm này. "
-                                "Không rõ thì trả về rỗng."
+                                "Nghe đoạn ghi âm. Có người nói thành lời thì "
+                                '{"heard": true, "text": "<nguyên văn tiếng Việt>"}. '
+                                "Im lặng hoặc không rõ thì "
+                                '{"heard": false, "text": ""}.'
                             )
                         },
                     ],
@@ -142,6 +214,8 @@ def transcribe(
             max_output_tokens=1024,
             timeout_s=45.0,
             attempts=2,
+            json_mode=True,
+            response_schema=_STT_SCHEMA,
             usage=stt_usage,
             audio_bytes=len(data),
         ),
@@ -153,17 +227,34 @@ def transcribe(
             model=model,
             latency_ms=result.latency_ms,
             error=result.error,
+            heard=False,
         )
 
-    text = (result.text or "").strip()
-    # Model sometimes returns a placeholder instead of empty.
-    if text in {"(rỗng)", "(empty)", "[empty]", "…", "..."}:
-        text = ""
+    heard, text = parse_stt_payload(result.text)
+    if not heard:
+        return Transcript(
+            text="",
+            provider=provider,
+            model=model,
+            latency_ms=result.latency_ms,
+            error=result.error or "no_speech",
+            heard=False,
+        )
+    if not text:
+        return Transcript(
+            text="",
+            provider=provider,
+            model=model,
+            latency_ms=result.latency_ms,
+            error=result.error or "empty_transcript",
+            heard=True,
+        )
 
     return Transcript(
         text=text,
         provider=provider,
         model=model,
         latency_ms=result.latency_ms,
-        error=None if text else (result.error or "empty_transcript"),
+        error=None,
+        heard=True,
     )

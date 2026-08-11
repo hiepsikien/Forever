@@ -12,7 +12,7 @@ from fastapi.testclient import TestClient
 from app.config import Settings, get_settings
 from app.services.heritage_chat import _REFUSE_UNHEARD, maybe_heritage_reply
 from app.services.heritage_tts import ChatTtsResult, synthesize_chat_reply
-from app.services.stt import Transcript, transcribe
+from app.services.stt import Transcript, parse_stt_payload, transcribe, usable_speech
 from tests.test_heritage_chat import _login, _space
 
 
@@ -74,7 +74,41 @@ def test_transcribe_empty_becomes_error(tmp_path: Path):
     with patch("app.services.stt.call_gemini", return_value=mock):
         result = transcribe(settings, path=audio, mime="audio/mpeg")
     assert not result.ok
-    assert result.error == "empty_transcript"
+    assert result.error == "no_speech"
+    assert result.heard is False
+
+
+def test_parse_stt_payload_requires_real_speech():
+    assert parse_stt_payload('{"heard": false, "text": ""}') == (False, "")
+    assert parse_stt_payload('{"heard": true, "text": "Bố ơi"}') == (
+        True,
+        "Bố ơi",
+    )
+    assert parse_stt_payload('{"heard": true, "text": ""}') == (True, "")
+    assert parse_stt_payload("Không có lời nói trong đoạn ghi âm") == (
+        False,
+        "",
+    )
+    assert usable_speech("Bố ơi")
+    assert not usable_speech("…")
+    assert not usable_speech("silence")
+
+
+def test_transcribe_json_no_speech(tmp_path: Path):
+    audio = tmp_path / "ok.m4a"
+    audio.write_bytes(b"fake")
+    settings = Settings(stt_enabled=True, gemini_api_key="x")
+    mock = MagicMock()
+    mock.text = '{"heard": false, "text": "Bố ơi con chào bố"}'
+    mock.error = None
+    mock.latency_ms = 8
+    with patch("app.services.stt.call_gemini", return_value=mock) as call:
+        result = transcribe(settings, path=audio, mime="audio/mp4")
+    assert not result.ok
+    assert result.heard is False
+    assert result.text == ""
+    assert result.error == "no_speech"
+    assert call.call_args.args[1].json_mode is True
 
 
 def test_synthesize_chat_reply_skips_when_not_ready():
@@ -152,7 +186,11 @@ def test_voice_message_stt_fills_body(client: TestClient, monkeypatch):
     family = next(t for t in threads.json()["threads"] if t["kind"] == "family")
 
     empty = Transcript(
-        text="", provider="gemini", model="m", error="empty_transcript"
+        text="",
+        provider="gemini",
+        model="m",
+        error="empty_transcript",
+        heard=True,
     )
     with patch("app.routers.messages.transcribe", return_value=empty):
         res = client.post(
@@ -170,7 +208,11 @@ def test_voice_message_stt_fills_body(client: TestClient, monkeypatch):
     assert voice_row["meta"]["stt"]["error"] == "empty_transcript"
 
     filled = Transcript(
-        text="Con chào cả nhà", provider="gemini", model="m", latency_ms=9
+        text="Con chào cả nhà",
+        provider="gemini",
+        model="m",
+        latency_ms=9,
+        heard=True,
     )
     with patch("app.routers.messages.transcribe", return_value=filled):
         res2 = client.post(
@@ -225,7 +267,71 @@ def test_maybe_heritage_unheard_refusal():
     assert reply.kind == "text"
 
 
-def test_maybe_heritage_attaches_tts():
+def test_voice_has_utterance_filters_silence():
+    from app.models import Message
+    from app.routers.messages import _voice_has_utterance
+
+    silent = MagicMock(spec=Message)
+    silent.kind = "voice"
+    silent.body = ""
+    silent.meta_json = json.dumps({"stt": {"heard": False, "error": "no_speech"}})
+    assert _voice_has_utterance(silent) is False
+
+    mumbled = MagicMock(spec=Message)
+    mumbled.kind = "voice"
+    mumbled.body = "  "
+    mumbled.meta_json = json.dumps(
+        {"stt": {"heard": True, "error": "empty_transcript"}}
+    )
+    assert _voice_has_utterance(mumbled) is True
+
+    spoken = MagicMock(spec=Message)
+    spoken.kind = "voice"
+    spoken.body = "Bố ơi"
+    spoken.meta_json = json.dumps({"stt": {"heard": True, "chars": 5}})
+    assert _voice_has_utterance(spoken) is True
+
+
+def test_maybe_heritage_unheard_skips_tts():
+    from app.models import IdentityProfile, Message, Thread
+
+    db = MagicMock()
+    thread = MagicMock(spec=Thread)
+    thread.kind = "heritage"
+    thread.id = "t1"
+    message = MagicMock(spec=Message)
+    message.kind = "voice"
+    message.body = ""
+    identity = MagicMock(spec=IdentityProfile)
+    identity.heritage_entity_status = "ready"
+    identity.id = "i1"
+
+    settings = Settings(
+        agent_enabled=True,
+        heritage_tts_enabled=True,
+        heritage_memory_enabled=False,
+    )
+
+    with (
+        patch(
+            "app.services.heritage_chat.identity_for_heritage_thread",
+            return_value=identity,
+        ),
+        patch("app.services.heritage_chat.generate_heritage_reply") as gen,
+        patch("app.services.heritage_tts.synthesize_chat_reply") as tts,
+    ):
+        reply = maybe_heritage_reply(
+            db, thread=thread, user_message=message, settings=settings
+        )
+
+    gen.assert_not_called()
+    tts.assert_not_called()
+    assert reply is not None
+    assert reply.kind == "text"
+    assert json.loads(reply.meta_json)["heritage_refusal"] == "unheard"
+
+
+def test_maybe_heritage_skips_tts_for_typed_chat():
     from app.models import IdentityProfile, Message, Thread
 
     db = MagicMock()
@@ -234,6 +340,48 @@ def test_maybe_heritage_attaches_tts():
     thread.id = "t1"
     message = MagicMock(spec=Message)
     message.kind = "text"
+    message.body = "Bố ơi"
+    identity = MagicMock(spec=IdentityProfile)
+    identity.heritage_entity_status = "ready"
+    identity.id = "i1"
+
+    settings = Settings(
+        agent_enabled=True,
+        heritage_tts_enabled=True,
+        heritage_memory_enabled=False,
+    )
+
+    with (
+        patch(
+            "app.services.heritage_chat.identity_for_heritage_thread",
+            return_value=identity,
+        ),
+        patch(
+            "app.services.heritage_chat.generate_heritage_reply",
+            return_value=("Con ơi, bố đây.", {"ok": True}),
+        ),
+        patch("app.services.heritage_tts.synthesize_chat_reply") as tts,
+    ):
+        reply = maybe_heritage_reply(
+            db, thread=thread, user_message=message, settings=settings
+        )
+
+    tts.assert_not_called()
+    assert reply is not None
+    assert reply.kind == "text"
+    assert reply.media_path is None
+    assert reply.body == "Con ơi, bố đây."
+
+
+def test_maybe_heritage_attaches_tts():
+    from app.models import IdentityProfile, Message, Thread
+
+    db = MagicMock()
+    thread = MagicMock(spec=Thread)
+    thread.kind = "heritage"
+    thread.id = "t1"
+    message = MagicMock(spec=Message)
+    message.kind = "voice"
     message.body = "Bố ơi"
     identity = MagicMock(spec=IdentityProfile)
     identity.heritage_entity_status = "ready"

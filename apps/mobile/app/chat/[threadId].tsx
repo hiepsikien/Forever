@@ -17,7 +17,9 @@ import {
 import {
   ActivityIndicator,
   Alert,
+  AppState,
   FlatList,
+  GestureResponderEvent,
   Keyboard,
   KeyboardAvoidingView,
   NativeScrollEvent,
@@ -38,6 +40,15 @@ import {
   prepareRecordingMode,
   stopActivePlayback,
 } from "@/lib/audio";
+import {
+  HOLD_TO_TALK_MAX_MS,
+  HOLD_TO_TALK_MIN_MS,
+  emptySpeechGate,
+  gateHeardSpeech,
+  noteSpeechMetering,
+  type SpeechGate,
+} from "@/lib/holdToTalk";
+import { HoldToTalkTarget } from "@/lib/holdToTalkTarget";
 import { RecordingLevelMeter } from "@/lib/recordingMeter";
 import { VOICE_RECORDING_OPTIONS } from "@/lib/recordingOptions";
 import { useAuth } from "@/lib/auth";
@@ -110,6 +121,65 @@ type MessageRowProps = {
   onSave: (item: ChatMessage) => void;
 };
 
+const LONG_PRESS_MS = 400;
+const LONG_PRESS_MOVE_PX = 12;
+
+/**
+ * Long-press / tap without becoming the pan responder. Pressable around a
+ * Text bubble steals the first part of a swipe, then the list catches up —
+ * that is the jump when she scrolls on a message.
+ */
+function useRowGestures(onLongPress: () => void, onPress?: () => void) {
+  const originX = useRef(0);
+  const originY = useRef(0);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const movedRef = useRef(false);
+  const firedRef = useRef(false);
+
+  const clearTimer = useCallback(() => {
+    if (!timerRef.current) return;
+    clearTimeout(timerRef.current);
+    timerRef.current = null;
+  }, []);
+
+  useEffect(() => clearTimer, [clearTimer]);
+
+  const onTouchStart = useCallback(
+    (e: GestureResponderEvent) => {
+      movedRef.current = false;
+      firedRef.current = false;
+      originX.current = e.nativeEvent.pageX;
+      originY.current = e.nativeEvent.pageY;
+      clearTimer();
+      timerRef.current = setTimeout(() => {
+        firedRef.current = true;
+        onLongPress();
+      }, LONG_PRESS_MS);
+    },
+    [clearTimer, onLongPress],
+  );
+
+  const onTouchMove = useCallback(
+    (e: GestureResponderEvent) => {
+      if (
+        Math.abs(e.nativeEvent.pageX - originX.current) > LONG_PRESS_MOVE_PX ||
+        Math.abs(e.nativeEvent.pageY - originY.current) > LONG_PRESS_MOVE_PX
+      ) {
+        movedRef.current = true;
+        clearTimer();
+      }
+    },
+    [clearTimer],
+  );
+
+  const onTouchEnd = useCallback(() => {
+    clearTimer();
+    if (!movedRef.current && !firedRef.current) onPress?.();
+  }, [clearTimer, onPress]);
+
+  return { onTouchStart, onTouchMove, onTouchEnd, onTouchCancel: clearTimer };
+}
+
 const ChatMessageRow = memo(function ChatMessageRow({
   item,
   mine,
@@ -123,11 +193,14 @@ const ChatMessageRow = memo(function ChatMessageRow({
   const voice = isVoiceMessage(item);
   const transcript = voice ? item.body.trim() : displayBody;
   const when = formatMessageTime(item.created_at);
+  const onLongPress = useCallback(() => onSave(item), [item, onSave]);
+  const onPress = useCallback(() => {
+    if (voice) onPlay(item);
+  }, [item, onPlay, voice]);
+  const gestures = useRowGestures(onLongPress, voice ? onPress : undefined);
   return (
-    <Pressable
-      onPress={voice ? () => onPlay(item) : undefined}
-      onLongPress={() => onSave(item)}
-      delayLongPress={350}
+    <View
+      {...gestures}
       style={[styles.row, mine ? styles.rowMine : styles.rowTheirs]}
       accessibilityRole={voice ? "button" : undefined}
       accessibilityLabel={
@@ -136,6 +209,8 @@ const ChatMessageRow = memo(function ChatMessageRow({
     >
       {!mine ? (
         <Text
+          selectable={false}
+          pointerEvents="none"
           style={[
             styles.sender,
             isAgent && styles.senderAgent,
@@ -144,9 +219,15 @@ const ChatMessageRow = memo(function ChatMessageRow({
         >
           {item.sender_name ?? (isAgent ? "Người giữ nhà" : "Thành viên")}
           {item.sender_handle ? (
-            <Text style={styles.handle}> @{item.sender_handle}</Text>
+            <Text selectable={false} pointerEvents="none" style={styles.handle}>
+              {" "}
+              @{item.sender_handle}
+            </Text>
           ) : isAgent ? (
-            <Text style={styles.handle}> @giunhà</Text>
+            <Text selectable={false} pointerEvents="none" style={styles.handle}>
+              {" "}
+              @giunhà
+            </Text>
           ) : null}
         </Text>
       ) : null}
@@ -159,58 +240,54 @@ const ChatMessageRow = memo(function ChatMessageRow({
           isHeritage && styles.bubbleHeritage,
           voice && playing && styles.bubblePlaying,
         ]}
+        pointerEvents="none"
       >
-        <Text style={[styles.body, mine && styles.bodyMine]}>
+        <Text
+          selectable={false}
+          pointerEvents="none"
+          style={[styles.body, mine && styles.bodyMine]}
+        >
           {transcript || (voice ? (playing ? "Đang phát…" : "Chạm để nghe") : "")}
         </Text>
       </View>
       {when ? (
-        <Text style={[styles.time, mine && styles.timeMine]}>
+        <Text
+          selectable={false}
+          pointerEvents="none"
+          style={[styles.time, mine && styles.timeMine]}
+        >
           {playing && voice ? "Đang phát · " : ""}
           {when}
         </Text>
       ) : null}
-    </Pressable>
+    </View>
   );
 });
 
 /** Owns the 80ms metering subscription so the message list is not redrawn with it. */
 function ActiveRecordingBar({
   recorder,
-  sending,
-  onCancel,
-  onSend,
+  cancelArmed,
+  speechGateRef,
 }: {
   recorder: AudioRecorder;
-  sending: boolean;
-  onCancel: () => void;
-  onSend: () => void;
+  cancelArmed: boolean;
+  speechGateRef: { current: SpeechGate };
 }) {
   const recorderState = useAudioRecorderState(recorder, 80);
+  useEffect(() => {
+    noteSpeechMetering(speechGateRef.current, recorderState.metering);
+  }, [recorderState.metering, speechGateRef]);
   return (
-    <>
-      <Pressable
-        onPress={onCancel}
-        disabled={sending}
-        style={[styles.micBtn, styles.cancelBtn]}
-      >
-        <Text style={styles.cancelText}>Huỷ</Text>
-      </Pressable>
-      <View style={styles.recordingPill}>
-        <RecordingLevelMeter
-          active
-          metering={recorderState.metering}
-          durationMillis={recorderState.durationMillis}
-        />
-      </View>
-      <Pressable
-        onPress={onSend}
-        disabled={sending}
-        style={[styles.send, sending && { opacity: 0.5 }]}
-      >
-        <Text style={styles.sendText}>{sending ? "…" : "Dừng & gửi"}</Text>
-      </Pressable>
-    </>
+    <View
+      style={[styles.recordingPill, cancelArmed && styles.recordingPillCancel]}
+    >
+      <RecordingLevelMeter
+        active
+        metering={recorderState.metering}
+        durationMillis={recorderState.durationMillis}
+      />
+    </View>
   );
 }
 
@@ -241,8 +318,17 @@ export default function ChatScreen() {
    */
   const stickToBottomRef = useRef(true);
   const lastContentHeightRef = useRef(0);
+  /** Finger or fling in progress — never call scrollToEnd over that. */
+  const scrollingRef = useRef(false);
   const sendingRef = useRef(false);
   const recordingRef = useRef(false);
+  const holdGenRef = useRef(0);
+  const holdingRef = useRef(false);
+  const recordStartedAtRef = useRef(0);
+  const cancelArmedRef = useRef(false);
+  const speechGateRef = useRef(emptySpeechGate());
+  const finishingHoldRef = useRef(false);
+  const [cancelArmed, setCancelArmed] = useState(false);
   const knownMessageIdsRef = useRef<Set<string>>(new Set());
   const pendingMessageRef = useRef<ChatMessage | null>(null);
   const listSeqRef = useRef(0);
@@ -260,7 +346,7 @@ export default function ChatScreen() {
     requestAnimationFrame(() => listRef.current?.scrollToEnd({ animated }));
   }, []);
 
-  const onListScroll = useCallback(
+  const noteScrollPosition = useCallback(
     (e: NativeSyntheticEvent<NativeScrollEvent>) => {
       const { contentOffset, contentSize, layoutMeasurement } = e.nativeEvent;
       const fromBottom =
@@ -271,6 +357,43 @@ export default function ChatScreen() {
       if (atBottom) setNewBelow(false);
     },
     [],
+  );
+
+  const onListScroll = useCallback(
+    (e: NativeSyntheticEvent<NativeScrollEvent>) => {
+      noteScrollPosition(e);
+    },
+    [noteScrollPosition],
+  );
+
+  const onScrollBeginDrag = useCallback(() => {
+    scrollingRef.current = true;
+    // The first pixels of a swipe used to still count as "at the bottom",
+    // so onContentSizeChange yanked the list back to the newest message.
+    stickToBottomRef.current = false;
+  }, []);
+
+  const onScrollEndDrag = useCallback(
+    (e: NativeSyntheticEvent<NativeScrollEvent>) => {
+      noteScrollPosition(e);
+      if (e.nativeEvent.velocity && Math.abs(e.nativeEvent.velocity.y) > 0.05) {
+        return;
+      }
+      scrollingRef.current = false;
+    },
+    [noteScrollPosition],
+  );
+
+  const onMomentumScrollBegin = useCallback(() => {
+    scrollingRef.current = true;
+  }, []);
+
+  const onMomentumScrollEnd = useCallback(
+    (e: NativeSyntheticEvent<NativeScrollEvent>) => {
+      scrollingRef.current = false;
+      noteScrollPosition(e);
+    },
+    [noteScrollPosition],
   );
 
   const isHeritageThread = threadMeta?.kind === "heritage";
@@ -390,7 +513,7 @@ export default function ChatScreen() {
       setTypewriter((prev) =>
         prev ? { ...prev, pos: Math.min(prev.pos + chunk.length, prev.full.length) } : null,
       );
-      if (stickToBottomRef.current) {
+      if (stickToBottomRef.current && !scrollingRef.current) {
         requestAnimationFrame(() =>
           listRef.current?.scrollToEnd({ animated: false }),
         );
@@ -474,46 +597,67 @@ export default function ChatScreen() {
     }
   };
 
-  const startRecording = async () => {
-    if (sending || recording || recorder.isRecording) return;
+  const abortRecording = useCallback(async () => {
+    try {
+      if (recorder.isRecording) await recorder.stop();
+    } catch {
+      // ignore
+    } finally {
+      recordStartedAtRef.current = 0;
+      cancelArmedRef.current = false;
+      setCancelArmed(false);
+      recordingRef.current = false;
+      setRecording(false);
+      await preparePlaybackMode();
+    }
+  }, [recorder]);
+
+  const startRecording = async (gen: number) => {
+    if (sendingRef.current || recorder.isRecording) return;
     try {
       const perm = await requestRecordingPermissionsAsync();
       if (!perm.granted) {
+        holdingRef.current = false;
         Alert.alert("Cần quyền", "Cho phép micro để gửi giọng nói.");
         return;
       }
+      if (!holdingRef.current || holdGenRef.current !== gen) return;
       await stopActivePlayback();
       setPlayingId(null);
       await prepareRecordingMode();
+      if (!holdingRef.current || holdGenRef.current !== gen) {
+        await preparePlaybackMode();
+        return;
+      }
       await recorder.prepareToRecordAsync();
       recorder.record();
+      if (!holdingRef.current || holdGenRef.current !== gen) {
+        await abortRecording();
+        return;
+      }
+      recordStartedAtRef.current = Date.now();
+      speechGateRef.current = emptySpeechGate();
+      recordingRef.current = true;
       setRecording(true);
     } catch (e) {
+      holdingRef.current = false;
+      recordingRef.current = false;
       setRecording(false);
       Alert.alert("Lỗi", e instanceof Error ? e.message : "Không ghi âm được.");
     }
   };
 
-  const cancelRecording = async () => {
-    try {
-      if (recorder.isRecording) {
-        await recorder.stop();
-      }
-    } catch {
-      // ignore
-    } finally {
-      setRecording(false);
-      await preparePlaybackMode();
-    }
-  };
-
   const stopAndSendVoice = async () => {
-    if (!threadId || sending) return;
+    if (!threadId || sendingRef.current) return;
     setSending(true);
     sendingRef.current = true;
     try {
       await recorder.stop();
+      recordingRef.current = false;
       setRecording(false);
+      recordStartedAtRef.current = 0;
+      cancelArmedRef.current = false;
+      setCancelArmed(false);
       await preparePlaybackMode();
       const uri = recorder.uri;
       if (!uri) throw new Error("Không có file ghi âm.");
@@ -540,6 +684,82 @@ export default function ChatScreen() {
       setSending(false);
     }
   };
+
+  const finishHold = async () => {
+    if (finishingHoldRef.current) return;
+    finishingHoldRef.current = true;
+    holdingRef.current = false;
+    try {
+      if (!recordingRef.current) {
+        // Finger left before the recorder finished opening — drop that take.
+        holdGenRef.current += 1;
+        if (recorder.isRecording) await abortRecording();
+        return;
+      }
+      if (
+        cancelArmedRef.current ||
+        Date.now() - recordStartedAtRef.current < HOLD_TO_TALK_MIN_MS
+      ) {
+        await abortRecording();
+        return;
+      }
+      if (!gateHeardSpeech(speechGateRef.current)) {
+        await abortRecording();
+        Alert.alert(
+          "Chưa nghe thấy câu nói",
+          "Giữ Mic và nói rồi thả tay để gửi.",
+        );
+        return;
+      }
+      await stopAndSendVoice();
+    } finally {
+      cancelArmedRef.current = false;
+      setCancelArmed(false);
+      finishingHoldRef.current = false;
+    }
+  };
+
+  const onMicPressIn = () => {
+    if (sendingRef.current || holdingRef.current || recordingRef.current) return;
+    holdingRef.current = true;
+    cancelArmedRef.current = false;
+    setCancelArmed(false);
+    finishingHoldRef.current = false;
+    const gen = ++holdGenRef.current;
+    void startRecording(gen);
+  };
+
+  const onMicCancelArmed = (armed: boolean) => {
+    if (armed === cancelArmedRef.current) return;
+    cancelArmedRef.current = armed;
+    setCancelArmed(armed);
+  };
+
+  const onMicPressOut = (cancelled: boolean) => {
+    if (!holdingRef.current) return;
+    if (cancelled) cancelArmedRef.current = true;
+    void finishHold();
+  };
+
+  useEffect(() => {
+    if (!recording) return;
+    const timer = setTimeout(() => {
+      if (!recordingRef.current) return;
+      cancelArmedRef.current = false;
+      void finishHold();
+    }, HOLD_TO_TALK_MAX_MS);
+    return () => clearTimeout(timer);
+  }, [recording]);
+
+  useEffect(() => {
+    const sub = AppState.addEventListener("change", (next) => {
+      if (next === "active") return;
+      if (!holdingRef.current && !recordingRef.current) return;
+      holdingRef.current = false;
+      void abortRecording();
+    });
+    return () => sub.remove();
+  }, [abortRecording]);
 
   const saveToLibrary = useCallback(
     (item: ChatMessage) => {
@@ -613,8 +833,9 @@ export default function ChatScreen() {
     const grew = h > lastContentHeightRef.current + 1;
     lastContentHeightRef.current = h;
     // Remeasure noise from cell recycle used to call scrollToEnd and fight her
-    // finger. Only follow when content actually grew and she is at the bottom.
-    if (grew && stickToBottomRef.current) {
+    // finger. Only follow when content actually grew, she is at the bottom,
+    // and she is not currently scrolling.
+    if (grew && stickToBottomRef.current && !scrollingRef.current) {
       listRef.current?.scrollToEnd({ animated: false });
     }
   }, []);
@@ -644,14 +865,23 @@ export default function ChatScreen() {
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.list}
         onScroll={onListScroll}
-        scrollEventThrottle={32}
+        onScrollBeginDrag={onScrollBeginDrag}
+        onScrollEndDrag={onScrollEndDrag}
+        onMomentumScrollBegin={onMomentumScrollBegin}
+        onMomentumScrollEnd={onMomentumScrollEnd}
+        scrollEventThrottle={16}
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode="interactive"
         onContentSizeChange={onContentSizeChange}
-        windowSize={9}
-        maxToRenderPerBatch={6}
+        // Variable-height bubbles + a tiny window recycles cells and the
+        // list jumps because estimated heights are wrong. Cap is 100
+        // messages; keep a wide window so recycle almost never happens
+        // while she is reading.
+        initialNumToRender={24}
+        windowSize={21}
+        maxToRenderPerBatch={12}
         updateCellsBatchingPeriod={50}
-        removeClippedSubviews={Platform.OS === "android"}
+        removeClippedSubviews={false}
         ListFooterComponent={
           heritageTyping ? <HeritageTypingRow label={heritageTypingLabel} /> : null
         }
@@ -667,10 +897,12 @@ export default function ChatScreen() {
         {heritageBlocked
           ? "Cần thổi hồn trước khi trò chuyện Ký ức"
           : recording
-            ? "Nói vào micro — nhấn Dừng & gửi khi xong"
+            ? cancelArmed
+              ? "Thả tay để huỷ"
+              : "Đang nói — thả tay để gửi · vuốt khỏi nút để huỷ"
             : isHeritageThread
-              ? "Giữ tin nhắn để lưu · Chạm tin giọng để nghe"
-              : "Giữ tin nhắn để lưu vào thư viện · Chạm tin giọng để nghe"}
+              ? "Giữ Mic để nói · Giữ tin nhắn để lưu · Chạm tin giọng để nghe"
+              : "Giữ Mic để nói · Giữ tin nhắn để lưu vào thư viện · Chạm tin giọng để nghe"}
       </Text>
       {isHeritageThread && !heritageBlocked && !recording ? (
         <Pressable
@@ -712,22 +944,41 @@ export default function ChatScreen() {
           { paddingBottom: keyboardUp ? 12 : Math.max(insets.bottom, 12) },
         ]}
       >
+        <HoldToTalkTarget
+          disabled={sending}
+          cancelDirection="left"
+          onHoldStart={onMicPressIn}
+          onCancelArmedChange={onMicCancelArmed}
+          onHoldEnd={onMicPressOut}
+          style={[
+            styles.micBtn,
+            recording && styles.micBtnHot,
+            recording && cancelArmed && styles.micBtnCancel,
+            sending && { opacity: 0.5 },
+          ]}
+          accessibilityLabel={
+            recording
+              ? cancelArmed
+                ? "Thả để huỷ"
+                : "Thả để gửi"
+              : "Giữ để nói"
+          }
+          accessibilityHint="Giữ để nói, thả tay để gửi, vuốt khỏi nút để huỷ"
+        >
+          <Text
+            style={[styles.micText, recording && styles.micTextHot]}
+          >
+            {recording ? (cancelArmed ? "Huỷ" : "Nói") : "Mic"}
+          </Text>
+        </HoldToTalkTarget>
         {recording ? (
           <ActiveRecordingBar
             recorder={recorder}
-            sending={sending}
-            onCancel={cancelRecording}
-            onSend={stopAndSendVoice}
+            cancelArmed={cancelArmed}
+            speechGateRef={speechGateRef}
           />
         ) : (
           <>
-            <Pressable
-              onPress={startRecording}
-              disabled={sending}
-              style={[styles.micBtn, sending && { opacity: 0.5 }]}
-            >
-              <Text style={styles.micText}>Mic</Text>
-            </Pressable>
             <TextInput
               value={text}
               onChangeText={setText}
@@ -882,13 +1133,24 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.line,
     borderRadius: 16,
-    paddingHorizontal: 12,
-    paddingVertical: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    minWidth: 56,
+    minHeight: 48,
+    alignItems: "center",
+    justifyContent: "center",
     backgroundColor: "#fff",
   },
   micText: { color: colors.brand, fontWeight: "600" },
-  cancelBtn: { borderColor: "rgba(180, 80, 60, 0.35)" },
-  cancelText: { color: "#a04535", fontWeight: "600" },
+  micBtnHot: {
+    borderColor: "rgba(180, 80, 60, 0.45)",
+    backgroundColor: "#fff7f5",
+  },
+  micBtnCancel: {
+    borderColor: "rgba(138, 58, 50, 0.55)",
+    backgroundColor: "#f3e4e1",
+  },
+  micTextHot: { color: "#a04535" },
   recordingPill: {
     flex: 1,
     minHeight: 44,
@@ -899,6 +1161,10 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     paddingHorizontal: 12,
     paddingVertical: 8,
+  },
+  recordingPillCancel: {
+    borderColor: "rgba(138, 58, 50, 0.45)",
+    backgroundColor: "#f3e4e1",
   },
   send: {
     backgroundColor: colors.brand,

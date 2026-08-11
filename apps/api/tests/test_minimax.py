@@ -371,6 +371,10 @@ def test_provider_dispatch_picks_models_and_defaults():
     assert "speech-2.8-hd" in vp.tts_models(vp.MINIMAX)
     assert "eleven_v3" in vp.tts_models(vp.ELEVENLABS)
     assert vp.default_model(vp.MINIMAX, settings) == "speech-2.8-hd"
+    assert (
+        vp.default_model(vp.MINIMAX, Settings(minimax_tts_model="speech-2.8-turbo"))
+        == "speech-2.8-turbo"
+    )
     assert vp.provider_for_model("speech-2.6-hd") == vp.MINIMAX
     assert vp.provider_for_model("eleven_v3") == vp.ELEVENLABS
     assert vp.provider_for_model("") is None

@@ -15,7 +15,10 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
+  AppState,
   LayoutChangeEvent,
+  NativeScrollEvent,
+  NativeSyntheticEvent,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -37,6 +40,14 @@ import {
 } from "@/lib/callFollowAlong";
 import { formatMessageTime } from "@/lib/datetime";
 import { fetchAuthedMediaUri } from "@/lib/media";
+import {
+  HOLD_TO_TALK_MAX_MS,
+  HOLD_TO_TALK_MIN_MS,
+  emptySpeechGate,
+  gateHeardSpeech,
+  noteSpeechMetering,
+} from "@/lib/holdToTalk";
+import { HoldToTalkTarget } from "@/lib/holdToTalkTarget";
 import { RecordingLevelMeter } from "@/lib/recordingMeter";
 import { VOICE_RECORDING_OPTIONS } from "@/lib/recordingOptions";
 import { useSpaceScreenOptions } from "@/lib/spaceHeader";
@@ -63,7 +74,7 @@ type CallTurn = {
 
 const POLL_MS = 1200;
 const REPLY_TIMEOUT_MS = 90_000;
-const RECENT_TURN_LIMIT = 5;
+const RECENT_TURN_LIMIT = 10;
 
 function isHeritageReply(m: ChatMessage): boolean {
   return m.sender_kind === "heritage";
@@ -205,10 +216,26 @@ export default function CallScreen() {
   const replyDeadlineRef = useRef(0);
   const mediaCacheRef = useRef<Map<string, string>>(new Map());
   const playLockRef = useRef(false);
+  /** Remaining father clips to play after the one currently speaking. */
+  const replayQueueRef = useRef<CallTurn[]>([]);
   const phaseRef = useRef<CallPhase>("idle");
+  const holdGenRef = useRef(0);
+  const holdingRef = useRef(false);
+  const recordStartedAtRef = useRef(0);
+  const cancelArmedRef = useRef(false);
+  const finishingHoldRef = useRef(false);
+  const speechGateRef = useRef(emptySpeechGate());
+  const [cancelArmed, setCancelArmed] = useState(false);
   const scrollRef = useRef<ScrollView>(null);
   /** Content Y of each turn block inside the ScrollView. */
   const turnOffsetsRef = useRef<Map<string, number>>(new Map());
+  const turnHeightsRef = useRef<Map<string, number>>(new Map());
+  const stickTranscriptRef = useRef(true);
+  const [scrollY, setScrollY] = useState(0);
+  const [viewportH, setViewportH] = useState(0);
+  const [layoutTick, setLayoutTick] = useState(0);
+  /** Frozen list while a replay is running so follow-along scroll does not shrink the count. */
+  const [replaySession, setReplaySession] = useState<CallTurn[] | null>(null);
   /** Heritage bubble Y relative to its turn block. */
   const bubbleOffsetsRef = useRef<Map<string, number>>(new Map());
   /** Follow-along body Y relative to the heritage bubble. */
@@ -226,12 +253,31 @@ export default function CallScreen() {
   const identityId = threadMeta?.heritage?.identity_id;
 
   const latestTurn = turns.length ? turns[turns.length - 1] : null;
-  const canReplay =
-    phase === "idle" && Boolean(latestTurn?.hasMedia && latestTurn.replyId);
+  /** Father clips from the oldest turn still on screen down to the latest. */
+  const replayClips = useMemo(() => {
+    const withVoice = (list: CallTurn[]) =>
+      list.filter((turn) => turn.hasMedia && turn.replyId);
+    if (!turns.length) return [];
+    if (viewportH <= 0) return withVoice(turns.slice(-1));
+    const viewTop = scrollY + 8;
+    const firstVisible = turns.findIndex((turn) => {
+      const y = turnOffsetsRef.current.get(turn.replyId);
+      const h = turnHeightsRef.current.get(turn.replyId);
+      if (y == null || h == null) return false;
+      return y + h > viewTop;
+    });
+    const start = firstVisible >= 0 ? firstVisible : Math.max(0, turns.length - 1);
+    return withVoice(turns.slice(start));
+  }, [turns, scrollY, viewportH, layoutTick]);
+  const replayPlaylist = replaySession ?? replayClips;
+  const replayCount = replayPlaylist.length;
+  const replayIndex = replayPlaylist.findIndex(
+    (turn) => turn.replyId === playingReplyId,
+  );
 
   useSpaceScreenOptions({
     spaceId,
-    title: `Gọi · ${displayName}`,
+    title: "Gọi",
     backTitle: "Nhà",
   });
 
@@ -304,7 +350,9 @@ export default function CallScreen() {
   );
 
   const finishPlayback = useCallback(() => {
+    replayQueueRef.current = [];
     playLockRef.current = false;
+    setReplaySession(null);
     setPlayingReplyId(null);
     setActiveSentence(null);
     setPhase("idle");
@@ -322,19 +370,35 @@ export default function CallScreen() {
     async (
       messageId: string,
       replyText: string,
-      opts?: { auto?: boolean },
+      opts?: { auto?: boolean; fromQueue?: boolean; queue?: CallTurn[] },
     ): Promise<boolean> => {
       if (!messageId || playLockRef.current) return false;
       if (phaseRef.current === "listening") return false;
       // The reply to the turn she just spoke arrives while the phase is still
       // "thinking", so only a manual tap waits for the turn to settle.
       if (!opts?.auto && phaseRef.current === "thinking") return false;
+      if (!opts?.fromQueue) {
+        replayQueueRef.current = opts?.queue ? [...opts.queue] : [];
+      }
 
       playLockRef.current = true;
       setError(null);
       setPlayingReplyId(messageId);
       setActiveSentence(0);
       setPhase("loading");
+
+      const playNextOrFinish = () => {
+        const next = replayQueueRef.current.shift();
+        if (!next) {
+          finishPlayback();
+          return;
+        }
+        playLockRef.current = false;
+        void playReply(next.replyId, next.replyText, {
+          auto: true,
+          fromQueue: true,
+        });
+      };
 
       try {
         let uri = mediaCacheRef.current.get(messageId);
@@ -367,11 +431,15 @@ export default function CallScreen() {
               return idx;
             });
           },
-          onFinish: finishPlayback,
+          onFinish: playNextOrFinish,
         });
         return true;
       } catch (e) {
         playLockRef.current = false;
+        if (replayQueueRef.current.length) {
+          playNextOrFinish();
+          return false;
+        }
         setPlayingReplyId(null);
         setActiveSentence(null);
         setError(
@@ -447,46 +515,85 @@ export default function CallScreen() {
     };
   }, [recorder]);
 
-  const startListening = async () => {
-    if (phase !== "idle" && phase !== "error") return;
+  const abortListening = useCallback(async () => {
+    try {
+      if (recorder.isRecording) await recorder.stop();
+    } catch {
+      // ignore
+    }
+    recordStartedAtRef.current = 0;
+    cancelArmedRef.current = false;
+    setCancelArmed(false);
+    await preparePlaybackMode();
+    if (phaseRef.current === "listening") {
+      phaseRef.current = "idle";
+      setPhase("idle");
+    }
+  }, [recorder]);
+
+  const startListening = async (gen: number) => {
+    const canStart =
+      phaseRef.current === "idle" || phaseRef.current === "error";
+    if (!canStart || recorder.isRecording) return;
     setError(null);
     try {
       const perm = await requestRecordingPermissionsAsync();
       if (!perm.granted) {
+        holdingRef.current = false;
         setError("Cho phép micro để nói với Bố.");
         setPhase("error");
         return;
       }
+      if (!holdingRef.current || holdGenRef.current !== gen) return;
       await stopActivePlayback();
+      replayQueueRef.current = [];
       playLockRef.current = false;
+      setReplaySession(null);
       setPlayingReplyId(null);
       setActiveSentence(null);
       await prepareRecordingMode();
       // iOS needs a beat after flipping the audio session before record.
       await new Promise((r) => setTimeout(r, 200));
+      if (!holdingRef.current || holdGenRef.current !== gen) {
+        await preparePlaybackMode();
+        return;
+      }
       await recorder.prepareToRecordAsync();
       recorder.record();
+      if (!holdingRef.current || holdGenRef.current !== gen) {
+        await abortListening();
+        return;
+      }
+      recordStartedAtRef.current = Date.now();
+      speechGateRef.current = emptySpeechGate();
+      phaseRef.current = "listening";
       setPhase("listening");
     } catch (e) {
+      holdingRef.current = false;
       setError(e instanceof Error ? e.message : "Không ghi âm được.");
       setPhase("error");
     }
   };
 
   const stopAndSend = async () => {
-    if (phase !== "listening" || !threadId) return;
+    if (phaseRef.current !== "listening" || !threadId) return;
     if (!user) {
+      await abortListening();
       setError("Chưa đăng nhập. Mở lại app rồi thử nói lại.");
       setPhase("error");
       return;
     }
     try {
       await recorder.stop();
+      recordStartedAtRef.current = 0;
+      cancelArmedRef.current = false;
+      setCancelArmed(false);
       await preparePlaybackMode();
       const uri = recorder.uri;
       if (!uri) throw new Error("Không có file ghi âm.");
 
       // Upload first — do not poll for a reply until the voice POST finishes.
+      phaseRef.current = "sending";
       setPhase("sending");
       setPendingUserText("…");
       const sent = await api.sendVoiceMessage(threadId, {
@@ -506,19 +613,90 @@ export default function CallScreen() {
     }
   };
 
-  const onMainPress = () => {
-    if (phase === "listening") {
-      void stopAndSend();
-      return;
-    }
-    if (phase === "idle" || phase === "error") {
-      void startListening();
+  const finishHold = async () => {
+    if (finishingHoldRef.current) return;
+    finishingHoldRef.current = true;
+    holdingRef.current = false;
+    try {
+      if (phaseRef.current !== "listening") {
+        holdGenRef.current += 1;
+        if (recorder.isRecording) await abortListening();
+        return;
+      }
+      if (
+        cancelArmedRef.current ||
+        Date.now() - recordStartedAtRef.current < HOLD_TO_TALK_MIN_MS
+      ) {
+        await abortListening();
+        return;
+      }
+      if (!gateHeardSpeech(speechGateRef.current)) {
+        await abortListening();
+        setError("Không nghe thấy câu nói. Giữ nút và nói rồi thả tay.");
+        setPhase("idle");
+        return;
+      }
+      await stopAndSend();
+    } finally {
+      cancelArmedRef.current = false;
+      setCancelArmed(false);
+      finishingHoldRef.current = false;
     }
   };
 
-  const onReplayLatest = () => {
-    if (!latestTurn?.hasMedia) return;
-    void playReply(latestTurn.replyId, latestTurn.replyText);
+  const onHoldStart = () => {
+    if (phaseRef.current !== "idle" && phaseRef.current !== "error") return;
+    if (holdingRef.current) return;
+    holdingRef.current = true;
+    cancelArmedRef.current = false;
+    setCancelArmed(false);
+    finishingHoldRef.current = false;
+    const gen = ++holdGenRef.current;
+    void startListening(gen);
+  };
+
+  const onHoldCancelArmed = (armed: boolean) => {
+    if (armed === cancelArmedRef.current) return;
+    cancelArmedRef.current = armed;
+    setCancelArmed(armed);
+  };
+
+  const onHoldEnd = (cancelled: boolean) => {
+    if (!holdingRef.current) return;
+    if (cancelled) cancelArmedRef.current = true;
+    void finishHold();
+  };
+
+  useEffect(() => {
+    if (phase !== "listening") return;
+    noteSpeechMetering(speechGateRef.current, recorderState.metering);
+  }, [phase, recorderState.metering]);
+
+  useEffect(() => {
+    if (phase !== "listening") return;
+    const timer = setTimeout(() => {
+      if (phaseRef.current !== "listening") return;
+      cancelArmedRef.current = false;
+      void finishHold();
+    }, HOLD_TO_TALK_MAX_MS);
+    return () => clearTimeout(timer);
+  }, [phase]);
+
+  useEffect(() => {
+    const sub = AppState.addEventListener("change", (next) => {
+      if (next === "active") return;
+      if (!holdingRef.current && phaseRef.current !== "listening") return;
+      holdingRef.current = false;
+      void abortListening();
+    });
+    return () => sub.remove();
+  }, [abortListening]);
+
+  const onReplayFather = () => {
+    if (!replayClips.length) return;
+    const [first, ...rest] = replayClips;
+    setReplaySession(replayClips);
+    void playReply(first.replyId, first.replyText, { queue: rest });
   };
 
   const openSpeakSettings = () => {
@@ -539,7 +717,9 @@ export default function CallScreen() {
   const phaseLabel = (() => {
     switch (phase) {
       case "listening":
-        return "Đang nghe con — chạm để gửi";
+        return cancelArmed
+          ? "Thả tay để huỷ"
+          : "Đang nghe con — thả tay để gửi";
       case "sending":
         return "Đang gửi giọng…";
       case "thinking":
@@ -549,9 +729,9 @@ export default function CallScreen() {
       case "speaking":
         return `${relation} đang nói`;
       case "error":
-        return "Có lỗi — chạm để thử lại";
+        return "Có lỗi — giữ để thử lại";
       default:
-        return "Chạm để nói";
+        return "Giữ để nói";
     }
   })();
 
@@ -593,25 +773,24 @@ export default function CallScreen() {
 
   return (
     <View style={[styles.root, { paddingBottom: Math.max(insets.bottom, 12) }]}>
-      <View style={styles.banner}>
-        <Text style={styles.bannerKicker}>
-          Ký ức của {relation.toLowerCase()}
+      <View style={styles.metaBar}>
+        <Text style={styles.metaLine} numberOfLines={1}>
+          Ký ức của {relation.toLowerCase()} · {displayName}
         </Text>
-        <Text style={styles.bannerName} numberOfLines={1}>
-          {displayName}
-        </Text>
+        <Pressable
+          onPress={() => setVoiceStripOpen((v) => !v)}
+          hitSlop={8}
+          accessibilityRole="button"
+          accessibilityLabel={
+            prefsReady ? "Cài đặt giọng, đã sẵn sàng" : "Cài đặt giọng, chưa gắn set"
+          }
+        >
+          <Text style={styles.voiceStripToggleText}>
+            {prefsReady ? "Giọng ✓" : "Giọng…"}
+            {voiceStripOpen ? " ▲" : " ▼"}
+          </Text>
+        </Pressable>
       </View>
-
-      <Pressable
-        onPress={() => setVoiceStripOpen((v) => !v)}
-        style={styles.voiceStripToggle}
-        hitSlop={6}
-      >
-        <Text style={styles.voiceStripToggleText} numberOfLines={1}>
-          Giọng · {prefsReady ? "đã sẵn sàng" : "chưa gắn set"}
-          {voiceStripOpen ? "  ▲" : "  ▼"}
-        </Text>
-      </Pressable>
       {voiceStripOpen ? (
         <View style={styles.voiceStrip}>
           <Text style={styles.voiceStripValue} numberOfLines={3}>
@@ -640,10 +819,25 @@ export default function CallScreen() {
         style={styles.transcriptScroll}
         contentContainerStyle={styles.transcriptContent}
         keyboardShouldPersistTaps="handled"
+        scrollEventThrottle={16}
+        onLayout={(e) => setViewportH(e.nativeEvent.layout.height)}
+        onScroll={(e: NativeSyntheticEvent<NativeScrollEvent>) => {
+          const { contentOffset, contentSize, layoutMeasurement } =
+            e.nativeEvent;
+          setScrollY(contentOffset.y);
+          const fromBottom =
+            contentSize.height - layoutMeasurement.height - contentOffset.y;
+          stickTranscriptRef.current = fromBottom < 72;
+        }}
+        onContentSizeChange={() => {
+          if (stickTranscriptRef.current) {
+            scrollRef.current?.scrollToEnd({ animated: false });
+          }
+        }}
       >
         {!turns.length && !showPending ? (
           <Text style={styles.emptyHint}>
-            Chạm nút bên dưới để nói với {relation.toLowerCase()}.
+            Giữ nút bên dưới để nói với {relation.toLowerCase()}. Vuốt lên để huỷ.
           </Text>
         ) : null}
 
@@ -659,10 +853,14 @@ export default function CallScreen() {
               key={turn.replyId}
               style={[styles.turnBlock, !isLatest && styles.turnPast]}
               onLayout={(e) => {
-                turnOffsetsRef.current.set(
-                  turn.replyId,
-                  e.nativeEvent.layout.y,
-                );
+                const { y, height } = e.nativeEvent.layout;
+                const prevY = turnOffsetsRef.current.get(turn.replyId);
+                const prevH = turnHeightsRef.current.get(turn.replyId);
+                turnOffsetsRef.current.set(turn.replyId, y);
+                turnHeightsRef.current.set(turn.replyId, height);
+                if (prevY !== y || prevH !== height) {
+                  setLayoutTick((n) => n + 1);
+                }
               }}
             >
               {turn.userText ? (
@@ -751,76 +949,95 @@ export default function CallScreen() {
           </View>
         ) : null}
 
-        {phase === "sending" || phase === "thinking" ? (
-          <View style={styles.thinkingRow}>
-            <ActivityIndicator color={colors.brand} />
-            <Text style={styles.thinkingText}>
-              {phase === "sending"
-                ? "Đang gửi giọng nói…"
-                : `${relation} đang nghĩ…`}
-            </Text>
-          </View>
-        ) : null}
-
         {error ? <Text style={styles.errorText}>{error}</Text> : null}
       </ScrollView>
 
       <View style={styles.footer}>
         {phase === "listening" ? (
-          <RecordingLevelMeter
-            active
-            variant="large"
-            metering={recorderState.metering}
-            durationMillis={recorderState.durationMillis}
-            style={styles.meter}
-          />
+          <View style={styles.meterFloat} pointerEvents="none">
+            <RecordingLevelMeter
+              active
+              variant="compact"
+              metering={recorderState.metering}
+              durationMillis={recorderState.durationMillis}
+            />
+          </View>
         ) : null}
 
-        <Pressable
-          onPress={onMainPress}
+        <HoldToTalkTarget
           disabled={micBusy}
+          cancelDirection="up"
+          onHoldStart={onHoldStart}
+          onCancelArmedChange={onHoldCancelArmed}
+          onHoldEnd={onHoldEnd}
           style={[
-            styles.mainBtn,
-            phase === "listening" && styles.mainBtnListening,
+            styles.mainBtnHit,
+            phase === "listening" && styles.mainBtnHitListening,
+            phase === "listening" && cancelArmed && styles.mainBtnHitCancel,
             micBusy && styles.mainBtnBusy,
-            phase === "error" && styles.mainBtnError,
+            phase === "error" && styles.mainBtnHitError,
           ]}
-          accessibilityRole="button"
           accessibilityLabel={phaseLabel}
+          accessibilityHint="Giữ để nói, thả tay để gửi, vuốt khỏi nút để huỷ"
         >
-          {phase === "sending" ||
-          phase === "thinking" ||
-          phase === "loading" ? (
-            <ActivityIndicator color="#fff" size="large" />
-          ) : (
-            <Text style={styles.mainBtnGlyph}>
-              {phase === "listening" ? "■" : phase === "speaking" ? "♪" : "●"}
-            </Text>
-          )}
-        </Pressable>
-        <Text style={styles.phaseLabel}>{phaseLabel}</Text>
-
-        {canReplay ? (
-          <Pressable
-            onPress={onReplayLatest}
-            style={styles.replayBtn}
-            accessibilityRole="button"
-            accessibilityLabel="Nghe lại câu trả lời"
+          <View
+            style={[
+              styles.mainBtn,
+              phase === "listening" && styles.mainBtnListening,
+              phase === "listening" && cancelArmed && styles.mainBtnCancel,
+              phase === "error" && styles.mainBtnError,
+            ]}
           >
-            <Text style={styles.replayText}>▶  Nghe lại</Text>
-          </Pressable>
-        ) : phase === "loading" && playingReplyId === latestTurn?.replyId ? (
-          <View style={styles.replayBtnLoading}>
-            <ActivityIndicator color={colors.brand} />
-            <Text style={styles.replayLoadingText}>Đang tải giọng…</Text>
+            {phase === "sending" ||
+            phase === "thinking" ||
+            phase === "loading" ? (
+              <ActivityIndicator color="#fff" size="large" />
+            ) : (
+              <Text style={styles.mainBtnGlyph}>
+                {phase === "listening"
+                  ? cancelArmed
+                    ? "×"
+                    : "■"
+                  : phase === "speaking"
+                    ? "♪"
+                    : "●"}
+              </Text>
+            )}
           </View>
-        ) : phase === "speaking" && playingReplyId === latestTurn?.replyId ? (
-          <View style={styles.replayBtnPlaying}>
-            <Text style={styles.replayPlayingText}>Đang phát…</Text>
-          </View>
-        ) : (
-          <View style={styles.replayPlaceholder} />
-        )}
+        </HoldToTalkTarget>
+        <Text style={styles.phaseLabel} numberOfLines={1}>
+          {phaseLabel}
+        </Text>
+
+        <View style={styles.replaySlot}>
+          {phase === "loading" ? (
+            <View style={styles.replayBtnLoading}>
+              <ActivityIndicator color={colors.brand} />
+              <Text style={styles.replayLoadingText}>Đang tải giọng…</Text>
+            </View>
+          ) : phase === "speaking" ? (
+            <View style={styles.replayBtnPlaying}>
+              <Text style={styles.replayPlayingText}>
+                {replayCount > 1 && replayIndex >= 0
+                  ? `Đang phát ${replayIndex + 1}/${replayCount}`
+                  : "Đang phát…"}
+              </Text>
+            </View>
+          ) : replayClips.length > 0 ? (
+            <Pressable
+              onPress={onReplayFather}
+              disabled={phase !== "idle"}
+              style={[styles.replayBtn, phase !== "idle" && { opacity: 0.45 }]}
+              accessibilityRole="button"
+              accessibilityLabel={`Nghe lại ${replayCount} câu của ${relation}`}
+            >
+              <Text style={styles.replayText}>
+                ▶  Nghe lại{" "}
+                <Text style={styles.replayCount}>{replayCount}</Text>
+              </Text>
+            </Pressable>
+          ) : null}
+        </View>
 
         <Pressable
           onPress={() => threadId && router.push(`/chat/${threadId}`)}
@@ -838,7 +1055,7 @@ const styles = StyleSheet.create({
   root: {
     flex: 1,
     backgroundColor: colors.bg,
-    paddingHorizontal: 20,
+    paddingHorizontal: 12,
   },
   center: {
     flex: 1,
@@ -846,32 +1063,25 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     backgroundColor: colors.bg,
   },
-  banner: {
-    paddingTop: 4,
-    paddingBottom: 4,
+  metaBar: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    paddingTop: 2,
+    paddingBottom: 6,
   },
-  bannerKicker: {
+  metaLine: {
+    flex: 1,
     fontFamily: fonts.body,
-    fontSize: 12,
-    color: colors.inkSoft,
-    letterSpacing: 0.4,
-    textTransform: "uppercase",
-  },
-  bannerName: {
-    fontFamily: fonts.display,
-    fontSize: 22,
+    fontSize: 14,
+    fontWeight: "600",
     color: colors.ink,
-    marginTop: 2,
-  },
-  voiceStripToggle: {
-    alignSelf: "flex-start",
-    paddingVertical: 4,
-    marginBottom: 4,
   },
   voiceStripToggleText: {
     fontFamily: fonts.body,
     fontSize: 13,
-    color: colors.inkSoft,
+    fontWeight: "600",
+    color: colors.brand,
   },
   voiceStrip: {
     backgroundColor: colors.card,
@@ -939,19 +1149,17 @@ const styles = StyleSheet.create({
     lineHeight: 26,
   },
   bubbleMine: {
-    alignSelf: "flex-end",
-    maxWidth: "92%",
+    alignSelf: "stretch",
     backgroundColor: colors.bubbleMine,
-    borderRadius: 18,
-    paddingHorizontal: 16,
+    borderRadius: 16,
+    paddingHorizontal: 14,
     paddingVertical: 12,
   },
   bubbleHeritage: {
-    alignSelf: "flex-start",
-    maxWidth: "94%",
+    alignSelf: "stretch",
     backgroundColor: colors.bubbleAgent,
-    borderRadius: 18,
-    paddingHorizontal: 16,
+    borderRadius: 16,
+    paddingHorizontal: 14,
     paddingVertical: 12,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: colors.line,
@@ -1008,39 +1216,50 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: colors.brand,
   },
-  thinkingRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 10,
-    alignSelf: "flex-start",
-    paddingVertical: 8,
-  },
-  thinkingText: {
-    fontFamily: fonts.body,
-    fontSize: 16,
-    color: colors.inkSoft,
-  },
   footer: {
     alignItems: "center",
     paddingTop: 6,
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: colors.line,
+    position: "relative",
   },
-  meter: {
-    marginBottom: 8,
-    width: "100%",
+  meterFloat: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    top: -36,
+    height: 36,
+    justifyContent: "center",
+  },
+  mainBtnHit: {
+    padding: 22,
+    borderRadius: 80,
+    backgroundColor: "rgba(45, 74, 62, 0.14)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  mainBtnHitListening: {
+    backgroundColor: "rgba(139, 58, 58, 0.22)",
+  },
+  mainBtnHitCancel: {
+    backgroundColor: "rgba(138, 58, 50, 0.28)",
+  },
+  mainBtnHitError: {
+    backgroundColor: "rgba(139, 58, 58, 0.22)",
   },
   mainBtn: {
-    width: 88,
-    height: 88,
-    borderRadius: 44,
+    width: 96,
+    height: 96,
+    borderRadius: 48,
     backgroundColor: colors.brand,
     alignItems: "center",
     justifyContent: "center",
-    marginTop: 6,
   },
   mainBtnListening: {
     backgroundColor: colors.danger,
+  },
+  mainBtnCancel: {
+    backgroundColor: "#8a3a32",
   },
   mainBtnBusy: {
     opacity: 0.85,
@@ -1054,13 +1273,20 @@ const styles = StyleSheet.create({
   },
   phaseLabel: {
     marginTop: 8,
+    height: 24,
     fontFamily: fonts.display,
     fontSize: 18,
+    lineHeight: 24,
     color: colors.ink,
     textAlign: "center",
   },
+  replaySlot: {
+    alignSelf: "stretch",
+    minHeight: 58,
+    marginTop: 8,
+    justifyContent: "center",
+  },
   replayBtn: {
-    marginTop: 10,
     alignSelf: "stretch",
     backgroundColor: colors.card,
     borderWidth: 2,
@@ -1073,7 +1299,6 @@ const styles = StyleSheet.create({
     minHeight: 58,
   },
   replayBtnLoading: {
-    marginTop: 10,
     alignSelf: "stretch",
     flexDirection: "row",
     gap: 12,
@@ -1086,7 +1311,6 @@ const styles = StyleSheet.create({
     backgroundColor: colors.bgDeep,
   },
   replayBtnPlaying: {
-    marginTop: 10,
     alignSelf: "stretch",
     borderRadius: 16,
     paddingVertical: 16,
@@ -1096,14 +1320,16 @@ const styles = StyleSheet.create({
     minHeight: 58,
     backgroundColor: colors.bgDeep,
   },
-  replayPlaceholder: {
-    height: 58,
-    marginTop: 10,
-  },
   replayText: {
     fontFamily: fonts.body,
     fontSize: 20,
     fontWeight: "700",
+    color: colors.brand,
+  },
+  replayCount: {
+    fontFamily: fonts.body,
+    fontSize: 22,
+    fontWeight: "800",
     color: colors.brand,
   },
   replayLoadingText: {
@@ -1117,8 +1343,8 @@ const styles = StyleSheet.create({
     color: colors.inkSoft,
   },
   chatLink: {
-    marginTop: 4,
-    paddingVertical: 8,
+    marginTop: 2,
+    paddingVertical: 6,
   },
   chatLinkText: {
     fontFamily: fonts.body,

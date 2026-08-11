@@ -509,14 +509,14 @@ export const VOICE_TTS_MODELS = [
 
 export const MINIMAX_TTS_MODELS = [
   {
-    id: "speech-2.8-hd",
-    label: "Speech 2.8 HD · Giống nhất",
-    hint: "Ưu tiên cho giọng ký ức",
+    id: "speech-2.8-turbo",
+    label: "Speech 2.8 Turbo · Mặc định",
+    hint: "Rẻ hơn ~40% so với HD; đủ cho Gọi",
   },
   {
-    id: "speech-2.8-turbo",
-    label: "Speech 2.8 Turbo · Nhanh",
-    hint: "Nhanh hơn, giống kém hơn một chút",
+    id: "speech-2.8-hd",
+    label: "Speech 2.8 HD · Giống nhất",
+    hint: "Lab so mẫu — đắt hơn, không cần cho chat",
   },
   {
     id: "speech-2.6-hd",

@@ -22,7 +22,9 @@ logger = logging.getLogger(__name__)
 _GEMINI_INPUT_PER_M = 0.075
 _GEMINI_OUTPUT_PER_M = 0.30
 _ELEVENLABS_PER_K_CHARS = 0.30
-_MINIMAX_PER_K_CHARS = 0.12
+# MiniMax pay-as-you-go (platform.minimax.io): Turbo $60/M, HD $100/M.
+_MINIMAX_TURBO_PER_K_CHARS = 0.06
+_MINIMAX_HD_PER_K_CHARS = 0.10
 
 OPERATIONS = frozenset(
     {
@@ -97,7 +99,15 @@ def estimate_cost_usd(
         return round(cost, 6)
     if svc in ("elevenlabs", "minimax"):
         chars = output_chars or input_chars
-        rate = _MINIMAX_PER_K_CHARS if svc == "minimax" else _ELEVENLABS_PER_K_CHARS
+        if svc == "minimax":
+            model_l = (model or "").strip().lower()
+            rate = (
+                _MINIMAX_HD_PER_K_CHARS
+                if "hd" in model_l
+                else _MINIMAX_TURBO_PER_K_CHARS
+            )
+        else:
+            rate = _ELEVENLABS_PER_K_CHARS
         return round((chars / 1000) * rate, 6) if chars else 0.0
     return 0.0
 

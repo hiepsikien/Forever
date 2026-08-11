@@ -47,7 +47,7 @@ PIPELINE_FLAG_META: dict[str, dict[str, str]] = {
     },
     "tts": {
         "label": "TTS",
-        "help": "Đọc câu trả lời bằng giọng đã clone. Tắt = chỉ chữ.",
+        "help": "Đọc câu trả lời bằng giọng đã clone — chỉ khi thành viên nói (Gọi / tin giọng). Chat chữ vẫn là Gemini, không gọi MiniMax. Tắt = chỉ chữ.",
     },
     "anti_repeat": {
         "label": "Anti-repeat",

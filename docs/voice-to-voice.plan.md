@@ -104,13 +104,14 @@ Route mới trong `apps/mobile/app/`, dùng lại `useAudioRecorder` +
 `VOICE_RECORDING_OPTIONS` + `RecordingLevelMeter` (bản `large`) + `playLocalAudio`
 + `fetchAuthedMediaUri` — không có hạ tầng mới nào.
 
-Một nút tròn to giữa màn, bốn trạng thái đọc được từ xa: *Chạm để nói → Đang
+Một nút tròn to giữa màn, bốn trạng thái đọc được từ xa: *Giữ để nói → Đang
 nghe con → Bố đang nghĩ → Bố đang nói*. Không bàn phím, không chip, không danh
 sách tin nhắn.
 
-**Chạm/chạm, không giữ.** Hold-to-talk bắt người dùng duy trì lực ấn suốt câu
-nói; tay run hay đặt điện thoại xuống là mất câu. Chạm để bắt đầu, chạm để dừng
-tha thứ hơn, và giống đúng cái chat đang làm.
+**Hold-to-talk.** Chạm/chạm để lại mic mở nếu quên tắt — với mẹ đó dễ hơn việc
+giữ nút suốt câu. Giữ để ghi, thả tay để gửi; vuốt lên (Gọi) / vuốt trái (chat)
+để huỷ. Nhấn nhầm dưới 0,5s bị bỏ. Tối đa 60s rồi tự gửi. Chat chữ cùng một
+kiểu; ghi sample Voice DNA vẫn bấm để bắt đầu/dừng vì đoạn đọc dài.
 
 Auto-play chỉ khi reply đến sau tin nhắn bà vừa gửi trong phiên này — theo dõi
 bằng id tin nhắn đang chờ, không phải theo thời gian mở màn.

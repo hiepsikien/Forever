@@ -80,7 +80,9 @@ class Settings(BaseSettings):
     # MiniMax — second Voice DNA provider. Clones from up to 5 minutes of
     # reference audio, which is what ElevenLabs IVC cannot use.
     minimax_api_key: str = ""
-    minimax_tts_model: str = "speech-2.8-hd"
+    # Turbo is ~40% cheaper than HD and fast enough for «Gọi». HD stays in the
+    # Speak lab for A/B; chat prefs must pick it explicitly.
+    minimax_tts_model: str = "speech-2.8-turbo"
     minimax_api_base: str = "https://api.minimax.io/v1"
     minimax_speed: float = 0.9
     minimax_lengthen_pauses: bool = True

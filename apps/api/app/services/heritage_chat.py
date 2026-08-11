@@ -1147,7 +1147,15 @@ def maybe_heritage_reply(
     media_path = None
     media_mime = None
     pipeline = load_heritage_pipeline(db, thread.space_id, settings=settings)
-    if pipeline.tts and (body or "").strip():
+    # MiniMax/ElevenLabs only when the member spoke. Typed chat is Gemini text;
+    # synthesizing every keyboard turn is the bulk of the TTS bill and nobody
+    # auto-plays those replies.
+    if (
+        pipeline.tts
+        and user_kind == "voice"
+        and (body or "").strip()
+        and meta.get("heritage_refusal") is None
+    ):
         from .heritage_tts import synthesize_chat_reply
 
         voice = voice_for_identity(db, identity)

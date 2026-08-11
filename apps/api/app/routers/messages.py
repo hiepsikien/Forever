@@ -104,6 +104,34 @@ def _apply_stt(db: Session, message: Message) -> None:
     db.refresh(message)
 
 
+def _voice_has_utterance(message: Message) -> bool:
+    """Skip the heritage pipeline when STT heard no real speech.
+
+    Empty-but-heard (mumbled) still goes through so Bố can say he did not
+    catch it. Silence must not spend analyzer/compose/TTS on a question
+    nobody asked.
+    """
+    if (message.kind or "") != "voice":
+        return True
+    if (message.body or "").strip():
+        return True
+    meta: dict = {}
+    raw = getattr(message, "meta_json", None) or ""
+    if raw.strip():
+        try:
+            loaded = json.loads(raw)
+            if isinstance(loaded, dict):
+                meta = loaded
+        except json.JSONDecodeError:
+            meta = {}
+    stt = meta.get("stt")
+    if not isinstance(stt, dict):
+        return True
+    if stt.get("heard") is False or stt.get("error") == "no_speech":
+        return False
+    return True
+
+
 def _heritage_reply_job(thread_id: str, message_id: str) -> None:
     """Run the heritage pipeline on its own session, after the response is sent.
 
@@ -118,7 +146,8 @@ def _heritage_reply_job(thread_id: str, message_id: str) -> None:
         if thread and message:
             if (message.kind or "") == "voice":
                 _apply_stt(db, message)
-            maybe_heritage_reply(db, thread=thread, user_message=message)
+            if _voice_has_utterance(message):
+                maybe_heritage_reply(db, thread=thread, user_message=message)
     except Exception:
         logger.exception("heritage reply failed for message %s", message_id)
     finally:
@@ -134,6 +163,8 @@ def _voice_message_job(thread_id: str, message_id: str) -> None:
         if not thread or not message:
             return
         _apply_stt(db, message)
+        if not _voice_has_utterance(message):
+            return
         if thread.kind == "heritage":
             maybe_heritage_reply(db, thread=thread, user_message=message)
         else:
@@ -159,7 +190,8 @@ def _dispatch_auto_reply(
         return
     if (user_message.kind or "") == "voice":
         _apply_stt(db, user_message)
-    maybe_heritage_reply(db, thread=thread, user_message=user_message)
+    if _voice_has_utterance(user_message):
+        maybe_heritage_reply(db, thread=thread, user_message=user_message)
 
 
 def _dispatch_voice_message(
@@ -178,6 +210,8 @@ def _dispatch_voice_message(
         background.add_task(_voice_message_job, thread.id, user_message.id)
         return
     _apply_stt(db, user_message)
+    if not _voice_has_utterance(user_message):
+        return
     if thread.kind == "heritage":
         maybe_heritage_reply(db, thread=thread, user_message=user_message)
     else:

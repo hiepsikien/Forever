@@ -208,6 +208,81 @@ docker builder prune -f    # orphaned cache only; keeps what current images use
 12. Family seated in their space (`scripts/link-family-accounts.py`), dev-login
     leftovers deleted — see [Outstanding on the live VM](#outstanding-on-the-live-vm)
 
+## Database + uploads backups
+
+Daily cron on the VM (03:00 `Asia/Ho_Chi_Minh`): Postgres dump of DB `forever` plus an incremental mirror of volume `forever_uploads` → GCS. Failures email `BACKUP_ALERT_TO` (Gmail SMTP). Success is silent.
+
+| What | Where on GCS | Retention |
+|------|----------------|-----------|
+| DB dump (`pg_dump -Fc` + gzip) | `gs://forever-backups/postgres/` | ~14 rolling days (bucket lifecycle) |
+| Uploads tree | `gs://forever-backups/uploads/` | Single mirror (no short lifecycle) |
+
+### One-time: GCS bucket
+
+```bash
+gcloud storage buckets create gs://forever-backups \
+  --project=vstock-prod \
+  --location=asia-southeast1 \
+  --uniform-bucket-level-access
+
+# Lifecycle: delete postgres/ objects older than 14 days (not uploads/)
+cat >/tmp/forever-backups-lifecycle.json <<'EOF'
+{
+  "rule": [
+    {
+      "action": { "type": "Delete" },
+      "condition": {
+        "age": 14,
+        "matchesPrefix": ["postgres/"]
+      }
+    }
+  ]
+}
+EOF
+gcloud storage buckets update gs://forever-backups \
+  --lifecycle-file=/tmp/forever-backups-lifecycle.json
+
+# Grant the VM service account objectAdmin on this bucket only, e.g.:
+#   gcloud storage buckets add-iam-policy-binding gs://forever-backups \
+#     --member=serviceAccount:ACCOUNT@PROJECT.iam.gserviceaccount.com \
+#     --role=roles/storage.objectAdmin
+# Do not make the bucket public.
+```
+
+### One-time: alert mail + cron
+
+Ensure `~/Forever/deploy/.env.prod` has `BACKUP_ALERT_TO`, `BACKUP_SMTP_*` (Gmail App Password, no spaces). Then:
+
+```bash
+# After rsync of scripts/ to the VM:
+bash ~/Forever/scripts/install-backup-cron.sh
+
+# Dry-run full backup:
+~/Forever/scripts/backup-forever.sh
+
+# Test fail email only:
+BACKUP_FORCE_FAIL=1 ~/Forever/scripts/backup-forever.sh
+
+gcloud storage ls gs://forever-backups/postgres/
+gcloud storage ls gs://forever-backups/uploads/ | head
+```
+
+Logs: `~/backups/backup.log`, `~/backups/cron.log`.
+
+### Restore sketch
+
+```bash
+# DB — pick a dump from GCS or ~/backups
+gcloud storage cp gs://forever-backups/postgres/forever-YYYYMMDD-HHMMSS.dump.gz /tmp/
+gunzip -c /tmp/forever-YYYYMMDD-HHMMSS.dump.gz >/tmp/forever.dump
+docker exec -i deploy-postgres-1 pg_restore -U forever -d forever \
+  --clean --if-exists --no-owner --no-acl </tmp/forever.dump
+
+# Uploads — rsync straight into the Docker volume (no extra staging disk)
+SRC=$(docker volume inspect -f '{{.Mountpoint}}' forever_forever_uploads)
+sudo gcloud storage rsync gs://forever-backups/uploads "$SRC" --recursive --project=vstock-prod
+```
+
 ## Scale later
 
 Rebuild the same image and run on Cloud Run + Cloud SQL + GCS; this compose is temporary shared-VM hosting.

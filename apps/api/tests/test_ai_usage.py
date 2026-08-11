@@ -48,6 +48,20 @@ def test_estimate_cost_tts_chars():
         output_chars=500,
     )
     assert cost == 0.15
+    turbo = estimate_cost_usd(
+        service="minimax",
+        operation="tts_chat",
+        model="speech-2.8-turbo",
+        output_chars=1000,
+    )
+    hd = estimate_cost_usd(
+        service="minimax",
+        operation="tts_chat",
+        model="speech-2.8-hd",
+        output_chars=1000,
+    )
+    assert turbo == 0.06
+    assert hd == 0.10
 
 
 def test_record_and_aggregate():

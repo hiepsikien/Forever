@@ -59,11 +59,11 @@ def emotions_for_model(model_id: str) -> tuple[str, ...]:
         return EMOTIONS
     return BASE_EMOTIONS
 
-# Vietnamese-capable synthesis models. HD first — the docs recommend it for
-# cloning similarity, which is the whole point for heritage voices.
+# Vietnamese-capable synthesis models. Turbo is the chat default (cost +
+# latency); HD remains available in Speak for clone-similarity checks.
 VI_TTS_MODELS = (
-    "speech-2.8-hd",
     "speech-2.8-turbo",
+    "speech-2.8-hd",
     "speech-2.6-hd",
     "speech-2.6-turbo",
     "speech-02-hd",
