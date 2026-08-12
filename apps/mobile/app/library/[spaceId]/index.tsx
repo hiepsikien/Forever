@@ -1,6 +1,6 @@
 import { IdentityProfile, MemoryCandidate, MemoryItem } from "@forever/api-client";
 import * as ImagePicker from "expo-image-picker";
-import { router, useLocalSearchParams } from "expo-router";
+import { router, useLocalSearchParams, useFocusEffect } from "expo-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
@@ -61,6 +61,9 @@ export default function LibraryHubScreen() {
   const [textBody, setTextBody] = useState("");
   const [textOccurred, setTextOccurred] = useState("");
   const [textIdentityIds, setTextIdentityIds] = useState<string[]>([]);
+  const [textPhotoUri, setTextPhotoUri] = useState<string | null>(null);
+  const [textPhotoName, setTextPhotoName] = useState("milestone.jpg");
+  const [textPhotoMime, setTextPhotoMime] = useState("image/jpeg");
 
   const [captionOpen, setCaptionOpen] = useState(false);
   const [captionTitle, setCaptionTitle] = useState("");
@@ -100,6 +103,12 @@ export default function LibraryHubScreen() {
     void load();
   }, [load]);
 
+  useFocusEffect(
+    useCallback(() => {
+      void load();
+    }, [load]),
+  );
+
   const rows = useMemo(() => {
     const all = buildPersonHubRows(memories, identities, candidates, user?.id);
     if (!query.trim()) return all;
@@ -121,8 +130,21 @@ export default function LibraryHubScreen() {
 
   const openPerson = (identityId: string) => {
     if (!spaceId) return;
+    const identity = identities.find((i) => i.id === identityId);
+    if (identity?.status === "living") {
+      router.push(`/people/${spaceId}/${identityId}`);
+      return;
+    }
     router.push(`/library/${spaceId}/person/${identityId}`);
   };
+
+  const livingPeople = useMemo(
+    () =>
+      identities.filter(
+        (i) => !i.archived_at && i.status === "living",
+      ),
+    [identities],
+  );
 
   const openTextForm = (kind: TextMemoryKind) => {
     setTextKind(kind);
@@ -130,7 +152,25 @@ export default function LibraryHubScreen() {
     setTextBody("");
     setTextOccurred("");
     setTextIdentityIds([]);
+    setTextPhotoUri(null);
     setTextOpen(true);
+  };
+
+  const pickMilestonePhoto = async () => {
+    const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!perm.granted) {
+      Alert.alert("Cần quyền", "Cho phép truy cập ảnh để gắn vào mốc đời.");
+      return;
+    }
+    const picked = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ["images"],
+      quality: 0.85,
+    });
+    if (picked.canceled || !picked.assets[0]) return;
+    const asset = picked.assets[0];
+    setTextPhotoUri(asset.uri);
+    setTextPhotoName(asset.fileName ?? "milestone.jpg");
+    setTextPhotoMime(asset.mimeType ?? "image/jpeg");
   };
 
   const onAddSelect = (action: AddMemoryAction) => {
@@ -201,14 +241,22 @@ export default function LibraryHubScreen() {
         const raw = textOccurred.trim();
         occurred_at = /^\d{4}$/.test(raw) ? `${raw}-01-01` : raw;
       }
-      await api.createNoteMemory(spaceId, {
+      const created = await api.createNoteMemory(spaceId, {
         kind: textKind,
         title: textTitle.trim() || undefined,
         body: textBody.trim(),
         tags: tags || undefined,
         occurred_at,
       });
+      if (textKind === "milestone" && textPhotoUri) {
+        await api.attachMemoryMedia(created.id, {
+          uri: textPhotoUri,
+          name: textPhotoName,
+          mimeType: textPhotoMime,
+        });
+      }
       setTextOpen(false);
+      setTextPhotoUri(null);
       await load();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Không lưu được.");
@@ -260,9 +308,38 @@ export default function LibraryHubScreen() {
         <Pressable style={styles.addBtn} onPress={() => setAddOpen(true)}>
           <Text style={styles.addBtnText}>Thêm</Text>
         </Pressable>
+        <Pressable
+          style={styles.ingestBtn}
+          onPress={() => spaceId && router.push(`/library/${spaceId}/ingest`)}
+        >
+          <Text style={styles.ingestBtnText}>Nhập tài liệu</Text>
+        </Pressable>
       </View>
 
       <LibrarySearchBar value={query} onChange={setQuery} />
+
+      {livingPeople.length > 0 ? (
+        <View style={styles.livingBlock}>
+          <Text style={styles.livingLabel}>Người đang sống</Text>
+          {livingPeople.map((person) => (
+            <Pressable
+              key={person.id}
+              style={styles.livingRow}
+              onPress={() => openPerson(person.id)}
+            >
+              <Text style={styles.livingName}>
+                {person.linked_user_id === user?.id
+                  ? "Tôi"
+                  : person.display_name}
+              </Text>
+              {person.relation_label && person.relation_label !== "tôi" ? (
+                <Text style={styles.livingRelation}>{person.relation_label}</Text>
+              ) : null}
+              <Text style={styles.livingCta}>Xem →</Text>
+            </Pressable>
+          ))}
+        </View>
+      ) : null}
 
       <FlatList
         data={rows}
@@ -277,6 +354,9 @@ export default function LibraryHubScreen() {
             }}
             tintColor={colors.brand}
           />
+        }
+        ListHeaderComponent={
+          <Text style={styles.livingLabel}>Người được nhớ</Text>
         }
         ListEmptyComponent={
           <Text style={styles.empty}>Chưa có người hoặc ký ức trong không gian này.</Text>
@@ -304,6 +384,7 @@ export default function LibraryHubScreen() {
         selectedIdentityIds={textIdentityIds}
         userId={user?.id}
         busy={saving}
+        photoUri={textPhotoUri}
         onChangeTitle={setTextTitle}
         onChangeBody={setTextBody}
         onChangeOccurredAt={setTextOccurred}
@@ -312,7 +393,14 @@ export default function LibraryHubScreen() {
             prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id],
           )
         }
-        onCancel={() => setTextOpen(false)}
+        onPickPhoto={textKind === "milestone" ? () => void pickMilestonePhoto() : undefined}
+        onClearPhoto={
+          textKind === "milestone" ? () => setTextPhotoUri(null) : undefined
+        }
+        onCancel={() => {
+          setTextOpen(false);
+          setTextPhotoUri(null);
+        }}
         onSave={saveText}
       />
 
@@ -365,6 +453,39 @@ const styles = StyleSheet.create({
     lineHeight: 20,
     fontSize: 14,
   },
+  livingBlock: {
+    paddingHorizontal: 16,
+    paddingTop: 8,
+    gap: 8,
+    marginBottom: 4,
+  },
+  livingLabel: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: colors.inkSoft,
+    textTransform: "uppercase",
+    letterSpacing: 0.4,
+    marginBottom: 4,
+  },
+  livingRow: {
+    backgroundColor: colors.card,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: colors.line,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  livingName: {
+    flex: 1,
+    fontSize: 16,
+    fontWeight: "700",
+    color: colors.ink,
+  },
+  livingRelation: { fontSize: 13, color: colors.inkSoft },
+  livingCta: { fontSize: 13, fontWeight: "600", color: colors.brand },
   addBtn: {
     backgroundColor: colors.brand,
     borderRadius: 999,
@@ -372,6 +493,15 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
   },
   addBtnText: { color: "#f4efe6", fontWeight: "700" },
+  ingestBtn: {
+    borderRadius: 999,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderWidth: 1,
+    borderColor: colors.brand,
+    backgroundColor: colors.card,
+  },
+  ingestBtnText: { color: colors.brand, fontWeight: "700", fontSize: 13 },
   list: { padding: 16, paddingTop: 8, paddingBottom: 40 },
   empty: { color: colors.inkSoft, lineHeight: 22, paddingTop: 24 },
   error: { color: colors.danger, padding: 16 },

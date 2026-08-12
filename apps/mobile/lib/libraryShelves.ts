@@ -17,6 +17,8 @@ export type PersonHubRow = {
   identityId: string;
   label: string;
   counts: ShelfCounts;
+  poemOwn: number;
+  poemGift: number;
   total: number;
 };
 
@@ -104,6 +106,8 @@ export function buildPersonHubRows(
     const items = byId.get(identity.id) ?? [];
     const counts = countShelves(items);
     counts.heard += pendingByIdentity.get(identity.id) ?? 0;
+    const poems = items.filter((m) => m.kind === "poem");
+    const { own, gift } = partitionPoems(poems);
     const total =
       counts.life + counts.poems + counts.artifacts + counts.heard;
     // Linked living profiles (including your own "Tôi") are Voice DNA mirrors,
@@ -115,6 +119,8 @@ export function buildPersonHubRows(
       identityId: identity.id,
       label: identityChipLabel(identity, userId),
       counts,
+      poemOwn: own.length,
+      poemGift: gift.length,
       total,
     });
   }
@@ -125,10 +131,15 @@ export function buildPersonHubRows(
   });
 
   const untaggedCounts = countShelves(untagged);
+  const untaggedPoems = partitionPoems(
+    untagged.filter((m) => m.kind === "poem"),
+  );
   rows.push({
     identityId: UNTAGGED_PERSON_ID,
     label: "Chưa neo ai",
     counts: untaggedCounts,
+    poemOwn: untaggedPoems.own.length,
+    poemGift: untaggedPoems.gift.length,
     total:
       untaggedCounts.life +
       untaggedCounts.poems +
@@ -139,10 +150,21 @@ export function buildPersonHubRows(
   return rows;
 }
 
-export function formatShelfSummary(counts: ShelfCounts): string {
+export function formatShelfSummary(
+  counts: ShelfCounts,
+  opts?: { poemOwn?: number; poemGift?: number },
+): string {
   const parts: string[] = [];
   if (counts.life) parts.push(`${counts.life} mốc đời`);
-  if (counts.poems) parts.push(`${counts.poems} bài thơ`);
+  const own = opts?.poemOwn;
+  const gift = opts?.poemGift;
+  if (typeof own === "number" && typeof gift === "number" && (own > 0 || gift > 0)) {
+    if (own > 0 && gift > 0) parts.push(`${own} thơ · ${gift} thơ tặng`);
+    else if (gift > 0) parts.push(`${gift} thơ tặng`);
+    else parts.push(`${own} bài thơ`);
+  } else if (counts.poems) {
+    parts.push(`${counts.poems} bài thơ`);
+  }
   if (counts.artifacts) parts.push(`${counts.artifacts} hiện vật`);
   if (counts.heard) parts.push(`${counts.heard} điều nghe được`);
   return parts.length ? parts.join(" · ") : "Chưa có ký ức";
@@ -266,6 +288,31 @@ export function meterFromTags(tags: string): string | null {
   return null;
 }
 
+/** own | gift — missing tag treated as own (legacy). */
+export function poemAuthorshipFromTags(tags: string | null | undefined): "own" | "gift" {
+  for (const token of tagTokens(tags ?? "")) {
+    if (token === "tho:tang") return "gift";
+  }
+  return "own";
+}
+
+export function isGiftPoem(tags: string | null | undefined): boolean {
+  return poemAuthorshipFromTags(tags) === "gift";
+}
+
+export function partitionPoems(poems: MemoryItem[]): {
+  own: MemoryItem[];
+  gift: MemoryItem[];
+} {
+  const own: MemoryItem[] = [];
+  const gift: MemoryItem[] = [];
+  for (const poem of poems) {
+    if (isGiftPoem(poem.tags)) gift.push(poem);
+    else own.push(poem);
+  }
+  return { own, gift };
+}
+
 export const THEME_LABELS: Record<string, string> = {
   vo_chong: "Vợ chồng",
   con_cai: "Con cái",
@@ -275,6 +322,18 @@ export const THEME_LABELS: Record<string, string> = {
   biet_on: "Biết ơn",
   truyen_thong: "Truyền thống",
 };
+
+export const METER_LABELS: Record<string, string> = {
+  luc_bat: "Lục bát",
+  song_that_luc_bat: "Song thất lục bát",
+  that_ngon: "Thất ngôn",
+  other: "Thể khác",
+};
+
+export function meterLabel(meter: string | null | undefined): string | null {
+  if (!meter || meter === "unknown") return null;
+  return METER_LABELS[meter] ?? meter.replace(/_/g, " ");
+}
 
 export const SHELF_LABELS: Record<ShelfFilter, string> = {
   all: "Tất cả",

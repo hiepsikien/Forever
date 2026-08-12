@@ -1,6 +1,6 @@
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 
-import { SHELF_LABELS, ShelfFilter } from "@/lib/libraryShelves";
+import { SHELF_LABELS, ShelfCounts, ShelfFilter } from "@/lib/libraryShelves";
 import { colors } from "@/lib/theme";
 
 const ORDER: ShelfFilter[] = ["all", "life", "poems", "artifacts", "heard"];
@@ -8,9 +8,17 @@ const ORDER: ShelfFilter[] = ["all", "life", "poems", "artifacts", "heard"];
 type Props = {
   value: ShelfFilter;
   onChange: (next: ShelfFilter) => void;
+  counts?: ShelfCounts;
+  /** Override the poems chip label, e.g. "Thơ · 41+72". */
+  poemsLabel?: string;
 };
 
-export function KindFilterChips({ value, onChange }: Props) {
+export function KindFilterChips({
+  value,
+  onChange,
+  counts,
+  poemsLabel,
+}: Props) {
   return (
     // Fixed-height wrap stops a horizontal ScrollView from eating the column
     // and stretching chips into tall capsules (flex stretch).
@@ -23,6 +31,16 @@ export function KindFilterChips({ value, onChange }: Props) {
       >
         {ORDER.map((id) => {
           const selected = value === id;
+          let label = SHELF_LABELS[id];
+          if (id === "poems" && poemsLabel) {
+            label = poemsLabel;
+          } else if (counts) {
+            const n =
+              id === "all"
+                ? counts.life + counts.poems + counts.artifacts + counts.heard
+                : counts[id];
+            if (n > 0) label = `${SHELF_LABELS[id]} · ${n}`;
+          }
           return (
             <Pressable
               key={id}
@@ -33,7 +51,7 @@ export function KindFilterChips({ value, onChange }: Props) {
                 style={[styles.chipText, selected && styles.chipTextOn]}
                 numberOfLines={1}
               >
-                {SHELF_LABELS[id]}
+                {label}
               </Text>
             </Pressable>
           );

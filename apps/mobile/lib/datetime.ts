@@ -12,6 +12,18 @@ export function formatLocalDateTime(iso: string | null | undefined): string {
   });
 }
 
+/** Date only (no clock) for library shelves and review cards. */
+export function formatLocalDate(iso: string | null | undefined): string {
+  if (!iso) return "";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return iso.slice(0, 10);
+  return d.toLocaleDateString("vi-VN", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  });
+}
+
 /** Compact clock for chat bubbles — time today, else day/month + time. */
 export function formatMessageTime(iso: string | null | undefined): string {
   if (!iso) return "";

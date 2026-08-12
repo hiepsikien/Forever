@@ -8,7 +8,7 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     UPLOAD_DIR=/data/uploads
 
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends ffmpeg \
+    && apt-get install -y --no-install-recommends ffmpeg antiword \
     && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt .

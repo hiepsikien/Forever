@@ -274,15 +274,20 @@ export default function SpaceScreen() {
         </Pressable>
       ) : null}
 
-      <Text style={styles.memoryLabel}>Ký ức & giọng</Text>
+      <Pressable
+        style={styles.libraryGate}
+        onPress={() => id && router.push(`/library/${id}`)}
+      >
+        <Text style={styles.libraryKicker}>Két sắt ký ức</Text>
+        <Text style={styles.libraryTitle}>Thư viện</Text>
+        <Text style={styles.librarySub}>
+          Thơ, dòng đời, hiện vật và những điều nghe được — giữ lại cho cả nhà.
+        </Text>
+        <Text style={styles.libraryCta}>Vào Thư viện →</Text>
+      </Pressable>
+
+      <Text style={styles.memoryLabel}>Ghi lại & giọng</Text>
       <View style={styles.memoryRow}>
-        <Pressable
-          style={styles.memoryTile}
-          onPress={() => id && router.push(`/library/${id}`)}
-        >
-          <Text style={styles.memoryTitle}>Thư viện</Text>
-          <Text style={styles.memorySub}>Ảnh, ghi chú</Text>
-        </Pressable>
         <Pressable
           style={styles.memoryTile}
           onPress={() => id && router.push(`/interview/${id}`)}
@@ -463,6 +468,39 @@ const styles = StyleSheet.create({
   },
   reviewTitle: { fontSize: 15, fontWeight: "700", color: colors.ink },
   reviewSub: { fontSize: 13, lineHeight: 19, color: colors.inkSoft },
+  libraryGate: {
+    backgroundColor: colors.bgDeep,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: colors.line,
+    paddingVertical: 18,
+    paddingHorizontal: 16,
+    gap: 6,
+    marginTop: 4,
+  },
+  libraryKicker: {
+    fontSize: 11,
+    fontWeight: "700",
+    color: colors.brandSoft,
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+  },
+  libraryTitle: {
+    fontFamily: fonts.display,
+    fontSize: 26,
+    color: colors.ink,
+  },
+  librarySub: {
+    fontSize: 14,
+    lineHeight: 21,
+    color: colors.inkSoft,
+  },
+  libraryCta: {
+    marginTop: 4,
+    fontSize: 15,
+    fontWeight: "700",
+    color: colors.brand,
+  },
   memoryLabel: {
     fontSize: 12,
     fontWeight: "700",

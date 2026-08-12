@@ -117,6 +117,7 @@ type MessageRowProps = {
   mine: boolean;
   playing: boolean;
   displayBody: string;
+  highlighted?: boolean;
   onPlay: (item: ChatMessage) => void;
   onSave: (item: ChatMessage) => void;
 };
@@ -185,6 +186,7 @@ const ChatMessageRow = memo(function ChatMessageRow({
   mine,
   playing,
   displayBody,
+  highlighted,
   onPlay,
   onSave,
 }: MessageRowProps) {
@@ -201,7 +203,11 @@ const ChatMessageRow = memo(function ChatMessageRow({
   return (
     <View
       {...gestures}
-      style={[styles.row, mine ? styles.rowMine : styles.rowTheirs]}
+      style={[
+        styles.row,
+        mine ? styles.rowMine : styles.rowTheirs,
+        highlighted && styles.rowHighlight,
+      ]}
       accessibilityRole={voice ? "button" : undefined}
       accessibilityLabel={
         voice ? (playing ? "Dừng phát" : "Chạm để nghe") : undefined
@@ -292,7 +298,10 @@ function ActiveRecordingBar({
 }
 
 export default function ChatScreen() {
-  const { threadId } = useLocalSearchParams<{ threadId: string }>();
+  const { threadId, messageId: focusMessageId } = useLocalSearchParams<{
+    threadId: string;
+    messageId?: string;
+  }>();
   const { api, user } = useAuth();
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -307,6 +316,10 @@ export default function ChatScreen() {
   const [playingId, setPlayingId] = useState<string | null>(null);
   const [spaceId, setSpaceId] = useState<string | null>(null);
   const [threadMeta, setThreadMeta] = useState<ThreadSummary | null>(null);
+  const [highlightId, setHighlightId] = useState<string | null>(
+    typeof focusMessageId === "string" ? focusMessageId : null,
+  );
+  const focusedOnceRef = useRef(false);
   const listRef = useRef<FlatList<ChatMessage>>(null);
   /**
    * Whether the list should follow new content.
@@ -821,13 +834,36 @@ export default function ChatScreen() {
           mine={item.sender_user_id === user?.id}
           playing={playingId === item.id}
           displayBody={displayBody}
+          highlighted={highlightId === item.id}
           onPlay={playVoice}
           onSave={saveToLibrary}
         />
       );
     },
-    [playingId, playVoice, saveToLibrary, typewriter, user?.id],
+    [highlightId, playingId, playVoice, saveToLibrary, typewriter, user?.id],
   );
+
+  useEffect(() => {
+    if (!highlightId || loading || focusedOnceRef.current || !messages.length) {
+      return;
+    }
+    const index = messages.findIndex((m) => m.id === highlightId);
+    if (index < 0) return;
+    focusedOnceRef.current = true;
+    stickToBottomRef.current = false;
+    const t = setTimeout(() => {
+      listRef.current?.scrollToIndex({
+        index,
+        animated: true,
+        viewPosition: 0.35,
+      });
+    }, 120);
+    const clear = setTimeout(() => setHighlightId(null), 4000);
+    return () => {
+      clearTimeout(t);
+      clearTimeout(clear);
+    };
+  }, [highlightId, loading, messages]);
 
   const onContentSizeChange = useCallback((_w: number, h: number) => {
     const grew = h > lastContentHeightRef.current + 1;
@@ -835,7 +871,12 @@ export default function ChatScreen() {
     // Remeasure noise from cell recycle used to call scrollToEnd and fight her
     // finger. Only follow when content actually grew, she is at the bottom,
     // and she is not currently scrolling.
-    if (grew && stickToBottomRef.current && !scrollingRef.current) {
+    if (
+      grew &&
+      stickToBottomRef.current &&
+      !scrollingRef.current &&
+      !focusedOnceRef.current
+    ) {
       listRef.current?.scrollToEnd({ animated: false });
     }
   }, []);
@@ -886,7 +927,16 @@ export default function ChatScreen() {
           heritageTyping ? <HeritageTypingRow label={heritageTypingLabel} /> : null
         }
         renderItem={renderMessage}
-        extraData={`${playingId ?? ""}:${typewriter?.id ?? ""}:${typewriter?.pos ?? 0}`}
+        extraData={`${playingId ?? ""}:${typewriter?.id ?? ""}:${typewriter?.pos ?? 0}:${highlightId ?? ""}`}
+        onScrollToIndexFailed={(info) => {
+          setTimeout(() => {
+            listRef.current?.scrollToIndex({
+              index: info.index,
+              animated: true,
+              viewPosition: 0.35,
+            });
+          }, 250);
+        }}
       />
       {newBelow ? (
         <Pressable style={styles.newBelow} onPress={() => jumpToLatest()}>
@@ -1014,6 +1064,12 @@ const styles = StyleSheet.create({
   row: { marginBottom: 12, maxWidth: "85%" },
   rowMine: { alignSelf: "flex-end" },
   rowTheirs: { alignSelf: "flex-start" },
+  rowHighlight: {
+    backgroundColor: "rgba(139, 105, 20, 0.12)",
+    borderRadius: 14,
+    marginHorizontal: -4,
+    paddingHorizontal: 4,
+  },
   sender: {
     fontSize: 12,
     color: colors.inkSoft,

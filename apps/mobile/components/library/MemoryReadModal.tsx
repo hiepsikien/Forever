@@ -1,6 +1,7 @@
-import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Image, Modal, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { MemoryItem } from "@forever/api-client";
 
+import { formatLocalDate } from "@/lib/datetime";
 import {
   meterFromTags,
   THEME_LABELS,
@@ -18,9 +19,21 @@ type Props = {
   item: MemoryItem | null;
   visible: boolean;
   onClose: () => void;
+  photoUri?: string;
+  onOpenSource?: () => void;
+  onEdit?: () => void;
+  canEdit?: boolean;
 };
 
-export function MemoryReadModal({ item, visible, onClose }: Props) {
+export function MemoryReadModal({
+  item,
+  visible,
+  onClose,
+  photoUri,
+  onOpenSource,
+  onEdit,
+  canEdit,
+}: Props) {
   if (!item) return null;
   const title = displayMemoryTitle(item.kind, item.title);
   const untitled = isGenericMemoryTitle(item.kind, item.title);
@@ -36,9 +49,16 @@ export function MemoryReadModal({ item, visible, onClose }: Props) {
         <View style={styles.sheet}>
           <View style={styles.head}>
             <Text style={styles.kind}>{kindLabel(item.kind)}</Text>
-            <Pressable onPress={onClose} hitSlop={12}>
-              <Text style={styles.close}>Đóng</Text>
-            </Pressable>
+            <View style={styles.headActions}>
+              {canEdit && onEdit ? (
+                <Pressable onPress={onEdit} hitSlop={12}>
+                  <Text style={styles.edit}>Sửa</Text>
+                </Pressable>
+              ) : null}
+              <Pressable onPress={onClose} hitSlop={12}>
+                <Text style={styles.close}>Đóng</Text>
+              </Pressable>
+            </View>
           </View>
           <ScrollView
             style={styles.scroll}
@@ -67,15 +87,46 @@ export function MemoryReadModal({ item, visible, onClose }: Props) {
                 ))}
               </View>
             ) : null}
+            {(item.kind === "milestone" || item.kind === "photo") &&
+            item.has_media &&
+            photoUri ? (
+              <Image
+                source={{ uri: photoUri }}
+                style={styles.photo}
+                resizeMode="cover"
+              />
+            ) : null}
             <Text style={item.kind === "poem" ? styles.poem : styles.body}>
               {item.body.trim() || "—"}
             </Text>
-            <Text style={styles.meta}>
-              {item.creator_name ?? "Thành viên"}
-              {item.occurred_at
-                ? ` · ${new Date(item.occurred_at).toLocaleDateString("vi-VN")}`
-                : ""}
-            </Text>
+            {item.kind === "knowledge" ? (
+              <View style={styles.knowledgeMeta}>
+                {item.created_at ? (
+                  <Text style={styles.meta}>
+                    Thêm vào Thư viện: {formatLocalDate(item.created_at)}
+                  </Text>
+                ) : null}
+                {item.occurred_at ? (
+                  <Text style={styles.meta}>
+                    Ngày sự kiện: {formatLocalDate(item.occurred_at)}
+                  </Text>
+                ) : null}
+                {item.source_message_id && item.source_thread_id && onOpenSource ? (
+                  <Pressable onPress={onOpenSource} hitSlop={8}>
+                    <Text style={styles.sourceLink}>Xem câu gốc trong trò chuyện →</Text>
+                  </Pressable>
+                ) : null}
+              </View>
+            ) : (
+              <Text style={styles.meta}>
+                {item.creator_name ?? "Thành viên"}
+                {item.occurred_at
+                  ? ` · ${formatLocalDate(item.occurred_at)}`
+                  : item.created_at
+                    ? ` · ${formatLocalDate(item.created_at)}`
+                    : ""}
+              </Text>
+            )}
           </ScrollView>
         </View>
       </View>
@@ -104,9 +155,15 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     marginBottom: 8,
   },
+  headActions: { flexDirection: "row", alignItems: "center", gap: 16 },
   kind: {
     fontSize: 13,
     fontWeight: "700",
+    color: colors.brandSoft,
+  },
+  edit: {
+    fontSize: 16,
+    fontWeight: "600",
     color: colors.brandSoft,
   },
   close: {
@@ -141,6 +198,12 @@ const styles = StyleSheet.create({
     color: colors.ink,
     fontStyle: "italic",
   },
+  photo: {
+    width: "100%",
+    height: 220,
+    borderRadius: 12,
+    backgroundColor: colors.bgDeep,
+  },
   chips: { flexDirection: "row", flexWrap: "wrap", gap: 6 },
   chip: {
     backgroundColor: colors.bgDeep,
@@ -153,5 +216,12 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     color: colors.brandSoft,
   },
+  knowledgeMeta: { gap: 6, marginTop: 4 },
   meta: { color: colors.inkSoft, fontSize: 13, marginTop: 8 },
+  sourceLink: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: colors.brand,
+    marginTop: 4,
+  },
 });

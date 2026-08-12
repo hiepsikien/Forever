@@ -15,6 +15,11 @@ HERITAGE_TAG_PREFIX = "heritage:"
 # Kinds that count toward activate knowledge gate (poems do NOT).
 KNOWLEDGE_KINDS = ("note", "voice", "photo", "video", "letter", "milestone")
 POEM_KIND = "poem"
+# Authorship tags: own poems may feed heritage chat; gifts must not.
+POEM_AUTH_OWN_TAG = "tho:cua_minh"
+POEM_AUTH_GIFT_TAG = "tho:tang"
+POEM_AUTH_OWN = "own"
+POEM_AUTH_GIFT = "gift"
 
 _TAG_SPLIT = re.compile(r"[,;\s]+")
 
@@ -44,6 +49,33 @@ def tag_tokens(tags: str | None) -> list[str]:
     return [t for t in _TAG_SPLIT.split(tags.strip()) if t]
 
 
+def poem_authorship_from_tags(tags: str | None) -> str:
+    """Return own|gift. Missing tag → own (legacy poems by the person)."""
+    tokens = tag_tokens(tags)
+    if POEM_AUTH_GIFT_TAG in tokens:
+        return POEM_AUTH_GIFT
+    return POEM_AUTH_OWN
+
+
+def is_own_poem(tags: str | None) -> bool:
+    return poem_authorship_from_tags(tags) == POEM_AUTH_OWN
+
+
+def normalize_poem_authorship(value: str | None) -> str:
+    raw = (value or "").strip().lower()
+    if raw in {POEM_AUTH_GIFT, "tang", "gifted", "tặng"}:
+        return POEM_AUTH_GIFT
+    return POEM_AUTH_OWN
+
+
+def poem_authorship_tag(authorship: str | None) -> str:
+    return (
+        POEM_AUTH_GIFT_TAG
+        if normalize_poem_authorship(authorship) == POEM_AUTH_GIFT
+        else POEM_AUTH_OWN_TAG
+    )
+
+
 def has_heritage_tag(tags: str | None, identity_id: str) -> bool:
     needle = f"{HERITAGE_TAG_PREFIX}{identity_id}"
     return needle in tag_tokens(tags)
@@ -68,13 +100,18 @@ def knowledge_count_for_identity(
 def poem_count_for_identity(
     db: Session, *, space_id: str, identity_id: str
 ) -> int:
+    """Count own poems only — gifts must not inflate heritage poem stats."""
     needle = f"{HERITAGE_TAG_PREFIX}{identity_id}"
     items = (
         db.query(MemoryItem)
         .filter(MemoryItem.space_id == space_id, MemoryItem.kind == POEM_KIND)
         .all()
     )
-    return sum(1 for item in items if needle in tag_tokens(item.tags))
+    return sum(
+        1
+        for item in items
+        if needle in tag_tokens(item.tags) and is_own_poem(item.tags)
+    )
 
 
 def voice_for_identity(db: Session, identity: IdentityProfile) -> VoiceProfile | None:

@@ -345,6 +345,11 @@ def ensure_schema() -> None:
         "heritage_pipeline_json",
         "ALTER TABLE space_settings ADD COLUMN heritage_pipeline_json TEXT DEFAULT ''",
     )
+    _add_column_if_missing(
+        "library_ingest_proposals",
+        "authorship",
+        "ALTER TABLE library_ingest_proposals ADD COLUMN authorship VARCHAR(16) DEFAULT 'own'",
+    )
     _backfill_heritage_threads()
     try:
         with engine.begin() as conn:

@@ -13,7 +13,12 @@ export function PersonHubRowView({ row, onPress }: Props) {
     <Pressable style={styles.row} onPress={onPress}>
       <View style={styles.textCol}>
         <Text style={styles.label}>{row.label}</Text>
-        <Text style={styles.summary}>{formatShelfSummary(row.counts)}</Text>
+        <Text style={styles.summary}>
+          {formatShelfSummary(row.counts, {
+            poemOwn: row.poemOwn,
+            poemGift: row.poemGift,
+          })}
+        </Text>
       </View>
       <Text style={styles.chevron}>›</Text>
     </Pressable>

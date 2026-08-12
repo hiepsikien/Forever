@@ -1,5 +1,6 @@
 import {
   ActivityIndicator,
+  Alert,
   Image,
   Pressable,
   StyleSheet,
@@ -10,10 +11,13 @@ import { IdentityProfile, MemoryItem } from "@forever/api-client";
 
 import {
   meterFromTags,
+  meterLabel,
   THEME_LABELS,
   themeFromTags,
+  isGiftPoem,
   yearLabel,
 } from "@/lib/libraryShelves";
+import { formatLocalDate } from "@/lib/datetime";
 import {
   displayMemoryNote,
   displayMemoryTitle,
@@ -28,6 +32,8 @@ type Props = {
   item: MemoryItem;
   identities: IdentityProfile[];
   userId?: string | null;
+  /** On a person hub — hide redundant heritage chips. */
+  hideHeritageChips?: boolean;
   photoUri?: string;
   thumbUri?: string;
   thumbLoading?: boolean;
@@ -41,6 +47,7 @@ type Props = {
   onPlayVoice?: () => void;
   onPlayVideo?: () => void;
   onRetryThumb?: () => void;
+  onOpenSource?: () => void;
 };
 
 function isLongText(body: string, kind: string): boolean {
@@ -53,6 +60,7 @@ export function MemoryKindCard({
   item,
   identities,
   userId,
+  hideHeritageChips = false,
   photoUri,
   thumbUri,
   thumbLoading,
@@ -66,21 +74,49 @@ export function MemoryKindCard({
   onPlayVoice,
   onPlayVideo,
   onRetryThumb,
+  onOpenSource,
 }: Props) {
   const title = displayMemoryTitle(item.kind, item.title);
   const untitled = isGenericMemoryTitle(item.kind, item.title);
   const note = displayMemoryNote(item.body);
-  const people = heritageLabelsForMemory(item.tags, identities, userId);
+  const people = hideHeritageChips
+    ? []
+    : heritageLabelsForMemory(item.tags, identities, userId);
   const isPrivate = item.visibility === "private";
   const mine = item.created_by === userId;
   const themes = themeFromTags(item.tags);
   const meter = meterFromTags(item.tags);
+  const meterText = meterLabel(meter);
+  const gift = isGiftPoem(item.tags);
   const long = isLongText(item.body || "", item.kind);
+  const isPoem = item.kind === "poem";
   const showSourceTitle =
     item.kind === "knowledge" &&
     Boolean(item.title?.trim()) &&
     item.title.trim() !== item.body.trim() &&
     !item.body.trim().startsWith(item.title.trim());
+
+  const openActions = () => {
+    const buttons: {
+      text: string;
+      style?: "cancel" | "destructive" | "default";
+      onPress?: () => void;
+    }[] = [];
+    if (mine && onToggleVisibility) {
+      buttons.push({
+        text: isPrivate ? "Chia sẻ cả nhà" : "Giữ riêng",
+        onPress: onToggleVisibility,
+      });
+    }
+    buttons.push({ text: "Sửa", onPress: onEdit });
+    buttons.push({
+      text: "Xoá",
+      style: "destructive",
+      onPress: onDelete,
+    });
+    buttons.push({ text: "Huỷ", style: "cancel" });
+    Alert.alert(title || kindLabel(item.kind), undefined, buttons);
+  };
 
   const bodyBlock =
     item.kind === "milestone" ? (
@@ -95,17 +131,17 @@ export function MemoryKindCard({
           ) : null}
         </View>
       </View>
-    ) : item.kind === "poem" ? (
+    ) : isPoem ? (
       <>
         <Text style={[styles.title, untitled && styles.titleUntitled]}>{title}</Text>
         {poemPreview(item.body) ? (
           <Text style={styles.poemLines}>{poemPreview(item.body)}</Text>
         ) : null}
-        {meter || themes.length ? (
+        {meterText || themes.length ? (
           <View style={styles.peopleRow}>
-            {meter ? (
+            {meterText ? (
               <View style={styles.personChip}>
-                <Text style={styles.personChipText}>{meter}</Text>
+                <Text style={styles.personChipText}>{meterText}</Text>
               </View>
             ) : null}
             {themes.map((t) => (
@@ -115,7 +151,9 @@ export function MemoryKindCard({
             ))}
           </View>
         ) : null}
-        {long ? <Text style={styles.readMore}>Chạm để đọc cả bài →</Text> : null}
+        <Text style={styles.readMore}>
+          {long ? "Chạm để đọc cả bài →" : "Chạm để đọc →"}
+        </Text>
       </>
     ) : item.kind === "knowledge" ? (
       <>
@@ -126,6 +164,25 @@ export function MemoryKindCard({
           <Text style={styles.meta} numberOfLines={1}>
             Từ: {item.title}
           </Text>
+        ) : null}
+        {item.created_at ? (
+          <Text style={styles.meta}>
+            Thêm vào Thư viện: {formatLocalDate(item.created_at)}
+            {item.occurred_at
+              ? ` · Sự kiện: ${formatLocalDate(item.occurred_at)}`
+              : ""}
+          </Text>
+        ) : null}
+        {item.source_message_id && item.source_thread_id && onOpenSource ? (
+          <Pressable
+            onPress={(e) => {
+              e.stopPropagation?.();
+              onOpenSource();
+            }}
+            hitSlop={6}
+          >
+            <Text style={styles.sourceLink}>Xem câu gốc →</Text>
+          </Pressable>
         ) : null}
         {long ? <Text style={styles.readMore}>Chạm để đọc đủ →</Text> : null}
       </>
@@ -143,48 +200,65 @@ export function MemoryKindCard({
 
   return (
     <Pressable
-      style={styles.card}
+      style={[styles.card, isPoem && styles.poemCard]}
       onPress={onPress}
       disabled={!onPress}
     >
-      <View style={styles.cardTop}>
-        <Text style={styles.kind}>{kindLabel(item.kind)}</Text>
-        <View style={styles.cardActions}>
-          {mine && onToggleVisibility ? (
+      {isPoem ? (
+        <View style={styles.cardTop}>
+          <Text style={styles.kind}>{gift ? "Thơ tặng" : "Thơ"}</Text>
+          <Pressable
+            onPress={(e) => {
+              e.stopPropagation?.();
+              openActions();
+            }}
+            hitSlop={12}
+            disabled={saving}
+            style={styles.moreBtn}
+          >
+            <Text style={styles.moreBtnText}>Tuỳ chọn</Text>
+          </Pressable>
+        </View>
+      ) : (
+        <View style={styles.cardTop}>
+          <Text style={styles.kind}>{kindLabel(item.kind)}</Text>
+          <View style={styles.cardActions}>
+            {mine && onToggleVisibility ? (
+              <Pressable
+                onPress={(e) => {
+                  e.stopPropagation?.();
+                  onToggleVisibility();
+                }}
+                hitSlop={8}
+                disabled={saving}
+              >
+                <Text style={styles.editLink}>
+                  {isPrivate ? "Chia sẻ cả nhà" : "Giữ riêng"}
+                </Text>
+              </Pressable>
+            ) : null}
             <Pressable
               onPress={(e) => {
                 e.stopPropagation?.();
-                onToggleVisibility();
+                onEdit();
+              }}
+              hitSlop={8}
+            >
+              <Text style={styles.editLink}>Sửa</Text>
+            </Pressable>
+            <Pressable
+              onPress={(e) => {
+                e.stopPropagation?.();
+                onDelete();
               }}
               hitSlop={8}
               disabled={saving}
             >
-              <Text style={styles.editLink}>
-                {isPrivate ? "Chia sẻ cả nhà" : "Giữ riêng"}
-              </Text>
+              <Text style={styles.deleteLink}>Xoá</Text>
             </Pressable>
-          ) : null}
-          <Pressable
-            onPress={(e) => {
-              e.stopPropagation?.();
-              onEdit();
-            }}
-            hitSlop={8}
-          >
-            <Text style={styles.editLink}>Sửa</Text>
-          </Pressable>
-          <Pressable
-            onPress={(e) => {
-              e.stopPropagation?.();
-              onDelete();
-            }}
-            hitSlop={8}
-            disabled={saving}
-          >
-            <Text style={styles.deleteLink}>Xoá</Text>
-          </Pressable>
+          </View>
         </View>
-      </View>
+      )}
 
       {bodyBlock}
 
@@ -205,7 +279,7 @@ export function MemoryKindCard({
         </View>
       ) : null}
 
-      {item.kind === "photo" && photoUri ? (
+      {(item.kind === "photo" || item.kind === "milestone") && photoUri ? (
         <Image
           source={{ uri: photoUri }}
           style={styles.mediaPreview}
@@ -270,16 +344,18 @@ export function MemoryKindCard({
         </Pressable>
       ) : null}
 
-      {item.kind !== "milestone" && item.kind !== "poem" && item.kind !== "knowledge" ? (
+      {item.kind !== "milestone" &&
+      item.kind !== "poem" &&
+      item.kind !== "knowledge" ? (
         <Text style={styles.meta}>
           {item.creator_name ?? "Thành viên"}
           {item.occurred_at
             ? ` · ${new Date(item.occurred_at).toLocaleDateString("vi-VN")}`
             : ""}
         </Text>
-      ) : (
+      ) : item.kind === "knowledge" ? (
         <Text style={styles.meta}>{item.creator_name ?? "Thành viên"}</Text>
-      )}
+      ) : null}
     </Pressable>
   );
 }
@@ -294,6 +370,10 @@ const styles = StyleSheet.create({
     borderColor: colors.line,
     gap: 8,
   },
+  poemCard: {
+    gap: 10,
+    paddingVertical: 14,
+  },
   cardTop: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -303,6 +383,17 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 14,
+  },
+  moreBtn: {
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+    backgroundColor: colors.bgDeep,
+  },
+  moreBtnText: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: colors.brand,
   },
   kind: {
     fontSize: 12,
@@ -323,6 +414,27 @@ const styles = StyleSheet.create({
     fontFamily: fonts.display,
     fontSize: 22,
     color: colors.ink,
+  },
+  poemTitleRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 8,
+  },
+  poemTitleFlex: { flex: 1 },
+  giftBadge: {
+    marginTop: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 8,
+    backgroundColor: colors.bgDeep,
+    borderWidth: 1,
+    borderColor: colors.line,
+  },
+  giftBadgeText: {
+    fontSize: 11,
+    fontWeight: "700",
+    color: colors.inkSoft,
+    textTransform: "uppercase",
   },
   titleUntitled: {
     color: colors.inkSoft,
@@ -442,6 +554,12 @@ const styles = StyleSheet.create({
   },
   voiceBtnText: { color: colors.brand, fontWeight: "600" },
   meta: { color: colors.inkSoft, fontSize: 13, marginTop: 4 },
+  sourceLink: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: colors.brand,
+    marginTop: 4,
+  },
   readMore: {
     fontSize: 13,
     fontWeight: "600",

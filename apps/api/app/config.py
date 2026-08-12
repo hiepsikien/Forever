@@ -95,6 +95,8 @@ class Settings(BaseSettings):
 
     # Shared secret for local Extract worker → Forever API claim/complete.
     extract_worker_token: str = "forever-extract-worker"
+    # Shared secret for library document ingest worker (falls back to extract token).
+    library_ingest_worker_token: str = "forever-library-ingest-worker"
     # Re-queue running jobs with no worker heartbeat after this many minutes.
     extract_job_stale_minutes: int = 60
 

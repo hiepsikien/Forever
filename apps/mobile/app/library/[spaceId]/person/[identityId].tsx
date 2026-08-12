@@ -5,7 +5,7 @@ import {
   MemoryVisibility,
 } from "@forever/api-client";
 import * as ImagePicker from "expo-image-picker";
-import { useLocalSearchParams } from "expo-router";
+import { useLocalSearchParams, useRouter, useFocusEffect } from "expo-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
@@ -37,9 +37,12 @@ import { useAuth } from "@/lib/auth";
 import { identityChipLabel } from "@/lib/identityDisplay";
 import {
   candidatesForPerson,
+  countShelves,
   filterMemories,
+  formatShelfSummary,
   groupLifeByDecade,
   memoriesForPerson,
+  partitionPoems,
   SHELF_LABELS,
   ShelfFilter,
   sortByCreatedDesc,
@@ -84,11 +87,13 @@ const KIND_FACT: Record<string, string> = {
 };
 
 export default function LibraryPersonScreen() {
-  const { spaceId, identityId } = useLocalSearchParams<{
+  const { spaceId, identityId, shelf: shelfParam } = useLocalSearchParams<{
     spaceId: string;
     identityId: string;
+    shelf?: string;
   }>();
   const { api, user } = useAuth();
+  const router = useRouter();
 
   const [memories, setMemories] = useState<MemoryItem[]>([]);
   const [identities, setIdentities] = useState<IdentityProfile[]>([]);
@@ -98,9 +103,22 @@ export default function LibraryPersonScreen() {
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
-  const [shelf, setShelf] = useState<ShelfFilter>("all");
+  const [shelf, setShelf] = useState<ShelfFilter>(() => {
+    const raw = typeof shelfParam === "string" ? shelfParam : "";
+    if (
+      raw === "poems" ||
+      raw === "life" ||
+      raw === "artifacts" ||
+      raw === "heard"
+    ) {
+      return raw;
+    }
+    return "all";
+  });
   const [query, setQuery] = useState("");
   const [privateOnly, setPrivateOnly] = useState(false);
+  /** all | own | gift — only applies when shelf is poems (or all with poems). */
+  const [poemAuth, setPoemAuth] = useState<"all" | "own" | "gift">("all");
 
   const [addOpen, setAddOpen] = useState(false);
   const [textOpen, setTextOpen] = useState(false);
@@ -109,6 +127,13 @@ export default function LibraryPersonScreen() {
   const [textBody, setTextBody] = useState("");
   const [textOccurred, setTextOccurred] = useState("");
   const [textIdentityIds, setTextIdentityIds] = useState<string[]>([]);
+  const [textEditingId, setTextEditingId] = useState<string | null>(null);
+  const [textPhotoUri, setTextPhotoUri] = useState<string | null>(null);
+  const [textPhotoName, setTextPhotoName] = useState("milestone.jpg");
+  const [textPhotoMime, setTextPhotoMime] = useState("image/jpeg");
+  const [textClearPhoto, setTextClearPhoto] = useState(false);
+  const [canModerate, setCanModerate] = useState(false);
+  const [canIngest, setCanIngest] = useState(false);
 
   const [captionOpen, setCaptionOpen] = useState(false);
   const [captionMode, setCaptionMode] = useState<"upload" | "edit">("upload");
@@ -161,14 +186,24 @@ export default function LibraryPersonScreen() {
     if (!spaceId) return;
     setError(null);
     try {
-      const [memRes, idRes, candRes] = await Promise.all([
+      const [memRes, idRes, candRes, spaceRes, stewRes] = await Promise.all([
         api.listMemories(spaceId),
         api.listIdentities(spaceId),
         api.listMemoryCandidates(spaceId, "pending").catch(() => ({ candidates: [] })),
+        api.getSpace(spaceId).catch(() => null),
+        api.getStewardship(spaceId).catch(() => null),
       ]);
       setMemories(memRes.memories);
       setIdentities(idRes.identities);
       setCandidates(candRes.candidates);
+      setCanModerate(
+        spaceRes?.role === "owner" ||
+          spaceRes?.role === "moderator" ||
+          Boolean(stewRes?.is_steward),
+      );
+      setCanIngest(
+        spaceRes?.role === "owner" || Boolean(stewRes?.is_steward),
+      );
     } catch (e) {
       setError(e instanceof Error ? e.message : "Không tải được.");
     } finally {
@@ -182,10 +217,40 @@ export default function LibraryPersonScreen() {
     void load();
   }, [load]);
 
+  useFocusEffect(
+    useCallback(() => {
+      void load();
+    }, [load]),
+  );
+
   const personMemories = useMemo(
     () => (identityId ? memoriesForPerson(memories, identityId) : []),
     [memories, identityId],
   );
+  const personShelfCounts = useMemo(
+    () => countShelves(personMemories),
+    [personMemories],
+  );
+  const poemParts = useMemo(
+    () => partitionPoems(personMemories.filter((m) => m.kind === "poem")),
+    [personMemories],
+  );
+  const personSummary = useMemo(
+    () =>
+      formatShelfSummary(personShelfCounts, {
+        poemOwn: poemParts.own.length,
+        poemGift: poemParts.gift.length,
+      }),
+    [personShelfCounts, poemParts],
+  );
+  const poemsChipLabel = useMemo(() => {
+    const own = poemParts.own.length;
+    const gift = poemParts.gift.length;
+    if (own && gift) return `Thơ · ${own}+${gift}`;
+    if (gift) return `Thơ · ${gift}`;
+    if (own) return `Thơ · ${own}`;
+    return "Thơ";
+  }, [poemParts]);
 
   const personCandidates = useMemo(
     () => (identityId ? candidatesForPerson(candidates, identityId) : []),
@@ -245,12 +310,33 @@ export default function LibraryPersonScreen() {
 
     if (showPoems) {
       const poems = sortByCreatedDesc(filtered.filter((m) => m.kind === "poem"));
-      if (poems.length) {
-        if (shelf === "all") {
-          rows.push({ type: "section", key: "poems", title: SHELF_LABELS.poems });
+      const { own, gift } = partitionPoems(poems);
+      const showOwn = poemAuth !== "gift" && own.length > 0;
+      const showGift = poemAuth !== "own" && gift.length > 0;
+      if (showOwn || showGift) {
+        // Gift first when both: album tặng is what people look for after ingest.
+        if (showGift) {
+          rows.push({
+            type: "section",
+            key: "poems-gift",
+            title: `Thơ tặng · ${gift.length}`,
+          });
+          for (const item of gift) {
+            rows.push({ type: "memory", key: item.id, item });
+          }
         }
-        for (const item of poems) {
-          rows.push({ type: "memory", key: item.id, item });
+        if (showOwn) {
+          rows.push({
+            type: "section",
+            key: "poems-own",
+            title:
+              gift.length > 0 || poemAuth === "own" || shelf === "poems"
+                ? `Thơ của ${person?.display_name?.trim() || "người này"} · ${own.length}`
+                : SHELF_LABELS.poems,
+          });
+          for (const item of own) {
+            rows.push({ type: "memory", key: item.id, item });
+          }
         }
       }
     }
@@ -292,7 +378,15 @@ export default function LibraryPersonScreen() {
     }
 
     return rows;
-  }, [filtered, shelf, privateOnly, personCandidates, query]);
+  }, [
+    filtered,
+    shelf,
+    privateOnly,
+    personCandidates,
+    query,
+    poemAuth,
+    person?.display_name,
+  ]);
 
   useEffect(() => {
     let cancelled = false;
@@ -346,7 +440,7 @@ export default function LibraryPersonScreen() {
       for (const item of personMemories) {
         if (!item.has_media) continue;
         try {
-          if (item.kind === "photo") {
+          if (item.kind === "photo" || (item.kind === "milestone" && item.has_media)) {
             const uri = await fetchAuthedMediaUri(
               api.memoryMediaUrl(item.id),
               item.id,
@@ -385,6 +479,51 @@ export default function LibraryPersonScreen() {
     setTextBody("");
     setTextOccurred("");
     setTextIdentityIds(defaultIdentityIds);
+    setTextEditingId(null);
+    setTextPhotoUri(null);
+    setTextClearPhoto(false);
+    setTextOpen(true);
+  };
+
+  const pickMilestonePhoto = async () => {
+    const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!perm.granted) {
+      Alert.alert("Cần quyền", "Cho phép truy cập ảnh để gắn vào mốc đời.");
+      return;
+    }
+    const picked = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ["images"],
+      quality: 0.85,
+    });
+    if (picked.canceled || !picked.assets[0]) return;
+    const asset = picked.assets[0];
+    setTextPhotoUri(asset.uri);
+    setTextPhotoName(asset.fileName ?? "milestone.jpg");
+    setTextPhotoMime(asset.mimeType ?? "image/jpeg");
+    setTextClearPhoto(false);
+  };
+
+  const openTextForEdit = (item: MemoryItem) => {
+    const kind =
+      item.kind === "milestone" || item.kind === "poem" || item.kind === "note"
+        ? item.kind
+        : "note";
+    setTextKind(kind);
+    setTextTitle(isGenericMemoryTitle(item.kind, item.title) ? "" : item.title);
+    setTextBody(item.body ?? "");
+    if (item.occurred_at) {
+      const d = new Date(item.occurred_at);
+      const y = d.getUTCFullYear();
+      const m = String(d.getUTCMonth() + 1).padStart(2, "0");
+      const day = String(d.getUTCDate()).padStart(2, "0");
+      setTextOccurred(`${y}-${m}-${day}`);
+    } else {
+      setTextOccurred("");
+    }
+    setTextIdentityIds(parseHeritageIdentityIds(item.tags));
+    setTextEditingId(item.id);
+    setTextPhotoUri(photoUris[item.id] ?? null);
+    setTextClearPhoto(false);
     setTextOpen(true);
   };
 
@@ -454,6 +593,15 @@ export default function LibraryPersonScreen() {
   };
 
   const openCaptionForEdit = (item: MemoryItem) => {
+    if (
+      item.kind === "milestone" ||
+      item.kind === "poem" ||
+      item.kind === "note" ||
+      item.kind === "knowledge"
+    ) {
+      openTextForEdit(item);
+      return;
+    }
     setPendingUpload(null);
     setCaptionMode("edit");
     setCaptionKind(item.kind as "video" | "photo" | "voice");
@@ -465,6 +613,9 @@ export default function LibraryPersonScreen() {
     setCaptionOpen(true);
   };
 
+  const canEditItem = (item: MemoryItem) =>
+    item.created_by === user?.id || canModerate;
+
   const saveText = async () => {
     if (!spaceId || !textBody.trim() || saving) return;
     setSaving(true);
@@ -475,14 +626,49 @@ export default function LibraryPersonScreen() {
         const raw = textOccurred.trim();
         occurred_at = /^\d{4}$/.test(raw) ? `${raw}-01-01` : raw;
       }
-      await api.createNoteMemory(spaceId, {
-        kind: textKind,
-        title: textTitle.trim() || undefined,
-        body: textBody.trim(),
-        tags: tags || undefined,
-        occurred_at,
-      });
+      const isLocalPhoto =
+        Boolean(textPhotoUri) &&
+        (textPhotoUri!.startsWith("file:") ||
+          textPhotoUri!.startsWith("content:") ||
+          textPhotoUri!.startsWith("ph://") ||
+          textPhotoUri!.startsWith("assets-library:"));
+
+      if (textEditingId) {
+        await api.updateMemory(textEditingId, {
+          title: textTitle.trim() || (textKind === "milestone" ? "Mốc đời" : undefined),
+          body: textBody.trim(),
+          tags: tags || undefined,
+          occurred_at: textKind === "milestone" ? occurred_at : undefined,
+          clear_occurred_at:
+            textKind === "milestone" && !textOccurred.trim() ? true : undefined,
+          clear_media: textClearPhoto || undefined,
+        });
+        if (textKind === "milestone" && isLocalPhoto && !textClearPhoto) {
+          await api.attachMemoryMedia(textEditingId, {
+            uri: textPhotoUri!,
+            name: textPhotoName,
+            mimeType: textPhotoMime,
+          });
+        }
+      } else {
+        const created = await api.createNoteMemory(spaceId, {
+          kind: textKind,
+          title: textTitle.trim() || undefined,
+          body: textBody.trim(),
+          tags: tags || undefined,
+          occurred_at,
+        });
+        if (textKind === "milestone" && isLocalPhoto) {
+          await api.attachMemoryMedia(created.id, {
+            uri: textPhotoUri!,
+            name: textPhotoName,
+            mimeType: textPhotoMime,
+          });
+        }
+      }
       setTextOpen(false);
+      setTextEditingId(null);
+      setTextPhotoUri(null);
       await load();
     } catch (e) {
       Alert.alert("Lỗi", e instanceof Error ? e.message : "Không lưu được.");
@@ -677,10 +863,42 @@ export default function LibraryPersonScreen() {
 
   return (
     <View style={styles.root}>
+      {person && person.status === "remembered" ? (
+        <View style={styles.personHeader}>
+          <Text style={styles.personRelation}>
+            {person.relation_label?.trim() &&
+            person.relation_label.trim().toLowerCase() !== "tôi"
+              ? person.relation_label
+              : "Người được nhớ"}
+          </Text>
+          <Text style={styles.personBlurb}>{personSummary}</Text>
+          {person.heritage_entity_status === "ready" && person.heritage_thread_id ? (
+            <Pressable
+              onPress={() =>
+                router.push(`/call/${person.heritage_thread_id}`)
+              }
+            >
+              <Text style={styles.personCall}>Gọi bằng giọng →</Text>
+            </Pressable>
+          ) : null}
+        </View>
+      ) : null}
       <View style={styles.toolbar}>
         <Pressable style={styles.addBtn} onPress={() => setAddOpen(true)}>
           <Text style={styles.addBtnText}>Thêm</Text>
         </Pressable>
+        {canIngest && identityId && identityId !== UNTAGGED_PERSON_ID ? (
+          <Pressable
+            style={styles.ingestBtn}
+            onPress={() =>
+              router.push(
+                `/library/${spaceId}/ingest?identityId=${identityId}`,
+              )
+            }
+          >
+            <Text style={styles.ingestBtnText}>Nhập tài liệu</Text>
+          </Pressable>
+        ) : null}
         <Pressable
           style={[styles.filterChip, privateOnly && styles.filterChipOn]}
           onPress={() => setPrivateOnly((v) => !v)}
@@ -697,7 +915,60 @@ export default function LibraryPersonScreen() {
       ) : null}
 
       <LibrarySearchBar value={query} onChange={setQuery} />
-      <KindFilterChips value={shelf} onChange={setShelf} />
+      <KindFilterChips
+        value={shelf}
+        onChange={(next) => {
+          setShelf(next);
+          if (next !== "poems" && next !== "all") setPoemAuth("all");
+        }}
+        counts={personShelfCounts}
+        poemsLabel={poemsChipLabel}
+      />
+      {(shelf === "poems" || shelf === "all") &&
+      (poemParts.own.length > 0 || poemParts.gift.length > 0) ? (
+        <View style={styles.poemAuthRow}>
+          {(
+            [
+              { id: "all" as const, label: "Tất cả thơ" },
+              {
+                id: "own" as const,
+                label: `Của ${person?.display_name?.trim() || "bố"} · ${poemParts.own.length}`,
+              },
+              {
+                id: "gift" as const,
+                label: `Thơ tặng · ${poemParts.gift.length}`,
+              },
+            ] as const
+          )
+            .filter((opt) => {
+              if (opt.id === "own") return poemParts.own.length > 0;
+              if (opt.id === "gift") return poemParts.gift.length > 0;
+              return true;
+            })
+            .map((opt) => {
+              const on = poemAuth === opt.id;
+              return (
+                <Pressable
+                  key={opt.id}
+                  style={[styles.poemAuthChip, on && styles.poemAuthChipOn]}
+                  onPress={() => {
+                    setPoemAuth(opt.id);
+                    if (shelf === "all") setShelf("poems");
+                  }}
+                >
+                  <Text
+                    style={[
+                      styles.poemAuthChipText,
+                      on && styles.poemAuthChipTextOn,
+                    ]}
+                  >
+                    {opt.label}
+                  </Text>
+                </Pressable>
+              );
+            })}
+        </View>
+      ) : null}
 
       <FlatList
         data={listRows}
@@ -722,7 +993,11 @@ export default function LibraryPersonScreen() {
         }
         renderItem={({ item: row }) => {
           if (row.type === "section") {
-            return <Text style={styles.section}>{row.title}</Text>;
+            return (
+              <View style={styles.sectionWrap}>
+                <Text style={styles.section}>{row.title}</Text>
+              </View>
+            );
           }
           if (row.type === "candidate") {
             const c = row.item;
@@ -734,10 +1009,25 @@ export default function LibraryPersonScreen() {
                   {c.audience_scope === "direct" ? " · phòng riêng" : ""}
                 </Text>
                 <Text style={styles.candidateBody}>{c.statement}</Text>
+                <Text style={styles.candidateSource}>
+                  Đề xuất: {c.created_at ? new Date(c.created_at).toLocaleDateString("vi-VN") : "—"}
+                </Text>
                 {c.source_body ? (
                   <Text style={styles.candidateSource} numberOfLines={2}>
                     «{c.source_body}»
                   </Text>
+                ) : null}
+                {c.source_message_id && c.thread_id ? (
+                  <Pressable
+                    onPress={() =>
+                      router.push(
+                        `/chat/${c.thread_id}?messageId=${c.source_message_id}`,
+                      )
+                    }
+                    hitSlop={6}
+                  >
+                    <Text style={styles.candKeepText}>Xem câu gốc →</Text>
+                  </Pressable>
                 ) : null}
                 <View style={styles.candidateActions}>
                   <Pressable
@@ -764,6 +1054,7 @@ export default function LibraryPersonScreen() {
               item={item}
               identities={identities}
               userId={user?.id}
+              hideHeritageChips
               photoUri={photoUris[item.id]}
               thumbUri={thumbUris[item.id]}
               thumbLoading={thumbLoading[item.id]}
@@ -784,6 +1075,14 @@ export default function LibraryPersonScreen() {
                 thumbLoadedRef.current.delete(item.id);
                 loadVideoThumbRef.current(item);
               }}
+              onOpenSource={
+                item.source_message_id && item.source_thread_id
+                  ? () =>
+                      router.push(
+                        `/chat/${item.source_thread_id}?messageId=${item.source_message_id}`,
+                      )
+                  : undefined
+              }
             />
           );
         }}
@@ -795,6 +1094,27 @@ export default function LibraryPersonScreen() {
         item={reading}
         visible={Boolean(reading)}
         onClose={() => setReading(null)}
+        photoUri={reading ? photoUris[reading.id] : undefined}
+        canEdit={reading ? canEditItem(reading) : false}
+        onEdit={
+          reading
+            ? () => {
+                const item = reading;
+                setReading(null);
+                openCaptionForEdit(item);
+              }
+            : undefined
+        }
+        onOpenSource={
+          reading?.source_message_id && reading?.source_thread_id
+            ? () => {
+                const threadId = reading.source_thread_id!;
+                const messageId = reading.source_message_id!;
+                setReading(null);
+                router.push(`/chat/${threadId}?messageId=${messageId}`);
+              }
+            : undefined
+        }
       />
 
       <AddMemorySheet
@@ -813,6 +1133,7 @@ export default function LibraryPersonScreen() {
         selectedIdentityIds={textIdentityIds}
         userId={user?.id}
         busy={saving}
+        photoUri={textClearPhoto ? null : textPhotoUri}
         onChangeTitle={setTextTitle}
         onChangeBody={setTextBody}
         onChangeOccurredAt={setTextOccurred}
@@ -821,7 +1142,20 @@ export default function LibraryPersonScreen() {
             prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id],
           )
         }
-        onCancel={() => setTextOpen(false)}
+        onPickPhoto={textKind === "milestone" ? () => void pickMilestonePhoto() : undefined}
+        onClearPhoto={
+          textKind === "milestone"
+            ? () => {
+                setTextPhotoUri(null);
+                setTextClearPhoto(true);
+              }
+            : undefined
+        }
+        onCancel={() => {
+          setTextOpen(false);
+          setTextEditingId(null);
+          setTextPhotoUri(null);
+        }}
         onSave={saveText}
       />
 
@@ -882,7 +1216,27 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingTop: 10,
     paddingBottom: 4,
+    flexWrap: "wrap",
   },
+  personHeader: {
+    marginHorizontal: 16,
+    marginTop: 10,
+    padding: 14,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: colors.line,
+    backgroundColor: colors.bgDeep,
+    gap: 4,
+  },
+  personRelation: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: colors.brandSoft,
+    textTransform: "uppercase",
+    letterSpacing: 0.4,
+  },
+  personBlurb: { fontSize: 14, lineHeight: 20, color: colors.inkSoft },
+  personCall: { fontSize: 14, fontWeight: "700", color: colors.brand, marginTop: 4 },
   addBtn: {
     backgroundColor: colors.brand,
     borderRadius: 999,
@@ -890,6 +1244,15 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
   },
   addBtnText: { color: "#f4efe6", fontWeight: "700" },
+  ingestBtn: {
+    borderRadius: 999,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderWidth: 1,
+    borderColor: colors.brand,
+    backgroundColor: colors.card,
+  },
+  ingestBtnText: { color: colors.brand, fontWeight: "700", fontSize: 13 },
   filterChip: {
     flexShrink: 0,
     borderRadius: 999,
@@ -917,12 +1280,42 @@ const styles = StyleSheet.create({
     color: colors.inkSoft,
   },
   list: { padding: 16, paddingTop: 4, paddingBottom: 48 },
+  poemAuthRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+    paddingHorizontal: 16,
+    paddingBottom: 8,
+  },
+  poemAuthChip: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: colors.line,
+    backgroundColor: colors.card,
+  },
+  poemAuthChipOn: {
+    borderColor: colors.brand,
+    backgroundColor: colors.bgDeep,
+  },
+  poemAuthChipText: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: colors.inkSoft,
+  },
+  poemAuthChipTextOn: { color: colors.brand },
+  sectionWrap: {
+    marginTop: 10,
+    marginBottom: 8,
+    paddingTop: 8,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.line,
+  },
   section: {
     fontFamily: fonts.display,
     fontSize: 20,
     color: colors.ink,
-    marginTop: 12,
-    marginBottom: 8,
   },
   empty: { color: colors.inkSoft, lineHeight: 22, paddingTop: 24 },
   error: { color: colors.danger, padding: 16 },

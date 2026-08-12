@@ -40,6 +40,9 @@ class FamilySpace(Base):
     identities: Mapped[list[IdentityProfile]] = relationship(back_populates="space")
     voice_profiles: Mapped[list[VoiceProfile]] = relationship(back_populates="space")
     extract_jobs: Mapped[list[ExtractJob]] = relationship(back_populates="space")
+    library_ingest_jobs: Mapped[list[LibraryIngestJob]] = relationship(
+        back_populates="space"
+    )
     settings: Mapped[SpaceSettings | None] = relationship(
         back_populates="space", uselist=False
     )
@@ -527,6 +530,70 @@ class ExtractSegment(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
 
     job: Mapped[ExtractJob] = relationship(back_populates="segments")
+
+
+class LibraryIngestJob(Base):
+    """Upload a document/photo → Gemini proposes library items → human Approve."""
+
+    __tablename__ = "library_ingest_jobs"
+
+    id: Mapped[str] = mapped_column(String(32), primary_key=True)
+    space_id: Mapped[str] = mapped_column(ForeignKey("family_spaces.id"), index=True)
+    identity_id: Mapped[str | None] = mapped_column(
+        ForeignKey("identity_profiles.id"), nullable=True, index=True
+    )
+    input_path: Mapped[str] = mapped_column(String(512))
+    input_mime: Mapped[str] = mapped_column(String(120), default="")
+    original_filename: Mapped[str] = mapped_column(String(260), default="")
+    # queued | running | needs_review | failed | done
+    status: Mapped[str] = mapped_column(String(32), default="queued", index=True)
+    error_message: Mapped[str] = mapped_column(Text, default="")
+    artifact_dir: Mapped[str] = mapped_column(String(512), default="")
+    model: Mapped[str] = mapped_column(String(200), default="")
+    created_by: Mapped[str] = mapped_column(ForeignKey("users.id"))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
+    started_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    finished_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+
+    space: Mapped[FamilySpace] = relationship(back_populates="library_ingest_jobs")
+    proposals: Mapped[list[LibraryIngestProposal]] = relationship(
+        back_populates="job"
+    )
+
+
+class LibraryIngestProposal(Base):
+    """One proposed MemoryItem from a library ingest job."""
+
+    __tablename__ = "library_ingest_proposals"
+
+    id: Mapped[str] = mapped_column(String(32), primary_key=True)
+    job_id: Mapped[str] = mapped_column(ForeignKey("library_ingest_jobs.id"), index=True)
+    # poem | milestone | note | knowledge
+    kind: Mapped[str] = mapped_column(String(32), default="note", index=True)
+    title: Mapped[str] = mapped_column(String(200), default="")
+    body: Mapped[str] = mapped_column(Text, default="")
+    body_tts: Mapped[str] = mapped_column(Text, default="")
+    meter: Mapped[str] = mapped_column(String(32), default="")
+    themes_json: Mapped[str] = mapped_column(Text, default="[]")
+    # own | gift — poem by the remembered person vs gifted by friends
+    authorship: Mapped[str] = mapped_column(String(16), default="own")
+    occurred_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    identity_id: Mapped[str | None] = mapped_column(
+        ForeignKey("identity_profiles.id"), nullable=True, index=True
+    )
+    # pending | approved | rejected
+    review_status: Mapped[str] = mapped_column(String(32), default="pending", index=True)
+    memory_item_id: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    sort_order: Mapped[int] = mapped_column(Integer, default=0)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+    job: Mapped[LibraryIngestJob] = relationship(back_populates="proposals")
 
 
 class VoiceRender(Base):

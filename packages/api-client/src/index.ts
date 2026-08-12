@@ -142,7 +142,7 @@ export interface MemoryItem {
   space_id: string;
   created_by: string;
   creator_name?: string | null;
-  kind: "note" | "voice" | "photo" | "video" | "letter" | "poem" | string;
+  kind: "note" | "voice" | "photo" | "video" | "letter" | "poem" | "milestone" | "knowledge" | string;
   title: string;
   body: string;
   /** Same words as `body` with breath pauses — use for TTS, not for display. */
@@ -150,6 +150,8 @@ export interface MemoryItem {
   has_media: boolean;
   media_mime?: string | null;
   source_message_id?: string | null;
+  /** Thread that holds `source_message_id` — for “Xem câu gốc”. */
+  source_thread_id?: string | null;
   tags: string;
   /** private means only `created_by` reads it, and only in their own heritage room. */
   visibility?: MemoryVisibility;
@@ -177,6 +179,40 @@ export interface ImportPoemsResult {
   titles?: string[];
   memories?: MemoryItem[];
   skipped: { title: string; reason: "duplicate" | "empty_body" | string }[];
+}
+
+export interface LibraryIngestJob {
+  id: string;
+  space_id: string;
+  identity_id?: string | null;
+  original_filename: string;
+  input_mime: string;
+  status: "queued" | "running" | "needs_review" | "failed" | "done" | string;
+  error_message?: string;
+  model?: string;
+  created_at: string;
+  started_at?: string | null;
+  finished_at?: string | null;
+  proposal_count?: number | null;
+}
+
+export interface LibraryIngestProposal {
+  id: string;
+  job_id: string;
+  kind: "poem" | "milestone" | "note" | "knowledge" | string;
+  title: string;
+  body: string;
+  body_tts?: string;
+  meter?: string;
+  themes: string[];
+  /** own = thơ của người được nhớ; gift = thơ tặng / họa */
+  authorship?: "own" | "gift" | string;
+  occurred_at?: string | null;
+  identity_id?: string | null;
+  review_status: "pending" | "approved" | "rejected" | string;
+  memory_item_id?: string | null;
+  sort_order: number;
+  created_at: string;
 }
 
 export interface InterviewPrompt {
@@ -955,12 +991,31 @@ export function createApiClient({
         body?: string;
         tags?: string;
         visibility?: MemoryVisibility;
+        occurred_at?: string | null;
+        clear_occurred_at?: boolean;
+        clear_media?: boolean;
       },
     ) =>
       request<MemoryItem>(`/api/memories/${memoryId}`, {
         method: "PATCH",
         body: JSON.stringify(payload),
       }),
+    attachMemoryMedia: async (
+      memoryId: string,
+      payload: { uri: string; name: string; mimeType: string },
+    ) => {
+      const form = new FormData();
+      form.append("file", {
+        uri: payload.uri,
+        name: payload.name,
+        type: payload.mimeType,
+      } as unknown as Blob);
+      return request<MemoryItem>(
+        `/api/memories/${memoryId}/media`,
+        { method: "POST", body: form as unknown as BodyInit },
+        { json: false },
+      );
+    },
     deleteMemory: (memoryId: string) =>
       request<{ ok: boolean }>(`/api/memories/${memoryId}`, {
         method: "DELETE",
@@ -1616,6 +1671,83 @@ export function createApiClient({
       ),
     extractSegmentMediaUrl: (spaceId: string, segmentId: string) =>
       `${resolveRoot()}/api/spaces/${spaceId}/extract/segments/${segmentId}/media`,
+
+    createLibraryIngestJob: async (
+      spaceId: string,
+      payload: {
+        uri: string;
+        name: string;
+        mimeType: string;
+        identityId?: string;
+      },
+    ) => {
+      const form = new FormData();
+      if (payload.identityId) form.append("identity_id", payload.identityId);
+      form.append("file", {
+        uri: payload.uri,
+        name: payload.name,
+        type: payload.mimeType,
+      } as unknown as Blob);
+      return request<LibraryIngestJob>(
+        `/api/spaces/${spaceId}/library-ingest/jobs`,
+        { method: "POST", body: form as unknown as BodyInit },
+        { json: false },
+      );
+    },
+    listLibraryIngestJobs: (spaceId: string) =>
+      request<{ jobs: LibraryIngestJob[] }>(
+        `/api/spaces/${spaceId}/library-ingest/jobs`,
+      ),
+    getLibraryIngestJob: (spaceId: string, jobId: string) =>
+      request<LibraryIngestJob>(
+        `/api/spaces/${spaceId}/library-ingest/jobs/${jobId}`,
+      ),
+    patchLibraryIngestJob: (
+      spaceId: string,
+      jobId: string,
+      payload: { identity_id: string },
+    ) =>
+      request<LibraryIngestJob>(
+        `/api/spaces/${spaceId}/library-ingest/jobs/${jobId}`,
+        { method: "PATCH", body: JSON.stringify(payload) },
+      ),
+    listLibraryIngestProposals: (spaceId: string, jobId: string) =>
+      request<{ proposals: LibraryIngestProposal[] }>(
+        `/api/spaces/${spaceId}/library-ingest/jobs/${jobId}/proposals`,
+      ),
+    editLibraryIngestProposal: (
+      spaceId: string,
+      jobId: string,
+      proposalId: string,
+      payload: {
+        title?: string;
+        body?: string;
+        kind?: string;
+        themes?: string[];
+        meter?: string;
+        authorship?: "own" | "gift" | string;
+        occurred_at?: string | null;
+        identity_id?: string | null;
+      },
+    ) =>
+      request<LibraryIngestProposal>(
+        `/api/spaces/${spaceId}/library-ingest/jobs/${jobId}/proposals/${proposalId}`,
+        { method: "PATCH", body: JSON.stringify(payload) },
+      ),
+    settleLibraryIngestProposals: (
+      spaceId: string,
+      jobId: string,
+      payload: { proposal_ids: string[]; action: "approve" | "reject" },
+    ) =>
+      request<{
+        action: string;
+        created_memory_ids?: string[];
+        settled?: number;
+        skipped: { id: string; reason: string }[];
+      }>(
+        `/api/spaces/${spaceId}/library-ingest/jobs/${jobId}/proposals/settle`,
+        { method: "POST", body: JSON.stringify(payload) },
+      ),
   };
 }
 

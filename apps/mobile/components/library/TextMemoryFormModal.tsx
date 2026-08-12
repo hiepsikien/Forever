@@ -1,5 +1,13 @@
 import { IdentityProfile } from "@forever/api-client";
-import { Modal, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import {
+  Image,
+  Modal,
+  Pressable,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from "react-native";
 
 import { IdentityChipPicker } from "@/components/IdentityChipPicker";
 import { colors, fonts } from "@/lib/theme";
@@ -16,17 +24,21 @@ type Props = {
   selectedIdentityIds: string[];
   userId?: string | null;
   busy?: boolean;
+  /** Local preview URI when creating/editing a milestone photo. */
+  photoUri?: string | null;
   onChangeTitle: (v: string) => void;
   onChangeBody: (v: string) => void;
   onChangeOccurredAt: (v: string) => void;
   onToggleIdentity: (id: string) => void;
+  onPickPhoto?: () => void;
+  onClearPhoto?: () => void;
   onCancel: () => void;
   onSave: () => void;
 };
 
 const TITLES: Record<TextMemoryKind, string> = {
   note: "Ghi chú mới",
-  milestone: "Mốc đời mới",
+  milestone: "Mốc đời",
   poem: "Thơ mới",
 };
 
@@ -40,10 +52,13 @@ export function TextMemoryFormModal({
   selectedIdentityIds,
   userId,
   busy,
+  photoUri,
   onChangeTitle,
   onChangeBody,
   onChangeOccurredAt,
   onToggleIdentity,
+  onPickPhoto,
+  onClearPhoto,
   onCancel,
   onSave,
 }: Props) {
@@ -85,6 +100,25 @@ export function TextMemoryFormModal({
             style={[styles.input, styles.inputTall]}
             multiline
           />
+          {kind === "milestone" && onPickPhoto ? (
+            <View style={styles.photoBlock}>
+              {photoUri ? (
+                <Image source={{ uri: photoUri }} style={styles.photoPreview} />
+              ) : null}
+              <View style={styles.photoActions}>
+                <Pressable onPress={onPickPhoto} hitSlop={8}>
+                  <Text style={styles.photoLink}>
+                    {photoUri ? "Đổi ảnh" : "Thêm ảnh (tuỳ chọn)"}
+                  </Text>
+                </Pressable>
+                {photoUri && onClearPhoto ? (
+                  <Pressable onPress={onClearPhoto} hitSlop={8}>
+                    <Text style={styles.clearPhoto}>Bỏ ảnh</Text>
+                  </Pressable>
+                ) : null}
+              </View>
+            </View>
+          ) : null}
           {identities.length > 0 ? (
             <>
               <Text style={styles.label}>Ai trong ký ức này?</Text>
@@ -122,11 +156,11 @@ const styles = StyleSheet.create({
   },
   card: {
     backgroundColor: colors.bg,
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
+    borderTopLeftRadius: 18,
+    borderTopRightRadius: 18,
     padding: 20,
     gap: 10,
-    maxHeight: "92%",
+    paddingBottom: 28,
   },
   modalTitle: {
     fontFamily: fonts.display,
@@ -137,32 +171,38 @@ const styles = StyleSheet.create({
   input: {
     borderWidth: 1,
     borderColor: colors.line,
-    borderRadius: 14,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    backgroundColor: "#fff",
-    color: colors.ink,
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
     fontSize: 16,
+    color: colors.ink,
+    backgroundColor: colors.card,
   },
   inputTall: { minHeight: 120, textAlignVertical: "top" },
-  label: {
-    marginTop: 4,
-    fontSize: 13,
-    fontWeight: "700",
-    color: colors.inkSoft,
+  photoBlock: { gap: 8 },
+  photoPreview: {
+    width: "100%",
+    height: 160,
+    borderRadius: 12,
+    backgroundColor: colors.bgDeep,
   },
+  photoActions: { flexDirection: "row", gap: 16, alignItems: "center" },
+  photoLink: { fontSize: 14, fontWeight: "600", color: colors.brand },
+  clearPhoto: { fontSize: 14, fontWeight: "600", color: colors.inkSoft },
+  label: { fontSize: 13, fontWeight: "600", color: colors.inkSoft, marginTop: 4 },
   actions: {
     flexDirection: "row",
-    justifyContent: "space-between",
+    justifyContent: "flex-end",
     alignItems: "center",
+    gap: 16,
     marginTop: 8,
   },
-  cancel: { color: colors.inkSoft, fontSize: 16 },
+  cancel: { fontSize: 16, color: colors.inkSoft },
   saveBtn: {
     backgroundColor: colors.brand,
-    borderRadius: 14,
+    borderRadius: 10,
     paddingHorizontal: 18,
-    paddingVertical: 12,
+    paddingVertical: 10,
   },
-  saveText: { color: "#f4efe6", fontWeight: "600" },
+  saveText: { color: "#fff", fontWeight: "700", fontSize: 15 },
 });

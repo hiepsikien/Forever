@@ -18,7 +18,7 @@ from ..access import (
 from ..auth import get_current_user
 from ..db import get_db
 from ..models import IdentityProfile, MemoryItem, Message, Thread, User
-from ..services.heritage import HERITAGE_TAG_PREFIX, POEM_KIND, tag_tokens
+from ..services.heritage import HERITAGE_TAG_PREFIX, POEM_KIND, poem_authorship_tag, tag_tokens
 from ..services.memory_scope import (
     VISIBILITIES,
     normalize_visibility,
@@ -61,6 +61,9 @@ class UpdateMemoryBody(BaseModel):
     body: str | None = Field(default=None, max_length=8000)
     tags: str | None = Field(default=None, max_length=500)
     visibility: str | None = Field(default=None, max_length=16)
+    occurred_at: str | None = None
+    clear_occurred_at: bool = False
+    clear_media: bool = False
 
 
 ALLOWED_POEM_THEMES = {
@@ -116,7 +119,12 @@ def _parse_occurred_at(value: str | None) -> datetime | None:
         raise HTTPException(status_code=400, detail="Invalid occurred_at.") from exc
 
 
-def _memory_payload(item: MemoryItem, creator_name: str | None) -> dict:
+def _memory_payload(
+    item: MemoryItem,
+    creator_name: str | None,
+    *,
+    source_thread_id: str | None = None,
+) -> dict:
     return {
         "id": item.id,
         "space_id": item.space_id,
@@ -129,6 +137,7 @@ def _memory_payload(item: MemoryItem, creator_name: str | None) -> dict:
         "has_media": bool(item.media_path),
         "media_mime": item.media_mime,
         "source_message_id": item.source_message_id,
+        "source_thread_id": source_thread_id,
         "tags": item.tags,
         "visibility": normalize_visibility(item.visibility),
         "occurred_at": item.occurred_at.isoformat() if item.occurred_at else None,
@@ -141,6 +150,33 @@ def _creator_names(db: Session, items: list[MemoryItem]) -> dict[str, str]:
     if not ids:
         return {}
     return {u.id: u.name for u in db.query(User).filter(User.id.in_(ids)).all()}
+
+
+def _source_thread_ids(db: Session, items: list[MemoryItem]) -> dict[str, str]:
+    """Map memory id → thread id for knowledge items that cite a chat message."""
+    msg_ids = {
+        m.source_message_id
+        for m in items
+        if m.source_message_id and m.kind == "knowledge"
+    }
+    if not msg_ids:
+        return {}
+    by_msg = {
+        row.id: row.thread_id
+        for row in db.query(Message).filter(Message.id.in_(msg_ids)).all()
+    }
+    return {
+        m.id: by_msg[m.source_message_id]
+        for m in items
+        if m.source_message_id and m.source_message_id in by_msg
+    }
+
+
+def _resolve_source_thread_id(db: Session, item: MemoryItem) -> str | None:
+    if not item.source_message_id:
+        return None
+    msg = db.query(Message).filter(Message.id == item.source_message_id).one_or_none()
+    return msg.thread_id if msg else None
 
 
 @router.get("/api/spaces/{space_id}/memories")
@@ -160,8 +196,16 @@ def list_memories(
         .all()
     )
     names = _creator_names(db, items)
+    threads = _source_thread_ids(db, items)
     return {
-        "memories": [_memory_payload(m, names.get(m.created_by)) for m in items]
+        "memories": [
+            _memory_payload(
+                m,
+                names.get(m.created_by),
+                source_thread_id=threads.get(m.id),
+            )
+            for m in items
+        ]
     }
 
 
@@ -224,7 +268,11 @@ def create_note_memory(
 
 
 def _poem_tags(identity_id: str, meter: str, themes: list[str]) -> str:
-    tags = [f"{HERITAGE_TAG_PREFIX}{identity_id}", "tho"]
+    tags = [
+        f"{HERITAGE_TAG_PREFIX}{identity_id}",
+        "tho",
+        poem_authorship_tag("own"),
+    ]
     meter = (meter or "").strip()
     if meter and meter != "unknown":
         tags.append(f"meter:{meter}")
@@ -607,7 +655,62 @@ def update_memory(
             item.body_tts = format_body_tts(lines, meter=meter)
     if body.tags is not None:
         item.tags = body.tags.strip()[:500]
+    if body.clear_occurred_at:
+        item.occurred_at = None
+    elif body.occurred_at is not None:
+        item.occurred_at = _parse_occurred_at(body.occurred_at)
+    if body.clear_media:
+        old_path = item.media_path
+        item.media_path = None
+        item.media_mime = None
+        if old_path:
+            try:
+                delete_media_artifacts(old_path)
+            except Exception:
+                pass
     db.commit()
     db.refresh(item)
     creator = db.query(User).filter(User.id == item.created_by).one_or_none()
-    return _memory_payload(item, creator.name if creator else None)
+    return _memory_payload(
+        item,
+        creator.name if creator else None,
+        source_thread_id=_resolve_source_thread_id(db, item),
+    )
+
+
+@router.post("/api/memories/{memory_id}/media")
+async def attach_memory_media(
+    memory_id: str,
+    user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[Session, Depends(get_db)],
+    file: UploadFile = File(...),
+):
+    """Attach or replace an image on a text memory (milestone / note / poem)."""
+    item = db.query(MemoryItem).filter(MemoryItem.id == memory_id).one_or_none()
+    if not item:
+        raise HTTPException(status_code=404, detail="Memory not found.")
+    _require_can_edit_memory(db, item, user)
+    if item.kind in {"voice", "photo", "video"}:
+        raise HTTPException(
+            status_code=400,
+            detail="Dùng upload riêng cho voice/photo/video.",
+        )
+    relative, mime = save_upload(item.space_id, file)
+    if not mime.startswith("image/"):
+        raise HTTPException(status_code=400, detail="Chỉ gắn được ảnh.")
+    old_path = item.media_path
+    item.media_path = relative
+    item.media_mime = mime
+    db.commit()
+    db.refresh(item)
+    if old_path and old_path != relative:
+        try:
+            delete_media_artifacts(old_path)
+        except Exception:
+            pass
+    creator = db.query(User).filter(User.id == item.created_by).one_or_none()
+    return _memory_payload(
+        item,
+        creator.name if creator else None,
+        source_thread_id=_resolve_source_thread_id(db, item),
+    )

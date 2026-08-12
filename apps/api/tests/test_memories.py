@@ -194,6 +194,55 @@ def test_update_memory(client):
     assert "from-chat" in data["tags"]
 
 
+def test_update_milestone_date_and_photo(client):
+    from io import BytesIO
+
+    from PIL import Image
+
+    token = _login(client, "mile-photo@example.com", "Con")
+    headers = {"Authorization": f"Bearer {token}"}
+    space = client.post("/api/spaces", headers=headers, json={"name": "Nhà"}).json()
+
+    created = client.post(
+        f"/api/spaces/{space['id']}/memories/note",
+        headers=headers,
+        json={
+            "kind": "milestone",
+            "title": "Sinh",
+            "body": "Sinh tại Bắc Ninh",
+            "occurred_at": "1940-06-01",
+        },
+    )
+    assert created.status_code == 200, created.text
+    memory_id = created.json()["id"]
+
+    patched = client.patch(
+        f"/api/memories/{memory_id}",
+        headers=headers,
+        json={"occurred_at": "1940-01-01"},
+    )
+    assert patched.status_code == 200, patched.text
+    assert patched.json()["occurred_at"].startswith("1940-01-01")
+
+    buf = BytesIO()
+    Image.new("RGB", (4, 4), color=(10, 20, 30)).save(buf, format="JPEG")
+    media = client.post(
+        f"/api/memories/{memory_id}/media",
+        headers=headers,
+        files={"file": ("mile.jpg", buf.getvalue(), "image/jpeg")},
+    )
+    assert media.status_code == 200, media.text
+    assert media.json()["has_media"] is True
+
+    cleared = client.patch(
+        f"/api/memories/{memory_id}",
+        headers=headers,
+        json={"clear_media": True},
+    )
+    assert cleared.status_code == 200
+    assert cleared.json()["has_media"] is False
+
+
 def _heritage_identity(client, headers: dict, space_id: str) -> str:
     res = client.post(
         f"/api/spaces/{space_id}/identities",

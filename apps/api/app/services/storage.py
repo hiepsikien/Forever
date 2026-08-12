@@ -42,7 +42,16 @@ IMAGE_MIME = {
     "image/heif",
 }
 
+PDF_MIME = {"application/pdf"}
+
+DOCX_MIME = {
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+}
+
+DOC_MIME = {"application/msword"}
+
 ALLOWED_MIME = AUDIO_MIME | VIDEO_MIME | IMAGE_MIME
+LIBRARY_INGEST_MIME = IMAGE_MIME | PDF_MIME | DOCX_MIME | DOC_MIME
 EXTRACTABLE_MIME = AUDIO_MIME | VIDEO_MIME
 
 EXT_BY_MIME = {
@@ -65,6 +74,9 @@ EXT_BY_MIME = {
     "image/webp": ".webp",
     "image/heic": ".heic",
     "image/heif": ".heif",
+    "application/pdf": ".pdf",
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document": ".docx",
+    "application/msword": ".doc",
 }
 
 MIME_ALIASES = {
@@ -97,6 +109,15 @@ EXT_TO_MIME = {
     ".mkv": "video/x-matroska",
     ".avi": "video/x-msvideo",
     ".wmv": "video/x-ms-wmv",
+    ".pdf": "application/pdf",
+    ".jpg": "image/jpeg",
+    ".jpeg": "image/jpeg",
+    ".png": "image/png",
+    ".webp": "image/webp",
+    ".heic": "image/heic",
+    ".heif": "image/heif",
+    ".docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    ".doc": "application/msword",
 }
 
 
@@ -210,6 +231,44 @@ def save_upload(
         else:
             ext = ".jpg"
     relative = f"{space_id}/{generate()}{ext}"
+    dest = Path(settings.upload_dir) / relative
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    dest.write_bytes(data)
+    return relative.replace("\\", "/"), mime
+
+
+def save_library_ingest_upload(
+    space_id: str,
+    job_id: str,
+    upload: UploadFile,
+    *,
+    max_bytes: int = MAX_UPLOAD_BYTES,
+) -> tuple[str, str]:
+    """Save image/PDF/DOC/DOCX for library ingest under space/library-ingest/job_id/."""
+    settings = get_settings()
+    mime = guess_mime(upload)
+    # Filename wins for Word when clients send octet-stream.
+    name = (upload.filename or "").lower()
+    if name.endswith(".docx"):
+        mime = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+    elif name.endswith(".doc"):
+        mime = "application/msword"
+    if mime not in LIBRARY_INGEST_MIME and not mime.startswith("image/"):
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                f"Unsupported file type: {mime or 'unknown'}. "
+                "Dùng ảnh, PDF, DOC hoặc DOCX."
+            ),
+        )
+    data = upload.file.read()
+    if not data:
+        raise HTTPException(status_code=400, detail="Empty file.")
+    if len(data) > max_bytes:
+        cap_mb = max_bytes // (1024 * 1024)
+        raise HTTPException(status_code=400, detail=f"File too large (max {cap_mb}MB).")
+    ext = EXT_BY_MIME.get(mime) or Path(upload.filename or "").suffix.lower() or ".bin"
+    relative = f"{space_id}/library-ingest/{job_id}/input{ext}"
     dest = Path(settings.upload_dir) / relative
     dest.parent.mkdir(parents=True, exist_ok=True)
     dest.write_bytes(data)

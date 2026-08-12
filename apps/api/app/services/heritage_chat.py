@@ -15,6 +15,7 @@ from .heritage import (
     POEM_KIND,
     heritage_thread_title,
     identity_for_thread,
+    is_own_poem,
     normalize_text,
     tag_tokens,
     voice_for_identity,
@@ -373,7 +374,7 @@ def _poems_for_identity(
         .order_by(MemoryItem.created_at.asc())
         .all()
     )
-    return [item for item in items if needle in tag_tokens(item.tags)]
+    return [item for item in items if needle in tag_tokens(item.tags) and is_own_poem(item.tags)]
 
 
 def _themes_from_tags(tags: str | None) -> set[str]:

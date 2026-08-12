@@ -1,6 +1,8 @@
 # Quy hoạch lại trang Ký ức
 
 > Trạng thái: **A–E đã ship** (mobile hub + kệ + Thêm + duyệt trong kệ).
+> Tiếp: thời gian/dẫn chứng Điều nghe được; mốc đời + ảnh; Nhập tài liệu (Approve);
+> lối vào Thư viện trang trọng trên Nhà; profile living đơn giản.
 > Đọc cùng `docs/PROJECT.md` §10.
 > Bối cảnh: Thư viện của "Nhà tôi ở Đền Lừ" đang có 48 món và đã khó dùng.
 

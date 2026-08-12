@@ -1,5 +1,5 @@
 import { MemoryCandidate, MemoryVisibility } from "@forever/api-client";
-import { useLocalSearchParams } from "expo-router";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import { useCallback, useLayoutEffect, useState } from "react";
 import {
   ActivityIndicator,
@@ -13,6 +13,7 @@ import {
 } from "react-native";
 
 import { useAuth } from "@/lib/auth";
+import { formatLocalDate, formatLocalDateTime } from "@/lib/datetime";
 import { useSpaceScreenOptions } from "@/lib/spaceHeader";
 import { colors, fonts } from "@/lib/theme";
 
@@ -30,6 +31,7 @@ function isPrivate(item: MemoryCandidate): boolean {
 export default function ReviewScreen() {
   const { spaceId } = useLocalSearchParams<{ spaceId: string }>();
   const { api } = useAuth();
+  const router = useRouter();
   const [items, setItems] = useState<MemoryCandidate[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -161,13 +163,28 @@ export default function ReviewScreen() {
             </View>
 
             <Text style={styles.statement}>{item.statement}</Text>
-            {item.occurred_at ? (
-              <Text style={styles.when}>Ngày: {item.occurred_at}</Text>
-            ) : null}
+            <Text style={styles.when}>
+              Đề xuất: {formatLocalDateTime(item.created_at)}
+              {item.occurred_at
+                ? ` · Sự kiện: ${formatLocalDate(item.occurred_at)}`
+                : ""}
+            </Text>
             {item.source_body ? (
               <Text style={styles.source} numberOfLines={3}>
                 “{item.source_body}”
               </Text>
+            ) : null}
+            {item.source_message_id && item.thread_id ? (
+              <Pressable
+                onPress={() =>
+                  router.push(
+                    `/chat/${item.thread_id}?messageId=${item.source_message_id}`,
+                  )
+                }
+                hitSlop={6}
+              >
+                <Text style={styles.sourceLink}>Xem câu gốc →</Text>
+              </Pressable>
             ) : null}
             {isPrivate(item) ? (
               <Text style={styles.privateNote}>
@@ -258,6 +275,11 @@ const styles = StyleSheet.create({
     lineHeight: 19,
     color: colors.inkSoft,
     fontStyle: "italic",
+  },
+  sourceLink: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: colors.brand,
   },
   privateNote: { fontSize: 13, lineHeight: 19, color: "#8a5a00" },
   actions: {
