@@ -416,3 +416,37 @@ def get_message_media(
         media_type=message.media_mime or "application/octet-stream",
         filename=path.name,
     )
+
+
+@media_router.get("/{message_id}/tts")
+def get_message_tts(
+    message_id: str,
+    user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[Session, Depends(get_db)],
+):
+    """Cloned-voice audio for a keepsake opener (photo stays on /media)."""
+    from ..services.keepsakes import opener_tts_path
+
+    message = db.query(Message).filter(Message.id == message_id).one_or_none()
+    if not message:
+        raise HTTPException(status_code=404, detail="Media not found.")
+    thread = db.query(Thread).filter(Thread.id == message.thread_id).one_or_none()
+    if not thread:
+        raise HTTPException(status_code=404, detail="Thread not found.")
+    require_thread_access(db, thread=thread, user=user)
+    relative = opener_tts_path(message)
+    if not relative:
+        raise HTTPException(status_code=404, detail="TTS not ready.")
+    path = absolute_media_path(relative)
+    if not path.exists():
+        raise HTTPException(status_code=404, detail="Media file missing.")
+    mime = "audio/mpeg"
+    raw = getattr(message, "meta_json", None) or ""
+    if raw.strip():
+        try:
+            tts = json.loads(raw).get("tts") or {}
+            if isinstance(tts, dict) and tts.get("media_mime"):
+                mime = tts["media_mime"]
+        except json.JSONDecodeError:
+            pass
+    return FileResponse(path, media_type=mime, filename=path.name)

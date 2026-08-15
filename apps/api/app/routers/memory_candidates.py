@@ -99,6 +99,7 @@ def list_memory_candidates(
 
 class ApproveBody(BaseModel):
     visibility: str = Field(default=FAMILY, max_length=16)
+    statement: str | None = Field(default=None, max_length=800)
 
 
 @router.post("/memory-candidates/{candidate_id}/approve")
@@ -113,7 +114,14 @@ def approve_memory_candidate(
     visibility = (body or ApproveBody()).visibility
     if visibility not in VISIBILITIES:
         raise HTTPException(status_code=400, detail="Visibility không hợp lệ.")
-    item = approve(db, candidate=row, user_id=user.id, visibility=visibility)
+    statement = ((body.statement if body else None) or "").strip() or None
+    item = approve(
+        db,
+        candidate=row,
+        user_id=user.id,
+        visibility=visibility,
+        statement=statement,
+    )
     return {"candidate": _payload(db, row), "memory_id": item.id}
 
 

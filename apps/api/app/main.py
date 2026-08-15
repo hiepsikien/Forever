@@ -11,7 +11,7 @@ from sentry_sdk.integrations.starlette import StarletteIntegration
 
 from .config import get_settings
 from .db import Base, SessionLocal, engine
-from .routers import auth, extract, interviews, memories, memory_candidates, messages, spaces, stewardship, threads
+from .routers import auth, extract, interviews, keepsakes, memories, memory_candidates, messages, spaces, stewardship, threads
 from .routers import ai_usage, settings as settings_router
 from .routers import library_ingest, voice_dna
 from .schema_patch import ensure_schema
@@ -117,6 +117,7 @@ app.include_router(messages.router)
 app.include_router(messages.media_router)
 app.include_router(memories.router)
 app.include_router(memory_candidates.router)
+app.include_router(keepsakes.router)
 app.include_router(interviews.router)
 app.include_router(voice_dna.router)
 app.include_router(extract.router)

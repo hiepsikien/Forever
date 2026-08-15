@@ -1,10 +1,11 @@
-import { FamilySpace, ThreadSummary } from "@forever/api-client";
+import { FamilySpace, Keepsake, ThreadSummary } from "@forever/api-client";
 import { useFocusEffect } from "@react-navigation/native";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   FlatList,
+  Image,
   Pressable,
   RefreshControl,
   StyleSheet,
@@ -13,6 +14,7 @@ import {
 } from "react-native";
 
 import { useAuth } from "@/lib/auth";
+import { fetchAuthedMediaUri } from "@/lib/media";
 import { useSpaceScreenOptions } from "@/lib/spaceHeader";
 import { colors, fonts } from "@/lib/theme";
 
@@ -109,6 +111,9 @@ export default function SpaceScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [pendingCount, setPendingCount] = useState(0);
+  const [keepsake, setKeepsake] = useState<Keepsake | null>(null);
+  const [keepsakeUri, setKeepsakeUri] = useState<string | null>(null);
+  const [keepsakeBusy, setKeepsakeBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const spaceRef = useRef<FamilySpace | null>(null);
   spaceRef.current = space;
@@ -133,6 +138,12 @@ export default function SpaceScreen() {
           setPendingCount(pending.candidates.length);
         } catch {
           setPendingCount(0);
+        }
+        try {
+          const today = await api.keepsakeToday(id);
+          setKeepsake(today.keepsake);
+        } catch {
+          setKeepsake(null);
         }
       } catch (e) {
         setError(e instanceof Error ? e.message : "Không tải được.");
@@ -200,6 +211,64 @@ export default function SpaceScreen() {
     return rows;
   }, [threads, livingRoomThread]);
 
+  useEffect(() => {
+    if (!keepsake?.has_media || !keepsake.memory_item_id) {
+      setKeepsakeUri(null);
+      return;
+    }
+    let live = true;
+    fetchAuthedMediaUri(
+      api.memoryMediaUrl(keepsake.memory_item_id),
+      `keepsake-${keepsake.id}`,
+      keepsake.media_mime,
+    )
+      .then((uri) => {
+        if (live) setKeepsakeUri(uri);
+      })
+      .catch(() => {
+        if (live) setKeepsakeUri(null);
+      });
+    return () => {
+      live = false;
+    };
+  }, [api, keepsake]);
+
+  const talkKeepsake = async () => {
+    if (!keepsake || keepsake.kind !== "photo") return;
+    setKeepsakeBusy(true);
+    setError(null);
+    try {
+      const threadId = keepsake.thread_id;
+      if (threadId) {
+        router.push(`/call/${threadId}` as never);
+        void api.openKeepsake(keepsake.id).catch(() => undefined);
+      } else {
+        const opened = await api.openKeepsake(keepsake.id);
+        router.push(`/call/${opened.thread_id}` as never);
+      }
+      void load({ silent: true });
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Không mở được hiện vật.");
+    } finally {
+      setKeepsakeBusy(false);
+    }
+  };
+
+  const skipKeepsake = async () => {
+    if (!keepsake?.can_skip) return;
+    setKeepsakeBusy(true);
+    setError(null);
+    try {
+      const res = await api.skipKeepsake(keepsake.id);
+      setKeepsake(res.next);
+      setKeepsakeUri(null);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Không bỏ được tấm này.");
+    } finally {
+      setKeepsakeBusy(false);
+    }
+  };
+
   const openThread = async (item: ThreadRow) => {
     if (
       item.kind === "heritage" &&
@@ -239,6 +308,56 @@ export default function SpaceScreen() {
         {space?.member_count ?? 0} thành viên
         {space?.role === "owner" ? " · Bạn quản trị" : ""}
       </Text>
+
+      {keepsake ? (
+        <View style={styles.keepsake}>
+          <Text style={styles.keepsakeKicker}>
+            {keepsake.kind === "poem" ? "Thơ" : "Ảnh kỷ niệm"}
+          </Text>
+          {keepsake.kind === "photo" && keepsakeUri ? (
+            <Image source={{ uri: keepsakeUri }} style={styles.keepsakePhoto} />
+          ) : null}
+          <Text style={styles.keepsakeTitle} numberOfLines={3}>
+            {keepsake.title || keepsake.body || "Hiện vật"}
+          </Text>
+          {keepsake.kind === "poem" && keepsake.body ? (
+            <Text style={styles.keepsakeBody} numberOfLines={4}>
+              {keepsake.body}
+            </Text>
+          ) : null}
+          {keepsake.kind === "photo" ? (
+            <View style={styles.keepsakeActions}>
+              <Pressable
+                style={[styles.keepsakeTalk, keepsakeBusy && styles.keepsakeDisabled]}
+                onPress={() => void talkKeepsake()}
+                disabled={keepsakeBusy}
+              >
+                <Text style={styles.keepsakeTalkText}>Nói chuyện →</Text>
+              </Pressable>
+              {keepsake.can_skip ? (
+                <Pressable
+                  onPress={() => void skipKeepsake()}
+                  disabled={keepsakeBusy}
+                  hitSlop={8}
+                >
+                  <Text style={styles.keepsakeSkip}>Skip</Text>
+                </Pressable>
+              ) : null}
+            </View>
+          ) : (
+            <Pressable
+              onPress={() =>
+                id &&
+                router.push(
+                  `/library/${id}/person/${keepsake.identity_id}` as never,
+                )
+              }
+            >
+              <Text style={styles.keepsakeTalkTextAlt}>Đọc trong Thư viện →</Text>
+            </Pressable>
+          )}
+        </View>
+      ) : null}
 
       {livingRoomThread ? (
         <Pressable
@@ -417,6 +536,54 @@ const styles = StyleSheet.create({
     padding: 18,
     gap: 6,
   },
+  keepsake: {
+    backgroundColor: colors.card,
+    borderRadius: 16,
+    padding: 16,
+    gap: 8,
+    borderWidth: 1,
+    borderColor: colors.line,
+  },
+  keepsakeKicker: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: colors.inkSoft,
+    textTransform: "uppercase",
+    letterSpacing: 0.4,
+  },
+  keepsakePhoto: {
+    width: "100%",
+    height: 220,
+    borderRadius: 12,
+    backgroundColor: colors.line,
+  },
+  keepsakeTitle: {
+    fontFamily: fonts.display,
+    fontSize: 20,
+    lineHeight: 26,
+    color: colors.ink,
+  },
+  keepsakeBody: {
+    fontSize: 15,
+    lineHeight: 22,
+    color: colors.inkSoft,
+  },
+  keepsakeActions: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 16,
+    marginTop: 4,
+  },
+  keepsakeTalk: {
+    backgroundColor: colors.brand,
+    borderRadius: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+  },
+  keepsakeTalkText: { color: "#f4efe6", fontWeight: "700", fontSize: 16 },
+  keepsakeTalkTextAlt: { color: colors.brand, fontWeight: "700", fontSize: 16 },
+  keepsakeSkip: { color: colors.inkSoft, fontSize: 16, fontWeight: "600" },
+  keepsakeDisabled: { opacity: 0.5 },
   heroMuted: {
     backgroundColor: colors.card,
     borderRadius: 16,

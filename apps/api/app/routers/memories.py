@@ -406,6 +406,7 @@ async def upload_memory(
     title: str = Form(default=""),
     body: str = Form(default=""),
     tags: str = Form(default=""),
+    occurred_at: str = Form(default=""),
 ):
     require_membership(db, space_id=space_id, user=user)
     kind = kind.strip().lower()
@@ -428,6 +429,13 @@ async def upload_memory(
     }[kind]
 
     now = datetime.now(timezone.utc)
+    parsed_occurred = _parse_occurred_at(occurred_at.strip() or None)
+    if parsed_occurred is not None:
+        item_occurred = parsed_occurred
+    elif kind == "photo":
+        item_occurred = None
+    else:
+        item_occurred = now
     item = MemoryItem(
         id=generate(),
         space_id=space_id,
@@ -439,7 +447,7 @@ async def upload_memory(
         media_mime=mime,
         source_message_id=None,
         tags=(tags or "").strip(),
-        occurred_at=now,
+        occurred_at=item_occurred,
         created_at=now,
     )
     db.add(item)

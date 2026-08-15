@@ -161,6 +161,7 @@ def build_evidence_pack(
     milestones: list[MemoryItem],
     knowledge: list[MemoryItem],
     char_budget: int = 7200,
+    photo: MemoryItem | None = None,
 ) -> EvidencePack:
     """Assemble evidence in trust order, stopping at the budget.
 
@@ -186,6 +187,20 @@ def build_evidence_pack(
                 kind="entity",
                 title="Người được nhắc tới",
                 text="\n".join(entity_lines),
+            )
+        )
+    if photo is not None:
+        year = ""
+        if photo.occurred_at:
+            year = str(photo.occurred_at.year)
+        caption = _truncate(photo.body or photo.title or "", 400)
+        text = caption if not year else f"{caption}\nNăm (từ chú thích album): {year}"
+        add(
+            EvidenceItem(
+                id=photo.id,
+                kind="photo",
+                title=photo.title or "Ảnh kỷ niệm",
+                text=text,
             )
         )
     for item in milestones:

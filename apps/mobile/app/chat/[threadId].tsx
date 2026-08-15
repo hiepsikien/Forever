@@ -20,6 +20,7 @@ import {
   AppState,
   FlatList,
   GestureResponderEvent,
+  Image,
   Keyboard,
   KeyboardAvoidingView,
   NativeScrollEvent,
@@ -70,6 +71,34 @@ function uniqueById(items: ChatMessage[]): ChatMessage[] {
 
 function isVoiceMessage(item: ChatMessage): boolean {
   return (item.kind ?? "text") === "voice";
+}
+
+function isImageMessage(item: ChatMessage): boolean {
+  return Boolean(item.has_media && (item.media_mime || "").startsWith("image/"));
+}
+
+function ChatPhoto({ item }: { item: ChatMessage }) {
+  const { api } = useAuth();
+  const [uri, setUri] = useState<string | null>(null);
+  useEffect(() => {
+    let live = true;
+    fetchAuthedMediaUri(
+      api.messageMediaUrl(item.id),
+      `msg-${item.id}`,
+      item.media_mime,
+    )
+      .then((next) => {
+        if (live) setUri(next);
+      })
+      .catch(() => {
+        if (live) setUri(null);
+      });
+    return () => {
+      live = false;
+    };
+  }, [api, item.id, item.media_mime]);
+  if (!uri) return null;
+  return <Image source={{ uri }} style={styles.chatPhoto} />;
 }
 
 /** Stable enough to skip FlatList refreshes when the poll returns the same chat. */
@@ -237,7 +266,7 @@ const ChatMessageRow = memo(function ChatMessageRow({
           ) : null}
         </Text>
       ) : null}
-      <View
+        <View
         style={[
           styles.bubble,
           mine && styles.bubbleMine,
@@ -248,6 +277,7 @@ const ChatMessageRow = memo(function ChatMessageRow({
         ]}
         pointerEvents="none"
       >
+        {isImageMessage(item) ? <ChatPhoto item={item} /> : null}
         <Text
           selectable={false}
           pointerEvents="none"
@@ -1110,6 +1140,13 @@ const styles = StyleSheet.create({
     backgroundColor: "#f7f1e6",
     borderWidth: 1,
     borderColor: "rgba(196, 165, 116, 0.45)",
+  },
+  chatPhoto: {
+    width: "100%",
+    height: 200,
+    borderRadius: 10,
+    marginBottom: 8,
+    backgroundColor: colors.line,
   },
   typingBubble: {
     paddingVertical: 12,

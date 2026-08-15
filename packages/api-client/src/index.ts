@@ -94,6 +94,28 @@ export interface MemoryCandidate {
   created_at: string;
 }
 
+export interface Keepsake {
+  id: string;
+  space_id: string;
+  identity_id: string;
+  identity_name: string;
+  memory_item_id: string;
+  kind: "photo" | "poem" | string;
+  opener: string;
+  status: "draft" | "ready" | "skipped" | "retired" | string;
+  title: string;
+  body: string;
+  body_tts?: string;
+  has_media: boolean;
+  media_mime?: string | null;
+  occurred_at?: string | null;
+  thread_id?: string | null;
+  opened_message_id?: string | null;
+  already_open: boolean;
+  can_skip: boolean;
+  last_opened_at?: string | null;
+}
+
 export interface HeritageReadiness {
   identity_id: string;
   display_name: string;
@@ -917,6 +939,8 @@ export function createApiClient({
     },
     messageMediaUrl: (messageId: string) =>
       `${resolveRoot()}/api/messages/${messageId}/media`,
+    messageTtsUrl: (messageId: string) =>
+      `${resolveRoot()}/api/messages/${messageId}/tts`,
     listMemories: (spaceId: string) =>
       request<{ memories: MemoryItem[] }>(`/api/spaces/${spaceId}/memories`),
     createNoteMemory: (
@@ -1179,14 +1203,35 @@ export function createApiClient({
     approveMemoryCandidate: (
       candidateId: string,
       visibility: MemoryVisibility = "family",
+      statement?: string,
     ) =>
       request<{ candidate: MemoryCandidate; memory_id: string }>(
         `/api/memory-candidates/${candidateId}/approve`,
-        { method: "POST", body: JSON.stringify({ visibility }) },
+        {
+          method: "POST",
+          body: JSON.stringify({
+            visibility,
+            ...(statement?.trim() ? { statement: statement.trim() } : {}),
+          }),
+        },
       ),
     dismissMemoryCandidate: (candidateId: string) =>
       request<{ candidate: MemoryCandidate }>(
         `/api/memory-candidates/${candidateId}/dismiss`,
+        { method: "POST" },
+      ),
+    keepsakeToday: (spaceId: string) =>
+      request<{ keepsake: Keepsake | null }>(
+        `/api/spaces/${spaceId}/keepsake/today`,
+      ),
+    openKeepsake: (keepsakeId: string) =>
+      request<{ keepsake: Keepsake; thread_id: string; message_id: string }>(
+        `/api/keepsakes/${keepsakeId}/open`,
+        { method: "POST" },
+      ),
+    skipKeepsake: (keepsakeId: string) =>
+      request<{ keepsake: Keepsake; next: Keepsake | null }>(
+        `/api/keepsakes/${keepsakeId}/skip`,
         { method: "POST" },
       ),
     getHeritageReadiness: (spaceId: string, identityId: string) =>

@@ -174,14 +174,21 @@ def approve(
     candidate: MemoryCandidate,
     user_id: str,
     visibility: str = FAMILY,
+    statement: str | None = None,
 ) -> MemoryItem:
     """Turn a candidate into library knowledge the chat can cite next time.
 
     Keeping something is no longer the same as telling everyone: a fact heard in
     a private room can be kept `private`, and then only that member's own room
     with the remembered person may quote it back.
+
+    `statement` lets the reviewer fix a near-miss before it is written — the
+    model often has the right fact with one wrong word.
     """
     now = datetime.now(timezone.utc)
+    kept = (statement or "").strip() or candidate.statement
+    if statement is not None and statement.strip():
+        candidate.statement = kept
     occurred = None
     if _FULL_DATE.match(candidate.occurred_at or ""):
         occurred = datetime.fromisoformat(candidate.occurred_at).replace(
@@ -192,8 +199,8 @@ def approve(
         space_id=candidate.space_id,
         created_by=user_id,
         kind=CANDIDATE_KIND,
-        title=candidate.statement[:120],
-        body=candidate.statement,
+        title=kept[:120],
+        body=kept,
         source_message_id=candidate.source_message_id,
         tags=f"{HERITAGE_TAG_PREFIX}{candidate.identity_id}",
         visibility=normalize_visibility(visibility),

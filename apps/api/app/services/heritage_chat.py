@@ -56,6 +56,7 @@ from .heritage_retrieval import (
     retrieve_learned,
     retrieve_milestones,
 )
+from .keepsakes import active_photo_keepsake
 from .heritage_values import select_value_lens, value_lens_block
 from .ai_usage import UsageContext
 from .heritage_gemini import GeminiCall, call_gemini
@@ -191,7 +192,7 @@ def _is_spouse_profile(profile: IdentityProfile) -> bool:
     # Demo/living mirror: display «Mẹ» linked to wife account.
     if name == "me" and rel in ("me", "mẹ", "to", "toi"):
         return True
-    if rel in ("me", "mẹ", "vo", "vợ") and name == "dinh":
+    if rel in ("me", "mẹ", "vo", "vợ"):
         return True
     return False
 
@@ -258,10 +259,15 @@ def _detect_audience(
     if thread is not None and getattr(thread, "audience_scope", "family") == "direct":
         member_id = thread.member_user_id or sender_user_id
         return _audience_for_user(db, space_id=space_id, user_id=member_id) or "child"
+    # Family room: who is speaking beats wording ("con mới về" from mẹ
+    # must not flip Bố into talking to the child).
+    from_profile = _audience_for_user(db, space_id=space_id, user_id=sender_user_id)
+    if from_profile:
+        return from_profile
     hinted = _infer_audience_from_message(user_text)
     if hinted:
         return hinted
-    return _audience_for_user(db, space_id=space_id, user_id=sender_user_id) or "child"
+    return "child"
 
 
 def _audience_context_block(audience: str | None, spouse_name: str | None) -> str:
@@ -523,6 +529,7 @@ def build_system_prompt(
     clarify: str | None = None,
     frame: ContextFrame | None = None,
     memory: MemoryState | None = None,
+    keepsake_photo: MemoryItem | None = None,
 ) -> str:
     display = heritage_display_name(identity)
     quote_mode = (quote_mode or "paraphrase").strip().lower()
@@ -547,6 +554,7 @@ def build_system_prompt(
         poems=ordered_poems,
         milestones=milestones or [],
         knowledge=[item for item in knowledge if (item.body or "").strip()],
+        photo=keepsake_photo,
     )
 
     quote_rule = (
@@ -590,6 +598,16 @@ def build_system_prompt(
         else ""
     )
     memory_section = memory_block(memory) if memory else ""
+    keepsake_section = ""
+    if keepsake_photo is not None:
+        keepsake_section = (
+            "\nHIỆN VẬT ẢNH đang mở trong phòng chat này:\n"
+            "- Chỉ được khẳng định điều có trong chú thích ảnh (bằng chứng kind=photo) "
+            "hoặc ký ức đã duyệt khác.\n"
+            "- Không mô tả chi tiết nhìn thấy trong ảnh (quần áo, phông nền, số người, "
+            "cử chỉ) nếu chú thích không ghi.\n"
+            "- Mời người nhà kể hôm ấy; thiếu thì thừa nhận chưa nhớ — không bịa.\n"
+        )
 
     return f"""\
 Bạn là thực thể ký ức {display} trong app Forever — KHÔNG phải người còn sống,
@@ -623,6 +641,7 @@ Hard rules:
 {_lock_section("Điều cấm", taboos)}
 {context_section}
 {memory_section}
+{keepsake_section}
 {evidence_section}
 """
 
@@ -671,6 +690,22 @@ def _finalize_reply_text(text: str, finish_reason: str | None = None) -> str:
     return cleaned
 
 
+def _label_user_turn(text: str, speaker: str | None) -> str:
+    body = (text or "").strip()
+    name = (speaker or "").strip()
+    if name:
+        return f"{name}: {body}"
+    return body
+
+
+def _speaker_names_for_messages(db: Session, messages: list[Message]) -> dict[str, str]:
+    ids = {m.sender_user_id for m in messages if m.sender_user_id}
+    if not ids:
+        return {}
+    rows = db.query(User.id, User.name).filter(User.id.in_(ids)).all()
+    return {uid: name for uid, name in rows if name}
+
+
 def _gemini_heritage_reply(
     settings: Settings,
     *,
@@ -680,14 +715,28 @@ def _gemini_heritage_reply(
     max_output_tokens: int = 768,
     usage: UsageContext | None = None,
     model: str | None = None,
+    speaker_names: dict[str, str] | None = None,
+    current_speaker: str | None = None,
 ) -> tuple[str | None, str | None]:
+    names = speaker_names or {}
     contents: list[dict] = []
     for msg in history[-12:]:
         if msg.sender_kind == "user":
-            contents.append({"role": "user", "parts": [{"text": msg.body}]})
+            speaker = names.get(msg.sender_user_id or "")
+            contents.append(
+                {
+                    "role": "user",
+                    "parts": [{"text": _label_user_turn(msg.body, speaker)}],
+                }
+            )
         elif msg.sender_kind in ("heritage", "agent"):
             contents.append({"role": "model", "parts": [{"text": msg.body}]})
-    contents.append({"role": "user", "parts": [{"text": user_text}]})
+    contents.append(
+        {
+            "role": "user",
+            "parts": [{"text": _label_user_turn(user_text, current_speaker)}],
+        }
+    )
 
     while contents and contents[0]["role"] == "model":
         contents.pop(0)
@@ -785,6 +834,8 @@ def _retry_if_repetitive(
     max_output_tokens: int,
     usage: UsageContext | None = None,
     model: str | None = None,
+    speaker_names: dict[str, str] | None = None,
+    current_speaker: str | None = None,
 ) -> tuple[str, str | None, str | None]:
     """Rewrite once when the reply echoes a recent one. Keeps the fresher of the two."""
     previous = recent_heritage_bodies(history)
@@ -813,6 +864,8 @@ def _retry_if_repetitive(
         max_output_tokens=max_output_tokens,
         usage=repeat_usage,
         model=model,
+        speaker_names=speaker_names,
+        current_speaker=current_speaker,
     )
     if not retry:
         return reply, finish_reason, reason
@@ -1001,6 +1054,16 @@ def generate_heritage_reply(
         load_state(db, thread.id) if settings.heritage_memory_enabled else MemoryState()
     )
 
+    keepsake_photo = None
+    if settings.heritage_keepsake_enabled:
+        active = active_photo_keepsake(db, thread)
+        if active:
+            keepsake_photo = (
+                db.query(MemoryItem)
+                .filter(MemoryItem.id == active.memory_item_id)
+                .one_or_none()
+            )
+
     system_prompt = build_system_prompt(
         identity,
         signature_poems=signature,
@@ -1014,7 +1077,11 @@ def generate_heritage_reply(
         clarify=clarify,
         frame=frame,
         memory=memory,
+        keepsake_photo=keepsake_photo,
     )
+
+    speaker_names = _speaker_names_for_messages(db, [*history, user_message])
+    current_speaker = speaker_names.get(user_message.sender_user_id or "")
 
     llm, finish_reason = _gemini_heritage_reply(
         settings,
@@ -1024,6 +1091,8 @@ def generate_heritage_reply(
         max_output_tokens=frame.max_output_tokens,
         usage=usage,
         model=pipeline.compose_model,
+        speaker_names=speaker_names,
+        current_speaker=current_speaker,
     )
 
     repeat_reason = None
@@ -1039,6 +1108,8 @@ def generate_heritage_reply(
             max_output_tokens=frame.max_output_tokens,
             usage=usage,
             model=pipeline.compose_model,
+            speaker_names=speaker_names,
+            current_speaker=current_speaker,
         )
 
     body = post_process_reply(llm or _FALLBACK, audience=audience)

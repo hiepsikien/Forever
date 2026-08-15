@@ -37,8 +37,9 @@ class Settings(BaseSettings):
     heritage_memory_enabled: bool = True
     heritage_candidates_enabled: bool = True
     heritage_anti_repeat_enabled: bool = True
-    heritage_analyzer_model: str = ""
+    heritage_analyzer_model: str = "gemini-3.1-flash-lite"
     heritage_compose_model: str = ""
+    heritage_critic_model: str = "gemini-3.1-flash-lite"
     heritage_evidence_token_budget: int = 1800
     heritage_memory_compact_every: int = 6
     # Token overlap above which two replies count as the same reply.
@@ -52,6 +53,9 @@ class Settings(BaseSettings):
     stt_model: str = "gemini-3.1-flash-lite"
     # Skip base64 STT above this size (Gemini inline limit; chat max is 25MB).
     stt_max_bytes: int = 10 * 1024 * 1024
+
+    # Photo/poem on the family heritage chat (keepsake ritual). Off = hide card + APIs 404.
+    heritage_keepsake_enabled: bool = True
 
     # Attach cloned-voice audio to heritage replies. Off = text-only (rollback).
     # docs/voice-to-voice.plan.md V2. On by default so «Gọi cho Bố» works locally.
@@ -117,6 +121,10 @@ class Settings(BaseSettings):
     @property
     def compose_model(self) -> str:
         return self.heritage_compose_model.strip() or self.gemini_model
+
+    @property
+    def critic_model(self) -> str:
+        return self.heritage_critic_model.strip() or self.analyzer_model
 
     @property
     def firebase_enabled(self) -> bool:

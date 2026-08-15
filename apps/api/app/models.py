@@ -146,6 +146,38 @@ class MemoryItem(Base):
     space: Mapped[FamilySpace] = relationship(back_populates="memories")
 
 
+class Keepsake(Base):
+    """A library photo or poem offered as today's artifact on the family chat with the remembered person."""
+
+    __tablename__ = "keepsakes"
+    __table_args__ = (
+        UniqueConstraint(
+            "memory_item_id", "identity_id", name="uq_keepsake_memory_identity"
+        ),
+    )
+
+    id: Mapped[str] = mapped_column(String(32), primary_key=True)
+    space_id: Mapped[str] = mapped_column(ForeignKey("family_spaces.id"), index=True)
+    identity_id: Mapped[str] = mapped_column(
+        ForeignKey("identity_profiles.id"), index=True
+    )
+    memory_item_id: Mapped[str] = mapped_column(
+        ForeignKey("memory_items.id"), index=True
+    )
+    # photo — ask the family to tell the story; poem — read/listen only.
+    kind: Mapped[str] = mapped_column(String(16), default="photo", index=True)
+    opener: Mapped[str] = mapped_column(Text, default="")
+    # draft | ready | skipped | retired
+    status: Mapped[str] = mapped_column(String(16), default="draft", index=True)
+    last_opened_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    opened_message_id: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    opened_thread_id: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+
 class InterviewPrompt(Base):
     __tablename__ = "interview_prompts"
 

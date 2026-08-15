@@ -9,6 +9,7 @@ import {
   RefreshControl,
   StyleSheet,
   Text,
+  TextInput,
   View,
 } from "react-native";
 
@@ -36,6 +37,7 @@ export default function ReviewScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [drafts, setDrafts] = useState<Record<string, string>>({});
   const [error, setError] = useState<string | null>(null);
 
   useSpaceScreenOptions({
@@ -76,8 +78,14 @@ export default function ReviewScreen() {
       setBusyId(item.id);
       setError(null);
       try {
-        if (keep) await api.approveMemoryCandidate(item.id, visibility);
-        else await api.dismissMemoryCandidate(item.id);
+        if (keep) {
+          const edited = (drafts[item.id] ?? item.statement).trim();
+          await api.approveMemoryCandidate(
+            item.id,
+            visibility,
+            edited !== item.statement ? edited : undefined,
+          );
+        } else await api.dismissMemoryCandidate(item.id);
         setItems((prev) => prev.filter((row) => row.id !== item.id));
       } catch (e) {
         setError(e instanceof Error ? e.message : "Không lưu được.");
@@ -85,7 +93,7 @@ export default function ReviewScreen() {
         setBusyId(null);
       }
     },
-    [api],
+    [api, drafts],
   );
 
   const keep = useCallback(
@@ -138,7 +146,8 @@ export default function ReviewScreen() {
           <Text style={styles.title}>Điều nghe được từ trò chuyện</Text>
           <Text style={styles.sub}>
             Trò chuyện chỉ được đề xuất, không tự thêm vào tiểu sử. Bạn giữ lại
-            thì điều đó vào Thư viện, và lần sau người ấy nhớ được.
+            thì điều đó vào Thư viện, và lần sau người ấy nhớ được. Sửa chữ
+            trước khi giữ nếu model đúng ý nhưng lệch một chút.
           </Text>
           {error ? <Text style={styles.error}>{error}</Text> : null}
         </View>
@@ -162,7 +171,14 @@ export default function ReviewScreen() {
               </View>
             </View>
 
-            <Text style={styles.statement}>{item.statement}</Text>
+            <TextInput
+              value={drafts[item.id] ?? item.statement}
+              onChangeText={(text) =>
+                setDrafts((prev) => ({ ...prev, [item.id]: text }))
+              }
+              multiline
+              style={styles.statement}
+            />
             <Text style={styles.when}>
               Đề xuất: {formatLocalDateTime(item.created_at)}
               {item.occurred_at
@@ -268,6 +284,13 @@ const styles = StyleSheet.create({
     fontSize: 17,
     lineHeight: 25,
     color: colors.ink,
+    borderWidth: 1,
+    borderColor: colors.line,
+    borderRadius: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    minHeight: 72,
+    textAlignVertical: "top",
   },
   when: { fontSize: 13, color: colors.inkSoft },
   source: {
