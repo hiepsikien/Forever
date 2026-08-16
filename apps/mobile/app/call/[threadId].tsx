@@ -107,6 +107,9 @@ function metaHasTts(meta: ChatMessage["meta"]): boolean {
   return Boolean(tts && tts.media_path);
 }
 
+/** Openers already spoken this JS session — do not greet again on re-entry. */
+const playedKeepsakeOpeners = new Set<string>();
+
 function isVoiceMedia(m: ChatMessage): boolean {
   return Boolean(m.has_media && !isImageMessage(m));
 }
@@ -263,6 +266,7 @@ export default function CallScreen() {
     null,
   );
   const [keepsakeUri, setKeepsakeUri] = useState<string | null>(null);
+  const [pinExpanded, setPinExpanded] = useState(false);
   const [voiceStripOpen, setVoiceStripOpen] = useState(false);
   const [pendingUserText, setPendingUserText] = useState("");
   const [playingReplyId, setPlayingReplyId] = useState<string | null>(null);
@@ -272,7 +276,6 @@ export default function CallScreen() {
   const replyDeadlineRef = useRef(0);
   const mediaCacheRef = useRef<Map<string, string>>(new Map());
   const playLockRef = useRef(false);
-  const openerPlayedRef = useRef(false);
   /** Today's photo opener — conversation below this message only. */
   const keepsakeAfterIdRef = useRef<string | null>(null);
   /** Remaining father clips to play after the one currently speaking. */
@@ -410,17 +413,22 @@ export default function CallScreen() {
               hasTts: false,
               settled: Boolean(card.heard),
             });
+            setPinExpanded(!card.heard);
             try {
               const opened = await api.openKeepsake(card.id);
               if (opened.message_id) {
                 keepsakeAfterIdRef.current = opened.message_id;
               }
               const heard = Boolean(opened.keepsake?.heard || card.heard);
+              if (heard && opened.message_id) {
+                playedKeepsakeOpeners.add(opened.message_id);
+              }
               setKeepsakeBanner((prev) =>
                 prev
                   ? { ...prev, settled: heard, messageId: opened.message_id || prev.messageId }
                   : prev,
               );
+              setPinExpanded(!heard);
             } catch {
               if (card.opened_message_id) {
                 keepsakeAfterIdRef.current = card.opened_message_id;
@@ -608,10 +616,15 @@ export default function CallScreen() {
     if (!threadId || !keepsakeBanner) return;
     const messageId = keepsakeBanner.messageId;
     const text = keepsakeBanner.text;
+    if (keepsakeBanner.settled) {
+      playedKeepsakeOpeners.add(messageId);
+      return;
+    }
     const playIfReady = (hasTts: boolean) => {
-      if (!hasTts || openerPlayedRef.current) return;
+      if (!hasTts) return;
+      if (playedKeepsakeOpeners.has(messageId)) return;
       if (phaseRef.current !== "idle") return;
-      openerPlayedRef.current = true;
+      playedKeepsakeOpeners.add(messageId);
       void playReply(messageId, text, {
         auto: true,
         audioUrl: api.messageTtsUrl(messageId),
@@ -646,6 +659,7 @@ export default function CallScreen() {
     keepsakeBanner?.messageId,
     keepsakeBanner?.text,
     keepsakeBanner?.hasTts,
+    keepsakeBanner?.settled,
     playReply,
   ]);
 
@@ -1040,27 +1054,21 @@ export default function CallScreen() {
         <Pressable
           style={[
             styles.keepsakePin,
-            keepsakeBanner.settled && styles.keepsakePinSettled,
+            keepsakeBanner.settled && !pinExpanded && styles.keepsakePinSettled,
           ]}
-          onPress={
-            keepsakeBanner.hasTts && phase === "idle"
-              ? () =>
-                  void playReply(keepsakeBanner.messageId, keepsakeBanner.text, {
-                    auto: true,
-                    audioUrl: api.messageTtsUrl(keepsakeBanner.messageId),
-                  })
-              : undefined
-          }
-          accessibilityRole={keepsakeBanner.hasTts ? "button" : undefined}
+          onPress={() => {
+            if (keepsakeBanner.settled) setPinExpanded((v) => !v);
+          }}
+          accessibilityRole="button"
           accessibilityLabel={
             keepsakeBanner.settled
-              ? "Đã kể tấm này hôm nay"
-              : keepsakeBanner.hasTts
-                ? `Ảnh hôm nay. Chạm để nghe câu hỏi của ${relation.toLowerCase()}.`
-                : "Ảnh hôm nay"
+              ? pinExpanded
+                ? "Thu gọn ảnh hôm nay"
+                : "Mở ảnh đã kể hôm nay"
+              : "Ảnh hôm nay"
           }
         >
-          {keepsakeBanner.settled ? (
+          {keepsakeBanner.settled && !pinExpanded ? (
             <View style={styles.keepsakeSettledRow}>
               {keepsakeUri ? (
                 <Image
@@ -1077,11 +1085,14 @@ export default function CallScreen() {
                     {keepsakeBanner.text}
                   </Text>
                 ) : null}
+                <Text style={styles.keepsakeHint}>Chạm để xem ảnh</Text>
               </View>
             </View>
           ) : (
             <>
-              <Text style={styles.keepsakeKicker}>Ảnh hôm nay</Text>
+              <Text style={styles.keepsakeKicker}>
+                {keepsakeBanner.settled ? "Đã kể hôm nay" : "Ảnh hôm nay"}
+              </Text>
               {keepsakeUri ? (
                 <Image source={{ uri: keepsakeUri }} style={styles.keepsakePhoto} />
               ) : (
@@ -1090,13 +1101,29 @@ export default function CallScreen() {
                 </View>
               )}
               {keepsakeBanner.text ? (
-                <Text style={styles.keepsakeText} numberOfLines={3}>
+                <Text style={styles.keepsakeText}>
                   {keepsakeBanner.text}
                 </Text>
               ) : null}
+              {keepsakeBanner.hasTts && phase === "idle" ? (
+                <Pressable
+                  onPress={(e) => {
+                    e.stopPropagation?.();
+                    void playReply(keepsakeBanner.messageId, keepsakeBanner.text, {
+                      auto: true,
+                      audioUrl: api.messageTtsUrl(keepsakeBanner.messageId),
+                    });
+                  }}
+                  hitSlop={8}
+                >
+                  <Text style={styles.keepsakeAction}>
+                    ▶ Nghe {keepsakeBanner.settled ? "lại" : `${relation.toLowerCase()} hỏi`}
+                  </Text>
+                </Pressable>
+              ) : null}
               <Text style={styles.keepsakeHint}>
-                {keepsakeBanner.hasTts
-                  ? `Chạm ảnh để nghe ${relation.toLowerCase()} hỏi. Giữ nút bên dưới để kể.`
+                {keepsakeBanner.settled
+                  ? "Chạm để thu gọn. Giữ nút bên dưới nếu muốn nói thêm."
                   : `Giữ nút bên dưới để kể với ${relation.toLowerCase()}.`}
               </Text>
             </>
@@ -1456,13 +1483,13 @@ const styles = StyleSheet.create({
   },
   keepsakePhoto: {
     width: "100%",
-    height: 168,
+    height: 220,
     borderRadius: 14,
     backgroundColor: colors.line,
   },
   keepsakePhotoPlaceholder: {
     width: "100%",
-    height: 168,
+    height: 220,
     borderRadius: 14,
     backgroundColor: colors.card,
     alignItems: "center",
@@ -1478,6 +1505,12 @@ const styles = StyleSheet.create({
     fontSize: 15,
     lineHeight: 22,
     color: colors.inkSoft,
+  },
+  keepsakeAction: {
+    fontFamily: fonts.body,
+    fontSize: 15,
+    fontWeight: "700",
+    color: colors.brand,
   },
   keepsakePinSettled: {
     paddingBottom: 8,

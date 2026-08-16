@@ -116,6 +116,7 @@ export default function SpaceScreen() {
   const [keepsake, setKeepsake] = useState<Keepsake | null>(null);
   const [keepsakeUri, setKeepsakeUri] = useState<string | null>(null);
   const [keepsakeBusy, setKeepsakeBusy] = useState(false);
+  const [keepsakeOpen, setKeepsakeOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const spaceRef = useRef<FamilySpace | null>(null);
   spaceRef.current = space;
@@ -339,31 +340,61 @@ export default function SpaceScreen() {
                 : "Ảnh kỷ niệm"}
           </Text>
           {keepsake.kind === "photo" && keepsake.heard ? (
-            <View style={styles.keepsakeSettledRow}>
-              {keepsakeUri ? (
-                <Image source={{ uri: keepsakeUri }} style={styles.keepsakeThumb} />
-              ) : null}
-              <View style={styles.keepsakeSettledCopy}>
-                <View style={styles.keepsakeActions}>
-                  <Pressable
-                    style={[styles.keepsakeTalk, keepsakeBusy && styles.keepsakeDisabled]}
-                    onPress={() => void talkKeepsake()}
-                    disabled={keepsakeBusy}
-                  >
-                    <Text style={styles.keepsakeTalkText}>Nói thêm →</Text>
-                  </Pressable>
-                  {keepsake.can_skip ? (
-                    <Pressable
-                      onPress={() => void skipKeepsake()}
-                      disabled={keepsakeBusy}
-                      hitSlop={8}
-                    >
-                      <Text style={styles.keepsakeSkip}>Skip</Text>
-                    </Pressable>
+            <Pressable
+              onPress={() => setKeepsakeOpen((v) => !v)}
+              accessibilityRole="button"
+              accessibilityLabel={
+                keepsakeOpen ? "Thu gọn ảnh đã kể" : "Xem ảnh đã kể hôm nay"
+              }
+            >
+              {keepsakeOpen ? (
+                <>
+                  {keepsakeUri ? (
+                    <Image source={{ uri: keepsakeUri }} style={styles.keepsakePhoto} />
                   ) : null}
+                  <Text style={styles.keepsakeTitle}>
+                    {keepsake.title || keepsake.body || "Hiện vật"}
+                  </Text>
+                  <View style={styles.keepsakeActions}>
+                    <Pressable
+                      style={[styles.keepsakeTalk, keepsakeBusy && styles.keepsakeDisabled]}
+                      onPress={() => void talkKeepsake()}
+                      disabled={keepsakeBusy}
+                    >
+                      <Text style={styles.keepsakeTalkText}>Nói thêm →</Text>
+                    </Pressable>
+                    <Text style={styles.keepsakeSkip}>Thu gọn</Text>
+                  </View>
+                </>
+              ) : (
+                <View style={styles.keepsakeSettledRow}>
+                  {keepsakeUri ? (
+                    <Image source={{ uri: keepsakeUri }} style={styles.keepsakeThumb} />
+                  ) : null}
+                  <View style={styles.keepsakeSettledCopy}>
+                    <Text style={styles.keepsakeSettledHint}>Chạm để xem ảnh</Text>
+                    <View style={styles.keepsakeActions}>
+                      <Pressable
+                        style={[styles.keepsakeTalk, keepsakeBusy && styles.keepsakeDisabled]}
+                        onPress={() => void talkKeepsake()}
+                        disabled={keepsakeBusy}
+                      >
+                        <Text style={styles.keepsakeTalkText}>Nói thêm →</Text>
+                      </Pressable>
+                      {keepsake.can_skip ? (
+                        <Pressable
+                          onPress={() => void skipKeepsake()}
+                          disabled={keepsakeBusy}
+                          hitSlop={8}
+                        >
+                          <Text style={styles.keepsakeSkip}>Skip</Text>
+                        </Pressable>
+                      ) : null}
+                    </View>
+                  </View>
                 </View>
-              </View>
-            </View>
+              )}
+            </Pressable>
           ) : null}
           {keepsake.kind === "photo" && !keepsake.heard ? (
             <>
@@ -624,6 +655,11 @@ const styles = StyleSheet.create({
   keepsakeSettledCopy: {
     flex: 1,
     minWidth: 0,
+    gap: 8,
+  },
+  keepsakeSettledHint: {
+    fontSize: 14,
+    color: colors.inkSoft,
   },
   keepsakeTitle: {
     fontFamily: fonts.display,
