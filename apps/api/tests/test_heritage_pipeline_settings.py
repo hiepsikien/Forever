@@ -100,7 +100,7 @@ def test_patch_pipeline_models(client):
         json={
             "heritage_pipeline": {
                 "models": {
-                    "compose": "gemini-3.6-flash",
+                    "compose": "gemini-3.7-flash",
                     "stt": "gemini-3.1-flash-lite",
                 }
             }
@@ -108,16 +108,18 @@ def test_patch_pipeline_models(client):
     )
     assert res.status_code == 200, res.text
     pipeline = res.json()["heritage_pipeline"]
-    assert any(c["id"] == "gemini-3.6-flash" for c in pipeline["model_choices"])
+    choice_ids = {c["id"] for c in pipeline["model_choices"]}
+    assert "gemini-3.6-flash" in choice_ids
+    assert "gemini-3.7-flash" in choice_ids
     models = {m["key"]: m for m in pipeline["models"]}
-    assert models["compose"]["model"] == "gemini-3.6-flash"
+    assert models["compose"]["model"] == "gemini-3.7-flash"
     assert models["compose"]["overridden"] is True
     assert models["stt"]["model"] == "gemini-3.1-flash-lite"
 
     db = SessionLocal()
     try:
         effective = load_heritage_pipeline(db, space_id)
-        assert effective.compose_model == "gemini-3.6-flash"
+        assert effective.compose_model == "gemini-3.7-flash"
         assert effective.stt_model == "gemini-3.1-flash-lite"
     finally:
         db.close()
@@ -131,3 +133,36 @@ def test_patch_pipeline_models(client):
     models = {m["key"]: m for m in res.json()["heritage_pipeline"]["models"]}
     assert models["compose"]["overridden"] is False
     assert models["compose"]["model"] == server_pipeline_defaults().compose_model
+
+
+def test_server_defaults_use_lite_except_compose():
+    from app.config import Settings
+
+    settings = Settings.model_construct(
+        gemini_model="gemini-3.5-flash",
+        stt_model="gemini-3.1-flash-lite",
+        heritage_analyzer_model="gemini-3.1-flash-lite",
+        heritage_compose_model="",
+        heritage_critic_model="gemini-3.1-flash-lite",
+        stt_enabled=True,
+        heritage_analyzer_enabled=True,
+        heritage_grounding_enabled=True,
+        heritage_critic_enabled=False,
+        heritage_tts_enabled=True,
+        heritage_anti_repeat_enabled=True,
+    )
+    defaults = server_pipeline_defaults(settings)
+    assert defaults.stt_model == "gemini-3.1-flash-lite"
+    assert defaults.analyzer_model == "gemini-3.1-flash-lite"
+    assert defaults.critic_model == "gemini-3.1-flash-lite"
+    assert defaults.compose_model == "gemini-3.5-flash"
+
+
+def test_thinking_config_matches_gemini_constraints():
+    from app.services.heritage_gemini import thinking_config_for_model
+
+    assert thinking_config_for_model("gemini-3.1-flash-lite") == {"thinkingBudget": 0}
+    assert thinking_config_for_model("gemini-3.5-flash") == {"thinkingBudget": 0}
+    assert thinking_config_for_model("gemini-3.5-flash-lite") == {"thinkingLevel": "minimal"}
+    assert thinking_config_for_model("gemini-3.6-flash") == {"thinkingLevel": "minimal"}
+    assert thinking_config_for_model("gemini-3.7-flash") == {"thinkingLevel": "low"}

@@ -13,6 +13,7 @@
     },
     "production": {
       "autoIncrement": true,
+      "environment": "production",
       "env": {
         "APP_VARIANT": "production",
         "EXPO_PUBLIC_API_URL": "https://forever-api.antunai.com",
@@ -24,7 +25,8 @@
         "EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID": "787275064281",
         "EXPO_PUBLIC_SENTRY_DSN": "https://6948c99bb63708a83008ae8aa7ec7ec1@o4511806206640128.ingest.us.sentry.io/4511862988144640",
         "SENTRY_ORG": "antun-ai",
-        "SENTRY_PROJECT": "forever-mobile"
+        "SENTRY_PROJECT": "forever-mobile",
+        "SENTRY_ALLOW_FAILURE": "true"
       }
     }
   },

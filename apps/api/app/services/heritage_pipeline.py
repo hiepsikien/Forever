@@ -61,19 +61,19 @@ LLM_MODEL_KEYS = ("stt", "analyzer", "compose", "critic")
 LLM_MODEL_META: dict[str, dict[str, str]] = {
     "stt": {
         "label": "STT",
-        "help": "Ghi âm → chữ. Nên dùng Lite.",
+        "help": "Ghi âm → chữ. Nên giữ 3.1 Flash-Lite.",
     },
     "analyzer": {
         "label": "Analyzer",
-        "help": "Phân tích ngữ cảnh trước khi Bố nói.",
+        "help": "Phân tích ngữ cảnh trước khi Bố nói. Nên giữ 3.1 Flash-Lite.",
     },
     "compose": {
         "label": "Compose",
-        "help": "Câu trả lời chính của Bố (luôn bật).",
+        "help": "Câu trả lời chính của Bố (luôn bật). Nên 3.5 Flash.",
     },
     "critic": {
         "label": "Critic",
-        "help": "Viết lại khi Grounding nghi bịa.",
+        "help": "Viết lại khi Grounding nghi bịa. Nên 3.1 Flash-Lite.",
     },
 }
 
@@ -92,6 +92,11 @@ LLM_MODEL_CHOICES: tuple[dict[str, str], ...] = (
         "id": "gemini-3.6-flash",
         "label": "3.6 Flash",
         "help": "Mới hơn; output ~17% rẻ hơn 3.5",
+    },
+    {
+        "id": "gemini-3.7-flash",
+        "label": "3.7 Flash",
+        "help": "Mới nhất — mạnh hơn cho compose; giá intro giống 3.6 đến hết 2026",
     },
 )
 
@@ -133,8 +138,7 @@ def server_pipeline_defaults(settings: Settings | None = None) -> HeritagePipeli
         stt_model=stt,
         analyzer_model=analyzer,
         compose_model=compose,
-        # Critic reuses compose unless env later adds a dedicated setting.
-        critic_model=compose,
+        critic_model=s.critic_model,
     )
 
 
@@ -248,8 +252,8 @@ def pipeline_admin_payload(
         "models": models,
         "model_choices": list(LLM_MODEL_CHOICES),
         "note": (
-            "Tắt Analyzer/Critic để giảm chi phí. Compose luôn chạy — chọn "
-            "3.6 Flash nếu muốn rẻ hơn một chút; STT nên giữ Lite."
+            "Mặc định: STT/Analyzer/Critic = 3.1 Flash-Lite, Compose = 3.5 Flash. "
+            "3.6/3.7 chỉ khi steward chủ động chọn."
         ),
     }
 

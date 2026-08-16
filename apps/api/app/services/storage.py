@@ -237,6 +237,27 @@ def save_upload(
     return relative.replace("\\", "/"), mime
 
 
+def save_bytes(
+    space_id: str,
+    data: bytes,
+    *,
+    mime: str,
+    filename: str = "",
+) -> tuple[str, str]:
+    """Write raw bytes into the space upload dir. Returns (relative_path, mime)."""
+    if not data:
+        raise HTTPException(status_code=400, detail="Empty file.")
+    if mime not in IMAGE_MIME and not mime.startswith("image/"):
+        raise HTTPException(status_code=400, detail="Photo upload must be an image file.")
+    settings = get_settings()
+    ext = EXT_BY_MIME.get(mime) or Path(filename).suffix.lower() or ".jpg"
+    relative = f"{space_id}/{generate()}{ext}"
+    dest = Path(settings.upload_dir) / relative
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    dest.write_bytes(data)
+    return relative.replace("\\", "/"), mime
+
+
 def save_library_ingest_upload(
     space_id: str,
     job_id: str,

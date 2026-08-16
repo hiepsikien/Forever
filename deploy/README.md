@@ -73,6 +73,14 @@ Compose mounts it at `/run/secrets/firebase.json` (`FIREBASE_CREDENTIALS_JSON`).
 
 ## Deploy / update API
 
+API only (does not rebuild the Extract worker):
+
+```bash
+./scripts/deploy-api.sh
+```
+
+Full stack including worker: `./scripts/deploy-api.sh --with-worker`.
+
 From Mac (rsync source + compose):
 
 ```bash

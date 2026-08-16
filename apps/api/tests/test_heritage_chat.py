@@ -321,13 +321,47 @@ def test_direct_thread_audience_ignores_misleading_wording(client):
             )
             == "child"
         )
-        # In the shared room the wording still steers it — nothing else to go on.
+        # Linked child in the shared room: profile wins over quoted «em/anh».
         assert (
             _detect_audience(
                 db,
                 space_id=space.id,
                 sender_user_id=son.id,
                 user_text=quoting_mother,
+                thread=family,
+            )
+            == "child"
+        )
+
+        mom = User(
+            id=generate(),
+            firebase_uid=generate(),
+            email=f"{generate()}@example.com",
+            name="Lê Thị Định",
+            created_at=now,
+        )
+        db.add(mom)
+        db.commit()
+        db.add(
+            IdentityProfile(
+                id=generate(),
+                space_id=space.id,
+                display_name="Mẹ",
+                relation_label="Vợ",
+                status="living",
+                linked_user_id=mom.id,
+                created_by=son.id,
+                created_at=now,
+            )
+        )
+        db.commit()
+        talking_about_child = "Con mới về nhà, anh ạ."
+        assert (
+            _detect_audience(
+                db,
+                space_id=space.id,
+                sender_user_id=mom.id,
+                user_text=talking_about_child,
                 thread=family,
             )
             == "spouse"

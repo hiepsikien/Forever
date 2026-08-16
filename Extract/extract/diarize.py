@@ -78,6 +78,22 @@ def _iter_turns(output) -> list[tuple[float, float, str]]:
     raise TypeError(f"Unsupported diarization output type: {type(output)!r}")
 
 
+def load_waveform(wav_path: Path) -> dict:
+    """Load mono/stereo WAV into the dict pyannote accepts without torchcodec.
+
+    CPU Docker images ship ffmpeg but torchcodec often fails to load
+    (e.g. missing libnvrtc). Passing an in-memory waveform skips that path.
+    """
+    import numpy as np
+    import soundfile as sf
+    import torch
+
+    data, sample_rate = sf.read(str(wav_path), dtype="float32", always_2d=True)
+    # soundfile: (time, channel) → torch: (channel, time)
+    waveform = torch.from_numpy(np.ascontiguousarray(data.T))
+    return {"waveform": waveform, "sample_rate": int(sample_rate)}
+
+
 def diarize_file(
     wav_path: Path,
     *,
@@ -95,7 +111,7 @@ def diarize_file(
     else:
         resolved_device = _resolve_device(device)
 
-    output = pipeline(str(wav_path), num_speakers=num_speakers)
+    output = pipeline(load_waveform(wav_path), num_speakers=num_speakers)
     segments = [
         Segment(speaker=_normalize_speaker_label(speaker), start=start, end=end)
         for start, end, speaker in _iter_turns(output)

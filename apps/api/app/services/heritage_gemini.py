@@ -113,6 +113,21 @@ def _telemetry(
     )
 
 
+def thinking_config_for_model(model: str) -> dict[str, int | str]:
+    """Per-model thinking config for generateContent.
+
+    ``thinkingBudget: 0`` is cheap and works on 3.1 Lite / 3.5 Flash, but
+    Gemini 3.6 Flash and 3.5 Flash-Lite reject it (HTTP 400). 3.7 Flash
+    rejects ``thinkingLevel: minimal`` — use ``low`` there instead.
+    """
+    name = (model or "").strip().lower()
+    if "3.7" in name:
+        return {"thinkingLevel": "low"}
+    if "3.6" in name or "3.5-flash-lite" in name:
+        return {"thinkingLevel": "minimal"}
+    return {"thinkingBudget": 0}
+
+
 def call_gemini(settings: Settings, call: GeminiCall) -> GeminiResult:
     api_key = settings.gemini_api_key.strip()
     if not api_key:
@@ -132,7 +147,7 @@ def call_gemini(settings: Settings, call: GeminiCall) -> GeminiResult:
     generation: dict = {
         "temperature": call.temperature,
         "maxOutputTokens": call.max_output_tokens,
-        "thinkingConfig": {"thinkingBudget": 0},
+        "thinkingConfig": thinking_config_for_model(call.model),
     }
     if call.json_mode:
         generation["responseMimeType"] = "application/json"

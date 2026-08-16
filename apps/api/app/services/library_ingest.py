@@ -16,6 +16,7 @@ from sqlalchemy.orm import Session
 
 from ..config import get_settings
 from ..models import LibraryIngestJob, LibraryIngestProposal
+from ..services.heritage_gemini import thinking_config_for_model
 from ..services.poetry_clean import enrich_poem, format_body, format_body_tts, clean_body_lines
 from ..services.storage import absolute_media_path
 
@@ -504,7 +505,7 @@ def _gemini_classify(*, path: Path, mime: str, text: str | None = None) -> dict:
             "generationConfig": {
                 "temperature": 0.1,
                 "maxOutputTokens": max_tokens,
-                "thinkingConfig": {"thinkingBudget": 0},
+                "thinkingConfig": thinking_config_for_model(model),
                 "responseMimeType": "application/json",
             },
         }
