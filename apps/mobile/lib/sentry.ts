@@ -1,6 +1,5 @@
 import Constants from "expo-constants";
 import * as Sentry from "@sentry/react-native";
-import { isRunningInExpoGo } from "expo";
 
 const dsn = process.env.EXPO_PUBLIC_SENTRY_DSN?.trim() || undefined;
 
@@ -16,11 +15,6 @@ Sentry.init({
   environment,
   sendDefaultPii: false,
   tracesSampleRate: 0.2,
-  integrations: [
-    Sentry.expoRouterIntegration({
-      enableTimeToInitialDisplay: !isRunningInExpoGo(),
-    }),
-  ],
   // Family chat and memory text must not leave the device as breadcrumbs.
   beforeBreadcrumb(crumb) {
     if (crumb.category === "console" || crumb.category === "ui.input") {

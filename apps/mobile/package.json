@@ -21,7 +21,7 @@
     "@forever/philosophy": "file:../../packages/philosophy",
     "@react-native-async-storage/async-storage": "2.2.0",
     "@react-native/virtualized-lists": "^0.81.5",
-    "@sentry/react-native": "^8.22.0",
+    "@sentry/react-native": "~7.2.0",
     "expo": "~54.0.0",
     "expo-asset": "~12.0.13",
     "expo-audio": "~1.1.1",
