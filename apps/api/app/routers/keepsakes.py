@@ -22,6 +22,7 @@ from ..services.keepsakes import (
     payload,
     pick_today,
     skip as skip_keepsake,
+    sync_heard,
 )
 
 router = APIRouter(prefix="/api", tags=["keepsakes"])
@@ -99,7 +100,7 @@ def open_keepsake(
     _require_flag()
     row = _row_or_404(db, keepsake_id)
     require_membership(db, space_id=row.space_id, user=user)
-    if row.status not in ("ready",):
+    if row.status not in ("ready", "heard"):
         raise HTTPException(status_code=409, detail="Hiện vật này chưa sẵn sàng.")
     if row.kind != PHOTO_KIND:
         raise HTTPException(
@@ -113,6 +114,7 @@ def open_keepsake(
             status_code=409, detail="Chưa có phòng chat chung với người được nhớ."
         )
     message = open_on_family_thread(db, row=row, thread=thread)
+    sync_heard(db, row)
     background_tasks.add_task(attach_opener_tts, message.id)
     db.refresh(row)
     return {

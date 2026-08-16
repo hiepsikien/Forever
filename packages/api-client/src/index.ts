@@ -102,7 +102,7 @@ export interface Keepsake {
   memory_item_id: string;
   kind: "photo" | "poem" | string;
   opener: string;
-  status: "draft" | "ready" | "skipped" | "retired" | string;
+  status: "draft" | "ready" | "heard" | "skipped" | "retired" | string;
   title: string;
   body: string;
   body_tts?: string;
@@ -113,6 +113,7 @@ export interface Keepsake {
   opened_message_id?: string | null;
   already_open: boolean;
   can_skip: boolean;
+  heard: boolean;
   last_opened_at?: string | null;
 }
 

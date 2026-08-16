@@ -35,6 +35,7 @@ from .heritage_grounding import (
     find_ungrounded,
 )
 from .heritage_candidates import enqueue_facts
+from .keepsakes import active_photo_keepsake, mark_heard, story_facts_from_turn
 from .heritage_pipeline import load_heritage_pipeline
 from .heritage_memory import (
     MemoryState,
@@ -56,7 +57,6 @@ from .heritage_retrieval import (
     retrieve_learned,
     retrieve_milestones,
 )
-from .keepsakes import active_photo_keepsake
 from .heritage_values import select_value_lens, value_lens_block
 from .ai_usage import UsageContext
 from .heritage_gemini import GeminiCall, call_gemini
@@ -1278,16 +1278,33 @@ def _write_back_memory(
         record_turn(db, thread=thread, user_message=user_message, reply=reply)
         identity = identity_for_thread(db, thread)
         if identity and settings.heritage_candidates_enabled:
-            enqueue_facts(
+            facts = stated_facts(
+                _json_loads(reply.meta_json or ""),
+                source_message_id=user_message.id,
+            )
+            queued = enqueue_facts(
                 db,
                 thread=thread,
                 identity=identity,
                 user_message=user_message,
-                facts=stated_facts(
-                    _json_loads(reply.meta_json or ""),
-                    source_message_id=user_message.id,
-                ),
+                facts=facts,
             )
+            extra = story_facts_from_turn(
+                db, thread=thread, user_message=user_message
+            )
+            if extra:
+                active = active_photo_keepsake(db, thread)
+                if active:
+                    mark_heard(active)
+                    db.commit()
+            if not queued:
+                enqueue_facts(
+                    db,
+                    thread=thread,
+                    identity=identity,
+                    user_message=user_message,
+                    facts=extra,
+                )
         history = (
             db.query(Message)
             .filter(Message.thread_id == thread.id)

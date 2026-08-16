@@ -167,7 +167,7 @@ class Keepsake(Base):
     # photo — ask the family to tell the story; poem — read/listen only.
     kind: Mapped[str] = mapped_column(String(16), default="photo", index=True)
     opener: Mapped[str] = mapped_column(Text, default="")
-    # draft | ready | skipped | retired
+    # draft | ready | heard | skipped | retired
     status: Mapped[str] = mapped_column(String(16), default="draft", index=True)
     last_opened_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True

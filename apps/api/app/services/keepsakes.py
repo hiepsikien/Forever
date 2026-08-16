@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import json
 import logging
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 from nanoid import generate
 from sqlalchemy.orm import Session
@@ -22,9 +22,13 @@ DEFAULT_PHOTO_OPENER = (
     "Nhà mình nhớ tấm này không? Anh giữ vì nó quý — ai nhớ hôm ấy thì kể lại giúp anh."
 )
 ALBUM_TAG = "nguon:album-2016"
-STATUSES = ("draft", "ready", "skipped", "retired")
+STATUSES = ("draft", "ready", "heard", "skipped", "retired")
 PHOTO_KIND = "photo"
 POEM_KIND = "poem"
+MAX_PHOTOS_PER_DAY = 2
+PHOTO_GAP = timedelta(hours=3)
+# Mother's calendar day, not UTC.
+FAMILY_TZ = timezone(timedelta(hours=7))
 
 
 def default_photo_opener(caption: str | None) -> str:
@@ -110,18 +114,92 @@ def family_thread_for_identity(
     return max(rows, key=lambda t: last_by_thread.get(t.id) or t.created_at)
 
 
-def _pinned_ready(db: Session, *, space_id: str, identity_id: str) -> Keepsake | None:
-    return (
+def _family_day(value: datetime | None):
+    if value is None:
+        return None
+    if value.tzinfo is None:
+        value = value.replace(tzinfo=timezone.utc)
+    return value.astimezone(FAMILY_TZ).date()
+
+
+def _slot_at(row: Keepsake) -> datetime | None:
+    if row.last_opened_at:
+        return row.last_opened_at
+    if row.status == "skipped":
+        return row.updated_at
+    return None
+
+
+def _offered_today(db: Session, *, space_id: str, identity_id: str) -> list[Keepsake]:
+    today = _family_day(datetime.now(timezone.utc))
+    rows = (
         db.query(Keepsake)
         .filter(
             Keepsake.space_id == space_id,
             Keepsake.identity_id == identity_id,
-            Keepsake.status == "ready",
+            Keepsake.kind == PHOTO_KIND,
+            Keepsake.status.in_(("ready", "heard", "skipped")),
+        )
+        .all()
+    )
+    return [row for row in rows if _family_day(_slot_at(row)) == today]
+
+
+def _can_offer_another(db: Session, *, space_id: str, identity_id: str) -> bool:
+    used = _offered_today(db, space_id=space_id, identity_id=identity_id)
+    if len(used) >= MAX_PHOTOS_PER_DAY:
+        return False
+    if not used:
+        return True
+    latest = max(
+        used,
+        key=lambda row: _slot_at(row) or datetime.min.replace(tzinfo=timezone.utc),
+    )
+    ts = _slot_at(latest)
+    if ts is None:
+        return True
+    if latest.status == "ready" and latest.opened_message_id:
+        return False
+    now = datetime.now(timezone.utc)
+    if ts.tzinfo is None:
+        ts = ts.replace(tzinfo=timezone.utc)
+    return now - ts >= PHOTO_GAP
+
+
+def _pinned_open(db: Session, *, space_id: str, identity_id: str) -> Keepsake | None:
+    """The photo currently offered: still ready, or heard and waiting out the gap.
+
+    At most two photos a day, three hours apart. Heard yesterday yields.
+    """
+    row = (
+        db.query(Keepsake)
+        .filter(
+            Keepsake.space_id == space_id,
+            Keepsake.identity_id == identity_id,
+            Keepsake.kind == PHOTO_KIND,
+            Keepsake.status.in_(("ready", "heard")),
             Keepsake.opened_message_id.isnot(None),
         )
         .order_by(Keepsake.last_opened_at.desc())
         .first()
     )
+    if not row:
+        return None
+    now = datetime.now(timezone.utc)
+    if row.status == "heard":
+        if _family_day(row.last_opened_at) < _family_day(now):
+            return None
+        used = _offered_today(db, space_id=space_id, identity_id=identity_id)
+        waited = False
+        if row.updated_at:
+            ts = row.updated_at
+            if ts.tzinfo is None:
+                ts = ts.replace(tzinfo=timezone.utc)
+            waited = now - ts >= PHOTO_GAP
+        if waited and len(used) < MAX_PHOTOS_PER_DAY:
+            return None
+        return row
+    return row
 
 
 def _next_ready(
@@ -148,13 +226,16 @@ def pick_today(db: Session, *, space_id: str) -> tuple[Keepsake | None, Thread |
     identity = identity_for_thread(db, thread)
     if not identity:
         return None, thread
-    pinned = _pinned_ready(db, space_id=space_id, identity_id=identity.id)
+    pinned = _pinned_open(db, space_id=space_id, identity_id=identity.id)
     if pinned:
+        sync_heard(db, pinned)
         return pinned, thread
     photo = _next_ready(
         db, space_id=space_id, identity_id=identity.id, kind=PHOTO_KIND
     )
-    if photo:
+    if photo and _can_offer_another(
+        db, space_id=space_id, identity_id=identity.id
+    ):
         return photo, thread
     poem = _next_ready(db, space_id=space_id, identity_id=identity.id, kind=POEM_KIND)
     return poem, thread
@@ -168,13 +249,40 @@ def active_photo_keepsake(db: Session, thread: Thread) -> Keepsake | None:
         db.query(Keepsake)
         .filter(
             Keepsake.opened_thread_id == thread.id,
-            Keepsake.status == "ready",
+            Keepsake.status.in_(("ready", "heard")),
             Keepsake.kind == PHOTO_KIND,
             Keepsake.opened_message_id.isnot(None),
         )
         .order_by(Keepsake.last_opened_at.desc())
         .first()
     )
+
+
+def story_facts_from_turn(
+    db: Session, *, thread: Thread, user_message: Message
+) -> list[dict]:
+    """What the family said about today's photo — for the steward to keep or edit.
+
+    Analyzer is off by default and often marks a story as implied. The ritual
+    still needs a row in «Điều nghe được», so the spoken sentence itself is the
+    proposal. Chat does not write the library; approving does.
+    """
+    active = active_photo_keepsake(db, thread)
+    if not active or active.status != "ready":
+        return []
+    body = (user_message.body or "").strip()
+    if len(body) < 12:
+        return []
+    memory = db.query(MemoryItem).filter(MemoryItem.id == active.memory_item_id).one_or_none()
+    title = ((memory.title if memory else "") or "tấm ảnh").strip()
+    statement = f"Về {title}: {body}"
+    return [
+        {
+            "statement": statement[:800],
+            "kind": "event",
+            "source_message_id": user_message.id,
+        }
+    ]
 
 
 def payload(
@@ -207,6 +315,7 @@ def payload(
         "opened_message_id": row.opened_message_id,
         "already_open": bool(row.opened_message_id),
         "can_skip": can_skip,
+        "heard": row.status == "heard",
         "last_opened_at": row.last_opened_at.isoformat() if row.last_opened_at else None,
     }
 
@@ -330,6 +439,40 @@ def attach_opener_tts(message_id: str) -> None:
         db.rollback()
     finally:
         db.close()
+
+
+def mark_heard(row: Keepsake) -> None:
+    """Family told the story — collapse the pin; next photo waits until tomorrow or skip."""
+    if row.status != "ready":
+        return
+    now = datetime.now(timezone.utc)
+    row.status = "heard"
+    row.updated_at = now
+
+
+def family_spoke_after_open(db: Session, row: Keepsake) -> bool:
+    if not row.opened_message_id or not row.opened_thread_id:
+        return False
+    opener = db.query(Message).filter(Message.id == row.opened_message_id).one_or_none()
+    if not opener:
+        return False
+    later = (
+        db.query(Message)
+        .filter(
+            Message.thread_id == row.opened_thread_id,
+            Message.created_at > opener.created_at,
+            Message.sender_kind == "user",
+        )
+        .all()
+    )
+    return any(len((m.body or "").strip()) >= 12 for m in later)
+
+
+def sync_heard(db: Session, row: Keepsake) -> None:
+    """Align status with the thread so Nhà and Gọi show the same pin."""
+    if row.status == "ready" and family_spoke_after_open(db, row):
+        mark_heard(row)
+        db.commit()
 
 
 def skip(row: Keepsake) -> None:

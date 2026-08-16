@@ -312,50 +312,86 @@ export default function SpaceScreen() {
       {keepsake ? (
         <View style={styles.keepsake}>
           <Text style={styles.keepsakeKicker}>
-            {keepsake.kind === "poem" ? "Thơ" : "Ảnh kỷ niệm"}
+            {keepsake.kind === "poem"
+              ? "Thơ"
+              : keepsake.heard
+                ? "Đã kể hôm nay"
+                : "Ảnh kỷ niệm"}
           </Text>
-          {keepsake.kind === "photo" && keepsakeUri ? (
-            <Image source={{ uri: keepsakeUri }} style={styles.keepsakePhoto} />
-          ) : null}
-          <Text style={styles.keepsakeTitle} numberOfLines={3}>
-            {keepsake.title || keepsake.body || "Hiện vật"}
-          </Text>
-          {keepsake.kind === "poem" && keepsake.body ? (
-            <Text style={styles.keepsakeBody} numberOfLines={4}>
-              {keepsake.body}
-            </Text>
-          ) : null}
-          {keepsake.kind === "photo" ? (
-            <View style={styles.keepsakeActions}>
-              <Pressable
-                style={[styles.keepsakeTalk, keepsakeBusy && styles.keepsakeDisabled]}
-                onPress={() => void talkKeepsake()}
-                disabled={keepsakeBusy}
-              >
-                <Text style={styles.keepsakeTalkText}>Nói chuyện →</Text>
-              </Pressable>
-              {keepsake.can_skip ? (
-                <Pressable
-                  onPress={() => void skipKeepsake()}
-                  disabled={keepsakeBusy}
-                  hitSlop={8}
-                >
-                  <Text style={styles.keepsakeSkip}>Skip</Text>
-                </Pressable>
+          {keepsake.kind === "photo" && keepsake.heard ? (
+            <View style={styles.keepsakeSettledRow}>
+              {keepsakeUri ? (
+                <Image source={{ uri: keepsakeUri }} style={styles.keepsakeThumb} />
               ) : null}
+              <View style={styles.keepsakeSettledCopy}>
+                <View style={styles.keepsakeActions}>
+                  <Pressable
+                    style={[styles.keepsakeTalk, keepsakeBusy && styles.keepsakeDisabled]}
+                    onPress={() => void talkKeepsake()}
+                    disabled={keepsakeBusy}
+                  >
+                    <Text style={styles.keepsakeTalkText}>Nói thêm →</Text>
+                  </Pressable>
+                  {keepsake.can_skip ? (
+                    <Pressable
+                      onPress={() => void skipKeepsake()}
+                      disabled={keepsakeBusy}
+                      hitSlop={8}
+                    >
+                      <Text style={styles.keepsakeSkip}>Skip</Text>
+                    </Pressable>
+                  ) : null}
+                </View>
+              </View>
             </View>
-          ) : (
-            <Pressable
-              onPress={() =>
-                id &&
-                router.push(
-                  `/library/${id}/person/${keepsake.identity_id}` as never,
-                )
-              }
-            >
-              <Text style={styles.keepsakeTalkTextAlt}>Đọc trong Thư viện →</Text>
-            </Pressable>
-          )}
+          ) : null}
+          {keepsake.kind === "photo" && !keepsake.heard ? (
+            <>
+              {keepsakeUri ? (
+                <Image source={{ uri: keepsakeUri }} style={styles.keepsakePhoto} />
+              ) : null}
+              <Text style={styles.keepsakeTitle} numberOfLines={3}>
+                {keepsake.title || keepsake.body || "Hiện vật"}
+              </Text>
+              <View style={styles.keepsakeActions}>
+                <Pressable
+                  style={[styles.keepsakeTalk, keepsakeBusy && styles.keepsakeDisabled]}
+                  onPress={() => void talkKeepsake()}
+                  disabled={keepsakeBusy}
+                >
+                  <Text style={styles.keepsakeTalkText}>Nói chuyện →</Text>
+                </Pressable>
+                {keepsake.can_skip ? (
+                  <Pressable
+                    onPress={() => void skipKeepsake()}
+                    disabled={keepsakeBusy}
+                    hitSlop={8}
+                  >
+                    <Text style={styles.keepsakeSkip}>Skip</Text>
+                  </Pressable>
+                ) : null}
+              </View>
+            </>
+          ) : null}
+          {keepsake.kind === "poem" ? (
+            <>
+              {keepsake.body ? (
+                <Text style={styles.keepsakeBody} numberOfLines={4}>
+                  {keepsake.body}
+                </Text>
+              ) : null}
+              <Pressable
+                onPress={() =>
+                  id &&
+                  router.push(
+                    `/library/${id}/person/${keepsake.identity_id}` as never,
+                  )
+                }
+              >
+                <Text style={styles.keepsakeTalkTextAlt}>Đọc trong Thư viện →</Text>
+              </Pressable>
+            </>
+          ) : null}
         </View>
       ) : null}
 
@@ -556,6 +592,21 @@ const styles = StyleSheet.create({
     height: 220,
     borderRadius: 12,
     backgroundColor: colors.line,
+  },
+  keepsakeSettledRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+  },
+  keepsakeThumb: {
+    width: 56,
+    height: 56,
+    borderRadius: 8,
+    backgroundColor: colors.line,
+  },
+  keepsakeSettledCopy: {
+    flex: 1,
+    minWidth: 0,
   },
   keepsakeTitle: {
     fontFamily: fonts.display,

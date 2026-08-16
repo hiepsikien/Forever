@@ -79,6 +79,7 @@ type KeepsakeBanner = {
   text: string;
   memoryId?: string;
   hasTts: boolean;
+  settled: boolean;
 };
 
 const POLL_MS = 1200;
@@ -141,13 +142,23 @@ function voiceSetSummary(voice: VoiceProfile | null): string {
   return `${voiceProviderLabel(provider)} · ${cloneName} · ${model}${speed}`;
 }
 
-function buildTurns(messages: ChatMessage[], limit = RECENT_TURN_LIMIT): CallTurn[] {
+function buildTurns(
+  messages: ChatMessage[],
+  opts?: { afterId?: string | null; limit?: number },
+): CallTurn[] {
+  const limit = opts?.limit ?? RECENT_TURN_LIMIT;
+  const afterId = opts?.afterId || "";
   const skip = new Set(
     messages.filter(isKeepsakeOpener).map((m) => m.id),
   );
   const turns: CallTurn[] = [];
+  let started = !afterId;
   for (let i = 0; i < messages.length; i++) {
     const m = messages[i];
+    if (!started) {
+      if (m.id === afterId) started = true;
+      continue;
+    }
     if (!isHeritageReply(m) || skip.has(m.id)) continue;
     let userMessageId = "";
     let userText = "";
@@ -262,6 +273,8 @@ export default function CallScreen() {
   const mediaCacheRef = useRef<Map<string, string>>(new Map());
   const playLockRef = useRef(false);
   const openerPlayedRef = useRef(false);
+  /** Today's photo opener — conversation below this message only. */
+  const keepsakeAfterIdRef = useRef<string | null>(null);
   /** Remaining father clips to play after the one currently speaking. */
   const replayQueueRef = useRef<CallTurn[]>([]);
   const phaseRef = useRef<CallPhase>("idle");
@@ -350,20 +363,26 @@ export default function CallScreen() {
   const refreshTurns = useCallback(async () => {
     if (!threadId) return [];
     const res = await api.listMessages(threadId, { limit: 40 });
-    const openers = res.messages.filter(isKeepsakeOpener);
-    const opener = openers.length ? openers[openers.length - 1] : null;
-    if (opener) {
-      const meta = opener.meta && typeof opener.meta === "object" ? opener.meta : {};
-      const memoryId =
-        typeof meta.memory_item_id === "string" ? meta.memory_item_id : undefined;
-      setKeepsakeBanner({
-        messageId: opener.id,
-        text: (opener.body || "").trim(),
-        memoryId,
-        hasTts: metaHasTts(opener.meta),
-      });
+    const afterId = keepsakeAfterIdRef.current;
+    const next = buildTurns(res.messages, { afterId });
+    if (afterId) {
+      const opener = res.messages.find((m) => m.id === afterId);
+      if (opener) {
+        const meta =
+          opener.meta && typeof opener.meta === "object" ? opener.meta : {};
+        const memoryId =
+          typeof meta.memory_item_id === "string"
+            ? meta.memory_item_id
+            : undefined;
+        setKeepsakeBanner((prev) => ({
+          messageId: opener.id,
+          text: (opener.body || "").trim(),
+          memoryId,
+          hasTts: metaHasTts(opener.meta),
+          settled: Boolean(prev?.settled),
+        }));
+      }
     }
-    const next = buildTurns(res.messages);
     setTurns(next);
     return next;
   }, [api, threadId]);
@@ -373,7 +392,8 @@ export default function CallScreen() {
     try {
       const thread = await api.getThread(threadId);
       setThreadMeta(thread);
-      await refreshTurns();
+      keepsakeAfterIdRef.current = null;
+      setKeepsakeBanner(null);
       if (thread.space_id) {
         try {
           const today = await api.keepsakeToday(thread.space_id);
@@ -383,20 +403,35 @@ export default function CallScreen() {
             card.kind === "photo" &&
             card.thread_id === threadId
           ) {
-            setKeepsakeBanner((prev) =>
-              prev ?? {
-                messageId: card.opened_message_id || card.id,
-                text: card.opener || card.title,
-                memoryId: card.memory_item_id,
-                hasTts: false,
-              },
-            );
-            void api.openKeepsake(card.id).then(() => refreshTurns()).catch(() => undefined);
+            setKeepsakeBanner({
+              messageId: card.opened_message_id || card.id,
+              text: card.opener || card.title,
+              memoryId: card.memory_item_id,
+              hasTts: false,
+              settled: Boolean(card.heard),
+            });
+            try {
+              const opened = await api.openKeepsake(card.id);
+              if (opened.message_id) {
+                keepsakeAfterIdRef.current = opened.message_id;
+              }
+              const heard = Boolean(opened.keepsake?.heard || card.heard);
+              setKeepsakeBanner((prev) =>
+                prev
+                  ? { ...prev, settled: heard, messageId: opened.message_id || prev.messageId }
+                  : prev,
+              );
+            } catch {
+              if (card.opened_message_id) {
+                keepsakeAfterIdRef.current = card.opened_message_id;
+              }
+            }
           }
         } catch {
           // flag off or no card
         }
       }
+      await refreshTurns();
       if (thread.space_id && thread.heritage?.identity_id) {
         await loadVoice(thread.space_id, thread.heritage.identity_id);
       }
@@ -642,7 +677,9 @@ export default function CallScreen() {
           awaitingAfterIdRef.current = null;
           replyDeadlineRef.current = 0;
           setPendingUserText("");
-          const nextTurns = buildTurns(messages);
+          const nextTurns = buildTurns(messages, {
+            afterId: keepsakeAfterIdRef.current,
+          });
           setTurns(nextTurns);
           if (m.has_media) {
             const started = await playReply(m.id, (m.body || "").trim(), {
@@ -762,6 +799,9 @@ export default function CallScreen() {
       awaitingAfterIdRef.current = sent.id;
       replyDeadlineRef.current = Date.now() + REPLY_TIMEOUT_MS;
       if ((sent.body || "").trim()) setPendingUserText(sent.body.trim());
+      setKeepsakeBanner((prev) =>
+        prev ? { ...prev, settled: true } : prev,
+      );
       setPhase("thinking");
     } catch (e) {
       awaitingAfterIdRef.current = null;
@@ -977,6 +1017,8 @@ export default function CallScreen() {
         style={styles.transcriptScroll}
         contentContainerStyle={styles.transcriptContent}
         keyboardShouldPersistTaps="handled"
+        nestedScrollEnabled
+        stickyHeaderIndices={keepsakeBanner?.settled ? [0] : undefined}
         scrollEventThrottle={16}
         onLayout={(e) => setViewportH(e.nativeEvent.layout.height)}
         onScroll={(e: NativeSyntheticEvent<NativeScrollEvent>) => {
@@ -988,37 +1030,90 @@ export default function CallScreen() {
           stickTranscriptRef.current = fromBottom < 72;
         }}
         onContentSizeChange={() => {
+          if (keepsakeBanner && !keepsakeBanner.settled) return;
           if (stickTranscriptRef.current) {
             scrollRef.current?.scrollToEnd({ animated: false });
           }
         }}
       >
         {keepsakeBanner ? (
-          <View style={styles.keepsakeCard}>
-            {keepsakeUri ? (
-              <Image source={{ uri: keepsakeUri }} style={styles.keepsakePhoto} />
-            ) : (
-              <View style={styles.keepsakePhotoPlaceholder}>
-                <ActivityIndicator color={colors.brand} />
+        <Pressable
+          style={[
+            styles.keepsakePin,
+            keepsakeBanner.settled && styles.keepsakePinSettled,
+          ]}
+          onPress={
+            keepsakeBanner.hasTts && phase === "idle"
+              ? () =>
+                  void playReply(keepsakeBanner.messageId, keepsakeBanner.text, {
+                    auto: true,
+                    audioUrl: api.messageTtsUrl(keepsakeBanner.messageId),
+                  })
+              : undefined
+          }
+          accessibilityRole={keepsakeBanner.hasTts ? "button" : undefined}
+          accessibilityLabel={
+            keepsakeBanner.settled
+              ? "Đã kể tấm này hôm nay"
+              : keepsakeBanner.hasTts
+                ? `Ảnh hôm nay. Chạm để nghe câu hỏi của ${relation.toLowerCase()}.`
+                : "Ảnh hôm nay"
+          }
+        >
+          {keepsakeBanner.settled ? (
+            <View style={styles.keepsakeSettledRow}>
+              {keepsakeUri ? (
+                <Image
+                  source={{ uri: keepsakeUri }}
+                  style={styles.keepsakeThumb}
+                />
+              ) : (
+                <View style={styles.keepsakeThumb} />
+              )}
+              <View style={styles.keepsakeSettledCopy}>
+                <Text style={styles.keepsakeKicker}>Đã kể hôm nay</Text>
+                {keepsakeBanner.text ? (
+                  <Text style={styles.keepsakeSettledText} numberOfLines={1}>
+                    {keepsakeBanner.text}
+                  </Text>
+                ) : null}
               </View>
-            )}
-            {keepsakeBanner.text ? (
-              <Text style={styles.keepsakeText}>{keepsakeBanner.text}</Text>
-            ) : null}
-            <Text style={styles.keepsakeHint}>
-              Giữ nút bên dưới để kể với {relation.toLowerCase()}.
-            </Text>
-          </View>
-        ) : null}
+            </View>
+          ) : (
+            <>
+              <Text style={styles.keepsakeKicker}>Ảnh hôm nay</Text>
+              {keepsakeUri ? (
+                <Image source={{ uri: keepsakeUri }} style={styles.keepsakePhoto} />
+              ) : (
+                <View style={styles.keepsakePhotoPlaceholder}>
+                  <ActivityIndicator color={colors.brand} />
+                </View>
+              )}
+              {keepsakeBanner.text ? (
+                <Text style={styles.keepsakeText} numberOfLines={3}>
+                  {keepsakeBanner.text}
+                </Text>
+              ) : null}
+              <Text style={styles.keepsakeHint}>
+                {keepsakeBanner.hasTts
+                  ? `Chạm ảnh để nghe ${relation.toLowerCase()} hỏi. Giữ nút bên dưới để kể.`
+                  : `Giữ nút bên dưới để kể với ${relation.toLowerCase()}.`}
+              </Text>
+            </>
+          )}
+        </Pressable>
+      ) : null}
 
-        {!turns.length && !showPending && !keepsakeBanner ? (
+        {keepsakeBanner ? null : !turns.length && !showPending ? (
           <Text style={styles.emptyHint}>
             Giữ nút bên dưới để nói với {relation.toLowerCase()}. Vuốt lên để huỷ.
           </Text>
         ) : null}
 
         {turns.length > 1 ? (
-          <Text style={styles.historyLabel}>Hội thoại gần đây</Text>
+          <Text style={styles.historyLabel}>
+            {keepsakeBanner ? "Lần nói về tấm này" : "Hội thoại gần đây"}
+          </Text>
         ) : null}
 
         {turns.map((turn, turnIndex) => {
@@ -1216,6 +1311,21 @@ export default function CallScreen() {
                 <Text style={styles.replayCount}>{replayCount}</Text>
               </Text>
             </Pressable>
+          ) : keepsakeBanner?.hasTts ? (
+            <Pressable
+              onPress={() =>
+                void playReply(keepsakeBanner.messageId, keepsakeBanner.text, {
+                  auto: true,
+                  audioUrl: api.messageTtsUrl(keepsakeBanner.messageId),
+                })
+              }
+              disabled={phase !== "idle"}
+              style={[styles.replayBtn, phase !== "idle" && { opacity: 0.45 }]}
+              accessibilityRole="button"
+              accessibilityLabel={`Nghe câu hỏi của ${relation}`}
+            >
+              <Text style={styles.replayText}>▶  Nghe câu hỏi</Text>
+            </Pressable>
           ) : null}
         </View>
 
@@ -1306,6 +1416,7 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     gap: 16,
     paddingBottom: 16,
+    flexGrow: 1,
   },
   historyLabel: {
     fontFamily: fonts.body,
@@ -1328,20 +1439,31 @@ const styles = StyleSheet.create({
     marginTop: 20,
     lineHeight: 26,
   },
-  keepsakeCard: {
-    gap: 10,
-    marginBottom: 8,
+  keepsakePin: {
+    gap: 8,
+    paddingBottom: 10,
+    backgroundColor: colors.bg,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.line,
+  },
+  keepsakeKicker: {
+    fontFamily: fonts.body,
+    fontSize: 12,
+    fontWeight: "700",
+    color: colors.inkSoft,
+    textTransform: "uppercase",
+    letterSpacing: 0.4,
   },
   keepsakePhoto: {
     width: "100%",
-    height: 240,
-    borderRadius: 16,
+    height: 168,
+    borderRadius: 14,
     backgroundColor: colors.line,
   },
   keepsakePhotoPlaceholder: {
     width: "100%",
-    height: 240,
-    borderRadius: 16,
+    height: 168,
+    borderRadius: 14,
     backgroundColor: colors.card,
     alignItems: "center",
     justifyContent: "center",
@@ -1355,6 +1477,30 @@ const styles = StyleSheet.create({
   keepsakeHint: {
     fontSize: 15,
     lineHeight: 22,
+    color: colors.inkSoft,
+  },
+  keepsakePinSettled: {
+    paddingBottom: 8,
+  },
+  keepsakeSettledRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+  },
+  keepsakeThumb: {
+    width: 52,
+    height: 52,
+    borderRadius: 8,
+    backgroundColor: colors.line,
+  },
+  keepsakeSettledCopy: {
+    flex: 1,
+    minWidth: 0,
+    gap: 2,
+  },
+  keepsakeSettledText: {
+    fontFamily: fonts.body,
+    fontSize: 14,
     color: colors.inkSoft,
   },
   bubbleMine: {
