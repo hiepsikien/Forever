@@ -452,35 +452,44 @@ export default function SettingsScreen() {
 
       {tab === "account" ? (
         <>
-          <Text style={styles.section}>Đăng nhập</Text>
           <View style={styles.card}>
-            <Text style={styles.label}>Tên</Text>
-            <Text style={styles.value}>{user?.name ?? "—"}</Text>
-            <Text style={[styles.label, { marginTop: 12 }]}>Email</Text>
-            <Text style={styles.value}>{user?.email ?? "—"}</Text>
-            {user?.handle ? (
-              <>
-                <Text style={[styles.label, { marginTop: 12 }]}>Handle</Text>
-                <Text style={styles.value}>@{user.handle}</Text>
-              </>
+            <Text style={styles.accountName}>{user?.name ?? "—"}</Text>
+            {user?.email ? (
+              <Text style={styles.accountMeta}>{user.email}</Text>
             ) : null}
+            <Pressable
+              onPress={() => {
+                Alert.alert(
+                  "Đăng xuất?",
+                  "Bạn sẽ cần email và mật khẩu để vào lại Forever.",
+                  [
+                    { text: "Huỷ", style: "cancel" },
+                    {
+                      text: "Đăng xuất",
+                      style: "destructive",
+                      onPress: () => void signOut(),
+                    },
+                  ],
+                );
+              }}
+              hitSlop={8}
+              style={styles.signOutHit}
+            >
+              <Text style={styles.signOutText}>Đăng xuất</Text>
+            </Pressable>
           </View>
           <Pressable
-            style={styles.btnGhost}
-            onPress={() => {
-              Alert.alert("Thoát?", "Bạn sẽ đăng xuất khỏi Forever.", [
-                { text: "Huỷ", style: "cancel" },
-                {
-                  text: "Thoát",
-                  style: "destructive",
-                  onPress: () => void signOut(),
-                },
-              ]);
-            }}
+            style={styles.philosophyLink}
+            onPress={() => router.navigate("/")}
           >
-            <Text style={styles.btnGhostText}>Thoát</Text>
+            <View style={styles.philosophyLinkMain}>
+              <Text style={styles.philosophyLinkTitle}>Mái nhà Forever</Text>
+              <Text style={styles.philosophyLinkSub}>
+                Chọn nhà, tạo nhà mới, hoặc nhập mã mời
+              </Text>
+            </View>
+            <Text style={styles.philosophyChevron}>›</Text>
           </Pressable>
-          <Text style={styles.section}>Về Forever</Text>
           <Pressable
             style={styles.philosophyLink}
             onPress={() => router.push("/settings/philosophy")}
@@ -1274,15 +1283,14 @@ const styles = StyleSheet.create({
   },
   btnDisabled: { opacity: 0.6 },
   btnText: { color: "#fff", fontWeight: "700", fontSize: 15 },
-  btnGhost: {
-    marginTop: 4,
-    borderWidth: 1,
-    borderColor: colors.brand,
-    borderRadius: 10,
-    paddingVertical: 12,
-    alignItems: "center",
+  accountName: {
+    fontFamily: fonts.display,
+    fontSize: 22,
+    color: colors.ink,
   },
-  btnGhostText: { color: colors.brand, fontWeight: "700", fontSize: 15 },
+  accountMeta: { fontSize: 15, color: colors.inkSoft, marginTop: 4 },
+  signOutHit: { alignSelf: "flex-start", marginTop: 14 },
+  signOutText: { fontSize: 15, fontWeight: "600", color: colors.danger },
   locked: { marginTop: 8, fontSize: 14, color: colors.inkSoft, lineHeight: 20 },
   footnote: { fontSize: 12, color: colors.inkSoft, lineHeight: 18, marginTop: 4 },
   philosophyLink: {

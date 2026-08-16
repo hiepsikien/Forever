@@ -14,6 +14,8 @@ import {
 } from "react-native";
 
 import { useAuth } from "@/lib/auth";
+import { markEnteredASpace } from "@/lib/homeSpace";
+import { rememberedLibraryPeople } from "@/lib/libraryShelves";
 import { fetchAuthedMediaUri } from "@/lib/media";
 import { useSpaceScreenOptions } from "@/lib/spaceHeader";
 import { colors, fonts } from "@/lib/theme";
@@ -104,7 +106,7 @@ function threadRowMeta(item: ThreadSummary): { preview: string; cta: string; cal
 
 export default function SpaceScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { api } = useAuth();
+  const { api, user } = useAuth();
   const router = useRouter();
   const [space, setSpace] = useState<FamilySpace | null>(null);
   const [threads, setThreads] = useState<ThreadSummary[]>([]);
@@ -163,6 +165,10 @@ export default function SpaceScreen() {
     }, [load]),
   );
 
+  useEffect(() => {
+    if (user?.id) void markEnteredASpace(user.id);
+  }, [user?.id]);
+
   useSpaceScreenOptions({
     spaceId: id,
     title: space?.name ?? "Gia đình",
@@ -170,7 +176,21 @@ export default function SpaceScreen() {
     showSettings: true,
   });
 
-  // docs/phong-khach.md — hero is a link to Cả nhà với người được nhớ.
+  const openLibrary = useCallback(async () => {
+    if (!id) return;
+    try {
+      const res = await api.listIdentities(id);
+      const remembered = rememberedLibraryPeople(res.identities);
+      if (remembered.length === 1) {
+        router.push(`/library/${id}/person/${remembered[0].id}`);
+        return;
+      }
+    } catch {
+      // Hub still loads the picker / empty state.
+    }
+    router.push(`/library/${id}`);
+  }, [api, id, router]);
+
   const livingRoomThread = useMemo(
     () => pickLivingRoomThread(threads),
     [threads],
@@ -429,10 +449,7 @@ export default function SpaceScreen() {
         </Pressable>
       ) : null}
 
-      <Pressable
-        style={styles.libraryGate}
-        onPress={() => id && router.push(`/library/${id}`)}
-      >
+      <Pressable style={styles.libraryGate} onPress={() => void openLibrary()}>
         <Text style={styles.libraryKicker}>Két sắt ký ức</Text>
         <Text style={styles.libraryTitle}>Thư viện</Text>
         <Text style={styles.librarySub}>

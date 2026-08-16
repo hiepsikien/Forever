@@ -40,6 +40,8 @@ type Props = {
   thumbError?: boolean;
   playingVoice?: boolean;
   saving?: boolean;
+  /** Steward / author: long-press the card for Sửa · Xoá. Hidden from consumers. */
+  canEdit?: boolean;
   onPress?: () => void;
   onEdit: () => void;
   onDelete: () => void;
@@ -67,6 +69,7 @@ export function MemoryKindCard({
   thumbError,
   playingVoice,
   saving,
+  canEdit = false,
   onPress,
   onEdit,
   onDelete,
@@ -151,9 +154,6 @@ export function MemoryKindCard({
             ))}
           </View>
         ) : null}
-        <Text style={styles.readMore}>
-          {long ? "Chạm để đọc cả bài →" : "Chạm để đọc →"}
-        </Text>
       </>
     ) : item.kind === "knowledge" ? (
       <>
@@ -184,7 +184,6 @@ export function MemoryKindCard({
             <Text style={styles.sourceLink}>Xem câu gốc →</Text>
           </Pressable>
         ) : null}
-        {long ? <Text style={styles.readMore}>Chạm để đọc đủ →</Text> : null}
       </>
     ) : (
       <>
@@ -194,7 +193,6 @@ export function MemoryKindCard({
             {note}
           </Text>
         ) : null}
-        {long ? <Text style={styles.readMore}>Chạm để đọc đủ →</Text> : null}
       </>
     );
 
@@ -203,62 +201,14 @@ export function MemoryKindCard({
       style={[styles.card, isPoem && styles.poemCard]}
       onPress={onPress}
       disabled={!onPress}
+      onLongPress={canEdit && !saving ? openActions : undefined}
+      delayLongPress={420}
     >
-      {isPoem ? (
-        <View style={styles.cardTop}>
-          <Text style={styles.kind}>{gift ? "Thơ tặng" : "Thơ"}</Text>
-          <Pressable
-            onPress={(e) => {
-              e.stopPropagation?.();
-              openActions();
-            }}
-            hitSlop={12}
-            disabled={saving}
-            style={styles.moreBtn}
-          >
-            <Text style={styles.moreBtnText}>Tuỳ chọn</Text>
-          </Pressable>
-        </View>
-      ) : (
-        <View style={styles.cardTop}>
-          <Text style={styles.kind}>{kindLabel(item.kind)}</Text>
-          <View style={styles.cardActions}>
-            {mine && onToggleVisibility ? (
-              <Pressable
-                onPress={(e) => {
-                  e.stopPropagation?.();
-                  onToggleVisibility();
-                }}
-                hitSlop={8}
-                disabled={saving}
-              >
-                <Text style={styles.editLink}>
-                  {isPrivate ? "Chia sẻ cả nhà" : "Giữ riêng"}
-                </Text>
-              </Pressable>
-            ) : null}
-            <Pressable
-              onPress={(e) => {
-                e.stopPropagation?.();
-                onEdit();
-              }}
-              hitSlop={8}
-            >
-              <Text style={styles.editLink}>Sửa</Text>
-            </Pressable>
-            <Pressable
-              onPress={(e) => {
-                e.stopPropagation?.();
-                onDelete();
-              }}
-              hitSlop={8}
-              disabled={saving}
-            >
-              <Text style={styles.deleteLink}>Xoá</Text>
-            </Pressable>
-          </View>
-        </View>
-      )}
+      <View style={styles.cardTop}>
+        <Text style={styles.kind}>
+          {isPoem ? (gift ? "Thơ tặng" : "Thơ") : kindLabel(item.kind)}
+        </Text>
+      </View>
 
       {bodyBlock}
 
@@ -379,35 +329,9 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     alignItems: "center",
   },
-  cardActions: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 14,
-  },
-  moreBtn: {
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 8,
-    backgroundColor: colors.bgDeep,
-  },
-  moreBtnText: {
-    fontSize: 13,
-    fontWeight: "600",
-    color: colors.brand,
-  },
   kind: {
     fontSize: 12,
     color: colors.brandSoft,
-    fontWeight: "600",
-  },
-  editLink: {
-    fontSize: 13,
-    color: colors.brand,
-    fontWeight: "600",
-  },
-  deleteLink: {
-    fontSize: 13,
-    color: colors.danger,
     fontWeight: "600",
   },
   title: {
@@ -559,11 +483,5 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     color: colors.brand,
     marginTop: 4,
-  },
-  readMore: {
-    fontSize: 13,
-    fontWeight: "600",
-    color: colors.brand,
-    marginTop: 2,
   },
 });

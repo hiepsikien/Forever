@@ -39,10 +39,10 @@ import {
   candidatesForPerson,
   countShelves,
   filterMemories,
-  formatShelfSummary,
   groupLifeByDecade,
   memoriesForPerson,
   partitionPoems,
+  rememberedLibraryPeople,
   SHELF_LABELS,
   ShelfFilter,
   sortByCreatedDesc,
@@ -176,10 +176,15 @@ export default function LibraryPersonScreen() {
         ? identityChipLabel(person, user?.id)
         : "Ký ức";
 
+  const rememberedPeople = useMemo(
+    () => rememberedLibraryPeople(identities),
+    [identities],
+  );
+
   useSpaceScreenOptions({
     spaceId,
     title,
-    backTitle: "Thư viện",
+    backTitle: rememberedPeople.length === 1 ? "Nhà" : "Thư viện",
   });
 
   const load = useCallback(async () => {
@@ -234,14 +239,6 @@ export default function LibraryPersonScreen() {
   const poemParts = useMemo(
     () => partitionPoems(personMemories.filter((m) => m.kind === "poem")),
     [personMemories],
-  );
-  const personSummary = useMemo(
-    () =>
-      formatShelfSummary(personShelfCounts, {
-        poemOwn: poemParts.own.length,
-        poemGift: poemParts.gift.length,
-      }),
-    [personShelfCounts, poemParts],
   );
   const poemsChipLabel = useMemo(() => {
     const own = poemParts.own.length;
@@ -316,24 +313,36 @@ export default function LibraryPersonScreen() {
       if (showOwn || showGift) {
         // Gift first when both: album tặng is what people look for after ingest.
         if (showGift) {
-          rows.push({
-            type: "section",
-            key: "poems-gift",
-            title: `Thơ tặng · ${gift.length}`,
-          });
+          const hideGiftTitle = shelf === "poems" && poemAuth === "gift";
+          if (!hideGiftTitle) {
+            rows.push({
+              type: "section",
+              key: "poems-gift",
+              title:
+                shelf === "poems"
+                  ? "Thơ tặng"
+                  : `Thơ tặng · ${gift.length}`,
+            });
+          }
           for (const item of gift) {
             rows.push({ type: "memory", key: item.id, item });
           }
         }
         if (showOwn) {
-          rows.push({
-            type: "section",
-            key: "poems-own",
-            title:
-              gift.length > 0 || poemAuth === "own" || shelf === "poems"
-                ? `Thơ của ${person?.display_name?.trim() || "người này"} · ${own.length}`
-                : SHELF_LABELS.poems,
-          });
+          const hideOwnTitle = shelf === "poems" && poemAuth === "own";
+          if (!hideOwnTitle) {
+            const who = person?.display_name?.trim() || "người này";
+            rows.push({
+              type: "section",
+              key: "poems-own",
+              title:
+                gift.length > 0 || poemAuth === "own" || shelf === "poems"
+                  ? shelf === "poems"
+                    ? `Thơ của ${who}`
+                    : `Thơ của ${who} · ${own.length}`
+                  : SHELF_LABELS.poems,
+            });
+          }
           for (const item of own) {
             rows.push({ type: "memory", key: item.id, item });
           }
@@ -863,50 +872,21 @@ export default function LibraryPersonScreen() {
 
   return (
     <View style={styles.root}>
-      {person && person.status === "remembered" ? (
-        <View style={styles.personHeader}>
-          <Text style={styles.personRelation}>
-            {person.relation_label?.trim() &&
-            person.relation_label.trim().toLowerCase() !== "tôi"
-              ? person.relation_label
-              : "Người được nhớ"}
-          </Text>
-          <Text style={styles.personBlurb}>{personSummary}</Text>
-          {person.heritage_entity_status === "ready" && person.heritage_thread_id ? (
-            <Pressable
-              onPress={() =>
-                router.push(`/call/${person.heritage_thread_id}`)
-              }
-            >
-              <Text style={styles.personCall}>Gọi bằng giọng →</Text>
-            </Pressable>
-          ) : null}
-        </View>
-      ) : null}
       <View style={styles.toolbar}>
         <Pressable style={styles.addBtn} onPress={() => setAddOpen(true)}>
           <Text style={styles.addBtnText}>Thêm</Text>
         </Pressable>
-        {canIngest && identityId && identityId !== UNTAGGED_PERSON_ID ? (
+        {person &&
+        person.status === "remembered" &&
+        person.heritage_entity_status === "ready" &&
+        person.heritage_thread_id ? (
           <Pressable
-            style={styles.ingestBtn}
-            onPress={() =>
-              router.push(
-                `/library/${spaceId}/ingest?identityId=${identityId}`,
-              )
-            }
+            onPress={() => router.push(`/call/${person.heritage_thread_id}`)}
+            hitSlop={8}
           >
-            <Text style={styles.ingestBtnText}>Nhập tài liệu</Text>
+            <Text style={styles.callLink}>Gọi bằng giọng</Text>
           </Pressable>
         ) : null}
-        <Pressable
-          style={[styles.filterChip, privateOnly && styles.filterChipOn]}
-          onPress={() => setPrivateOnly((v) => !v)}
-        >
-          <Text style={[styles.filterChipText, privateOnly && styles.filterChipTextOn]}>
-            Chỉ mình tôi
-          </Text>
-        </Pressable>
       </View>
       {privateOnly ? (
         <Text style={styles.privateHint}>
@@ -919,25 +899,30 @@ export default function LibraryPersonScreen() {
         value={shelf}
         onChange={(next) => {
           setShelf(next);
-          if (next !== "poems" && next !== "all") setPoemAuth("all");
+          if (next !== "poems") setPoemAuth("all");
         }}
         counts={personShelfCounts}
         poemsLabel={poemsChipLabel}
+        privateOnly={privateOnly}
+        onTogglePrivate={() => setPrivateOnly((v) => !v)}
       />
-      {(shelf === "poems" || shelf === "all") &&
-      (poemParts.own.length > 0 || poemParts.gift.length > 0) ? (
+      {shelf === "poems" &&
+      poemParts.own.length > 0 &&
+      poemParts.gift.length > 0 ? (
         <View style={styles.poemAuthRow}>
           {(
             [
-              { id: "all" as const, label: "Tất cả thơ" },
+              { id: "all" as const, label: "Tất cả" },
               {
                 id: "own" as const,
-                label: `Của ${person?.display_name?.trim() || "bố"} · ${poemParts.own.length}`,
+                label: `Của ${
+                  person?.relation_label?.trim() &&
+                  person.relation_label.trim().toLowerCase() !== "tôi"
+                    ? person.relation_label.trim()
+                    : person?.display_name?.trim() || "bố"
+                }`,
               },
-              {
-                id: "gift" as const,
-                label: `Thơ tặng · ${poemParts.gift.length}`,
-              },
+              { id: "gift" as const, label: "Tặng" },
             ] as const
           )
             .filter((opt) => {
@@ -951,10 +936,7 @@ export default function LibraryPersonScreen() {
                 <Pressable
                   key={opt.id}
                   style={[styles.poemAuthChip, on && styles.poemAuthChipOn]}
-                  onPress={() => {
-                    setPoemAuth(opt.id);
-                    if (shelf === "all") setShelf("poems");
-                  }}
+                  onPress={() => setPoemAuth(opt.id)}
                 >
                   <Text
                     style={[
@@ -1062,6 +1044,7 @@ export default function LibraryPersonScreen() {
               playingVoice={playingId === item.id}
               saving={saving}
               onPress={() => setReading(item)}
+              canEdit={canEditItem(item)}
               onEdit={() => openCaptionForEdit(item)}
               onDelete={() => confirmDelete(item)}
               onToggleVisibility={
@@ -1121,6 +1104,14 @@ export default function LibraryPersonScreen() {
         visible={addOpen}
         onClose={() => setAddOpen(false)}
         onSelect={onAddSelect}
+        onIngest={
+          canIngest && spaceId && identityId && identityId !== UNTAGGED_PERSON_ID
+            ? () =>
+                router.push(
+                  `/library/${spaceId}/ingest?identityId=${identityId}`,
+                )
+            : undefined
+        }
       />
 
       <TextMemoryFormModal
@@ -1133,6 +1124,7 @@ export default function LibraryPersonScreen() {
         selectedIdentityIds={textIdentityIds}
         userId={user?.id}
         busy={saving}
+        editing={Boolean(textEditingId)}
         photoUri={textClearPhoto ? null : textPhotoUri}
         onChangeTitle={setTextTitle}
         onChangeBody={setTextBody}
@@ -1212,31 +1204,12 @@ const styles = StyleSheet.create({
   toolbar: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 10,
+    gap: 12,
     paddingHorizontal: 16,
     paddingTop: 10,
     paddingBottom: 4,
-    flexWrap: "wrap",
   },
-  personHeader: {
-    marginHorizontal: 16,
-    marginTop: 10,
-    padding: 14,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: colors.line,
-    backgroundColor: colors.bgDeep,
-    gap: 4,
-  },
-  personRelation: {
-    fontSize: 12,
-    fontWeight: "700",
-    color: colors.brandSoft,
-    textTransform: "uppercase",
-    letterSpacing: 0.4,
-  },
-  personBlurb: { fontSize: 14, lineHeight: 20, color: colors.inkSoft },
-  personCall: { fontSize: 14, fontWeight: "700", color: colors.brand, marginTop: 4 },
+  callLink: { fontSize: 15, fontWeight: "700", color: colors.brand },
   addBtn: {
     backgroundColor: colors.brand,
     borderRadius: 999,
@@ -1244,34 +1217,6 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
   },
   addBtnText: { color: "#f4efe6", fontWeight: "700" },
-  ingestBtn: {
-    borderRadius: 999,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderWidth: 1,
-    borderColor: colors.brand,
-    backgroundColor: colors.card,
-  },
-  ingestBtnText: { color: colors.brand, fontWeight: "700", fontSize: 13 },
-  filterChip: {
-    flexShrink: 0,
-    borderRadius: 999,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderWidth: 1,
-    borderColor: colors.line,
-    backgroundColor: colors.bgDeep,
-  },
-  filterChipOn: {
-    backgroundColor: colors.brand,
-    borderColor: colors.brand,
-  },
-  filterChipText: {
-    fontSize: 13,
-    fontWeight: "600",
-    color: colors.brandSoft,
-  },
-  filterChipTextOn: { color: "#f4efe6" },
   privateHint: {
     paddingHorizontal: 16,
     paddingBottom: 6,

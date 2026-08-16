@@ -7,6 +7,12 @@ import { parseHeritageIdentityIds, tagTokens } from "@/lib/memoryTags";
 
 export const UNTAGGED_PERSON_ID = "_none";
 
+export function rememberedLibraryPeople(
+  identities: IdentityProfile[],
+): IdentityProfile[] {
+  return identities.filter((i) => !i.archived_at && i.status === "remembered");
+}
+
 export type ShelfId = "life" | "poems" | "artifacts" | "heard";
 
 export type ShelfFilter = "all" | ShelfId;
@@ -134,18 +140,21 @@ export function buildPersonHubRows(
   const untaggedPoems = partitionPoems(
     untagged.filter((m) => m.kind === "poem"),
   );
-  rows.push({
-    identityId: UNTAGGED_PERSON_ID,
-    label: "Chưa neo ai",
-    counts: untaggedCounts,
-    poemOwn: untaggedPoems.own.length,
-    poemGift: untaggedPoems.gift.length,
-    total:
-      untaggedCounts.life +
-      untaggedCounts.poems +
-      untaggedCounts.artifacts +
-      untaggedCounts.heard,
-  });
+  const untaggedTotal =
+    untaggedCounts.life +
+    untaggedCounts.poems +
+    untaggedCounts.artifacts +
+    untaggedCounts.heard;
+  if (untaggedTotal > 0) {
+    rows.push({
+      identityId: UNTAGGED_PERSON_ID,
+      label: "Chưa neo ai",
+      counts: untaggedCounts,
+      poemOwn: untaggedPoems.own.length,
+      poemGift: untaggedPoems.gift.length,
+      total: untaggedTotal,
+    });
+  }
 
   return rows;
 }

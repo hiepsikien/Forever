@@ -1,8 +1,10 @@
 import { useVideoPlayer, VideoView } from "expo-video";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
+  Animated,
   Modal,
+  PanResponder,
   Pressable,
   StyleSheet,
   Text,
@@ -35,6 +37,28 @@ function VideoPlayerBody({
 }) {
   const insets = useSafeAreaInsets();
   const [buffering, setBuffering] = useState(true);
+  const translateY = useRef(new Animated.Value(0)).current;
+  const pan = useMemo(
+    () =>
+      PanResponder.create({
+        onMoveShouldSetPanResponder: (_, g) =>
+          g.dy > 8 && Math.abs(g.dy) > Math.abs(g.dx),
+        onPanResponderMove: (_, g) => {
+          if (g.dy > 0) translateY.setValue(g.dy);
+        },
+        onPanResponderRelease: (_, g) => {
+          if (g.dy > 80 || g.vy > 0.9) onClose();
+          else {
+            Animated.spring(translateY, {
+              toValue: 0,
+              useNativeDriver: true,
+              bounciness: 0,
+            }).start();
+          }
+        },
+      }),
+    [onClose, translateY],
+  );
   const player = useVideoPlayer(uri, (p) => {
     p.loop = false;
   });
@@ -64,19 +88,21 @@ function VideoPlayerBody({
   }, [player, onPlaybackError]);
 
   return (
-    <View
+    <Animated.View
       style={[
         styles.playerRoot,
-        { paddingTop: insets.top + 8, paddingBottom: insets.bottom + 12 },
+        {
+          paddingTop: insets.top + 8,
+          paddingBottom: insets.bottom + 12,
+          transform: [{ translateY }],
+        },
       ]}
     >
-      <View style={styles.header}>
+      <View style={styles.header} {...pan.panHandlers}>
+        <View style={styles.handle} />
         <Text style={styles.headerTitle} numberOfLines={2}>
           {title || "Video ký ức"}
         </Text>
-        <Pressable onPress={onClose} hitSlop={12}>
-          <Text style={styles.closeText}>Đóng</Text>
-        </Pressable>
       </View>
       <View style={styles.videoWrap}>
         <VideoView
@@ -94,7 +120,7 @@ function VideoPlayerBody({
           </View>
         ) : null}
       </View>
-    </View>
+    </Animated.View>
   );
 }
 
@@ -124,12 +150,9 @@ export function MemoryVideoModal({
             <Text style={styles.loadingText}>{loadingHint}</Text>
           </View>
         ) : displayError ? (
-          <View style={styles.center}>
+          <Pressable style={styles.center} onPress={onClose}>
             <Text style={styles.errorText}>{displayError}</Text>
-            <Pressable style={styles.retryClose} onPress={onClose}>
-              <Text style={styles.retryCloseText}>Đóng</Text>
-            </Pressable>
-          </View>
+          </Pressable>
         ) : uri ? (
           <VideoPlayerBody
             uri={uri}
@@ -168,28 +191,25 @@ const styles = StyleSheet.create({
     textAlign: "center",
     lineHeight: 24,
   },
-  retryClose: {
-    marginTop: 8,
-    paddingHorizontal: 18,
-    paddingVertical: 10,
-    borderRadius: 999,
-    backgroundColor: colors.brand,
-  },
-  retryCloseText: { color: "#f4efe6", fontWeight: "600" },
   playerRoot: { flex: 1, gap: 12, paddingHorizontal: 12 },
   header: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    justifyContent: "space-between",
-    gap: 12,
+    alignItems: "center",
+    gap: 10,
+    paddingBottom: 4,
+  },
+  handle: {
+    width: 40,
+    height: 5,
+    borderRadius: 3,
+    backgroundColor: "rgba(244, 239, 230, 0.35)",
   },
   headerTitle: {
-    flex: 1,
+    alignSelf: "stretch",
     fontFamily: fonts.display,
     fontSize: 20,
     color: "#f4efe6",
+    textAlign: "center",
   },
-  closeText: { color: colors.brandSoft, fontSize: 16, fontWeight: "600" },
   videoWrap: {
     flex: 1,
     borderRadius: 12,

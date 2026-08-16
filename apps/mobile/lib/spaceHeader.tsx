@@ -22,9 +22,23 @@ export function useSpaceScreenOptions(opts: {
   } = opts;
 
   useLayoutEffect(() => {
+    const goHome = () => router.navigate("/");
     navigation.setOptions({
       ...(title != null ? { title } : {}),
       headerBackTitle: backTitle,
+      headerLeft: navigation.canGoBack()
+        ? undefined
+        : () => (
+            <Pressable
+              onPress={goHome}
+              hitSlop={8}
+              style={{ marginLeft: 4, paddingVertical: 4, paddingHorizontal: 2 }}
+            >
+              <Text style={{ color: colors.brand, fontWeight: "600", fontSize: 17 }}>
+                ‹ {backTitle}
+              </Text>
+            </Pressable>
+          ),
       headerRight: showSettings
         ? () => (
             <Pressable

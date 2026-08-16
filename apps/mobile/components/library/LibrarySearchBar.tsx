@@ -6,15 +6,18 @@ type Props = {
   value: string;
   onChange: (text: string) => void;
   placeholder?: string;
+  /** Sit beside a toolbar button — no outer horizontal padding. */
+  embedded?: boolean;
 };
 
 export function LibrarySearchBar({
   value,
   onChange,
   placeholder = "Tìm trong ký ức…",
+  embedded,
 }: Props) {
   return (
-    <View style={styles.wrap}>
+    <View style={[styles.wrap, embedded && styles.embedded]}>
       <TextInput
         value={value}
         onChangeText={onChange}
@@ -41,6 +44,11 @@ const styles = StyleSheet.create({
     gap: 10,
     paddingHorizontal: 16,
     paddingBottom: 8,
+  },
+  embedded: {
+    flex: 1,
+    paddingHorizontal: 0,
+    paddingBottom: 0,
   },
   input: {
     flex: 1,

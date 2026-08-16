@@ -13,6 +13,8 @@ type Props = {
   visible: boolean;
   onClose: () => void;
   onSelect: (action: AddMemoryAction) => void;
+  /** Steward/owner only — opens document ingest. */
+  onIngest?: () => void;
 };
 
 const OPTIONS: { id: AddMemoryAction; label: string; hint: string }[] = [
@@ -23,7 +25,7 @@ const OPTIONS: { id: AddMemoryAction; label: string; hint: string }[] = [
   { id: "poem", label: "Thơ", hint: "Dán tiêu đề và thân bài" },
 ];
 
-export function AddMemorySheet({ visible, onClose, onSelect }: Props) {
+export function AddMemorySheet({ visible, onClose, onSelect, onIngest }: Props) {
   return (
     <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
       <Pressable style={styles.backdrop} onPress={onClose}>
@@ -43,6 +45,18 @@ export function AddMemorySheet({ visible, onClose, onSelect }: Props) {
               <Text style={styles.optionHint}>{opt.hint}</Text>
             </Pressable>
           ))}
+          {onIngest ? (
+            <Pressable
+              style={styles.option}
+              onPress={() => {
+                onClose();
+                onIngest();
+              }}
+            >
+              <Text style={styles.optionLabel}>Nhập tài liệu</Text>
+              <Text style={styles.optionHint}>Thơ, ảnh, mốc đời từ file</Text>
+            </Pressable>
+          ) : null}
           <Pressable style={styles.cancel} onPress={onClose}>
             <Text style={styles.cancelText}>Huỷ</Text>
           </Pressable>

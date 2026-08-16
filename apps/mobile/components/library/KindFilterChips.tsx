@@ -11,6 +11,8 @@ type Props = {
   counts?: ShelfCounts;
   /** Override the poems chip label, e.g. "Thơ · 41+72". */
   poemsLabel?: string;
+  privateOnly?: boolean;
+  onTogglePrivate?: () => void;
 };
 
 export function KindFilterChips({
@@ -18,6 +20,8 @@ export function KindFilterChips({
   onChange,
   counts,
   poemsLabel,
+  privateOnly,
+  onTogglePrivate,
 }: Props) {
   return (
     // Fixed-height wrap stops a horizontal ScrollView from eating the column
@@ -56,6 +60,19 @@ export function KindFilterChips({
             </Pressable>
           );
         })}
+        {onTogglePrivate ? (
+          <Pressable
+            style={[styles.chip, privateOnly && styles.chipOn]}
+            onPress={onTogglePrivate}
+          >
+            <Text
+              style={[styles.chipText, privateOnly && styles.chipTextOn]}
+              numberOfLines={1}
+            >
+              Chỉ mình tôi
+            </Text>
+          </Pressable>
+        ) : null}
       </ScrollView>
     </View>
   );

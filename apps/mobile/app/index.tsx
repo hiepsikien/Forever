@@ -15,6 +15,7 @@ import {
 
 import { BrandLogo } from "@/components/BrandLogo";
 import { useAuth } from "@/lib/auth";
+import { consumeHomeSkip, hasEnteredASpace } from "@/lib/homeSpace";
 import { colors, fonts } from "@/lib/theme";
 
 export default function HomeScreen() {
@@ -49,6 +50,16 @@ export default function HomeScreen() {
       try {
         const res = await api.listSpaces();
         setSpaces(res.spaces);
+        const uid = user?.id;
+        if (
+          uid &&
+          res.spaces.length === 1 &&
+          (await hasEnteredASpace(uid)) &&
+          consumeHomeSkip(uid)
+        ) {
+          router.push(`/space/${res.spaces[0].id}`);
+          return;
+        }
       } catch (e) {
         setError(e instanceof Error ? e.message : "Không tải được.");
       } finally {
@@ -56,7 +67,7 @@ export default function HomeScreen() {
         setRefreshing(false);
       }
     },
-    [api],
+    [api, router, user?.id],
   );
 
   useFocusEffect(
