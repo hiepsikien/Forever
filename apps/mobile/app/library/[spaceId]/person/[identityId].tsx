@@ -14,6 +14,7 @@ import {
   Pressable,
   RefreshControl,
   StyleSheet,
+  Switch,
   Text,
   View,
 } from "react-native";
@@ -888,12 +889,6 @@ export default function LibraryPersonScreen() {
           </Pressable>
         ) : null}
       </View>
-      {privateOnly ? (
-        <Text style={styles.privateHint}>
-          Đang xem ký ức bạn giữ riêng — người khác trong nhà không thấy.
-        </Text>
-      ) : null}
-
       <LibrarySearchBar value={query} onChange={setQuery} />
       <KindFilterChips
         value={shelf}
@@ -903,9 +898,25 @@ export default function LibraryPersonScreen() {
         }}
         counts={personShelfCounts}
         poemsLabel={poemsChipLabel}
-        privateOnly={privateOnly}
-        onTogglePrivate={() => setPrivateOnly((v) => !v)}
       />
+      <View style={styles.visibilityRow}>
+        <View style={styles.visibilityCopy}>
+          <Text style={styles.visibilityLabel}>Chỉ mình tôi</Text>
+          {privateOnly ? (
+            <Text style={styles.visibilityHint}>
+              Ký ức bạn giữ riêng — người khác không thấy
+            </Text>
+          ) : (
+            <Text style={styles.visibilityHint}>Đang xem ký ức cả nhà</Text>
+          )}
+        </View>
+        <Switch
+          value={privateOnly}
+          onValueChange={setPrivateOnly}
+          trackColor={{ false: colors.line, true: colors.brandSoft }}
+          thumbColor="#fff"
+        />
+      </View>
       {shelf === "poems" &&
       poemParts.own.length > 0 &&
       poemParts.gift.length > 0 ? (
@@ -1217,9 +1228,21 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
   },
   addBtnText: { color: "#f4efe6", fontWeight: "700" },
-  privateHint: {
+  visibilityRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
     paddingHorizontal: 16,
-    paddingBottom: 6,
+    paddingBottom: 8,
+    paddingTop: 2,
+  },
+  visibilityCopy: { flex: 1, gap: 2 },
+  visibilityLabel: {
+    fontSize: 15,
+    fontWeight: "600",
+    color: colors.ink,
+  },
+  visibilityHint: {
     fontSize: 13,
     lineHeight: 18,
     color: colors.inkSoft,
