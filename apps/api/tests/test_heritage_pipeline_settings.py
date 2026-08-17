@@ -31,7 +31,15 @@ def test_settings_include_pipeline_defaults(client):
     data = res.json()
     pipeline = data["heritage_pipeline"]
     keys = [f["key"] for f in pipeline["flags"]]
-    assert keys == ["stt", "analyzer", "grounding", "critic", "tts", "anti_repeat"]
+    assert keys == [
+        "stt",
+        "analyzer",
+        "grounding",
+        "critic",
+        "tts",
+        "anti_repeat",
+        "family_bridge",
+    ]
     defaults = server_pipeline_defaults()
     by_key = {f["key"]: f for f in pipeline["flags"]}
     assert by_key["analyzer"]["enabled"] is defaults.analyzer

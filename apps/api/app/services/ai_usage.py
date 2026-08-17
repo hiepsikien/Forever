@@ -16,6 +16,8 @@ from sqlalchemy.orm import Session
 from ..db import SessionLocal
 from ..models import AiUsageEvent
 
+from .heritage_safety import presence_for_space
+
 logger = logging.getLogger(__name__)
 
 # Rough USD rates — update when provider pricing changes.
@@ -359,4 +361,5 @@ def aggregate_space_usage(db: Session, *, space_id: str, days: int = 30) -> dict
             "Chi phí ước tính từ bảng giá tham chiếu — không phải hoá đơn thật "
             "từ Google/ElevenLabs/MiniMax."
         ),
+        "presence": presence_for_space(db, space_id=space_id, days=days),
     }

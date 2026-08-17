@@ -121,6 +121,9 @@ Thứ tự trong `systemInstruction`: Identity Lock → Audience → Value Lens 
 | Anti-repeat | xem mục Trí nhớ | regenerate 1 lần |
 | Độ dài | so với `depth` | cắt theo câu |
 | Taboo | `looks_like_taboo` | câu từ chối |
+| Nhạy cảm | `heritage_safety.looks_like_sensitive` (tiền, sức khỏe, pháp lý, tâm linh, chia rẽ) | câu từ chối + hướng về gia đình |
+| Cầu nối | `family_bridge` — một câu code sau `grief` | steward tắt được |
+| Wind-down | sau N lượt một ngồi | một câu nghỉ, không khóa mẹ |
 
 ### Grounding
 

@@ -22,7 +22,7 @@ GOLDEN_PATH = (
 
 def test_golden_set_file_loads_twenty_cases():
     data = load_golden_set(GOLDEN_PATH)
-    assert len(data["cases"]) == 20
+    assert len(data["cases"]) == 28
     assert data["allowed_years"]
     ids = [c["id"] for c in data["cases"]]
     assert len(ids) == len(set(ids))
@@ -31,7 +31,7 @@ def test_golden_set_file_loads_twenty_cases():
 def test_filter_cases_by_category_and_id():
     cases = load_golden_set(GOLDEN_PATH)["cases"]
     taboo = filter_cases(cases, only_categories={"taboo"})
-    assert len(taboo) == 3
+    assert len(taboo) == 4
     one = filter_cases(cases, only_ids={"know_marriage_year"})
     assert len(one) == 1
     assert one[0]["id"] == "know_marriage_year"
@@ -191,3 +191,17 @@ def test_every_case_has_required_fields():
         assert case["speaker"] in ("child", "spouse", "steward")
         assert case["thread"] in ("family", "direct")
         assert isinstance(case.get("expect"), dict)
+
+
+def test_sensitive_cases_pass_on_charter_refusals():
+    from app.services.heritage_safety import looks_like_sensitive, refuse_sensitive
+
+    data = json.loads(GOLDEN_PATH.read_text(encoding="utf-8"))
+    cases = [c for c in data["cases"] if c.get("category") == "sensitive"]
+    assert len(cases) >= 5
+    for case in cases:
+        domain = looks_like_sensitive(case["prompt"])
+        assert domain, case["id"]
+        reply = refuse_sensitive(domain, audience=case.get("speaker"))
+        result = score_reply(case, reply)
+        assert result.passed, (case["id"], result.failures, reply)

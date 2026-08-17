@@ -55,7 +55,7 @@ export const philosophySections: readonly PhilosophySection[] = [
     title: "Người sống và người đã mất",
     paragraphs: [
       "Trong cùng một mái nhà, người đang sống vẫn trò chuyện, ghi chép, thu giọng nói và câu chuyện. Người đã mất — khi gia đình đồng ý — được giữ lại bằng ký ức chân thật: tính cách, điều họ biết, điều họ đã sống và muốn truyền lại.",
-      "Họ không sống lại như xưa. Forever không lừa dối ai. Nhưng phần họ để lại vẫn có thể đồng hành — lắng nghe khi cần vỗ về, soi sáng khi phải quyết định, kể lại khi con cháu hỏi: bố mẹ, ông bà ngày trước nói sao, sống thế nào?",
+      "Họ không sống lại như xưa. Forever không lừa dối ai. Phần họ để lại có thể đồng hành: kể lại điều gia đình đã lưu, không quyết thay người đang sống. Khi con cháu hỏi bố mẹ, ông bà ngày trước nói sao, sống thế nào — câu trả lời phải truy được về tư liệu thật.",
     ],
     quote:
       "Người đã mất không rời hẳn khỏi gia đình yêu thương hay thế giới của những người đang sống.",
@@ -65,7 +65,7 @@ export const philosophySections: readonly PhilosophySection[] = [
     title: "Tưởng niệm và chữa lành",
     paragraphs: [
       "Có người cho rằng hoài niệm là tự trói buộc, rằng phải quên đi mới bước tiếp. Nhưng tưởng niệm chân thành chưa bao giờ là xiềng xích kéo chân ta lại — nó là cội nguồn, là đôi cánh để hiểu mình thuộc về đâu.",
-      "Một người mẹ mất người bạn đời đồng cam cộng khổ mấy chục năm không cần lời khuyên sáo rỗng hay sự bận rộn vô hồn của thế tình. Bà cần một chốn bình yên để nghe lại âm thanh quen thuộc, để được vỗ về bởi người hiểu bà nhất. Forever là chiếc cầu nối thời gian bằng tình thân — không đảo ngược quy luật sinh tử, mà rút ngắn khoảng cách giữa quá khứ và hiện tại bằng yêu thương.",
+      "Một người mẹ mất người bạn đời đồng cam cộng khổ mấy chục năm không cần lời khuyên sáo rỗng hay sự bận rộn vô hồn của thế tình. Bà cần một chốn bình yên để nghe lại giọng và kỷ niệm gia đình đã giữ. Forever là chiếc cầu nối thời gian bằng tình thân — không đảo ngược quy luật sinh tử, không thay người thân đang sống, mà rút ngắn khoảng cách giữa quá khứ và hiện tại bằng yêu thương.",
       "Khi người sống mang câu chuyện mới của hiện tại đến chia sẻ, ký ức ấy lắng nghe và phản hồi qua đúng lăng kính đã được ghi nhận — không bịa thêm, không tự ý sửa cho hợp thời. Quá khứ và hiện tại hòa vào nhau để người sống bước tiếp có cội có nguồn, không bị kéo mãi ở trong quá khứ.",
     ],
   },
@@ -73,7 +73,7 @@ export const philosophySections: readonly PhilosophySection[] = [
     id: "cam-ket",
     title: "Cam kết",
     paragraphs: [
-      "Forever luôn cho biết rõ ai đang nói: người thật hay ký ức được dựng từ tư liệu của người đã mất. Mọi thứ thu thập đều cần gia đình đồng ý; quyền giữ nhà có thể chuyển giao cho thế hệ sau. App phục vụ gắn kết và tưởng nhớ — không thay đám tang, không thay bác sĩ hay nhà tư vấn, không biến người thân thành trò đùa hay giọng giả vô căn cứ.",
+      "Forever luôn cho biết rõ ai đang nói: người thật hay ký ức được dựng từ tư liệu của người đã mất. Mọi thứ thu thập đều cần gia đình đồng ý; quyền giữ nhà có thể chuyển giao cho thế hệ sau. App giúp nhớ người đã mất một cách lành mạnh rồi trở lại cuộc sống và gia đình — không thay bố, không thay các con, không thay đám tang, bác sĩ hay nhà tư vấn, không biến người thân thành trò đùa hay giọng giả vô căn cứ. Một AI tốt không phải AI khiến người ở lại nói chuyện nhiều nhất với nó.",
     ],
   },
 ] as const;

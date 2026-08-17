@@ -26,6 +26,7 @@ PIPELINE_FLAG_KEYS = (
     "critic",
     "tts",
     "anti_repeat",
+    "family_bridge",
 )
 
 PIPELINE_FLAG_META: dict[str, dict[str, str]] = {
@@ -52,6 +53,10 @@ PIPELINE_FLAG_META: dict[str, dict[str, str]] = {
     "anti_repeat": {
         "label": "Anti-repeat",
         "help": "Tránh hỏi thăm lặp — có thể gọi lại compose một lần.",
+    },
+    "family_bridge": {
+        "label": "Cầu nối gia đình",
+        "help": "Sau nỗi nhớ, thêm một câu nhắc về người sống. Không bịa ký ức.",
     },
 }
 
@@ -111,6 +116,7 @@ class HeritagePipeline:
     critic: bool
     tts: bool
     anti_repeat: bool
+    family_bridge: bool
     stt_model: str
     analyzer_model: str
     compose_model: str
@@ -135,6 +141,7 @@ def server_pipeline_defaults(settings: Settings | None = None) -> HeritagePipeli
         critic=bool(s.heritage_critic_enabled),
         tts=bool(s.heritage_tts_enabled),
         anti_repeat=bool(s.heritage_anti_repeat_enabled),
+        family_bridge=bool(s.heritage_family_bridge_enabled),
         stt_model=stt,
         analyzer_model=analyzer,
         compose_model=compose,

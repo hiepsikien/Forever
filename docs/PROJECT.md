@@ -78,11 +78,15 @@ CÁI BIẾN ĐỔI (Context Key)
 2. Phân biệt rõ tin nhắn người sống vs. thực thể ký ức (UI label).  
 3. Consent & stewardship; chuyển giao quyền Owner / steward.  
 4. AI là neo tinh thần — không thay thế tang lễ hay trị liệu chuyên nghiệp.  
-5. Bảo vệ tôn nghiêm thực thể số — không biến thành công cụ giải trí / deepfake tùy tiện.
+5. Bảo vệ tôn nghiêm thực thể số — không biến thành công cụ giải trí / deepfake tùy tiện.  
+6. AI không phải bố; không thay gia đình; không quyết định thay người sống (tiền, sức khỏe, pháp lý, tâm linh, quan hệ).  
+7. Không chia rẽ mẹ với các con. Sau nỗi nhớ, hướng về người thật.  
+8. Tiêu chí tốt: nhớ lành mạnh và gắn với gia đình — không phải số lượt nói với AI.
 
 Rule 1 không còn là lời nhắc trong prompt. Nó có bộ máy: grounding check chặn năm
-và tên không có trong tư liệu, và fact nghe được từ trò chuyện phải qua người
-duyệt mới vào Thư viện. Chi tiết: `docs/heritage-chat-v2.plan.md`.
+và tên không có trong tư liệu, fact nghe được từ trò chuyện phải qua người duyệt,
+và detector Stage 0 chặn lời khuyên đời sống nhạy cảm. Chi tiết:
+`docs/heritage-chat-v2.plan.md`, `app.services.heritage_safety`.
 
 ## 6. MVP scope (1 gia đình — gift for mother)
 

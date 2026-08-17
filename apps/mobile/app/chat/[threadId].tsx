@@ -106,7 +106,7 @@ function messagesFingerprint(items: ChatMessage[]): string {
   return items
     .map(
       (m) =>
-        `${m.id}\0${m.kind ?? ""}\0${m.body}\0${m.has_media ? 1 : 0}\0${m.sender_kind}\0${m.sender_name ?? ""}\0${m.sender_handle ?? ""}`,
+        `${m.id}\0${m.kind ?? ""}\0${m.body}\0${m.has_media ? 1 : 0}\0${m.sender_kind}\0${m.sender_name ?? ""}\0${m.sender_handle ?? ""}\0${citedTitles(m.meta).join(",")}`,
     )
     .join("\n");
 }
@@ -132,6 +132,7 @@ function HeritageTypingRow({ label }: { label: string }) {
   return (
     <View style={[styles.row, styles.rowTheirs]}>
       <Text style={[styles.sender, styles.senderHeritage]}>{label}</Text>
+      <Text style={styles.heritageKind}>Ký ức gia đình</Text>
       <View style={[styles.bubble, styles.bubbleHeritage, styles.typingBubble]}>
         <Text style={styles.typingText}>
           {`đang soạn${".".repeat(dots)}${"\u00a0".repeat(3 - dots)}`}
@@ -139,6 +140,19 @@ function HeritageTypingRow({ label }: { label: string }) {
       </View>
     </View>
   );
+}
+
+function citedTitles(meta: ChatMessage["meta"]): string[] {
+  if (!meta || typeof meta !== "object") return [];
+  const cited = (meta as { cited?: unknown }).cited;
+  if (!Array.isArray(cited)) return [];
+  const titles: string[] = [];
+  for (const row of cited) {
+    if (!row || typeof row !== "object") continue;
+    const title = String((row as { title?: string }).title || "").trim();
+    if (title) titles.push(title);
+  }
+  return titles;
 }
 
 type MessageRowProps = {
@@ -149,6 +163,7 @@ type MessageRowProps = {
   highlighted?: boolean;
   onPlay: (item: ChatMessage) => void;
   onSave: (item: ChatMessage) => void;
+  onOpenCited?: (titles: string[]) => void;
 };
 
 const LONG_PRESS_MS = 400;
@@ -218,12 +233,14 @@ const ChatMessageRow = memo(function ChatMessageRow({
   highlighted,
   onPlay,
   onSave,
+  onOpenCited,
 }: MessageRowProps) {
   const isAgent = item.sender_kind === "agent";
   const isHeritage = item.sender_kind === "heritage";
   const voice = isVoiceMessage(item);
   const transcript = voice ? item.body.trim() : displayBody;
   const when = formatMessageTime(item.created_at);
+  const sources = isHeritage ? citedTitles(item.meta) : [];
   const onLongPress = useCallback(() => onSave(item), [item, onSave]);
   const onPress = useCallback(() => {
     if (voice) onPlay(item);
@@ -266,6 +283,15 @@ const ChatMessageRow = memo(function ChatMessageRow({
           ) : null}
         </Text>
       ) : null}
+      {isHeritage ? (
+        <Text
+          selectable={false}
+          pointerEvents="none"
+          style={styles.heritageKind}
+        >
+          Ký ức gia đình
+        </Text>
+      ) : null}
         <View
         style={[
           styles.bubble,
@@ -286,6 +312,15 @@ const ChatMessageRow = memo(function ChatMessageRow({
           {transcript || (voice ? (playing ? "Đang phát…" : "Chạm để nghe") : "")}
         </Text>
       </View>
+      {isHeritage && sources.length > 0 ? (
+        <Pressable
+          onPress={() => onOpenCited?.(sources)}
+          hitSlop={8}
+          style={styles.citeChip}
+        >
+          <Text style={styles.citeChipText}>Theo Thư viện</Text>
+        </Pressable>
+      ) : null}
       {when ? (
         <Text
           selectable={false}
@@ -852,6 +887,27 @@ export default function ChatScreen() {
     [api, playingId],
   );
 
+  const openCited = useCallback(
+    (titles: string[]) => {
+      Alert.alert(
+        "Theo Thư viện",
+        titles.slice(0, 6).join("\n"),
+        [
+          { text: "Đóng", style: "cancel" },
+          ...(spaceId
+            ? [
+                {
+                  text: "Mở Thư viện",
+                  onPress: () => router.push(`/library/${spaceId}` as never),
+                },
+              ]
+            : []),
+        ],
+      );
+    },
+    [router, spaceId],
+  );
+
   const renderMessage = useCallback(
     ({ item }: { item: ChatMessage }) => {
       const displayBody =
@@ -867,10 +923,11 @@ export default function ChatScreen() {
           highlighted={highlightId === item.id}
           onPlay={playVoice}
           onSave={saveToLibrary}
+          onOpenCited={openCited}
         />
       );
     },
-    [highlightId, playingId, playVoice, saveToLibrary, typewriter, user?.id],
+    [highlightId, openCited, playingId, playVoice, saveToLibrary, typewriter, user?.id],
   );
 
   useEffect(() => {
@@ -1118,6 +1175,26 @@ const styles = StyleSheet.create({
   senderHeritage: {
     color: colors.accent,
     fontWeight: "600",
+  },
+  heritageKind: {
+    fontSize: 11,
+    color: colors.inkSoft,
+    marginBottom: 4,
+    marginLeft: 4,
+  },
+  citeChip: {
+    alignSelf: "flex-start",
+    marginTop: 6,
+    marginLeft: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+    backgroundColor: "rgba(196, 165, 116, 0.22)",
+  },
+  citeChipText: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: colors.accent,
   },
   bubble: {
     borderRadius: 18,

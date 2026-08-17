@@ -7,7 +7,7 @@ import {
   StewardshipStatus,
 } from "@forever/api-client";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { useCallback, useLayoutEffect, useState } from "react";
+import { useCallback, useLayoutEffect, useState, type ReactNode } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -40,6 +40,54 @@ function roleLabel(role: string | undefined): string {
   return ROLE_CHOICES.find((r) => r.role === role)?.label ?? "Thành viên";
 }
 
+function formatUsd(value: number): string {
+  if (value < 0.01 && value > 0) return "< $0.01";
+  return `$${value.toFixed(2)}`;
+}
+
+function Disclosure({
+  title,
+  subtitle,
+  open,
+  onToggle,
+  children,
+}: {
+  title: string;
+  subtitle?: string;
+  open: boolean;
+  onToggle: () => void;
+  children: ReactNode;
+}) {
+  return (
+    <View style={styles.disclosureCard}>
+      <Pressable
+        onPress={onToggle}
+        style={styles.disclosureHead}
+        accessibilityRole="button"
+        accessibilityState={{ expanded: open }}
+      >
+        <View style={styles.disclosureMain}>
+          <Text style={styles.disclosureTitle}>{title}</Text>
+          {subtitle ? (
+            <Text style={styles.disclosureSub}>{subtitle}</Text>
+          ) : null}
+        </View>
+        <Text style={styles.disclosureChevron}>{open ? "▲" : "▼"}</Text>
+      </Pressable>
+      {open ? <View style={styles.disclosureBody}>{children}</View> : null}
+    </View>
+  );
+}
+
+function StatCell({ label, value }: { label: string; value: string }) {
+  return (
+    <View style={styles.statCell}>
+      <Text style={styles.statValue}>{value}</Text>
+      <Text style={styles.statLabel}>{label}</Text>
+    </View>
+  );
+}
+
 export default function SettingsScreen() {
   const { spaceId } = useLocalSearchParams<{ spaceId: string }>();
   const { api, user, signOut } = useAuth();
@@ -60,6 +108,9 @@ export default function SettingsScreen() {
   const [usageLoading, setUsageLoading] = useState(false);
   const [usageDays, setUsageDays] = useState(30);
   const [pipelineBusyKey, setPipelineBusyKey] = useState<string | null>(null);
+  const [costOpen, setCostOpen] = useState(false);
+  const [costTablesOpen, setCostTablesOpen] = useState(false);
+  const [modelsOpen, setModelsOpen] = useState(false);
 
   useSpaceScreenOptions({
     spaceId,
@@ -96,7 +147,7 @@ export default function SettingsScreen() {
       const res = await api.getAiUsage(spaceId, usageDays);
       setAiUsage(res);
     } catch (e) {
-      Alert.alert("Lỗi", e instanceof Error ? e.message : "Không tải chi phí AI.");
+      Alert.alert("Lỗi", e instanceof Error ? e.message : "Không tải số liệu AI.");
     } finally {
       setUsageLoading(false);
     }
@@ -414,11 +465,6 @@ export default function SettingsScreen() {
     (i) => !i.archived_at && i.status === "living",
   );
 
-  function formatUsd(value: number): string {
-    if (value < 0.01 && value > 0) return "< $0.01";
-    return `$${value.toFixed(2)}`;
-  }
-
   return (
     <ScrollView contentContainerStyle={styles.root}>
       <View style={styles.tabs}>
@@ -505,10 +551,160 @@ export default function SettingsScreen() {
         </>
       ) : tab === "ai" ? (
         <>
-          <Text style={styles.section}>Luồng ký ức</Text>
+          <Text style={styles.section}>Nhà dùng</Text>
           <Text style={styles.help}>
-            Bật/tắt từng bước khi Bố trả lời. Mặc định theo server; chỉnh ở đây
-            chỉ áp dụng nhà này.
+            Lượt người sống nói với ký ức trên API này. Không khóa ai — thấy nhiều
+            thì gọi người thật.
+          </Text>
+          <View style={styles.row}>
+            {[7, 30, 90].map((d) => (
+              <Pressable
+                key={d}
+                style={[styles.chip, usageDays === d && styles.chipActive]}
+                onPress={() => setUsageDays(d)}
+              >
+                <Text style={[styles.chipText, usageDays === d && styles.chipTextActive]}>
+                  {d} ngày
+                </Text>
+              </Pressable>
+            ))}
+          </View>
+          {usageLoading ? (
+            <ActivityIndicator color={colors.brand} style={{ marginVertical: 16 }} />
+          ) : aiUsage ? (
+            <>
+              <View style={styles.statGrid}>
+                <StatCell
+                  label="Lượt nói"
+                  value={String(aiUsage.presence?.user_turns ?? 0)}
+                />
+                <StatCell
+                  label="Gọi giọng"
+                  value={String(aiUsage.presence?.voice_turns ?? 0)}
+                />
+                <StatCell
+                  label="Nhớ thương"
+                  value={String(aiUsage.presence?.grief_replies ?? 0)}
+                />
+                <StatCell
+                  label="Ước tính"
+                  value={formatUsd(aiUsage.totals.estimated_usd)}
+                />
+              </View>
+              {aiUsage.presence?.notice ? (
+                <Text style={styles.presenceNotice}>{aiUsage.presence.notice}</Text>
+              ) : null}
+              {(aiUsage.presence?.members ?? []).length > 0 ? (
+                <View style={styles.card}>
+                  {aiUsage.presence!.members.map((row) => (
+                    <View key={row.user_id} style={styles.memberUsageRow}>
+                      <Text style={styles.usageRowLabel}>{row.name}</Text>
+                      <Text style={styles.usageRowValue}>
+                        {row.user_turns} lượt · {row.voice_turns} gọi
+                      </Text>
+                    </View>
+                  ))}
+                </View>
+              ) : null}
+
+              <Disclosure
+                title="Chi phí chi tiết"
+                subtitle={`${aiUsage.totals.calls} lần gọi API · không phải hoá đơn`}
+                open={costOpen}
+                onToggle={() => setCostOpen((v) => !v)}
+              >
+                {(aiUsage.totals.by_modality ?? []).length > 0 ? (
+                  <View style={styles.nestedBlock}>
+                    <Text style={styles.nestedLabel}>Theo loại</Text>
+                    {aiUsage.totals.by_modality.map((row) => (
+                      <View
+                        key={row.operation || row.label}
+                        style={styles.memberUsageRow}
+                      >
+                        <Text style={styles.usageRowLabel}>{row.label}</Text>
+                        <Text style={styles.usageRowValue}>
+                          {formatUsd(row.estimated_usd)} · {row.calls} lần
+                        </Text>
+                      </View>
+                    ))}
+                  </View>
+                ) : null}
+                {aiUsage.totals.by_service.length > 0 ? (
+                  <View style={styles.nestedBlock}>
+                    <Text style={styles.nestedLabel}>Theo nhà cung cấp</Text>
+                    {aiUsage.totals.by_service.map((row) => (
+                      <View key={row.service} style={styles.memberUsageRow}>
+                        <Text style={styles.usageRowLabel}>{row.label}</Text>
+                        <Text style={styles.usageRowValue}>
+                          {formatUsd(row.estimated_usd)} · {row.calls} lần
+                        </Text>
+                      </View>
+                    ))}
+                  </View>
+                ) : null}
+                <Pressable
+                  onPress={() => setCostTablesOpen((v) => !v)}
+                  style={styles.innerToggle}
+                >
+                  <Text style={styles.pipelineReset}>
+                    {costTablesOpen ? "Ẩn bảng kỹ thuật" : "Bảng kỹ thuật →"}
+                  </Text>
+                </Pressable>
+                {costTablesOpen ? (
+                  <>
+                    {aiUsage.totals.by_operation.length > 0 ? (
+                      <View style={styles.nestedBlock}>
+                        <Text style={styles.nestedLabel}>Theo việc</Text>
+                        {aiUsage.totals.by_operation.map((row) => (
+                          <View key={row.operation} style={styles.memberUsageRow}>
+                            <Text style={styles.usageRowLabel}>{row.label}</Text>
+                            <Text style={styles.usageRowValue}>
+                              {formatUsd(row.estimated_usd)} · {row.calls} lần
+                            </Text>
+                          </View>
+                        ))}
+                      </View>
+                    ) : null}
+                    {aiUsage.daily.length > 0 ? (
+                      <View style={styles.nestedBlock}>
+                        <Text style={styles.nestedLabel}>Theo ngày</Text>
+                        {[...aiUsage.daily].reverse().slice(0, 14).map((day) => (
+                          <View key={day.date} style={styles.memberUsageRow}>
+                            <Text style={styles.usageRowLabel}>{day.date}</Text>
+                            <Text style={styles.usageRowValue}>
+                              {formatUsd(day.estimated_usd)} · {day.calls} lần
+                            </Text>
+                          </View>
+                        ))}
+                      </View>
+                    ) : null}
+                    {aiUsage.totals.by_modality.map((row) =>
+                      row.input_tokens || row.output_tokens || row.output_chars ? (
+                        <Text key={`tok-${row.operation}`} style={styles.footnote}>
+                          {row.label}:{" "}
+                          {row.operation === "tts" && row.output_chars
+                            ? `${row.output_chars.toLocaleString()} ký tự`
+                            : `${(row.input_tokens || 0).toLocaleString()} token vào · ${(row.output_tokens || 0).toLocaleString()} token ra`}
+                        </Text>
+                      ) : null,
+                    )}
+                  </>
+                ) : null}
+                {aiUsage.totals.calls === 0 ? (
+                  <Text style={styles.help}>
+                    Chưa có lần gọi AI trong khoảng này.
+                  </Text>
+                ) : null}
+                <Text style={styles.footnote}>{aiUsage.disclaimer}</Text>
+              </Disclosure>
+            </>
+          ) : (
+            <Text style={styles.help}>Chưa có số liệu.</Text>
+          )}
+
+          <Text style={[styles.section, { marginTop: 24 }]}>Luồng ký ức</Text>
+          <Text style={styles.help}>
+            Bật/tắt từng bước khi ký ức trả lời. Chỉ nhà này.
           </Text>
           <View style={styles.card}>
             {(settings?.heritage_pipeline?.flags ?? []).map((flag, index, arr) => {
@@ -523,10 +719,8 @@ export default function SettingsScreen() {
                 >
                   <View style={styles.pipelineMain}>
                     <Text style={styles.pipelineLabel}>{flag.label}</Text>
-                    <Text style={styles.pipelineHelp}>{flag.help}</Text>
-                    <Text style={styles.metaLine}>
-                      Server: {flag.server_default ? "bật" : "tắt"}
-                      {flag.overridden ? " · đã ghi đè" : ""}
+                    <Text style={styles.pipelineHelp} numberOfLines={2}>
+                      {flag.help}
                     </Text>
                     {flag.overridden ? (
                       <Pressable
@@ -552,197 +746,67 @@ export default function SettingsScreen() {
               );
             })}
           </View>
-          <Text style={[styles.section, { marginTop: 20 }]}>Model LLM</Text>
-          <Text style={styles.help}>
-            Chọn Gemini cho từng bước. STT nên Lite; Compose có thể 3.5 hoặc 3.6
-            Flash.
-          </Text>
-          <View style={styles.card}>
-            {(settings?.heritage_pipeline?.models ?? []).map((row, index, arr) => {
-              const busy = pipelineBusyKey === `model:${row.key}`;
-              const choices = settings?.heritage_pipeline?.model_choices ?? [];
-              return (
-                <View
-                  key={row.key}
-                  style={[
-                    styles.pipelineRow,
-                    { flexDirection: "column", alignItems: "stretch" },
-                    index < arr.length - 1 && styles.pipelineRowBorder,
-                  ]}
-                >
-                  <Text style={styles.pipelineLabel}>{row.label}</Text>
-                  <Text style={styles.pipelineHelp}>{row.help}</Text>
-                  <Text style={styles.metaLine}>
-                    Server: {row.server_default}
-                    {row.overridden ? " · đã ghi đè" : ""}
-                  </Text>
-                  <View style={styles.chipRow}>
-                    {choices.map((choice) => {
-                      const active = row.model === choice.id;
-                      return (
-                        <Pressable
-                          key={choice.id}
-                          style={[styles.chip, active && styles.chipActive]}
-                          disabled={busy || !settings?.can_edit}
-                          onPress={() => void setPipelineModel(row.key, choice.id)}
-                        >
-                          <Text
-                            style={[
-                              styles.chipText,
-                              active && styles.chipTextActive,
-                            ]}
+
+          <View style={{ marginTop: 16 }}>
+            <Disclosure
+              title="Model Gemini"
+              subtitle="Chỉ khi cần đổi Lite / Flash cho từng bước"
+              open={modelsOpen}
+              onToggle={() => setModelsOpen((v) => !v)}
+            >
+              {(settings?.heritage_pipeline?.models ?? []).map((row, index, arr) => {
+                const busy = pipelineBusyKey === `model:${row.key}`;
+                const choices = settings?.heritage_pipeline?.model_choices ?? [];
+                return (
+                  <View
+                    key={row.key}
+                    style={[
+                      styles.pipelineRow,
+                      { flexDirection: "column", alignItems: "stretch" },
+                      index < arr.length - 1 && styles.pipelineRowBorder,
+                    ]}
+                  >
+                    <Text style={styles.pipelineLabel}>{row.label}</Text>
+                    <Text style={styles.pipelineHelp}>{row.help}</Text>
+                    <View style={styles.chipRow}>
+                      {choices.map((choice) => {
+                        const active = row.model === choice.id;
+                        return (
+                          <Pressable
+                            key={choice.id}
+                            style={[styles.chip, active && styles.chipActive]}
+                            disabled={busy || !settings?.can_edit}
+                            onPress={() => void setPipelineModel(row.key, choice.id)}
                           >
-                            {choice.label}
-                          </Text>
-                        </Pressable>
-                      );
-                    })}
+                            <Text
+                              style={[
+                                styles.chipText,
+                                active && styles.chipTextActive,
+                              ]}
+                            >
+                              {choice.label}
+                            </Text>
+                          </Pressable>
+                        );
+                      })}
+                    </View>
+                    {row.overridden ? (
+                      <Pressable
+                        onPress={() => void resetPipelineModel(row.key)}
+                        disabled={busy}
+                        hitSlop={6}
+                      >
+                        <Text style={styles.pipelineReset}>Theo server →</Text>
+                      </Pressable>
+                    ) : null}
                   </View>
-                  {row.overridden ? (
-                    <Pressable
-                      onPress={() => void resetPipelineModel(row.key)}
-                      disabled={busy}
-                      hitSlop={6}
-                    >
-                      <Text style={styles.pipelineReset}>Theo server →</Text>
-                    </Pressable>
-                  ) : null}
-                </View>
-              );
-            })}
+                );
+              })}
+              {settings?.heritage_pipeline?.note ? (
+                <Text style={styles.footnote}>{settings.heritage_pipeline.note}</Text>
+              ) : null}
+            </Disclosure>
           </View>
-          {settings?.heritage_pipeline?.note ? (
-            <Text style={styles.footnote}>{settings.heritage_pipeline.note}</Text>
-          ) : null}
-
-          <Text style={[styles.section, { marginTop: 20 }]}>Chi phí AI</Text>
-          <Text style={styles.help}>
-            Ước tính từ số lần gọi Gemini (LLM, STT) và TTS (ElevenLabs/MiniMax).
-            Không phải hoá đơn thật.
-          </Text>
-          <View style={styles.row}>
-            {[7, 30, 90].map((d) => (
-              <Pressable
-                key={d}
-                style={[styles.chip, usageDays === d && styles.chipActive]}
-                onPress={() => setUsageDays(d)}
-              >
-                <Text style={[styles.chipText, usageDays === d && styles.chipTextActive]}>
-                  {d} ngày
-                </Text>
-              </Pressable>
-            ))}
-          </View>
-          {usageLoading ? (
-            <ActivityIndicator color={colors.brand} style={{ marginVertical: 24 }} />
-          ) : aiUsage ? (
-            <>
-              <View style={styles.card}>
-                <Text style={styles.label}>Tổng ước tính</Text>
-                <Text style={styles.usageTotal}>
-                  {formatUsd(aiUsage.totals.estimated_usd)}
-                </Text>
-                <Text style={styles.metaLine}>
-                  {aiUsage.totals.calls} lần gọi · {aiUsage.period_days} ngày qua
-                </Text>
-              </View>
-
-              {(aiUsage.totals.by_modality ?? []).length > 0 ? (
-                <>
-                  <Text style={styles.section}>Theo loại AI</Text>
-                  <View style={styles.card}>
-                    {aiUsage.totals.by_modality.map((row) => (
-                      <View key={row.operation || row.label} style={styles.usageRow}>
-                        <Text style={styles.usageRowLabel}>{row.label}</Text>
-                        <Text style={styles.usageRowValue}>
-                          {formatUsd(row.estimated_usd)} · {row.calls} lần
-                        </Text>
-                        {row.operation === "tts" && row.output_chars ? (
-                          <Text style={styles.metaLine}>
-                            {row.output_chars.toLocaleString()} ký tự
-                          </Text>
-                        ) : row.input_tokens || row.output_tokens ? (
-                          <Text style={styles.metaLine}>
-                            {row.input_tokens.toLocaleString()} token vào ·{" "}
-                            {row.output_tokens.toLocaleString()} token ra
-                          </Text>
-                        ) : null}
-                      </View>
-                    ))}
-                  </View>
-                </>
-              ) : null}
-
-              {aiUsage.totals.by_service.length > 0 ? (
-                <>
-                  <Text style={styles.section}>Theo nhà cung cấp</Text>
-                  <View style={styles.card}>
-                    {aiUsage.totals.by_service.map((row) => (
-                      <View key={row.service} style={styles.usageRow}>
-                        <Text style={styles.usageRowLabel}>{row.label}</Text>
-                        <Text style={styles.usageRowValue}>
-                          {formatUsd(row.estimated_usd)} · {row.calls} lần
-                        </Text>
-                        {row.input_tokens || row.output_tokens ? (
-                          <Text style={styles.metaLine}>
-                            {row.input_tokens.toLocaleString()} token vào ·{" "}
-                            {row.output_tokens.toLocaleString()} token ra
-                          </Text>
-                        ) : row.output_chars ? (
-                          <Text style={styles.metaLine}>
-                            {row.output_chars.toLocaleString()} ký tự TTS
-                          </Text>
-                        ) : null}
-                      </View>
-                    ))}
-                  </View>
-                </>
-              ) : null}
-
-              {aiUsage.totals.by_operation.length > 0 ? (
-                <>
-                  <Text style={styles.section}>Theo loại việc</Text>
-                  <View style={styles.card}>
-                    {aiUsage.totals.by_operation.map((row) => (
-                      <View key={row.operation} style={styles.usageRow}>
-                        <Text style={styles.usageRowLabel}>{row.label}</Text>
-                        <Text style={styles.usageRowValue}>
-                          {formatUsd(row.estimated_usd)} · {row.calls} lần
-                        </Text>
-                      </View>
-                    ))}
-                  </View>
-                </>
-              ) : null}
-
-              {aiUsage.daily.length > 0 ? (
-                <>
-                  <Text style={styles.section}>Theo ngày</Text>
-                  <View style={styles.card}>
-                    {[...aiUsage.daily].reverse().slice(0, 14).map((day) => (
-                      <View key={day.date} style={styles.usageRow}>
-                        <Text style={styles.usageRowLabel}>{day.date}</Text>
-                        <Text style={styles.usageRowValue}>
-                          {formatUsd(day.estimated_usd)} · {day.calls} lần
-                        </Text>
-                      </View>
-                    ))}
-                  </View>
-                </>
-              ) : null}
-
-              {aiUsage.totals.calls === 0 ? (
-                <Text style={styles.help}>
-                  Chưa có dữ liệu trong khoảng thời gian này. Thử chat giọng hoặc
-                  gọi Bố — số liệu sẽ xuất hiện sau vài lượt.
-                </Text>
-              ) : null}
-
-              <Text style={styles.footnote}>{aiUsage.disclaimer}</Text>
-            </>
-          ) : (
-            <Text style={styles.help}>Chưa có dữ liệu chi phí.</Text>
-          )}
         </>
       ) : (
         <>
@@ -1214,6 +1278,13 @@ const styles = StyleSheet.create({
   },
   value: { fontSize: 16, fontWeight: "600", color: colors.ink },
   metaLine: { fontSize: 14, color: colors.inkSoft, lineHeight: 20 },
+  presenceNotice: {
+    fontSize: 14,
+    lineHeight: 20,
+    color: colors.brand,
+    fontWeight: "600",
+    marginBottom: 8,
+  },
   body: { fontSize: 14, color: colors.inkSoft, lineHeight: 20 },
   row: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginTop: 4 },
   smallBtn: {
@@ -1334,18 +1405,79 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     color: colors.brand,
   },
-  usageTotal: {
-    fontFamily: fonts.display,
-    fontSize: 32,
-    color: colors.ink,
-    marginTop: 4,
+  disclosureCard: {
+    backgroundColor: colors.card,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: colors.line,
+    overflow: "hidden",
   },
-  usageRow: {
+  disclosureHead: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+  },
+  disclosureMain: { flex: 1, gap: 2 },
+  disclosureTitle: { fontSize: 16, fontWeight: "700", color: colors.ink },
+  disclosureSub: { fontSize: 13, lineHeight: 18, color: colors.inkSoft },
+  disclosureChevron: { fontSize: 12, color: colors.inkSoft },
+  disclosureBody: {
+    paddingHorizontal: 16,
+    paddingBottom: 14,
+    gap: 10,
+    borderTopWidth: 1,
+    borderTopColor: colors.line,
+    paddingTop: 12,
+  },
+  statGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+    marginBottom: 12,
+  },
+  statCell: {
+    width: "48%",
+    flexGrow: 1,
+    backgroundColor: colors.card,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: colors.line,
+    paddingVertical: 14,
+    paddingHorizontal: 14,
+  },
+  statValue: {
+    fontFamily: fonts.display,
+    fontSize: 26,
+    color: colors.ink,
+  },
+  statLabel: { fontSize: 13, color: colors.inkSoft, marginTop: 4 },
+  memberUsageRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    gap: 12,
     paddingVertical: 8,
     borderBottomWidth: 1,
     borderBottomColor: colors.line,
-    gap: 2,
   },
+  nestedBlock: { gap: 0 },
+  nestedLabel: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: colors.inkSoft,
+    textTransform: "uppercase",
+    letterSpacing: 0.4,
+    marginBottom: 4,
+    marginTop: 4,
+  },
+  innerToggle: { alignSelf: "flex-start", paddingVertical: 4 },
   usageRowLabel: { fontSize: 15, fontWeight: "600", color: colors.ink },
-  usageRowValue: { fontSize: 14, color: colors.inkSoft },
+  usageRowValue: {
+    fontSize: 14,
+    color: colors.inkSoft,
+    flexShrink: 1,
+    textAlign: "right",
+  },
 });

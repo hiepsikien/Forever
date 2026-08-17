@@ -320,6 +320,23 @@ export interface AiUsageSummary {
   };
   daily: AiUsageDaily[];
   disclaimer: string;
+  presence?: {
+    heritage_replies: number;
+    user_turns: number;
+    voice_turns: number;
+    grief_replies: number;
+    advice_replies: number;
+    days_with_chat: number;
+    notice: string | null;
+    notice_threshold: number;
+    members: Array<{
+      user_id: string;
+      name: string;
+      user_turns: number;
+      voice_turns: number;
+      days_active: number;
+    }>;
+  };
 }
 
 export interface IdentityProfile {

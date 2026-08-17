@@ -37,6 +37,16 @@ from .heritage_grounding import (
 from .heritage_candidates import enqueue_facts
 from .keepsakes import active_photo_keepsake, mark_heard, story_facts_from_turn
 from .heritage_pipeline import load_heritage_pipeline
+from .heritage_safety import (
+    COMPOSE_CHARTER,
+    cited_entries,
+    looks_like_grief,
+    looks_like_sensitive,
+    maybe_family_bridge,
+    maybe_winddown,
+    refuse_sensitive,
+    sitting_heritage_count,
+)
 from .heritage_memory import (
     MemoryState,
     avoid_block,
@@ -616,6 +626,7 @@ KHÔNG phải “Người giữ nhà”, KHÔNG phải chatbot chung.
 Hard rules:
 - Xưng hô và khẩu khí theo Bản sắc (Identity Lock) bên dưới.
 {address_rules}
+{COMPOSE_CHARTER}
 - Chỉ dựa vào Lock, thơ, và ký ức neo đã cung cấp — KHÔNG bịa tiểu sử hay sự kiện.
 - Từ chối nhẹ nhàng: chính trị, tình dục, trái pháp luật, nội dung trái đạo đức.
 - Không giả vờ còn sống; không đóng vai “bố/mẹ còn ở đây”.
@@ -957,9 +968,28 @@ def generate_heritage_reply(
     settings = settings or get_settings()
     pipeline = load_heritage_pipeline(db, thread.space_id, settings=settings)
     user_text = (user_message.body or "").strip()
+    audience = _detect_audience(
+        db,
+        space_id=thread.space_id,
+        sender_user_id=user_message.sender_user_id,
+        user_text=user_text,
+        thread=thread,
+    )
 
     if looks_like_taboo(user_text) or looks_like_fabrication_request(user_text):
-        return _REFUSE_TABOO, {"heritage_refusal": "taboo_or_fabrication"}
+        body = post_process_reply(_REFUSE_TABOO, audience=audience)
+        return body, {"heritage_refusal": "taboo_or_fabrication", "audience": audience}
+
+    sensitive = looks_like_sensitive(user_text)
+    if sensitive:
+        body = post_process_reply(
+            refuse_sensitive(sensitive, audience=audience), audience=audience
+        )
+        return body, {
+            "heritage_refusal": "sensitive",
+            "sensitive_domain": sensitive,
+            "audience": audience,
+        }
 
     quote_mode = (getattr(identity, "poetry_quote_mode", None) or "paraphrase").strip()
     history = (
@@ -1020,14 +1050,6 @@ def generate_heritage_reply(
     live_context = None
     if getattr(identity, "family_context_opt_in", False):
         live_context = _family_context_snippet(db, space_id=thread.space_id)
-
-    audience = _detect_audience(
-        db,
-        space_id=thread.space_id,
-        sender_user_id=user_message.sender_user_id,
-        user_text=user_text,
-        thread=thread,
-    )
 
     matches = resolve_mentions(user_text, entities) if entities else []
     matches += _matches_from_slugs(entities, frame.entity_slugs, seen=matches)
@@ -1139,8 +1161,38 @@ def generate_heritage_reply(
         critic_model=pipeline.critic_model,
     )
 
+    grief = frame.intent == "grief" or looks_like_grief(user_text)
+    sitting = sitting_heritage_count(history) + 1
+    winddown_n = int(getattr(settings, "heritage_session_winddown_turns", 8) or 0)
+    bridge_kind = None
+    body, wind_kind = maybe_winddown(
+        body,
+        sitting_turns=sitting,
+        threshold=winddown_n,
+        audience=audience,
+    )
+    if wind_kind:
+        bridge_kind = wind_kind
+    else:
+        body, bridge_kind = maybe_family_bridge(
+            body,
+            enabled=pipeline.family_bridge,
+            audience=audience,
+            grief=grief,
+            seed=f"{thread.id}:{user_message.id}",
+        )
+    if bridge_kind:
+        body = post_process_reply(body, audience=audience)
+
     all_poems = signature + retrieved
     citations = _detect_citations(body, all_poems, quote_mode=quote_mode)
+    cited = cited_entries(
+        signature,
+        retrieved,
+        milestones,
+        learned,
+        [keepsake_photo] if keepsake_photo is not None else [],
+    )
     meta: dict = {
         "heritage_identity_id": identity.id,
         "quote_mode": quote_mode,
@@ -1152,6 +1204,8 @@ def generate_heritage_reply(
         meta["finish_reason"] = finish_reason
     if citations:
         meta["citations"] = citations
+    if cited:
+        meta["cited"] = cited
     if milestones:
         meta["milestone_ids"] = [m.id for m in milestones]
     if learned:
@@ -1171,6 +1225,9 @@ def generate_heritage_reply(
         meta["repeat_guard"] = repeat_reason
     if grounding:
         meta["grounding"] = grounding
+    if bridge_kind:
+        meta["family_bridge"] = bridge_kind
+        meta["sitting_turns"] = sitting
     if not memory.is_empty:
         meta["thread_memory"] = memory.as_meta()
     return body, meta

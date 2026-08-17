@@ -37,6 +37,11 @@ class Settings(BaseSettings):
     heritage_memory_enabled: bool = True
     heritage_candidates_enabled: bool = True
     heritage_anti_repeat_enabled: bool = True
+    # After grief, append one family-bridge sentence (code, not the model).
+    heritage_family_bridge_enabled: bool = True
+    # Append a wind-down sentence after this many heritage replies in one sitting.
+    # 0 = off.
+    heritage_session_winddown_turns: int = 8
     heritage_analyzer_model: str = "gemini-3.1-flash-lite"
     heritage_compose_model: str = ""
     heritage_critic_model: str = "gemini-3.1-flash-lite"

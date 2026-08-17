@@ -142,6 +142,8 @@ def test_get_ai_usage_steward(client):
     data = res.json()
     assert data["totals"]["calls"] >= 1
     assert "disclaimer" in data
+    assert "presence" in data
+    assert data["presence"]["user_turns"] >= 0
 
 
 def test_get_ai_usage_member_forbidden(client):

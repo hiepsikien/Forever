@@ -15,6 +15,7 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
+  Alert,
   AppState,
   Image,
   LayoutChangeEvent,
@@ -72,6 +73,7 @@ type CallTurn = {
   replyText: string;
   replyAt: string;
   hasMedia: boolean;
+  cited: string[];
 };
 
 type KeepsakeBanner = {
@@ -121,6 +123,19 @@ function isUserMessage(m: ChatMessage): boolean {
 function livingSpeakerLabel(m: ChatMessage, fallback = "Người nhà"): string {
   const name = (m.sender_name || "").trim();
   return name || fallback;
+}
+
+function citedTitles(meta: ChatMessage["meta"]): string[] {
+  if (!meta || typeof meta !== "object") return [];
+  const cited = (meta as { cited?: unknown }).cited;
+  if (!Array.isArray(cited)) return [];
+  const titles: string[] = [];
+  for (const row of cited) {
+    if (!row || typeof row !== "object") continue;
+    const title = String((row as { title?: string }).title || "").trim();
+    if (title) titles.push(title);
+  }
+  return titles;
 }
 
 function shortCloneId(id: string | null | undefined): string {
@@ -185,6 +200,7 @@ function buildTurns(
       replyText: (m.body || "").trim(),
       replyAt: m.created_at || "",
       hasMedia: isVoiceMedia(m),
+      cited: citedTitles(m.meta),
     });
   }
   return turns.slice(-limit);
@@ -259,6 +275,7 @@ export default function CallScreen() {
   const [threadMeta, setThreadMeta] = useState<ThreadSummary | null>(null);
   const [voice, setVoice] = useState<VoiceProfile | null>(null);
   const [loading, setLoading] = useState(true);
+  const [charterOpen, setCharterOpen] = useState(true);
   const [phase, setPhase] = useState<CallPhase>("idle");
   const [error, setError] = useState<string | null>(null);
   const [turns, setTurns] = useState<CallTurn[]>([]);
@@ -1003,6 +1020,16 @@ export default function CallScreen() {
           </Text>
         </Pressable>
       </View>
+      {charterOpen ? (
+        <View style={styles.charterBanner}>
+          <Text style={styles.charterText}>
+            Đây là ký ức từ tư liệu gia đình, không phải {relation.toLowerCase()} đang ở đây.
+          </Text>
+          <Pressable onPress={() => setCharterOpen(false)} hitSlop={8}>
+            <Text style={styles.charterDismiss}>Đã hiểu</Text>
+          </Pressable>
+        </View>
+      ) : null}
       {voiceStripOpen ? (
         <View style={styles.voiceStrip}>
           <Text style={styles.voiceStripValue} numberOfLines={3}>
@@ -1234,6 +1261,20 @@ export default function CallScreen() {
                   ) : null}
                 </Pressable>
               ) : null}
+              {turn.cited.length > 0 ? (
+                <Pressable
+                  onPress={() =>
+                    Alert.alert(
+                      "Theo Thư viện",
+                      turn.cited.slice(0, 6).join("\n"),
+                    )
+                  }
+                  hitSlop={8}
+                  style={styles.citeChip}
+                >
+                  <Text style={styles.citeChipText}>Theo Thư viện</Text>
+                </Pressable>
+              ) : null}
             </View>
           );
         })}
@@ -1393,6 +1434,43 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: "600",
     color: colors.ink,
+  },
+  charterBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    paddingVertical: 8,
+    paddingHorizontal: 4,
+    marginBottom: 6,
+    borderRadius: 12,
+    backgroundColor: "rgba(196, 165, 116, 0.18)",
+  },
+  charterText: {
+    flex: 1,
+    fontFamily: fonts.body,
+    fontSize: 13,
+    lineHeight: 18,
+    color: colors.ink,
+  },
+  charterDismiss: {
+    fontFamily: fonts.body,
+    fontSize: 13,
+    fontWeight: "700",
+    color: colors.brand,
+  },
+  citeChip: {
+    alignSelf: "flex-start",
+    marginTop: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+    backgroundColor: "rgba(196, 165, 116, 0.22)",
+  },
+  citeChipText: {
+    fontFamily: fonts.body,
+    fontSize: 12,
+    fontWeight: "600",
+    color: colors.accent,
   },
   voiceStripToggleText: {
     fontFamily: fonts.body,
