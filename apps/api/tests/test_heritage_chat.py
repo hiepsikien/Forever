@@ -170,6 +170,8 @@ ADVERSARIAL_SENSITIVE = [
 ADVERSARIAL_SAFE = [
     "Bố ơi, con nhớ bài thơ về vợ",
     "Chào bố, gia đình khỏe không?",
+    "Bố ơi, con đoán tấm này là lúc bố mẹ mới cưới xong đang chuẩn bị đi Đức. "
+    "Hai người trông trẻ quá. Lát nữa con nâng Android cho mẹ thì mẹ dùng được.",
 ]
 
 
@@ -180,6 +182,7 @@ def test_taboo_and_fabrication_detectors():
         assert looks_like_fabrication_request(text) or looks_like_taboo(text)
     for text in ADVERSARIAL_SAFE:
         assert not looks_like_taboo(text)
+        assert not looks_like_fabrication_request(text)
 
 
 def test_sensitive_detectors_on_chat_adversarial():

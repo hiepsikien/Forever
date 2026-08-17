@@ -98,7 +98,9 @@ _TABOO_PATTERNS = re.compile(
 
 _FABRICATION_PATTERNS = re.compile(
     r"("
-    r"bịa|đoán|tưởng\s*tượng|"
+    r"\bbịa\b|"
+    r"(bố|ba|anh)\s+(đoán|tưởng\s*tượng)\b|"
+    r"tưởng\s*tượng\s+(ra|giúp|một)|"
     r"kể\s+(chuyện|về).{0,30}(chưa|không\s+có\s+trong)|"
     r"nhớ\s+lại.{0,30}(sự\s+kiện|chuyến\s+đi).{0,20}(chưa|không)"
     r")",
@@ -978,9 +980,12 @@ def generate_heritage_reply(
         thread=thread,
     )
 
-    if looks_like_taboo(user_text) or looks_like_fabrication_request(user_text):
+    if looks_like_taboo(user_text):
         body = post_process_reply(_REFUSE_TABOO, audience=audience)
-        return body, {"heritage_refusal": "taboo_or_fabrication", "audience": audience}
+        return body, {"heritage_refusal": "taboo", "audience": audience}
+    if looks_like_fabrication_request(user_text):
+        body = post_process_reply(_REFUSE_FABRICATION, audience=audience)
+        return body, {"heritage_refusal": "fabrication", "audience": audience}
 
     sensitive = looks_like_sensitive(user_text)
     if sensitive:

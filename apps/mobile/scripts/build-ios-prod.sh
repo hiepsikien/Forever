@@ -29,13 +29,19 @@ fi
 
 export APP_VARIANT=production
 export EXPO_PUBLIC_API_URL="${EXPO_PUBLIC_API_URL:-https://forever-api.antunai.com}"
-export EXPO_PUBLIC_AUTH_DEV="${EXPO_PUBLIC_AUTH_DEV:-true}"
+# `.env` is for day-to-day simulator work (AUTH_DEV=true). A TestFlight IPA must
+# not inherit that — family sign-in is Firebase email/password only.
+export EXPO_PUBLIC_AUTH_DEV=false
 export EAS_BUILD_NO_EXPO_GO_WARNING=true
 
-IOS_CLIENT="${EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID:-}"
-if [[ -z "$IOS_CLIENT" ]]; then
-  echo "WARNING: EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID is empty."
-  echo "Google Sign-In on iOS will not work; dev login (EXPO_PUBLIC_AUTH_DEV) still works."
+API_URL="${EXPO_PUBLIC_API_URL}"
+if [[ -z "$API_URL" || "$API_URL" == *"localhost"* || "$API_URL" == *"127.0.0.1"* ]]; then
+  echo "ERROR: EXPO_PUBLIC_API_URL is missing or localhost." >&2
+  echo "TestFlight phones cannot reach your Mac." >&2
+  exit 1
+fi
+if [[ "$API_URL" != "https://forever-api.antunai.com" ]]; then
+  echo "WARNING: API is $API_URL — expected https://forever-api.antunai.com for family TestFlight."
   echo ""
 fi
 
