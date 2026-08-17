@@ -21,10 +21,14 @@ import {
 } from "react-native";
 
 import { useAuth } from "@/lib/auth";
+import {
+  isLoginMirror,
+  LIVING_RELATIONS_TO_REMEMBERED,
+  relationRelativeLine,
+  relationToRememberedPrompt,
+} from "@/lib/identityDisplay";
 import { useSpaceScreenOptions } from "@/lib/spaceHeader";
 import { colors, fonts } from "@/lib/theme";
-
-type SettingsTab = "account" | "space" | "ai";
 
 const ROLE_CHOICES: Array<{ role: SpaceRole; label: string; help: string }> = [
   { role: "owner", label: "Quản trị", help: "Mời và gỡ người, giữ Voice DNA." },
@@ -38,6 +42,16 @@ const ROLE_CHOICES: Array<{ role: SpaceRole; label: string; help: string }> = [
 
 function roleLabel(role: string | undefined): string {
   return ROLE_CHOICES.find((r) => r.role === role)?.label ?? "Thành viên";
+}
+
+function familyProfileForUser(
+  identities: IdentityProfile[],
+  userId: string,
+): IdentityProfile | undefined {
+  return identities.find(
+    (i) =>
+      !i.archived_at && i.linked_user_id === userId && !isLoginMirror(i),
+  );
 }
 
 function formatUsd(value: number): string {
@@ -103,7 +117,10 @@ export default function SettingsScreen() {
   const [allIdentities, setAllIdentities] = useState<IdentityProfile[]>([]);
   const [archiveBusy, setArchiveBusy] = useState(false);
   const [adminBusy, setAdminBusy] = useState(false);
-  const [linkingIdentityId, setLinkingIdentityId] = useState<string | null>(null);
+  const [linkingMemberId, setLinkingMemberId] = useState<string | null>(null);
+  const [mirrorsOpen, setMirrorsOpen] = useState(false);
+  const [archivedOpen, setArchivedOpen] = useState(false);
+  const [successionOpen, setSuccessionOpen] = useState(false);
   const [aiUsage, setAiUsage] = useState<AiUsageSummary | null>(null);
   const [usageLoading, setUsageLoading] = useState(false);
   const [usageDays, setUsageDays] = useState(30);
@@ -111,6 +128,10 @@ export default function SettingsScreen() {
   const [costOpen, setCostOpen] = useState(false);
   const [costTablesOpen, setCostTablesOpen] = useState(false);
   const [modelsOpen, setModelsOpen] = useState(false);
+  const [voiceKeyOpen, setVoiceKeyOpen] = useState(false);
+  const [addingLivingFor, setAddingLivingFor] = useState<string | null>(null);
+  const [newLivingName, setNewLivingName] = useState("");
+  const [newLivingRelation, setNewLivingRelation] = useState("Con");
 
   useSpaceScreenOptions({
     spaceId,
@@ -300,13 +321,61 @@ export default function SettingsScreen() {
 
   const linkAccount = async (identity: IdentityProfile, memberUserId: string) => {
     if (!spaceId) return;
+    const occupying = allIdentities.find(
+      (i) => i.linked_user_id === memberUserId && i.id !== identity.id,
+    );
+    const memberName =
+      space?.members.find((m) => m.id === memberUserId)?.name ?? "tài khoản này";
+    const doLink = async () => {
+      setAdminBusy(true);
+      try {
+        if (occupying) {
+          await api.unlinkIdentityUser(spaceId, occupying.id);
+        }
+        await api.linkIdentityUser(spaceId, identity.id, memberUserId);
+        setLinkingMemberId(null);
+        await load();
+      } catch (e) {
+        Alert.alert("Lỗi", e instanceof Error ? e.message : "Không ghép được.");
+      } finally {
+        setAdminBusy(false);
+      }
+    };
+    if (!occupying) {
+      await doLink();
+      return;
+    }
+    const body = isLoginMirror(occupying)
+      ? `${memberName} đang gắn với gương đăng nhập «${occupying.display_name}» — Forever tự tạo khi vào nhà, không phải hồ sơ gia đình. Gỡ gương đó rồi ghép với «${identity.display_name}». Voice DNA trên gương cũ không tự chuyển sang.`
+      : `${memberName} đang gắn với hồ sơ «${occupying.display_name}». Gỡ rồi ghép với «${identity.display_name}». Voice DNA trên hồ sơ cũ không tự chuyển sang.`;
+    Alert.alert(`Ghép với ${identity.display_name}?`, body, [
+      { text: "Huỷ", style: "cancel" },
+      { text: "Ghép", onPress: () => void doLink() },
+    ]);
+  };
+
+  const createLivingProfile = async (attachToMemberId?: string) => {
+    if (!spaceId) return;
+    const name = newLivingName.trim();
+    if (!name) {
+      Alert.alert("Thiếu tên", "Đặt tên người, ví dụ Nguyễn Đình Anh.");
+      return;
+    }
     setAdminBusy(true);
     try {
-      await api.linkIdentityUser(spaceId, identity.id, memberUserId);
-      setLinkingIdentityId(null);
+      const row = await api.createIdentity(spaceId, {
+        display_name: name,
+        relation_label: newLivingRelation.trim(),
+        status: "living",
+      });
+      setNewLivingName("");
+      setAddingLivingFor(null);
       await load();
+      if (attachToMemberId) {
+        await linkAccount(row, attachToMemberId);
+      }
     } catch (e) {
-      Alert.alert("Lỗi", e instanceof Error ? e.message : "Không ghép được.");
+      Alert.alert("Lỗi", e instanceof Error ? e.message : "Không tạo hồ sơ.");
     } finally {
       setAdminBusy(false);
     }
@@ -455,14 +524,73 @@ export default function SettingsScreen() {
     space?.role === "moderator" ||
     Boolean(stewardship?.is_steward);
   const archivedIdentities = allIdentities.filter((i) => i.archived_at);
-  const archivableIdentities = allIdentities.filter(
-    (i) => !i.archived_at && !i.linked_user_id,
+  const familyIdentities = allIdentities.filter(
+    (i) => !i.archived_at && !isLoginMirror(i),
   );
-  const editableIdentities = allIdentities.filter((i) => !i.archived_at);
+  const mirrorIdentities = allIdentities.filter(
+    (i) => !i.archived_at && isLoginMirror(i),
+  );
+  const livingFamilyIdentities = familyIdentities.filter(
+    (i) => i.status === "living",
+  );
+  const rememberedAnchor =
+    familyIdentities.find((i) => i.status === "remembered") ?? null;
   const members = space?.members ?? [];
   const memberById = new Map(members.map((m) => [m.id, m]));
-  const linkableIdentities = allIdentities.filter(
-    (i) => !i.archived_at && i.status === "living",
+  const successionPendingForMe =
+    iAmNominee && succession?.status === "pending";
+
+  const livingForm = (attachToMemberId?: string) => (
+    <View style={styles.livingForm}>
+      <Text style={styles.help}>
+        {relationToRememberedPrompt(rememberedAnchor)}. Không phải với tài khoản
+        quản trị. Bạn đời = Vợ. Con cái = Con. Đừng dùng Anh/Chị/Mẹ — mỗi người
+        nhìn một kiểu.
+      </Text>
+      <TextInput
+        style={styles.input}
+        value={newLivingName}
+        onChangeText={setNewLivingName}
+        placeholder="Tên — ví dụ Nguyễn Đình Anh"
+        placeholderTextColor={colors.inkSoft}
+      />
+      <View style={styles.chipRow}>
+        {LIVING_RELATIONS_TO_REMEMBERED.map((rel) => {
+          const active = newLivingRelation === rel;
+          return (
+            <Pressable
+              key={rel}
+              style={[styles.chip, active && styles.chipActive]}
+              onPress={() => setNewLivingRelation(rel)}
+            >
+              <Text style={[styles.chipText, active && styles.chipTextActive]}>
+                {rel}
+              </Text>
+            </Pressable>
+          );
+        })}
+      </View>
+      <View style={styles.chipRow}>
+        <Pressable
+          style={[styles.smallBtn, adminBusy && styles.btnDisabled]}
+          disabled={adminBusy}
+          onPress={() => void createLivingProfile(attachToMemberId)}
+        >
+          <Text style={styles.smallBtnText}>
+            {attachToMemberId ? "Tạo và gắn" : "Tạo hồ sơ"}
+          </Text>
+        </Pressable>
+        <Pressable
+          style={styles.smallBtnGhost}
+          onPress={() => {
+            setAddingLivingFor(null);
+            setNewLivingName("");
+          }}
+        >
+          <Text style={styles.smallBtnGhostText}>Huỷ</Text>
+        </Pressable>
+      </View>
+    </View>
   );
 
   return (
@@ -807,348 +935,406 @@ export default function SettingsScreen() {
               ) : null}
             </Disclosure>
           </View>
+
+          <View style={{ marginTop: 16 }}>
+            <Disclosure
+              title="Key ElevenLabs"
+              subtitle={
+                settings?.elevenlabs_api_key_set
+                  ? `Đã có key${settings.elevenlabs_api_key_hint ? ` ${settings.elevenlabs_api_key_hint}` : ""}`
+                  : "Cần để clone giọng và TTS"
+              }
+              open={voiceKeyOpen}
+              onToggle={() => setVoiceKeyOpen((v) => !v)}
+            >
+              <Text style={styles.help}>
+                Chỉ Steward / Quản trị sửa. Key không hiện lại đầy đủ sau khi lưu.
+              </Text>
+              <TextInput
+                style={styles.input}
+                value={apiKey}
+                onChangeText={setApiKey}
+                placeholder="sk_… (để trống rồi Lưu để xóa)"
+                placeholderTextColor={colors.inkSoft}
+                autoCapitalize="none"
+                autoCorrect={false}
+                secureTextEntry
+              />
+              <Pressable
+                style={[styles.btn, saving && styles.btnDisabled]}
+                onPress={saveKey}
+                disabled={saving}
+              >
+                <Text style={styles.btnText}>
+                  {saving ? "Đang lưu…" : "Lưu API key"}
+                </Text>
+              </Pressable>
+              <Text style={styles.footnote}>
+                Lấy key tại elevenlabs.io → Profile → API Keys. Gói Starter trở lên
+                để Instant Voice Clone qua API.
+              </Text>
+            </Disclosure>
+          </View>
         </>
       ) : (
         <>
-      <Text style={styles.section}>Không gian</Text>
-      <View style={styles.card}>
-        <Text style={styles.value}>{space?.name ?? "—"}</Text>
-        <Text style={styles.metaLine}>
-          {space?.member_count ?? 0} thành viên
-          {space?.role === "owner" ? " · Bạn quản trị" : ""}
-        </Text>
-        {stewardship?.steward ? (
-          <Text style={styles.metaLine}>Steward: {stewardship.steward.name}</Text>
-        ) : null}
-      </View>
-
-      {isOwner ? (
-        <>
-          <Text style={styles.section}>Mời gia đình</Text>
+          <Text style={styles.section}>Nhà này</Text>
           <View style={styles.card}>
-            <Text style={styles.help}>
-              Tạo mã mời để con cháu tham gia không gian này (hết hạn sau 14 ngày).
+            <Text style={styles.value}>{space?.name ?? "—"}</Text>
+            <Text style={styles.metaLine}>
+              {members.length} tài khoản · Bạn: {roleLabel(space?.role)}
+              {stewardship?.steward
+                ? ` · Người giữ nhà: ${stewardship.steward.name}`
+                : ""}
             </Text>
-            <Pressable style={styles.btnSecondary} onPress={makeInvite}>
-              <Text style={styles.btnSecondaryText}>
-                {inviteCode ? `Mã mời: ${inviteCode}` : "Tạo mã mời"}
-              </Text>
-            </Pressable>
-            {inviteCode ? (
-              <Pressable style={styles.smallBtnGhost} onPress={revokeInvite}>
-                <Text style={styles.smallBtnGhostText}>Thu hồi mã này</Text>
-              </Pressable>
+            {isOwner ? (
+              <>
+                <Text style={styles.help}>
+                  Mã mời hết hạn sau 14 ngày. Người mới vào nhà chưa gắn với hồ sơ
+                  Thư viện — ghép ở danh sách tài khoản bên dưới.
+                </Text>
+                <Pressable style={styles.btnSecondary} onPress={makeInvite}>
+                  <Text style={styles.btnSecondaryText}>
+                    {inviteCode ? `Mã mời: ${inviteCode}` : "Tạo mã mời"}
+                  </Text>
+                </Pressable>
+                {inviteCode ? (
+                  <Pressable style={styles.smallBtnGhost} onPress={revokeInvite}>
+                    <Text style={styles.smallBtnGhostText}>Thu hồi mã này</Text>
+                  </Pressable>
+                ) : null}
+              </>
             ) : null}
           </View>
 
-        </>
-      ) : null}
-
-      {canAdmin ? (
-        <>
-          <Text style={styles.section}>Thành viên và vai trò</Text>
-          <Text style={styles.help}>
-            Biên tập viên duyệt điều nghe được từ phòng chung và sửa trang kỷ niệm.
-            Điều ai đó nói riêng với người đã mất vẫn chỉ mình họ duyệt.
-          </Text>
-          <View style={styles.card}>
-            {members.map((member) => {
-              const isSteward = member.id === stewardship?.steward?.id;
-              const isMe = member.id === user?.id;
-              const locked = isSteward || isMe;
-              return (
-                <View key={member.id} style={styles.memberBlock}>
-                  <View style={styles.archiveRow}>
-                    <View style={styles.archiveRowMain}>
-                      <Text style={styles.value}>{member.name}</Text>
-                      <Text style={styles.metaLine}>
-                        {member.email}
-                        {isSteward ? " · Steward" : ""}
-                        {isMe ? " · Bạn" : ""}
-                      </Text>
-                    </View>
-                    {isOwner && !locked ? (
-                      <Pressable
-                        style={styles.smallBtnGhost}
-                        onPress={() => confirmRemoveMember(member)}
-                      >
-                        <Text style={styles.smallBtnGhostText}>Gỡ</Text>
-                      </Pressable>
-                    ) : null}
-                  </View>
-                  {locked ? (
-                    <Text style={styles.metaLine}>
-                      {roleLabel(member.role)}
-                      {isSteward
-                        ? " · Người giữ nhà luôn là Quản trị"
-                        : " · Không tự đổi vai trò của mình"}
-                    </Text>
-                  ) : (
-                    <View style={styles.chipRow}>
-                      {ROLE_CHOICES.map((choice) => {
-                        const active = member.role === choice.role;
-                        return (
+          {canAdmin ? (
+            <>
+              <Text style={styles.section}>Tài khoản vào nhà</Text>
+              <Text style={styles.help}>
+                Tài khoản đăng nhập khác hồ sơ người. Hồ sơ sống ghi quan hệ với
+                người đã mất (Vợ, Con, Cháu) — không với chủ nhà.
+              </Text>
+              <View style={styles.card}>
+                {members.map((member) => {
+                  const isSteward = member.id === stewardship?.steward?.id;
+                  const isMe = member.id === user?.id;
+                  const locked = isSteward || isMe;
+                  const family = familyProfileForUser(allIdentities, member.id);
+                  const picking = linkingMemberId === member.id;
+                  return (
+                    <View key={member.id} style={styles.memberBlock}>
+                      <View style={styles.archiveRow}>
+                        <View style={styles.archiveRowMain}>
+                          <Text style={styles.value}>{member.name}</Text>
+                          <Text style={styles.metaLine}>
+                            {member.email}
+                            {isSteward ? " · Người giữ nhà" : ""}
+                            {isMe ? " · Bạn" : ""}
+                          </Text>
+                          <Text style={styles.metaLine}>
+                            {family
+                              ? `Hồ sơ: ${family.display_name}${
+                                  relationRelativeLine(family, rememberedAnchor)
+                                    ? ` · ${relationRelativeLine(family, rememberedAnchor)}`
+                                    : ""
+                                }`
+                              : "Chưa gắn hồ sơ gia đình"}
+                          </Text>
+                        </View>
+                        {isOwner && !locked ? (
                           <Pressable
-                            key={choice.role}
-                            style={[styles.chip, active && styles.chipActive]}
-                            disabled={adminBusy || active}
-                            onPress={() => void changeRole(member, choice.role)}
+                            style={styles.smallBtnGhost}
+                            onPress={() => confirmRemoveMember(member)}
                           >
-                            <Text
-                              style={[
-                                styles.chipText,
-                                active && styles.chipTextActive,
-                              ]}
-                            >
-                              {choice.label}
-                            </Text>
+                            <Text style={styles.smallBtnGhostText}>Gỡ khỏi nhà</Text>
                           </Pressable>
-                        );
-                      })}
-                    </View>
-                  )}
-                </View>
-              );
-            })}
-          </View>
-
-          <Text style={styles.section}>Ghép tài khoản với hồ sơ</Text>
-          <Text style={styles.help}>
-            Nói cho Forever biết hồ sơ nào là người đang đăng nhập. Người được ghép
-            sẽ tự thu và clone giọng của chính mình, không cần nhờ ai.
-          </Text>
-          <View style={styles.card}>
-            {linkableIdentities.length ? (
-              linkableIdentities.map((identity) => {
-                const linked = identity.linked_user_id
-                  ? memberById.get(identity.linked_user_id)
-                  : undefined;
-                const picking = linkingIdentityId === identity.id;
-                const unlinked = members.filter(
-                  (m) =>
-                    !allIdentities.some(
-                      (i) => i.id !== identity.id && i.linked_user_id === m.id,
-                    ),
-                );
-                return (
-                  <View key={identity.id} style={styles.memberBlock}>
-                    <View style={styles.archiveRow}>
-                      <View style={styles.archiveRowMain}>
-                        <Text style={styles.value}>{identity.display_name}</Text>
-                        <Text style={styles.metaLine}>
-                          {identity.linked_user_id
-                            ? `Đã ghép: ${linked?.name ?? "tài khoản đã rời nhà"}`
-                            : identity.relation_label || "Chưa ghép tài khoản"}
-                        </Text>
+                        ) : null}
                       </View>
-                      {identity.linked_user_id ? (
-                        <Pressable
-                          style={[
-                            styles.smallBtnGhost,
-                            adminBusy && styles.btnDisabled,
-                          ]}
-                          disabled={adminBusy}
-                          onPress={() => confirmUnlink(identity)}
-                        >
-                          <Text style={styles.smallBtnGhostText}>Gỡ</Text>
-                        </Pressable>
+                      {locked ? (
+                        <Text style={styles.metaLine}>
+                          {roleLabel(member.role)}
+                          {isSteward
+                            ? " · Người giữ nhà luôn là Quản trị"
+                            : " · Không tự đổi vai trò của mình"}
+                        </Text>
                       ) : (
+                        <View style={styles.chipRow}>
+                          {ROLE_CHOICES.map((choice) => {
+                            const active = member.role === choice.role;
+                            return (
+                              <Pressable
+                                key={choice.role}
+                                style={[styles.chip, active && styles.chipActive]}
+                                disabled={adminBusy || active}
+                                onPress={() => void changeRole(member, choice.role)}
+                              >
+                                <Text
+                                  style={[
+                                    styles.chipText,
+                                    active && styles.chipTextActive,
+                                  ]}
+                                >
+                                  {choice.label}
+                                </Text>
+                              </Pressable>
+                            );
+                          })}
+                        </View>
+                      )}
+                      <View style={styles.chipRow}>
                         <Pressable
                           style={[styles.smallBtn, adminBusy && styles.btnDisabled]}
                           disabled={adminBusy}
-                          onPress={() =>
-                            setLinkingIdentityId(picking ? null : identity.id)
-                          }
+                          onPress={() => {
+                            if (picking) {
+                              setLinkingMemberId(null);
+                              setAddingLivingFor(null);
+                              return;
+                            }
+                            setLinkingMemberId(member.id);
+                            if (!livingFamilyIdentities.length) {
+                              setAddingLivingFor(member.id);
+                            }
+                          }}
                         >
                           <Text style={styles.smallBtnText}>
-                            {picking ? "Đóng" : "Ghép"}
+                            {picking ? "Đóng" : family ? "Đổi hồ sơ" : "Gắn hồ sơ"}
                           </Text>
                         </Pressable>
-                      )}
-                    </View>
-                    {picking ? (
-                      <View style={styles.chipRow}>
-                        {unlinked.length ? (
-                          unlinked.map((member) => (
-                            <Pressable
-                              key={member.id}
-                              style={[styles.chip, adminBusy && styles.btnDisabled]}
-                              disabled={adminBusy}
-                              onPress={() => void linkAccount(identity, member.id)}
-                            >
-                              <Text style={styles.chipText}>{member.name}</Text>
-                            </Pressable>
-                          ))
-                        ) : (
-                          <Text style={styles.body}>
-                            Mọi tài khoản đều đã ghép với một hồ sơ khác.
-                          </Text>
-                        )}
+                        {family ? (
+                          <Pressable
+                            style={[
+                              styles.smallBtnGhost,
+                              adminBusy && styles.btnDisabled,
+                            ]}
+                            disabled={adminBusy}
+                            onPress={() => confirmUnlink(family)}
+                          >
+                            <Text style={styles.smallBtnGhostText}>Bỏ gắn</Text>
+                          </Pressable>
+                        ) : null}
                       </View>
+                      {picking ? (
+                        <View style={{ gap: 8 }}>
+                          <View style={styles.chipRow}>
+                            {livingFamilyIdentities.map((ident) => {
+                              const takenByOther = Boolean(
+                                ident.linked_user_id &&
+                                  ident.linked_user_id !== member.id,
+                              );
+                              const takenName = takenByOther
+                                ? memberById.get(ident.linked_user_id ?? "")?.name
+                                : undefined;
+                              const selected = family?.id === ident.id;
+                              return (
+                                <Pressable
+                                  key={ident.id}
+                                  style={[
+                                    styles.chip,
+                                    selected && styles.chipActive,
+                                    (adminBusy || takenByOther) && styles.btnDisabled,
+                                  ]}
+                                  disabled={adminBusy || takenByOther || selected}
+                                  onPress={() => void linkAccount(ident, member.id)}
+                                >
+                                  <Text
+                                    style={[
+                                      styles.chipText,
+                                      selected && styles.chipTextActive,
+                                    ]}
+                                  >
+                                    {ident.display_name}
+                                    {takenName ? ` · ${takenName}` : ""}
+                                  </Text>
+                                </Pressable>
+                              );
+                            })}
+                            <Pressable
+                              style={[
+                                styles.chip,
+                                addingLivingFor === member.id && styles.chipActive,
+                              ]}
+                              onPress={() =>
+                                setAddingLivingFor(
+                                  addingLivingFor === member.id ? null : member.id,
+                                )
+                              }
+                            >
+                              <Text
+                                style={[
+                                  styles.chipText,
+                                  addingLivingFor === member.id &&
+                                    styles.chipTextActive,
+                                ]}
+                              >
+                                + Người sống
+                              </Text>
+                            </Pressable>
+                          </View>
+                          {addingLivingFor === member.id
+                            ? livingForm(member.id)
+                            : !livingFamilyIdentities.length ? (
+                                <Text style={styles.body}>
+                                  Chưa có hồ sơ người sống. Tạo với quan hệ Vợ /
+                                  Con / Cháu của người đã mất, rồi gắn.
+                                </Text>
+                              ) : null}
+                        </View>
+                      ) : null}
+                    </View>
+                  );
+                })}
+              </View>
+            </>
+          ) : canEditLock ? null : (
+            <Text style={styles.help}>
+              Thành viên trò chuyện và thêm ký ức. Mời người, gắn hồ sơ và vai trò
+              do Quản trị / người giữ nhà lo.
+            </Text>
+          )}
+
+          {canEditLock || canArchive ? (
+            <>
+              <Text style={styles.section}>Hồ sơ Thư viện</Text>
+              <Text style={styles.help}>
+                Người gia đình nhớ họ. Người đang sống: quan hệ với người đã mất
+                (Vợ, Con, Cháu). Người đã mất: cách cả nhà gọi (Bố). Không neo
+                theo tài khoản quản trị.
+              </Text>
+              <View style={styles.card}>
+                {familyIdentities.length ? (
+                  familyIdentities.map((identity) => {
+                    const linked = identity.linked_user_id
+                      ? memberById.get(identity.linked_user_id)
+                      : undefined;
+                    return (
+                      <View key={identity.id} style={styles.archiveRow}>
+                        <View style={styles.archiveRowMain}>
+                          <Text style={styles.value}>{identity.display_name}</Text>
+                          <Text style={styles.metaLine}>
+                            {identity.status === "remembered"
+                              ? "Người đã mất"
+                              : "Đang sống"}
+                            {relationRelativeLine(identity, rememberedAnchor)
+                              ? ` · ${relationRelativeLine(identity, rememberedAnchor)}`
+                              : ""}
+                            {canEditLock
+                              ? identity.profile_reviewed_at
+                                ? " · Bản sắc đã duyệt"
+                                : " · Bản sắc chưa duyệt"
+                              : ""}
+                            {linked ? ` · Tài khoản ${linked.name}` : ""}
+                          </Text>
+                        </View>
+                        {canEditLock ? (
+                          <Pressable
+                            style={styles.smallBtn}
+                            onPress={() =>
+                              router.push(
+                                `/profile/${spaceId}/${identity.id}` as never,
+                              )
+                            }
+                          >
+                            <Text style={styles.smallBtnText}>Bản sắc</Text>
+                          </Pressable>
+                        ) : null}
+                        {canArchive && !identity.linked_user_id ? (
+                          <Pressable
+                            style={[
+                              styles.smallBtnGhost,
+                              archiveBusy && styles.btnDisabled,
+                            ]}
+                            onPress={() => confirmArchive(identity)}
+                            disabled={archiveBusy}
+                          >
+                            <Text style={styles.smallBtnGhostText}>Lưu trữ</Text>
+                          </Pressable>
+                        ) : null}
+                      </View>
+                    );
+                  })
+                ) : (
+                  <Text style={styles.body}>
+                    Chưa có hồ sơ gia đình. Thêm người đang sống bên dưới; người đã
+                    mất thêm từ Voice DNA / Thổi hồn.
+                  </Text>
+                )}
+                {canAdmin ? (
+                  <>
+                    <Pressable
+                      style={[styles.smallBtn, { alignSelf: "flex-start" }]}
+                      onPress={() =>
+                        setAddingLivingFor(
+                          addingLivingFor === "library" ? null : "library",
+                        )
+                      }
+                    >
+                      <Text style={styles.smallBtnText}>
+                        {addingLivingFor === "library"
+                          ? "Đóng"
+                          : "Thêm người đang sống"}
+                      </Text>
+                    </Pressable>
+                    {addingLivingFor === "library" ? livingForm() : null}
+                  </>
+                ) : null}
+              </View>
+            </>
+          ) : null}
+
+          {canAdmin && mirrorIdentities.length ? (
+            <Disclosure
+              title="Gương đăng nhập"
+              subtitle="Forever tự tạo khi vào nhà — không phải hồ sơ gia đình"
+              open={mirrorsOpen}
+              onToggle={() => setMirrorsOpen((v) => !v)}
+            >
+              {mirrorIdentities.map((identity) => {
+                const linked = identity.linked_user_id
+                  ? memberById.get(identity.linked_user_id)
+                  : undefined;
+                return (
+                  <View key={identity.id} style={styles.archiveRow}>
+                    <View style={styles.archiveRowMain}>
+                      <Text style={styles.value}>{identity.display_name}</Text>
+                      <Text style={styles.metaLine}>
+                        {linked ? `Đang giữ chỗ cho ${linked.name}` : "Đã bỏ gắn"}
+                      </Text>
+                    </View>
+                    {identity.linked_user_id ? (
+                      <Pressable
+                        style={[styles.smallBtnGhost, adminBusy && styles.btnDisabled]}
+                        disabled={adminBusy}
+                        onPress={() => confirmUnlink(identity)}
+                      >
+                        <Text style={styles.smallBtnGhostText}>Gỡ</Text>
+                      </Pressable>
+                    ) : canArchive ? (
+                      <Pressable
+                        style={[
+                          styles.smallBtnGhost,
+                          archiveBusy && styles.btnDisabled,
+                        ]}
+                        onPress={() => confirmArchive(identity)}
+                        disabled={archiveBusy}
+                      >
+                        <Text style={styles.smallBtnGhostText}>Lưu trữ</Text>
+                      </Pressable>
                     ) : null}
                   </View>
                 );
-              })
-            ) : (
-              <Text style={styles.body}>
-                Chưa có hồ sơ người đang sống nào để ghép.
-              </Text>
-            )}
-          </View>
-        </>
-      ) : null}
-
-      {canEditLock ? (
-        <>
-          <Text style={styles.section}>Bản sắc</Text>
-          <Text style={styles.help}>
-            Khóa nhân dạng đằng sau giọng nói — giá trị sống, khẩu khí, cách xưng hô.
-            Chỉ mở từ đây, không từ thư viện.
-          </Text>
-          <View style={styles.card}>
-            {editableIdentities.length ? (
-              editableIdentities.map((identity) => (
-                <View key={identity.id} style={styles.archiveRow}>
-                  <View style={styles.archiveRowMain}>
-                    <Text style={styles.value}>{identity.display_name}</Text>
-                    <Text style={styles.metaLine}>
-                      {identity.relation_label ||
-                        (identity.status === "remembered" ? "Ký ức" : "Đang sống")}
-                      {identity.profile_reviewed_at ? " · Đã duyệt" : " · Chưa duyệt"}
-                    </Text>
-                  </View>
-                  <Pressable
-                    style={styles.smallBtn}
-                    onPress={() =>
-                      router.push(`/profile/${spaceId}/${identity.id}` as never)
-                    }
-                  >
-                    <Text style={styles.smallBtnText}>Sửa</Text>
-                  </Pressable>
-                </View>
-              ))
-            ) : (
-              <Text style={styles.body}>Chưa có hồ sơ nào để chỉnh.</Text>
-            )}
-          </View>
-        </>
-      ) : null}
-
-      <Text style={styles.section}>Trường tồn · Steward</Text>
-      <View style={styles.card}>
-        {succession ? (
-          <Text style={styles.body}>
-            Đề cử: {succession.nominee.name}
-            {succession.nominee.handle ? ` (@${succession.nominee.handle})` : ""} ·{" "}
-            {succession.status}
-          </Text>
-        ) : (
-          <Text style={styles.body}>
-            Chưa có người kế nhiệm. Steward hiện tại giữ quyền quản trị không gian
-            này.
-          </Text>
-        )}
-        <View style={styles.row}>
-          {stewardship?.is_steward ? (
-            <>
-              <Pressable style={styles.smallBtn} onPress={nominateMember}>
-                <Text style={styles.smallBtnText}>Chỉ định kế nhiệm</Text>
-              </Pressable>
-              {succession && ["pending", "accepted"].includes(succession.status) ? (
-                <Pressable
-                  style={styles.smallBtnGhost}
-                  onPress={async () => {
-                    if (!spaceId) return;
-                    await api.revokeSuccession(spaceId);
-                    await load();
-                  }}
-                >
-                  <Text style={styles.smallBtnGhostText}>Thu hồi</Text>
-                </Pressable>
-              ) : null}
-            </>
+              })}
+            </Disclosure>
           ) : null}
-          {iAmNominee && succession?.status === "pending" ? (
-            <>
-              <Pressable
-                style={styles.smallBtn}
-                onPress={async () => {
-                  if (!spaceId) return;
-                  await api.acceptSuccession(spaceId);
-                  await load();
-                }}
-              >
-                <Text style={styles.smallBtnText}>Nhận kế nhiệm</Text>
-              </Pressable>
-              <Pressable
-                style={styles.smallBtnGhost}
-                onPress={async () => {
-                  if (!spaceId) return;
-                  await api.declineSuccession(spaceId);
-                  await load();
-                }}
-              >
-                <Text style={styles.smallBtnGhostText}>Từ chối</Text>
-              </Pressable>
-            </>
-          ) : null}
-          {succession?.status === "accepted" &&
-          (iAmNominee || stewardship?.is_steward) ? (
-            <Pressable
-              style={styles.smallBtn}
-              onPress={async () => {
-                if (!spaceId) return;
-                await api.activateSuccession(spaceId);
-                await load();
-                Alert.alert(
-                  "Đã chuyển giao",
-                  "Quyền steward / owner đã trao cho người kế nhiệm.",
-                );
-              }}
+
+          {canArchive && archivedIdentities.length ? (
+            <Disclosure
+              title="Đã lưu trữ"
+              subtitle={`${archivedIdentities.length} hồ sơ ẩn khỏi Thư viện`}
+              open={archivedOpen}
+              onToggle={() => setArchivedOpen((v) => !v)}
             >
-              <Text style={styles.smallBtnText}>Kích hoạt chuyển giao</Text>
-            </Pressable>
-          ) : null}
-        </View>
-      </View>
-
-      {canArchive ? (
-        <>
-          <Text style={styles.section}>Lưu trữ hồ sơ</Text>
-          <Text style={styles.help}>
-            Hồ sơ lưu trữ biến mất khỏi Thư viện và Voice DNA nhưng vẫn giữ nguyên
-            ký ức, mẫu giọng và bản clone. Khôi phục lúc nào cũng được.
-          </Text>
-          <View style={styles.card}>
-            <Text style={styles.label}>Đang hiện</Text>
-            {archivableIdentities.length ? (
-              archivableIdentities.map((identity) => (
-                <View key={identity.id} style={styles.archiveRow}>
-                  <View style={styles.archiveRowMain}>
-                    <Text style={styles.value}>{identity.display_name}</Text>
-                    <Text style={styles.metaLine}>
-                      {identity.relation_label || "Chưa đặt quan hệ"}
-                      {identity.status === "remembered" ? " · Ký ức" : ""}
-                    </Text>
-                  </View>
-                  <Pressable
-                    style={[styles.smallBtnGhost, archiveBusy && styles.btnDisabled]}
-                    onPress={() => confirmArchive(identity)}
-                    disabled={archiveBusy}
-                  >
-                    <Text style={styles.smallBtnGhostText}>Lưu trữ</Text>
-                  </Pressable>
-                </View>
-              ))
-            ) : (
-              <Text style={styles.body}>
-                Không có hồ sơ nào để lưu trữ.
-              </Text>
-            )}
-
-            <Text style={[styles.label, { marginTop: 16 }]}>Đã lưu trữ</Text>
-            {archivedIdentities.length ? (
-              archivedIdentities.map((identity) => (
+              {archivedIdentities.map((identity) => (
                 <View key={identity.id} style={styles.archiveRow}>
                   <View style={styles.archiveRowMain}>
                     <Text style={styles.value}>{identity.display_name}</Text>
@@ -1164,62 +1350,89 @@ export default function SettingsScreen() {
                     <Text style={styles.smallBtnText}>Khôi phục</Text>
                   </Pressable>
                 </View>
-              ))
-            ) : (
-              <Text style={styles.body}>Chưa có hồ sơ nào được lưu trữ.</Text>
-            )}
-          </View>
-        </>
-      ) : null}
+              ))}
+            </Disclosure>
+          ) : null}
 
-      <Text style={styles.section}>Voice DNA · ElevenLabs</Text>
-      <Text style={styles.help}>
-        Key dùng để clone giọng và TTS trong không gian này. Chỉ Steward / Owner
-        được sửa. Key không hiện lại đầy đủ sau khi lưu.
-      </Text>
-
-      <View style={styles.card}>
-        <Text style={styles.label}>Trạng thái</Text>
-        <Text style={styles.value}>
-          {settings?.elevenlabs_api_key_set
-            ? `Đã cấu hình${settings.elevenlabs_api_key_hint ? ` ${settings.elevenlabs_api_key_hint}` : ""}`
-            : "Chưa có API key"}
-        </Text>
-
-        {settings?.can_edit ? (
-          <>
-            <Text style={[styles.label, { marginTop: 16 }]}>API key mới</Text>
-            <TextInput
-              style={styles.input}
-              value={apiKey}
-              onChangeText={setApiKey}
-              placeholder="sk_… (để trống rồi Lưu để xóa)"
-              placeholderTextColor={colors.inkSoft}
-              autoCapitalize="none"
-              autoCorrect={false}
-              secureTextEntry
-            />
-            <Pressable
-              style={[styles.btn, saving && styles.btnDisabled]}
-              onPress={saveKey}
-              disabled={saving}
+          {canAdmin || iAmNominee ? (
+            <Disclosure
+              title="Người giữ nhà kế tiếp"
+              subtitle={
+                succession
+                  ? `${succession.nominee.name}${succession.nominee.handle ? ` (@${succession.nominee.handle})` : ""} · ${succession.status}`
+                  : "Chưa chỉ định — quyền ở người giữ nhà hiện tại"
+              }
+              open={successionPendingForMe || successionOpen}
+              onToggle={() => setSuccessionOpen((v) => !v)}
             >
-              <Text style={styles.btnText}>
-                {saving ? "Đang lưu…" : "Lưu API key"}
+              <Text style={styles.help}>
+                Khi trao quyền, người kế nhiệm nhận steward / quản trị nhà này.
               </Text>
-            </Pressable>
-          </>
-        ) : (
-          <Text style={styles.locked}>
-            Bạn chỉ xem được trạng thái. Nhờ Steward nhập key nếu cần Voice DNA.
-          </Text>
-        )}
-      </View>
-
-      <Text style={styles.footnote}>
-        Lấy key tại elevenlabs.io → Profile → API Keys. Gói Starter trở lên để
-        Instant Voice Clone qua API.
-      </Text>
+              <View style={styles.row}>
+                {stewardship?.is_steward ? (
+                  <>
+                    <Pressable style={styles.smallBtn} onPress={nominateMember}>
+                      <Text style={styles.smallBtnText}>Chỉ định</Text>
+                    </Pressable>
+                    {succession &&
+                    ["pending", "accepted"].includes(succession.status) ? (
+                      <Pressable
+                        style={styles.smallBtnGhost}
+                        onPress={async () => {
+                          if (!spaceId) return;
+                          await api.revokeSuccession(spaceId);
+                          await load();
+                        }}
+                      >
+                        <Text style={styles.smallBtnGhostText}>Thu hồi</Text>
+                      </Pressable>
+                    ) : null}
+                  </>
+                ) : null}
+                {iAmNominee && succession?.status === "pending" ? (
+                  <>
+                    <Pressable
+                      style={styles.smallBtn}
+                      onPress={async () => {
+                        if (!spaceId) return;
+                        await api.acceptSuccession(spaceId);
+                        await load();
+                      }}
+                    >
+                      <Text style={styles.smallBtnText}>Nhận kế nhiệm</Text>
+                    </Pressable>
+                    <Pressable
+                      style={styles.smallBtnGhost}
+                      onPress={async () => {
+                        if (!spaceId) return;
+                        await api.declineSuccession(spaceId);
+                        await load();
+                      }}
+                    >
+                      <Text style={styles.smallBtnGhostText}>Từ chối</Text>
+                    </Pressable>
+                  </>
+                ) : null}
+                {succession?.status === "accepted" &&
+                (iAmNominee || stewardship?.is_steward) ? (
+                  <Pressable
+                    style={styles.smallBtn}
+                    onPress={async () => {
+                      if (!spaceId) return;
+                      await api.activateSuccession(spaceId);
+                      await load();
+                      Alert.alert(
+                        "Đã chuyển giao",
+                        "Quyền steward / owner đã trao cho người kế nhiệm.",
+                      );
+                    }}
+                  >
+                    <Text style={styles.smallBtnText}>Kích hoạt chuyển giao</Text>
+                  </Pressable>
+                ) : null}
+              </View>
+            </Disclosure>
+          ) : null}
         </>
       )}
     </ScrollView>
@@ -1311,7 +1524,7 @@ const styles = StyleSheet.create({
     borderTopColor: colors.line,
   },
   archiveRowMain: { flex: 1, gap: 2 },
-  memberBlock: { paddingBottom: 8 },
+  livingForm: { gap: 8, width: "100%", paddingTop: 4 },
   chipRow: { flexDirection: "row", flexWrap: "wrap", gap: 8, paddingTop: 4 },
   chip: {
     borderRadius: 999,

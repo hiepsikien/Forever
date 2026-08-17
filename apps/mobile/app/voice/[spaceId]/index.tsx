@@ -19,7 +19,7 @@ import {
 } from "react-native";
 
 import { useAuth } from "@/lib/auth";
-import { identityChipLabel } from "@/lib/identityDisplay";
+import { identityChipLabel, LIVING_RELATIONS_TO_REMEMBERED, relationToRememberedPrompt } from "@/lib/identityDisplay";
 import { useSpaceScreenOptions } from "@/lib/spaceHeader";
 import { colors, fonts } from "@/lib/theme";
 
@@ -188,6 +188,10 @@ export default function VoiceDnaScreen() {
   };
 
   const displayIdentities = identities;
+  const rememberedAnchor =
+    identities.find(
+      (i) => i.status === "remembered" && !i.archived_at,
+    ) ?? null;
 
   const editingLinkedSelf =
     showEdit && selectedIdentity?.linked_user_id === user?.id;
@@ -308,7 +312,7 @@ export default function VoiceDnaScreen() {
   const openAddForm = () => {
     setShowEdit(false);
     setNewName("");
-    setNewRelation("Bố");
+    setNewRelation("Con");
     setNewStatus("living");
     setShowAdd(true);
   };
@@ -729,20 +733,54 @@ export default function VoiceDnaScreen() {
               style={styles.input}
               value={newName}
               onChangeText={setNewName}
-              placeholder="Tên (vd. Hùng)"
+              placeholder="Tên (vd. Nguyễn Đình Anh)"
               placeholderTextColor={colors.inkSoft}
             />
-            <TextInput
-              style={styles.input}
-              value={newRelation}
-              onChangeText={setNewRelation}
-              placeholder="Quan hệ (vd. Bố)"
-              placeholderTextColor={colors.inkSoft}
-            />
+            <Text style={styles.formHint}>
+              {newStatus === "remembered"
+                ? "Cả nhà gọi người đã mất là gì — Bố, Ông… Không phải vai trò với tài khoản quản trị."
+                : `${relationToRememberedPrompt(rememberedAnchor)}. Không phải với chủ nhà. Bạn đời = Vợ. Con cái = Con. Đừng dùng Anh/Chị/Mẹ.`}
+            </Text>
+            {newStatus === "living" ? (
+              <View style={styles.presetRow}>
+                {LIVING_RELATIONS_TO_REMEMBERED.map((rel) => {
+                  const active = newRelation === rel;
+                  return (
+                    <Pressable
+                      key={rel}
+                      style={[styles.chip, active && styles.chipActive]}
+                      onPress={() => setNewRelation(rel)}
+                    >
+                      <Text
+                        style={[
+                          styles.chipText,
+                          active && styles.chipTextActive,
+                        ]}
+                      >
+                        {rel}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+            ) : (
+              <TextInput
+                style={styles.input}
+                value={newRelation}
+                onChangeText={setNewRelation}
+                placeholder="Cả nhà gọi là — vd. Bố"
+                placeholderTextColor={colors.inkSoft}
+              />
+            )}
             <View style={styles.presetRow}>
               <Pressable
                 style={[styles.chip, newStatus === "living" && styles.chipActive]}
-                onPress={() => setNewStatus("living")}
+                onPress={() => {
+                  setNewStatus("living");
+                  if (newRelation === "Bố" || newRelation === "Ông") {
+                    setNewRelation("Con");
+                  }
+                }}
               >
                 <Text
                   style={[
@@ -762,6 +800,13 @@ export default function VoiceDnaScreen() {
                 onPress={() => {
                   if (editingLinkedSelf) return;
                   setNewStatus("remembered");
+                  if (
+                    (LIVING_RELATIONS_TO_REMEMBERED as readonly string[]).includes(
+                      newRelation,
+                    )
+                  ) {
+                    setNewRelation("Bố");
+                  }
                 }}
                 disabled={editingLinkedSelf}
               >

@@ -261,6 +261,20 @@ def test_infer_audience_from_message():
     assert _infer_audience_from_message("Em nhớ anh") == "spouse"
 
 
+def test_child_relation_accepts_con_trai():
+    from types import SimpleNamespace
+
+    son = SimpleNamespace(relation_label="Con trai", display_name="Nguyễn Đình Anh")
+    wife = SimpleNamespace(relation_label="Vợ", display_name="Lê Thị Định")
+    dad = SimpleNamespace(relation_label="Bố", display_name="Nguyễn Đình Triệu")
+    assert _is_child_profile(son)
+    assert not _is_spouse_profile(son)
+    assert _is_spouse_profile(wife)
+    assert not _is_child_profile(wife)
+    assert not _is_child_profile(dad)
+    assert not _is_spouse_profile(dad)
+
+
 def test_direct_thread_audience_ignores_misleading_wording(client):
     """The original bug: a son quoting his mother got answered as the wife."""
     from datetime import datetime, timezone

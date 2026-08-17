@@ -214,6 +214,8 @@ def _is_child_profile(profile: IdentityProfile) -> bool:
         return False
     if rel in ("con", "chi", "chị", "anh", "chau", "cháu", "em"):
         return True
+    if rel.startswith("con "):  # «Con trai», «Con gái»
+        return True
     if name in ("huong", "vy", "vi", "dinh anh"):
         return True
     # Steward / owner «Tôi» mirror — child of Bố, not wife.

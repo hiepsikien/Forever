@@ -431,12 +431,23 @@ export default function IdentityLockScreen() {
         </View>
 
         <View style={styles.field}>
-          <Text style={styles.label}>Quan hệ</Text>
+          <Text style={styles.label}>
+            {identity?.status === "remembered"
+              ? "Cả nhà gọi người này"
+              : "Với người đã mất, đây là"}
+          </Text>
+          <Text style={styles.help}>
+            {identity?.status === "remembered"
+              ? "Bố, Ông… — cách cả nhà gọi, không phải vai trò với tài khoản quản trị."
+              : "Vợ, Con hoặc Cháu của người đã mất. Không phải Anh/Chị/Mẹ theo mắt chủ nhà."}
+          </Text>
           <TextInput
             style={styles.input}
             value={relation}
             onChangeText={setRelation}
-            placeholder="vd. Bố"
+            placeholder={
+              identity?.status === "remembered" ? "vd. Bố" : "vd. Con"
+            }
             placeholderTextColor={colors.inkSoft}
           />
         </View>

@@ -7,6 +7,47 @@ import { IdentityProfile } from "@forever/api-client";
  */
 const SELF_RELATION = "tôi";
 
+/**
+ * How this living person stands to the remembered one — never to the owner
+ * account. «Anh/Chị/Mẹ» flip depending on who is looking; these do not.
+ */
+export const LIVING_RELATIONS_TO_REMEMBERED = ["Vợ", "Con", "Cháu"] as const;
+
+export function relationToRememberedPrompt(
+  remembered?: Pick<IdentityProfile, "display_name" | "relation_label"> | null,
+): string {
+  const name = (remembered?.display_name ?? "").trim();
+  const called = (remembered?.relation_label ?? "").trim();
+  if (name && called && called.toLowerCase() !== name.toLowerCase()) {
+    return `Với ${name} (${called}), người này là`;
+  }
+  if (name) return `Với ${name}, người này là`;
+  return "Với người đã mất trong nhà, người này là";
+}
+
+export function relationRelativeLine(
+  ident: IdentityProfile,
+  remembered?: Pick<IdentityProfile, "display_name" | "relation_label"> | null,
+): string | null {
+  const rel = (ident.relation_label ?? "").trim();
+  if (!rel || ident.relation_label?.trim().toLowerCase() === SELF_RELATION) {
+    return null;
+  }
+  if (ident.status === "remembered") {
+    return `Cả nhà gọi là ${rel}`;
+  }
+  const anchor =
+    (remembered?.relation_label ?? "").trim() ||
+    (remembered?.display_name ?? "").trim() ||
+    "người đã mất";
+  return `${rel} của ${anchor}`;
+}
+
+/** Auto-created when someone joins — not a family-tree person. */
+export function isLoginMirror(ident: IdentityProfile): boolean {
+  return (ident.relation_label ?? "").trim().toLowerCase() === SELF_RELATION;
+}
+
 export function identityChipLabel(
   ident: IdentityProfile,
   userId?: string | null,
