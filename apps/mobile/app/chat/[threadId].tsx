@@ -132,7 +132,6 @@ function HeritageTypingRow({ label }: { label: string }) {
   return (
     <View style={[styles.row, styles.rowTheirs]}>
       <Text style={[styles.sender, styles.senderHeritage]}>{label}</Text>
-      <Text style={styles.heritageKind}>Ký ức gia đình</Text>
       <View style={[styles.bubble, styles.bubbleHeritage, styles.typingBubble]}>
         <Text style={styles.typingText}>
           {`đang soạn${".".repeat(dots)}${"\u00a0".repeat(3 - dots)}`}
@@ -281,15 +280,6 @@ const ChatMessageRow = memo(function ChatMessageRow({
               @giunhà
             </Text>
           ) : null}
-        </Text>
-      ) : null}
-      {isHeritage ? (
-        <Text
-          selectable={false}
-          pointerEvents="none"
-          style={styles.heritageKind}
-        >
-          Ký ức gia đình
         </Text>
       ) : null}
         <View
@@ -1175,12 +1165,6 @@ const styles = StyleSheet.create({
   senderHeritage: {
     color: colors.accent,
     fontWeight: "600",
-  },
-  heritageKind: {
-    fontSize: 11,
-    color: colors.inkSoft,
-    marginBottom: 4,
-    marginLeft: 4,
   },
   citeChip: {
     alignSelf: "flex-start",

@@ -275,7 +275,6 @@ export default function CallScreen() {
   const [threadMeta, setThreadMeta] = useState<ThreadSummary | null>(null);
   const [voice, setVoice] = useState<VoiceProfile | null>(null);
   const [loading, setLoading] = useState(true);
-  const [charterOpen, setCharterOpen] = useState(true);
   const [phase, setPhase] = useState<CallPhase>("idle");
   const [error, setError] = useState<string | null>(null);
   const [turns, setTurns] = useState<CallTurn[]>([]);
@@ -1020,16 +1019,6 @@ export default function CallScreen() {
           </Text>
         </Pressable>
       </View>
-      {charterOpen ? (
-        <View style={styles.charterBanner}>
-          <Text style={styles.charterText}>
-            Đây là ký ức từ tư liệu gia đình, không phải {relation.toLowerCase()} đang ở đây.
-          </Text>
-          <Pressable onPress={() => setCharterOpen(false)} hitSlop={8}>
-            <Text style={styles.charterDismiss}>Đã hiểu</Text>
-          </Pressable>
-        </View>
-      ) : null}
       {voiceStripOpen ? (
         <View style={styles.voiceStrip}>
           <Text style={styles.voiceStripValue} numberOfLines={3}>
@@ -1434,29 +1423,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: "600",
     color: colors.ink,
-  },
-  charterBanner: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 10,
-    paddingVertical: 8,
-    paddingHorizontal: 4,
-    marginBottom: 6,
-    borderRadius: 12,
-    backgroundColor: "rgba(196, 165, 116, 0.18)",
-  },
-  charterText: {
-    flex: 1,
-    fontFamily: fonts.body,
-    fontSize: 13,
-    lineHeight: 18,
-    color: colors.ink,
-  },
-  charterDismiss: {
-    fontFamily: fonts.body,
-    fontSize: 13,
-    fontWeight: "700",
-    color: colors.brand,
   },
   citeChip: {
     alignSelf: "flex-start",
