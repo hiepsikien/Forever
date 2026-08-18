@@ -79,6 +79,22 @@ def milestones_for_identity(
     return [item for item in items if needle in tag_tokens(item.tags)]
 
 
+def family_milestones(
+    db: Session, *, space_id: str, reader: str | None = None
+) -> list[MemoryItem]:
+    """Every readable family date in the space — not only one person's biography."""
+    return (
+        db.query(MemoryItem)
+        .filter(
+            MemoryItem.space_id == space_id,
+            MemoryItem.kind == MILESTONE_KIND,
+            readable_by(reader),
+        )
+        .order_by(MemoryItem.occurred_at.asc().nullslast())
+        .all()
+    )
+
+
 # One title word, or three body words, or a year. Anything weaker pulls in the
 # whole life story on a message like "bố cưới mẹ năm nào".
 MIN_MILESTONE_SCORE = 6.0
@@ -208,7 +224,7 @@ def build_evidence_pack(
             EvidenceItem(
                 id=item.id,
                 kind="milestone",
-                title=item.title or "Mốc đời",
+                title=item.title or "Ngày gia đình",
                 text=_truncate(item.body, 400),
             )
         ):

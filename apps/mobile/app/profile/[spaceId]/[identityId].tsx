@@ -395,9 +395,10 @@ export default function IdentityLockScreen() {
         keyboardDismissMode="on-drag"
       >
         <Text style={styles.intro}>
-          Đây là điều quyết định thực thể nói giống {displayName || "người này"} hay
-          giống một cỗ máy đội tên. Chỉ ghi những gì gia đình biết chắc — Forever
-          không bịa tiểu sử.
+          Lớp riêng người này: giá trị, khẩu khí, xưng hô. Forever giữ hai lớp
+          kia — quy tắc ứng dụng (không bịa, không giả còn sống) và hiến chương
+          gia đình (không chia rẽ, không quyết thay người sống). Chỉ ghi điều nhà
+          mình biết chắc.
         </Text>
 
         <View style={[styles.card, missing.length ? styles.cardWarn : styles.cardOk]}>
@@ -519,7 +520,7 @@ export default function IdentityLockScreen() {
 
         <ListEditor
           label="Điều không bao giờ nói"
-          help="Ranh giới cứng. Thực thể sẽ từ chối nhẹ nhàng khi chạm vào."
+          help="Điều riêng người này không nói. Quy tắc Forever và hiến chương gia đình không ghi lại đây."
           placeholder="vd. Không bàn chuyện chính trị"
           items={hardTaboos}
           onChange={setHardTaboos}

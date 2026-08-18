@@ -17,8 +17,12 @@ export function titleFromFileName(name: string): string {
 }
 
 export function isGenericMemoryTitle(kind: string, title: string): boolean {
+  const trimmed = title.trim();
+  if (kind === "milestone") {
+    return trimmed === "Mốc đời" || trimmed === "Ngày gia đình";
+  }
   const list = GENERIC_TITLES[kind] ?? [];
-  return list.includes(title.trim());
+  return list.includes(trimmed);
 }
 
 export function displayMemoryTitle(kind: string, title: string): string {
@@ -55,7 +59,7 @@ export function kindLabel(kind: string): string {
   if (kind === "video") return "Video";
   if (kind === "photo") return "Ảnh";
   if (kind === "note") return "Ghi chú";
-  if (kind === "milestone") return "Mốc đời";
+  if (kind === "milestone") return "Ngày gia đình";
   if (kind === "knowledge") return "Điều nghe được";
   return kind;
 }

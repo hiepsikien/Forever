@@ -304,6 +304,16 @@ def ensure_schema() -> None:
         "body_tts",
         "ALTER TABLE memory_items ADD COLUMN body_tts TEXT DEFAULT ''",
     )
+    _add_column_if_missing(
+        "memory_items",
+        "recite_media_path",
+        "ALTER TABLE memory_items ADD COLUMN recite_media_path VARCHAR(512)",
+    )
+    _add_column_if_missing(
+        "memory_items",
+        "recite_fingerprint",
+        "ALTER TABLE memory_items ADD COLUMN recite_fingerprint VARCHAR(64) DEFAULT ''",
+    )
     # Everything saved before there was a choice was saved to be shared.
     _add_column_if_missing(
         "memory_items",

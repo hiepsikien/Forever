@@ -17,8 +17,10 @@ import { useAuth } from "@/lib/auth";
 import { markEnteredASpace } from "@/lib/homeSpace";
 import { rememberedLibraryPeople } from "@/lib/libraryShelves";
 import { fetchAuthedMediaUri } from "@/lib/media";
+import { reciteListenLabel, usePoemRecite } from "@/lib/poemRecite";
 import { useSpaceScreenOptions } from "@/lib/spaceHeader";
 import { colors, fonts } from "@/lib/theme";
+import { PhotoLightbox } from "@/components/library/PhotoLightbox";
 
 function threadPreview(item: ThreadSummary): string {
   const last = item.last_message;
@@ -117,7 +119,9 @@ export default function SpaceScreen() {
   const [keepsakeUri, setKeepsakeUri] = useState<string | null>(null);
   const [keepsakeBusy, setKeepsakeBusy] = useState(false);
   const [keepsakeOpen, setKeepsakeOpen] = useState(false);
+  const [keepsakePhotoOpen, setKeepsakePhotoOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const recite = usePoemRecite();
   const spaceRef = useRef<FamilySpace | null>(null);
   spaceRef.current = space;
 
@@ -196,6 +200,10 @@ export default function SpaceScreen() {
     () => pickLivingRoomThread(threads),
     [threads],
   );
+  const poemPersonId =
+    keepsake?.identity_id ||
+    livingRoomThread?.heritage?.identity_id ||
+    threads.find((t) => t.heritage?.identity_id)?.heritage?.identity_id;
 
   /** Every remembered person gets two rows: the family room and your own. */
   const otherThreads = useMemo<ThreadRow[]>(() => {
@@ -350,7 +358,19 @@ export default function SpaceScreen() {
               {keepsakeOpen ? (
                 <>
                   {keepsakeUri ? (
-                    <Image source={{ uri: keepsakeUri }} style={styles.keepsakePhoto} />
+                    <Pressable
+                      onPress={(e) => {
+                        e.stopPropagation?.();
+                        setKeepsakePhotoOpen(true);
+                      }}
+                    >
+                      <Image
+                        source={{ uri: keepsakeUri }}
+                        style={styles.keepsakePhoto}
+                        resizeMode="contain"
+                      />
+                      <Text style={styles.keepsakePhotoHint}>Chạm để xem đủ · tải về</Text>
+                    </Pressable>
                   ) : null}
                   <Text style={styles.keepsakeTitle}>
                     {keepsake.title || keepsake.body || "Hiện vật"}
@@ -399,7 +419,14 @@ export default function SpaceScreen() {
           {keepsake.kind === "photo" && !keepsake.heard ? (
             <>
               {keepsakeUri ? (
-                <Image source={{ uri: keepsakeUri }} style={styles.keepsakePhoto} />
+                <Pressable onPress={() => setKeepsakePhotoOpen(true)}>
+                  <Image
+                    source={{ uri: keepsakeUri }}
+                    style={styles.keepsakePhoto}
+                    resizeMode="contain"
+                  />
+                  <Text style={styles.keepsakePhotoHint}>Chạm để xem đủ · tải về</Text>
+                </Pressable>
               ) : null}
               <Text style={styles.keepsakeTitle} numberOfLines={3}>
                 {keepsake.title || keepsake.body || "Hiện vật"}
@@ -431,16 +458,45 @@ export default function SpaceScreen() {
                   {keepsake.body}
                 </Text>
               ) : null}
-              <Pressable
-                onPress={() =>
-                  id &&
-                  router.push(
-                    `/library/${id}/person/${keepsake.identity_id}` as never,
-                  )
-                }
-              >
-                <Text style={styles.keepsakeTalkTextAlt}>Đọc trong Thư viện →</Text>
-              </Pressable>
+              <View style={styles.keepsakeActions}>
+                <Pressable
+                  style={[
+                    styles.keepsakeTalk,
+                    (keepsakeBusy ||
+                      recite.busyId === keepsake.memory_item_id) &&
+                      styles.keepsakeDisabled,
+                  ]}
+                  onPress={() =>
+                    void recite.play(
+                      keepsake.memory_item_id,
+                      keepsake.identity_id,
+                    )
+                  }
+                  disabled={
+                    keepsakeBusy || recite.busyId === keepsake.memory_item_id
+                  }
+                >
+                  <Text style={styles.keepsakeTalkText}>
+                    {recite.playingId === keepsake.memory_item_id
+                      ? "⏸ Đang đọc…"
+                      : recite.busyId === keepsake.memory_item_id
+                        ? "Đang chuẩn bị…"
+                        : reciteListenLabel(keepsake.identity_relation)}
+                  </Text>
+                </Pressable>
+                <Pressable
+                  onPress={() =>
+                    id &&
+                    router.push(
+                      `/library/${id}/person/${keepsake.identity_id}` as never,
+                    )
+                  }
+                >
+                  <Text style={styles.keepsakeTalkTextAlt}>
+                    Đọc trong Thư viện →
+                  </Text>
+                </Pressable>
+              </View>
             </>
           ) : null}
         </View>
@@ -484,7 +540,7 @@ export default function SpaceScreen() {
         <Text style={styles.libraryKicker}>Két sắt ký ức</Text>
         <Text style={styles.libraryTitle}>Thư viện</Text>
         <Text style={styles.librarySub}>
-          Thơ, dòng đời, hiện vật và những điều nghe được — giữ lại cho cả nhà.
+          Thơ, lịch gia đình, hiện vật và những điều nghe được — giữ lại cho cả nhà.
         </Text>
         <Text style={styles.libraryCta}>Vào Thư viện →</Text>
       </Pressable>
@@ -505,22 +561,20 @@ export default function SpaceScreen() {
           <Text style={styles.memoryTitle}>Voice DNA</Text>
           <Text style={styles.memorySub}>Giọng & TTS</Text>
         </Pressable>
-        <Pressable
-          style={styles.memoryTile}
-          onPress={() => id && router.push(`/review/${id}`)}
-        >
-          <View style={styles.memoryTitleRow}>
-            <Text style={styles.memoryTitle}>Điều nghe được</Text>
-            {pendingCount > 0 ? (
-              <View style={styles.memoryCount}>
-                <Text style={styles.memoryCountText}>{pendingCount}</Text>
-              </View>
-            ) : null}
-          </View>
-          <Text style={styles.memorySub}>
-            {pendingCount > 0 ? "Chờ bạn duyệt" : "Từ trò chuyện"}
-          </Text>
-        </Pressable>
+        {poemPersonId ? (
+          <Pressable
+            style={styles.memoryTile}
+            onPress={() =>
+              id &&
+              router.push(
+                `/library/${id}/person/${poemPersonId}?shelf=poems` as never,
+              )
+            }
+          >
+            <Text style={styles.memoryTitle}>Thơ</Text>
+            <Text style={styles.memorySub}>Nghe bố đọc</Text>
+          </Pressable>
+        ) : null}
       </View>
 
       <Text style={styles.section}>
@@ -543,6 +597,7 @@ export default function SpaceScreen() {
   }
 
   return (
+    <>
     <FlatList
       style={styles.list}
       contentContainerStyle={styles.listContent}
@@ -598,6 +653,12 @@ export default function SpaceScreen() {
         error ? <Text style={styles.error}>{error}</Text> : null
       }
     />
+    <PhotoLightbox
+      uri={keepsakeUri}
+      visible={keepsakePhotoOpen}
+      onClose={() => setKeepsakePhotoOpen(false)}
+    />
+    </>
   );
 }
 
@@ -637,9 +698,16 @@ const styles = StyleSheet.create({
   },
   keepsakePhoto: {
     width: "100%",
-    height: 220,
+    minHeight: 240,
+    aspectRatio: 3 / 4,
     borderRadius: 12,
     backgroundColor: colors.line,
+  },
+  keepsakePhotoHint: {
+    marginTop: 8,
+    fontSize: 13,
+    fontWeight: "600",
+    color: colors.brand,
   },
   keepsakeSettledRow: {
     flexDirection: "row",
@@ -793,29 +861,11 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 4,
   },
-  memoryTitleRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-  },
   memoryTitle: {
     fontSize: 13,
     fontWeight: "700",
     color: colors.ink,
     textAlign: "center",
-  },
-  memoryCount: {
-    minWidth: 18,
-    paddingHorizontal: 5,
-    paddingVertical: 1,
-    borderRadius: 9,
-    backgroundColor: colors.brand,
-    alignItems: "center",
-  },
-  memoryCountText: {
-    fontSize: 11,
-    fontWeight: "800",
-    color: "#f4efe6",
   },
   memorySub: {
     fontSize: 11,

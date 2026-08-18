@@ -37,10 +37,14 @@ import { playLocalAudio, stopActivePlayback } from "@/lib/audio";
 import { useAuth } from "@/lib/auth";
 import { identityChipLabel } from "@/lib/identityDisplay";
 import {
+  reciteButtonLabel,
+  usePoemRecite,
+} from "@/lib/poemRecite";
+import {
   candidatesForPerson,
   countShelves,
   filterMemories,
-  groupLifeByDecade,
+  groupFamilyCalendar,
   memoriesForPerson,
   partitionPoems,
   rememberedLibraryPeople,
@@ -57,8 +61,11 @@ import {
   titleFromFileName,
 } from "@/lib/memoryDisplay";
 import {
+  mergeCalendarTags,
   mergeMemoryTags,
+  parseCalendarKind,
   parseHeritageIdentityIds,
+  CalendarKind,
 } from "@/lib/memoryTags";
 import { guessVideoMime, pickVideoMemoryFile } from "@/lib/mediaPick";
 import { useSpaceScreenOptions } from "@/lib/spaceHeader";
@@ -127,6 +134,7 @@ export default function LibraryPersonScreen() {
   const [textTitle, setTextTitle] = useState("");
   const [textBody, setTextBody] = useState("");
   const [textOccurred, setTextOccurred] = useState("");
+  const [textCalendarKind, setTextCalendarKind] = useState<CalendarKind>("khac");
   const [textIdentityIds, setTextIdentityIds] = useState<string[]>([]);
   const [textEditingId, setTextEditingId] = useState<string | null>(null);
   const [textPhotoUri, setTextPhotoUri] = useState<string | null>(null);
@@ -164,11 +172,17 @@ export default function LibraryPersonScreen() {
   const [videoError, setVideoError] = useState<string | null>(null);
   const [busyCandidateId, setBusyCandidateId] = useState<string | null>(null);
   const [reading, setReading] = useState<MemoryItem | null>(null);
+  const recite = usePoemRecite();
 
   const person = useMemo(
     () => identities.find((i) => i.id === identityId) ?? null,
     [identities, identityId],
   );
+  const canRecite =
+    Boolean(person) &&
+    person?.status === "remembered" &&
+    person?.voice_status === "ready" &&
+    Boolean(person?.voice_provider_voice_id);
 
   const title =
     identityId === UNTAGGED_PERSON_ID
@@ -233,10 +247,15 @@ export default function LibraryPersonScreen() {
     () => (identityId ? memoriesForPerson(memories, identityId) : []),
     [memories, identityId],
   );
-  const personShelfCounts = useMemo(
-    () => countShelves(personMemories),
-    [personMemories],
+  const familyMilestones = useMemo(
+    () => memories.filter((m) => m.kind === "milestone"),
+    [memories],
   );
+  const personShelfCounts = useMemo(() => {
+    const counts = countShelves(personMemories);
+    counts.life = familyMilestones.length;
+    return counts;
+  }, [personMemories, familyMilestones]);
   const poemParts = useMemo(
     () => partitionPoems(personMemories.filter((m) => m.kind === "poem")),
     [personMemories],
@@ -286,16 +305,19 @@ export default function LibraryPersonScreen() {
     }
 
     if (showLife) {
-      const life = filtered.filter((m) => m.kind === "milestone");
+      const life = filterMemories(familyMilestones, {
+        query,
+        privateOnly,
+      });
       if (life.length) {
         if (shelf === "all") {
           rows.push({ type: "section", key: "life", title: SHELF_LABELS.life });
         }
-        for (const section of groupLifeByDecade(life)) {
+        for (const section of groupFamilyCalendar(life)) {
           if (shelf === "life" || shelf === "all") {
             rows.push({
               type: "section",
-              key: `dec-${section.key}`,
+              key: `cal-${section.key}`,
               title: section.label,
             });
           }
@@ -396,6 +418,7 @@ export default function LibraryPersonScreen() {
     query,
     poemAuth,
     person?.display_name,
+    familyMilestones,
   ]);
 
   useEffect(() => {
@@ -447,7 +470,7 @@ export default function LibraryPersonScreen() {
     loadVideoThumbRef.current = loadVideoThumb;
 
     (async () => {
-      for (const item of personMemories) {
+      for (const item of memories) {
         if (!item.has_media) continue;
         try {
           if (item.kind === "photo" || (item.kind === "milestone" && item.has_media)) {
@@ -476,7 +499,7 @@ export default function LibraryPersonScreen() {
       thumbRetryTimers.current.forEach(clearTimeout);
       thumbRetryTimers.current = [];
     };
-  }, [api, personMemories]);
+  }, [api, memories]);
 
   const defaultIdentityIds = useMemo(() => {
     if (!identityId || identityId === UNTAGGED_PERSON_ID) return [];
@@ -488,6 +511,7 @@ export default function LibraryPersonScreen() {
     setTextTitle("");
     setTextBody("");
     setTextOccurred("");
+    setTextCalendarKind("khac");
     setTextIdentityIds(defaultIdentityIds);
     setTextEditingId(null);
     setTextPhotoUri(null);
@@ -498,7 +522,7 @@ export default function LibraryPersonScreen() {
   const pickMilestonePhoto = async () => {
     const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!perm.granted) {
-      Alert.alert("Cần quyền", "Cho phép truy cập ảnh để gắn vào mốc đời.");
+      Alert.alert("Cần quyền", "Cho phép truy cập ảnh để gắn vào ngày gia đình.");
       return;
     }
     const picked = await ImagePicker.launchImageLibraryAsync({
@@ -531,6 +555,7 @@ export default function LibraryPersonScreen() {
       setTextOccurred("");
     }
     setTextIdentityIds(parseHeritageIdentityIds(item.tags));
+    setTextCalendarKind(parseCalendarKind(item.tags));
     setTextEditingId(item.id);
     setTextPhotoUri(photoUris[item.id] ?? null);
     setTextClearPhoto(false);
@@ -630,11 +655,21 @@ export default function LibraryPersonScreen() {
     if (!spaceId || !textBody.trim() || saving) return;
     setSaving(true);
     try {
-      const tags = mergeMemoryTags("", textIdentityIds);
+      const yearOnly =
+        textKind === "milestone" && /^\d{4}$/.test(textOccurred.trim());
+      let tags = mergeMemoryTags(
+        textEditingId
+          ? memories.find((m) => m.id === textEditingId)?.tags ?? ""
+          : "",
+        textIdentityIds,
+      );
+      if (textKind === "milestone") {
+        tags = mergeCalendarTags(tags, textCalendarKind, yearOnly);
+      }
       let occurred_at: string | undefined;
       if (textKind === "milestone" && textOccurred.trim()) {
         const raw = textOccurred.trim();
-        occurred_at = /^\d{4}$/.test(raw) ? `${raw}-01-01` : raw;
+        occurred_at = yearOnly ? `${raw}-01-01` : raw;
       }
       const isLocalPhoto =
         Boolean(textPhotoUri) &&
@@ -645,7 +680,7 @@ export default function LibraryPersonScreen() {
 
       if (textEditingId) {
         await api.updateMemory(textEditingId, {
-          title: textTitle.trim() || (textKind === "milestone" ? "Mốc đời" : undefined),
+          title: textTitle.trim() || (textKind === "milestone" ? "Ngày gia đình" : undefined),
           body: textBody.trim(),
           tags: tags || undefined,
           occurred_at: textKind === "milestone" ? occurred_at : undefined,
@@ -981,7 +1016,9 @@ export default function LibraryPersonScreen() {
           <Text style={styles.empty}>
             {privateOnly
               ? "Chưa có ký ức giữ riêng trên kệ này. Bật lại «Chỉ mình tôi» để xem cả nhà."
-              : "Chưa có ký ức trên kệ này. Bấm Thêm để ghi lại."}
+              : shelf === "life"
+                ? "Chưa có ngày gia đình. Bấm Thêm → Ngày gia đình (giỗ, cưới, sinh, mất…)."
+                : "Chưa có ký ức trên kệ này. Bấm Thêm để ghi lại."}
           </Text>
         }
         renderItem={({ item: row }) => {
@@ -1047,7 +1084,7 @@ export default function LibraryPersonScreen() {
               item={item}
               identities={identities}
               userId={user?.id}
-              hideHeritageChips
+              hideHeritageChips={item.kind !== "milestone"}
               photoUri={photoUris[item.id]}
               thumbUri={thumbUris[item.id]}
               thumbLoading={thumbLoading[item.id]}
@@ -1065,6 +1102,22 @@ export default function LibraryPersonScreen() {
               }
               onPlayVoice={() => playVoice(item)}
               onPlayVideo={() => playVideo(item)}
+              reciteLabel={
+                item.kind === "poem" && canRecite
+                  ? reciteButtonLabel(person?.relation_label)
+                  : undefined
+              }
+              reciting={item.kind === "poem" && recite.busyId === item.id}
+              playingRecite={item.kind === "poem" && recite.playingId === item.id}
+              onRecite={
+                item.kind === "poem" && canRecite
+                  ? () =>
+                      void recite.play(
+                        item.id,
+                        typeof identityId === "string" ? identityId : person?.id,
+                      )
+                  : undefined
+              }
               onRetryThumb={() => {
                 thumbLoadedRef.current.delete(item.id);
                 loadVideoThumbRef.current(item);
@@ -1087,9 +1140,25 @@ export default function LibraryPersonScreen() {
       <MemoryReadModal
         item={reading}
         visible={Boolean(reading)}
-        onClose={() => setReading(null)}
+        onClose={() => {
+          void recite.stop();
+          setReading(null);
+        }}
         photoUri={reading ? photoUris[reading.id] : undefined}
         canEdit={reading ? canEditItem(reading) : false}
+        canRecite={canRecite && reading?.kind === "poem"}
+        reciteLabel={reciteButtonLabel(person?.relation_label)}
+        reciting={Boolean(reading && recite.busyId === reading.id)}
+        playingRecite={Boolean(reading && recite.playingId === reading.id)}
+        onRecite={
+          reading
+            ? () =>
+                void recite.play(
+                  reading.id,
+                  typeof identityId === "string" ? identityId : person?.id,
+                )
+            : undefined
+        }
         onEdit={
           reading
             ? () => {
@@ -1131,6 +1200,8 @@ export default function LibraryPersonScreen() {
         title={textTitle}
         body={textBody}
         occurredAt={textOccurred}
+        calendarKind={textCalendarKind}
+        onChangeCalendarKind={setTextCalendarKind}
         identities={identities}
         selectedIdentityIds={textIdentityIds}
         userId={user?.id}

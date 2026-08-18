@@ -391,3 +391,64 @@ def test_delete_memory(client, tmp_path, monkeypatch):
     assert missing.status_code == 404
 
     get_settings.cache_clear()
+
+
+def test_delete_memory_removes_keepsake_and_interview_answer(client):
+    from app.db import SessionLocal
+    from app.models import InterviewAnswer, Keepsake
+    from app.seed import seed_interview_prompts
+    from tests.test_heritage_chat import _ready_heritage
+    from tests.test_keepsakes import _photo
+
+    db = SessionLocal()
+    try:
+        seed_interview_prompts(db)
+    finally:
+        db.close()
+
+    space_id, identity_id, _, headers = _ready_heritage(
+        client, email="delete-keep@example.com", name="Con"
+    )
+    photo = _photo(client, headers, space_id)
+    made = client.post(
+        f"/api/spaces/{space_id}/keepsakes/from-memory",
+        headers=headers,
+        json={
+            "identity_id": identity_id,
+            "memory_id": photo["id"],
+            "status": "ready",
+        },
+    )
+    assert made.status_code == 200, made.text
+    keepsake_id = made.json()["keepsake"]["id"]
+
+    prompts = client.get(
+        f"/api/spaces/{space_id}/interview/prompts", headers=headers
+    ).json()["prompts"]
+    answer = client.post(
+        f"/api/spaces/{space_id}/interview/prompts/{prompts[0]['id']}/answers",
+        headers=headers,
+        json={"body": "Canh chua của mẹ"},
+    )
+    assert answer.status_code == 200, answer.text
+    interview_memory_id = answer.json()["memory"]["id"]
+
+    deleted_photo = client.delete(f"/api/memories/{photo['id']}", headers=headers)
+    assert deleted_photo.status_code == 200, deleted_photo.text
+
+    deleted_note = client.delete(
+        f"/api/memories/{interview_memory_id}", headers=headers
+    )
+    assert deleted_note.status_code == 200, deleted_note.text
+
+    db = SessionLocal()
+    try:
+        assert db.query(Keepsake).filter(Keepsake.id == keepsake_id).one_or_none() is None
+        assert (
+            db.query(InterviewAnswer)
+            .filter(InterviewAnswer.memory_item_id == interview_memory_id)
+            .one_or_none()
+            is None
+        )
+    finally:
+        db.close()

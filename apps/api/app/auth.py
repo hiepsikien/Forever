@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import threading
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from typing import Annotated, Any
@@ -21,6 +22,7 @@ pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 bearer_scheme = HTTPBearer(auto_error=False)
 
 _firebase_app = None
+_firebase_lock = threading.Lock()
 
 
 @dataclass(frozen=True)
@@ -46,6 +48,7 @@ def verify_password(password: str, password_hash: str | None) -> bool:
 
 
 def _init_firebase() -> Any | None:
+    """Idempotent: uvicorn --reload and concurrent requests must not double-init."""
     global _firebase_app
     settings = get_settings()
     if not settings.firebase_enabled:
@@ -56,24 +59,33 @@ def _init_firebase() -> Any | None:
     import firebase_admin
     from firebase_admin import credentials
 
-    if firebase_admin._apps:
-        _firebase_app = firebase_admin.get_app()
-        return _firebase_app
+    with _firebase_lock:
+        if _firebase_app is not None:
+            return _firebase_app
+        try:
+            _firebase_app = firebase_admin.get_app()
+            return _firebase_app
+        except ValueError:
+            pass
 
-    cred: credentials.Base
-    raw = settings.firebase_credentials_json.strip()
-    if raw:
-        if raw.startswith("{"):
-            cred = credentials.Certificate(json.loads(raw))
+        cred: credentials.Base
+        raw = settings.firebase_credentials_json.strip()
+        if raw:
+            if raw.startswith("{"):
+                cred = credentials.Certificate(json.loads(raw))
+            else:
+                cred = credentials.Certificate(raw)
         else:
-            cred = credentials.Certificate(raw)
-    else:
-        cred = credentials.ApplicationDefault()
+            cred = credentials.ApplicationDefault()
 
-    _firebase_app = firebase_admin.initialize_app(
-        cred, {"projectId": settings.firebase_project_id}
-    )
-    return _firebase_app
+        try:
+            _firebase_app = firebase_admin.initialize_app(
+                cred, {"projectId": settings.firebase_project_id}
+            )
+        except ValueError:
+            # Another thread (or a previous reload in-process) won the race.
+            _firebase_app = firebase_admin.get_app()
+        return _firebase_app
 
 
 def verify_id_token(token: str) -> TokenClaims:

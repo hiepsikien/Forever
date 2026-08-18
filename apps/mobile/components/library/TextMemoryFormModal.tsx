@@ -15,6 +15,10 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { IdentityChipPicker } from "@/components/IdentityChipPicker";
+import {
+  CALENDAR_KIND_LABELS,
+  CalendarKind,
+} from "@/lib/memoryTags";
 import { colors, fonts } from "@/lib/theme";
 
 export type TextMemoryKind = "note" | "milestone" | "poem";
@@ -30,6 +34,8 @@ type Props = {
   userId?: string | null;
   busy?: boolean;
   editing?: boolean;
+  calendarKind?: CalendarKind;
+  onChangeCalendarKind?: (kind: CalendarKind) => void;
   /** Local preview URI when creating/editing a milestone photo. */
   photoUri?: string | null;
   onChangeTitle: (v: string) => void;
@@ -44,13 +50,13 @@ type Props = {
 
 const TITLES: Record<TextMemoryKind, string> = {
   note: "Ghi chú mới",
-  milestone: "Mốc đời",
+  milestone: "Ngày gia đình",
   poem: "Thơ mới",
 };
 
 const EDIT_TITLES: Record<TextMemoryKind, string> = {
   note: "Sửa ghi chú",
-  milestone: "Sửa mốc đời",
+  milestone: "Sửa ngày gia đình",
   poem: "Sửa thơ",
 };
 
@@ -65,6 +71,8 @@ export function TextMemoryFormModal({
   userId,
   busy,
   editing,
+  calendarKind,
+  onChangeCalendarKind,
   photoUri,
   onChangeTitle,
   onChangeBody,
@@ -116,14 +124,40 @@ export function TextMemoryFormModal({
                   style={styles.input}
                 />
                 {kind === "milestone" ? (
-                  <TextInput
-                    value={occurredAt}
-                    onChangeText={onChangeOccurredAt}
-                    placeholder="Năm hoặc ngày (vd. 1966 hoặc 1966-05-01)"
-                    placeholderTextColor={colors.inkSoft}
-                    style={styles.input}
-                    autoCapitalize="none"
-                  />
+                  <>
+                    <Text style={styles.label}>Loại ngày</Text>
+                    <View style={styles.kindRow}>
+                      {(
+                        ["gio", "mat", "cuoi", "sinh", "khac"] as CalendarKind[]
+                      ).map((id) => {
+                        const on = (calendarKind || "khac") === id;
+                        return (
+                          <Pressable
+                            key={id}
+                            style={[styles.kindChip, on && styles.kindChipOn]}
+                            onPress={() => onChangeCalendarKind?.(id)}
+                          >
+                            <Text
+                              style={[
+                                styles.kindChipText,
+                                on && styles.kindChipTextOn,
+                              ]}
+                            >
+                              {CALENDAR_KIND_LABELS[id]}
+                            </Text>
+                          </Pressable>
+                        );
+                      })}
+                    </View>
+                    <TextInput
+                      value={occurredAt}
+                      onChangeText={onChangeOccurredAt}
+                      placeholder="Ngày (vd. 1966-06-01) hoặc chỉ năm (1966)"
+                      placeholderTextColor={colors.inkSoft}
+                      style={styles.input}
+                      autoCapitalize="none"
+                    />
+                  </>
                 ) : null}
                 <TextInput
                   value={body}
@@ -132,7 +166,7 @@ export function TextMemoryFormModal({
                     kind === "poem"
                       ? "Thân bài — mỗi câu một dòng…"
                       : kind === "milestone"
-                        ? "Chuyện đã xảy ra…"
+                        ? "Giỗ ai, cưới năm nào, con sinh khi nào…"
                         : "Nội dung ký ức…"
                   }
                   placeholderTextColor={colors.inkSoft}
@@ -160,7 +194,9 @@ export function TextMemoryFormModal({
                 ) : null}
                 {identities.length > 0 ? (
                   <>
-                    <Text style={styles.label}>Ai trong ký ức này?</Text>
+                    <Text style={styles.label}>
+                      {kind === "milestone" ? "Ai trong ngày này?" : "Ai trong ký ức này?"}
+                    </Text>
                     <IdentityChipPicker
                       identities={identities}
                       selectedIds={selectedIdentityIds}
@@ -236,6 +272,18 @@ const styles = StyleSheet.create({
   photoLink: { fontSize: 14, fontWeight: "600", color: colors.brand },
   clearPhoto: { fontSize: 14, fontWeight: "600", color: colors.inkSoft },
   label: { fontSize: 13, fontWeight: "600", color: colors.inkSoft, marginTop: 4 },
+  kindRow: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
+  kindChip: {
+    borderWidth: 1,
+    borderColor: colors.line,
+    borderRadius: 999,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    backgroundColor: colors.card,
+  },
+  kindChipOn: { borderColor: colors.brand, backgroundColor: colors.brand },
+  kindChipText: { fontSize: 13, fontWeight: "600", color: colors.inkSoft },
+  kindChipTextOn: { color: "#fff" },
   actions: {
     flexDirection: "row",
     justifyContent: "flex-end",

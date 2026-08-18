@@ -4,7 +4,7 @@ from datetime import datetime, timezone
 from typing import Annotated
 
 from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, HTTPException, UploadFile
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, Response
 from nanoid import generate
 from pydantic import BaseModel, Field
 from sqlalchemy import desc, nulls_last
@@ -17,7 +17,16 @@ from ..access import (
 )
 from ..auth import get_current_user
 from ..db import get_db
-from ..models import IdentityProfile, MemoryItem, Message, Thread, User
+from ..models import (
+    ExtractJob,
+    IdentityProfile,
+    InterviewAnswer,
+    Keepsake,
+    MemoryItem,
+    Message,
+    Thread,
+    User,
+)
 from ..services.heritage import HERITAGE_TAG_PREFIX, POEM_KIND, poem_authorship_tag, tag_tokens
 from ..services.memory_scope import (
     VISIBILITIES,
@@ -26,6 +35,7 @@ from ..services.memory_scope import (
     visible_to,
 )
 from ..services.poetry_clean import clean_body_lines, format_body, format_body_tts
+from ..services.poem_recite import PoemReciteError, clear_poem_recite, get_or_create_recite_audio
 from ..services.storage import (
     MAX_MEMORY_MEDIA_BYTES,
     absolute_media_path,
@@ -229,7 +239,7 @@ def create_note_memory(
         )
     title = (body.title or "").strip()
     if kind == "milestone":
-        title = title or "Mốc đời"
+        title = title or "Ngày gia đình"
     elif kind == "poem":
         title = title or UNTITLED_POEM
     else:
@@ -560,6 +570,30 @@ def get_memory_playback(
     )
 
 
+@router.post("/api/memories/{memory_id}/recite")
+def recite_poem(
+    memory_id: str,
+    user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[Session, Depends(get_db)],
+    identity_id: str | None = None,
+):
+    """Voice DNA reads a library poem. Cached until the text or clone changes."""
+    item = db.query(MemoryItem).filter(MemoryItem.id == memory_id).one_or_none()
+    if not item:
+        raise HTTPException(status_code=404, detail="Không tìm thấy bài thơ.")
+    require_membership(db, space_id=item.space_id, user=user)
+    try:
+        audio = get_or_create_recite_audio(
+            db,
+            item,
+            user_id=user.id,
+            preferred_identity_id=identity_id,
+        )
+    except PoemReciteError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=exc.detail) from exc
+    return Response(content=audio, media_type="audio/mpeg")
+
+
 @router.get("/api/memories/{memory_id}/thumbnail")
 def get_memory_thumbnail(
     memory_id: str,
@@ -605,6 +639,24 @@ def _require_can_edit_memory(db: Session, item: MemoryItem, user: User) -> None:
     )
 
 
+def _release_memory_references(db: Session, memory_id: str) -> None:
+    """Drop rows that still point at this library item so DELETE can succeed.
+
+    Keepsakes and interview answers exist *because* of the memory; extract jobs
+    keep their work but lose the optional pointer back to a file that is gone.
+    """
+    db.query(Keepsake).filter(Keepsake.memory_item_id == memory_id).delete(
+        synchronize_session=False
+    )
+    db.query(InterviewAnswer).filter(InterviewAnswer.memory_item_id == memory_id).delete(
+        synchronize_session=False
+    )
+    db.query(ExtractJob).filter(ExtractJob.source_memory_id == memory_id).update(
+        {ExtractJob.source_memory_id: None},
+        synchronize_session=False,
+    )
+
+
 @router.delete("/api/memories/{memory_id}")
 def delete_memory(
     memory_id: str,
@@ -616,6 +668,7 @@ def delete_memory(
         raise HTTPException(status_code=404, detail="Memory not found.")
     _require_can_edit_memory(db, item, user)
     media_path = item.media_path
+    _release_memory_references(db, item.id)
     db.delete(item)
     db.commit()
     if media_path:
@@ -661,6 +714,7 @@ def update_memory(
             lines = clean_body_lines(item.body, meter=meter)
             item.body = format_body(lines)
             item.body_tts = format_body_tts(lines, meter=meter)
+            clear_poem_recite(item)
     if body.tags is not None:
         item.tags = body.tags.strip()[:500]
     if body.clear_occurred_at:

@@ -11,6 +11,7 @@ from sentry_sdk.integrations.starlette import StarletteIntegration
 
 from .config import get_settings
 from .db import Base, SessionLocal, engine
+from .sentry_filter import before_send
 from .routers import auth, extract, interviews, keepsakes, memories, memory_candidates, messages, spaces, stewardship, threads
 from .routers import ai_usage, settings as settings_router
 from .routers import library_ingest, voice_dna
@@ -31,6 +32,7 @@ if _dsn:
         send_default_pii=False,
         max_request_body_size="never",
         traces_sample_rate=settings.sentry_traces_sample_rate,
+        before_send=before_send,
         integrations=[
             StarletteIntegration(
                 transaction_style="endpoint",

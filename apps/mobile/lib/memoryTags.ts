@@ -40,6 +40,53 @@ export function mergeMemoryTags(existingTags: string, identityIds: string[]): st
   return parts.join(" ").slice(0, 500);
 }
 
+export const CALENDAR_KIND_PREFIX = "lich:";
+export const CALENDAR_YEAR_ONLY = "lich-precision:year";
+
+export type CalendarKind = "gio" | "mat" | "cuoi" | "sinh" | "khac";
+
+export const CALENDAR_KIND_LABELS: Record<CalendarKind, string> = {
+  gio: "Giỗ",
+  mat: "Ngày mất",
+  cuoi: "Cưới",
+  sinh: "Sinh",
+  khac: "Khác",
+};
+
+export function parseCalendarKind(tags: string | null | undefined): CalendarKind {
+  for (const token of tagTokens(tags ?? "")) {
+    if (!token.startsWith(CALENDAR_KIND_PREFIX)) continue;
+    const kind = token.slice(CALENDAR_KIND_PREFIX.length);
+    if (
+      kind === "gio" ||
+      kind === "mat" ||
+      kind === "cuoi" ||
+      kind === "sinh" ||
+      kind === "khac"
+    ) {
+      return kind;
+    }
+  }
+  return "khac";
+}
+
+export function isCalendarYearOnly(tags: string | null | undefined): boolean {
+  return tagTokens(tags ?? "").includes(CALENDAR_YEAR_ONLY);
+}
+
+export function mergeCalendarTags(
+  existingTags: string,
+  kind: CalendarKind,
+  yearOnly: boolean,
+): string {
+  const parts = tagTokens(existingTags).filter(
+    (p) => !p.startsWith(CALENDAR_KIND_PREFIX) && p !== CALENDAR_YEAR_ONLY,
+  );
+  parts.push(`${CALENDAR_KIND_PREFIX}${kind}`);
+  if (yearOnly) parts.push(CALENDAR_YEAR_ONLY);
+  return parts.join(" ").slice(0, 500);
+}
+
 export function heritageLabelsForMemory(
   tags: string,
   identities: IdentityProfile[],

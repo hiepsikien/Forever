@@ -25,7 +25,7 @@ import { colors, fonts } from "@/lib/theme";
 
 const KIND_LABEL: Record<string, string> = {
   poem: "Thơ",
-  milestone: "Mốc đời",
+  milestone: "Ngày gia đình",
   note: "Ghi chú",
   knowledge: "Điều nghe được",
 };

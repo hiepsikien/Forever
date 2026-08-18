@@ -3,7 +3,7 @@
 import { IdentityProfile, MemoryCandidate, MemoryItem } from "@forever/api-client";
 
 import { identityChipLabel } from "@/lib/identityDisplay";
-import { parseHeritageIdentityIds, tagTokens } from "@/lib/memoryTags";
+import { parseHeritageIdentityIds, tagTokens, isCalendarYearOnly } from "@/lib/memoryTags";
 
 export const UNTAGGED_PERSON_ID = "_none";
 
@@ -164,7 +164,7 @@ export function formatShelfSummary(
   opts?: { poemOwn?: number; poemGift?: number },
 ): string {
   const parts: string[] = [];
-  if (counts.life) parts.push(`${counts.life} mốc đời`);
+  if (counts.life) parts.push(`${counts.life} ngày gia đình`);
   const own = opts?.poemOwn;
   const gift = opts?.poemGift;
   if (typeof own === "number" && typeof gift === "number" && (own > 0 || gift > 0)) {
@@ -220,7 +220,7 @@ function createdMs(item: MemoryItem): number {
   return Number.isFinite(t) ? t : 0;
 }
 
-/** Dòng đời: oldest first; undated last. */
+/** Dòng đời cũ: oldest first; undated last. */
 export function sortLifeTimeline(items: MemoryItem[]): MemoryItem[] {
   return [...items].sort((a, b) => {
     const ao = occurredMs(a);
@@ -233,11 +233,75 @@ export function sortLifeTimeline(items: MemoryItem[]): MemoryItem[] {
   });
 }
 
-/** Thơ / hiện vật / knowledge: newest saved first. */
-export function sortByCreatedDesc(items: MemoryItem[]): MemoryItem[] {
-  return [...items].sort((a, b) => createdMs(b) - createdMs(a));
+function utcParts(occurredAt: string): { y: number; m: number; d: number } | null {
+  const t = Date.parse(occurredAt);
+  if (!Number.isFinite(t)) return null;
+  const dt = new Date(t);
+  return { y: dt.getUTCFullYear(), m: dt.getUTCMonth() + 1, d: dt.getUTCDate() };
 }
 
+function isYearOnlyMilestone(item: MemoryItem): boolean {
+  if (isCalendarYearOnly(item.tags)) return true;
+  if (!item.occurred_at) return false;
+  const p = utcParts(item.occurred_at);
+  return Boolean(p && p.m === 1 && p.d === 1 && !item.tags?.includes("lich-precision:day"));
+}
+
+function mdKey(month: number, day: number): number {
+  return month * 100 + day;
+}
+
+/** Lịch gia đình: sắp tới theo tháng/ngày, rồi đã qua, năm, chưa rõ. */
+export function groupFamilyCalendar(
+  items: MemoryItem[],
+  now: Date = new Date(),
+): DecadeSection[] {
+  const todayMd = mdKey(now.getMonth() + 1, now.getDate());
+  const upcoming: MemoryItem[] = [];
+  const past: MemoryItem[] = [];
+  const yearOnly: MemoryItem[] = [];
+  const unknown: MemoryItem[] = [];
+
+  for (const item of items) {
+    if (!item.occurred_at) {
+      unknown.push(item);
+      continue;
+    }
+    if (isYearOnlyMilestone(item)) {
+      yearOnly.push(item);
+      continue;
+    }
+    const p = utcParts(item.occurred_at);
+    if (!p) {
+      unknown.push(item);
+      continue;
+    }
+    if (mdKey(p.m, p.d) >= todayMd) upcoming.push(item);
+    else past.push(item);
+  }
+
+  const byNext = (a: MemoryItem, b: MemoryItem) => {
+    const pa = utcParts(a.occurred_at!)!;
+    const pb = utcParts(b.occurred_at!)!;
+    const da = mdKey(pa.m, pa.d);
+    const db = mdKey(pb.m, pb.d);
+    if (da !== db) return da - db;
+    return pb.y - pa.y;
+  };
+  upcoming.sort(byNext);
+  past.sort(byNext);
+  yearOnly.sort((a, b) => (occurredMs(a) ?? 0) - (occurredMs(b) ?? 0));
+  unknown.sort((a, b) => createdMs(a) - createdMs(b));
+
+  const sections: DecadeSection[] = [];
+  if (upcoming.length) sections.push({ key: "upcoming", label: "Sắp tới", items: upcoming });
+  if (past.length) sections.push({ key: "past", label: "Đã qua trong năm", items: past });
+  if (yearOnly.length) sections.push({ key: "year", label: "Chỉ biết năm", items: yearOnly });
+  if (unknown.length) sections.push({ key: "unknown", label: "Chưa rõ ngày", items: unknown });
+  return sections;
+}
+
+/** @deprecated decade biography — kept for any leftover callers */
 export function groupLifeByDecade(items: MemoryItem[]): DecadeSection[] {
   const sorted = sortLifeTimeline(items);
   const map = new Map<string, MemoryItem[]>();
@@ -275,6 +339,27 @@ export function yearLabel(occurredAt: string | null | undefined): string {
   const t = Date.parse(occurredAt);
   if (!Number.isFinite(t)) return "?";
   return String(new Date(t).getUTCFullYear());
+}
+
+export function calendarDateLabel(
+  occurredAt: string | null | undefined,
+  tags?: string | null,
+): string {
+  if (!occurredAt) return "?";
+  const p = utcParts(occurredAt);
+  if (!p) return "?";
+  if (
+    isCalendarYearOnly(tags) ||
+    (p.m === 1 && p.d === 1 && !tags?.includes("lich-precision:day"))
+  ) {
+    return String(p.y);
+  }
+  return `${p.d}/${p.m}`;
+}
+
+/** Thơ / hiện vật / knowledge: newest saved first. */
+export function sortByCreatedDesc(items: MemoryItem[]): MemoryItem[] {
+  return [...items].sort((a, b) => createdMs(b) - createdMs(a));
 }
 
 export function themeFromTags(tags: string): string[] {
@@ -346,7 +431,7 @@ export function meterLabel(meter: string | null | undefined): string | null {
 
 export const SHELF_LABELS: Record<ShelfFilter, string> = {
   all: "Tất cả",
-  life: "Dòng đời",
+  life: "Lịch gia đình",
   poems: "Thơ",
   artifacts: "Hiện vật",
   heard: "Điều nghe được",

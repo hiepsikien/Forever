@@ -131,6 +131,9 @@ class MemoryItem(Base):
     body: Mapped[str] = mapped_column(Text, default="")
     # Same words as `body` with breath pauses — Voice DNA TTS reads this, not `body`.
     body_tts: Mapped[str] = mapped_column(Text, default="")
+    # Cached «Bố đọc» render (mp3). Fingerprint invalidates when text or clone changes.
+    recite_media_path: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    recite_fingerprint: Mapped[str] = mapped_column(String(64), default="")
     media_path: Mapped[str | None] = mapped_column(String(512), nullable=True)
     media_mime: Mapped[str | None] = mapped_column(String(120), nullable=True)
     source_message_id: Mapped[str | None] = mapped_column(

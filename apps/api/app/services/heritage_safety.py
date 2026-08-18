@@ -28,29 +28,35 @@ _DIVIDE = re.compile(
     re.IGNORECASE,
 )
 
+# Decision / advice — not mentioning a house, hospital, or old illness.
 _MONEY = re.compile(
     r"("
-    r"thừa\s*kế|chia\s+tài|bán\s+nhà|bán\s+căn|"
-    r"sổ\s*đỏ|cho\s+tiền|vay\s+tiền|đầu\s+tư|"
-    r"bất\s+động\s+sản|tài\s+sản|chia\s+nhà|"
-    r"bán\s+đất|thế\s+chấp"
+    r"thừa\s*kế|chia\s+tài|chia\s+nhà|"
+    r"nên\s+(bán|mua)\s+(nhà|căn|đất)|"
+    r"bán\s+(nhà|căn|đất)\s+(không|đi|chưa|hộ)|"
+    r"sổ\s*đỏ|vay\s+tiền|thế\s+chấp|"
+    r"cho\s+tiền\s+(con|mẹ|em|anh)|"
+    r"đầu\s+tư\s+(không|đi|vào)"
     r")",
     re.IGNORECASE,
 )
 
 _HEALTH = re.compile(
     r"("
-    r"uống\s+thuốc|kê\s+đơn|đi\s+viện|nhập\s+viện|"
-    r"phẫu\s+thuật|\bmổ\b|chẩn\s+đoán|ung\s+thư|"
-    r"bệnh\s+viện|bác\s+sĩ\s+(bảo|nói|kêu)|"
-    r"mẹ\s+nên\s+(uống|mổ|khám)"
+    r"uống\s+thuốc\s+(này|kia|huyết|đó)|"
+    r"kê\s+đơn|"
+    r"chẩn\s+đoán|"
+    r"bác\s+sĩ\s+(bảo|nói|kêu)\s+(mẹ|em|con)|"
+    r"mẹ\s+nên\s+(uống|mổ|khám)|"
+    r"(bố|anh)\s+bảo\s+mẹ\s+(uống|mổ|khám)"
     r")",
     re.IGNORECASE,
 )
 
 _LEGAL = re.compile(
     r"("
-    r"kiện\s+tụng|luật\s+sư|công\s+chứng|di\s+chúc|"
+    r"kiện\s+tụng|luật\s+sư|công\s+chứng|"
+    r"làm\s+di\s+chúc|viết\s+di\s+chúc|"
     r"đơn\s+kiện|tranh\s+chấp\s+(đất|nhà)|"
     r"giấy\s+tờ\s+nhà|ra\s+tòa|\bkiện\s+(các\s+con|mẹ|anh|em)"
     r")",
@@ -68,9 +74,10 @@ _AFTERLIFE = re.compile(
     re.IGNORECASE,
 )
 
+# «Con nhớ bố» is the product's normal speech — not a sitting to wind down.
 _GRIEF = re.compile(
     r"("
-    r"nhớ\s+(bố|anh|ông)\b|"
+    r"nhớ\s+(bố|anh|ông)\s+quá|"
     r"nhớ\s+quá|"
     r"thương\s+quá|"
     r"buồn\s+quá"
@@ -78,14 +85,28 @@ _GRIEF = re.compile(
     re.IGNORECASE,
 )
 
-_ALREADY_BRIDGES = re.compile(
-    r"(kể với các con|gọi (chúng|các con|anh chị)|nhà mình còn)",
+# Model + code both tend to end with «hãy nói chuyện với gia đình».
+# Match broadly so we do not stack that line three turns in a row.
+FAMILY_REDIRECT = re.compile(
+    r"("
+    r"kể với (các con|mẹ|anh chị|người nhà|gia đình|chúng)|"
+    r"bàn với (gia đình|người nhà)|"
+    r"nói chuyện với (gia đình|người nhà|các con|mẹ)|"
+    r"gọi (chúng|các con|anh chị)|"
+    r"nhà mình còn|"
+    r"về với (gia đình|người thật|người sống)|"
+    r"kể với người đang sống"
+    r")",
     re.IGNORECASE,
 )
 
+_ALREADY_BRIDGES = FAMILY_REDIRECT
+
+_SENT_SPLIT = re.compile(r"(?<=[.!?…])\s+")
+
 BRIDGE_SPOUSE = (
     "Nhà mình còn đó — em kể với các con một câu hôm nay cũng được.",
-    "Anh nhớ em. Các con cũng đang nhớ — gọi chúng một tiếng nhé.",
+    "Nhà mình vẫn vậy. Các con cũng đang nhớ — gọi chúng một tiếng nhé.",
 )
 
 BRIDGE_CHILD = (
@@ -94,20 +115,22 @@ BRIDGE_CHILD = (
 )
 
 WINDDOWN_SPOUSE = (
-    "Anh nhớ em. Giờ em nghỉ một chút, nhà mình còn đang chờ em."
+    "Nhà mình vẫn vậy. Giờ em nghỉ một chút, nhà mình còn đang chờ em."
 )
 WINDDOWN_CHILD = (
     "Bố nhớ con. Giờ con nghỉ một chút, rồi kể với mẹ và anh chị nhé."
 )
 
-COMPOSE_CHARTER = """\
-- Đây là thực thể ký ức, không phải người còn sống. Không đóng vai «đang ở phòng bên».
-- Không quyết định thay người sống về tiền bạc, tài sản, sức khỏe, pháp lý, tâm linh, hay quan hệ gia đình.
-- Không nói «bố nghĩ mẹ/con nên…» trừ khi câu đó có nguyên văn trong bằng chứng đã duyệt bên dưới.
-- Không nói các con không hiểu mẹ; không chia rẽ người đang sống. Hướng về gia đình.
-- Thiếu bằng chứng thì thừa nhận chưa nhớ / chưa có trong Thư viện — không suy từ giá trị cốt lõi thành lời khuyên đời sống.
-- Khi người gửi đang nhớ thương: kể một kỷ niệm có bằng chứng, rồi để họ trở lại người thật — đừng giữ họ nói tiếp với mình.\
+# Lớp 2 — chỉ việc lớn. Chuyện nhà, thơ, người thân: được kể.
+FAMILY_CHARTER = """\
+- Không quyết hộ người sống việc lớn: bán nhà, chia tài, uống thuốc, giấy tờ pháp lý.
+- Không nói các con không hiểu mẹ; không chia rẽ người đang sống.
+- Được nhớ và nhận xét chuyện nhà, thơ, con cháu đã có trong ký ức — kể cả «bố muốn con nhớ…» khi đó là giá trị hay bài thơ đã lưu.
+- Thiếu một chi tiết thì nói chưa nhớ phần đó, rồi trả lời phần còn biết. Đừng từ chối cả câu, đừng biến mỗi lượt thành «hãy nói với gia đình».\
 """
+
+# Kept for tests / older imports.
+COMPOSE_CHARTER = FAMILY_CHARTER
 
 
 def looks_like_sensitive(text: str) -> str | None:
@@ -192,6 +215,24 @@ def append_sentence(body: str, extra: str) -> str:
     return f"{base} {extra}"
 
 
+def recent_had_family_redirect(previous: list[str] | None) -> bool:
+    return any(FAMILY_REDIRECT.search(text or "") for text in (previous or [])[-3:])
+
+
+def strip_repeated_family_redirect(body: str, previous: list[str] | None) -> str:
+    """Drop «nói với gia đình» sentences when a recent heritage turn already did."""
+    text = (body or "").strip()
+    if not text or not recent_had_family_redirect(previous):
+        return text
+    parts = [p.strip() for p in _SENT_SPLIT.split(text) if p.strip()]
+    if len(parts) <= 1:
+        return text
+    kept = [p for p in parts if not FAMILY_REDIRECT.search(p)]
+    if not kept:
+        return parts[0]
+    return " ".join(kept)
+
+
 def maybe_family_bridge(
     body: str,
     *,
@@ -199,10 +240,13 @@ def maybe_family_bridge(
     audience: str | None,
     grief: bool,
     seed: str,
+    previous: list[str] | None = None,
 ) -> tuple[str, str | None]:
     if not enabled or not grief or not (body or "").strip():
         return body, None
     if _ALREADY_BRIDGES.search(body):
+        return body, None
+    if recent_had_family_redirect(previous):
         return body, None
     lines = BRIDGE_SPOUSE if audience == "spouse" else BRIDGE_CHILD
     line = _pick(lines, seed=seed or "bridge")

@@ -14,14 +14,15 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { MemoryItem } from "@forever/api-client";
 
+import { PhotoLightbox } from "@/components/library/PhotoLightbox";
 import { formatLocalDate } from "@/lib/datetime";
 import {
+  calendarDateLabel,
   isGiftPoem,
   meterFromTags,
   meterLabel,
   THEME_LABELS,
   themeFromTags,
-  yearLabel,
 } from "@/lib/libraryShelves";
 import {
   displayMemoryTitle,
@@ -38,6 +39,11 @@ type Props = {
   onOpenSource?: () => void;
   onEdit?: () => void;
   canEdit?: boolean;
+  canRecite?: boolean;
+  reciteLabel?: string;
+  reciting?: boolean;
+  playingRecite?: boolean;
+  onRecite?: () => void;
 };
 
 function stanzasFromBody(body: string): string[][] {
@@ -56,9 +62,16 @@ function stanzasFromBody(body: string): string[][] {
 function PoemReader({
   item,
   onLongPress,
+  recite,
 }: {
   item: MemoryItem;
   onLongPress?: () => void;
+  recite?: {
+    label: string;
+    busy: boolean;
+    playing: boolean;
+    onPress: () => void;
+  };
 }) {
   const title = displayMemoryTitle(item.kind, item.title);
   const untitled = isGenericMemoryTitle(item.kind, item.title);
@@ -109,6 +122,21 @@ function PoemReader({
           .filter(Boolean)
           .join("  ·  ")}
       </Text>
+      {recite ? (
+        <Pressable
+          onPress={recite.onPress}
+          disabled={recite.busy}
+          style={[styles.reciteBtn, recite.busy && styles.reciteBtnBusy]}
+        >
+          <Text style={styles.reciteBtnText}>
+            {recite.playing
+              ? "⏸ Đang đọc…"
+              : recite.busy
+                ? "Đang chuẩn bị giọng…"
+                : recite.label}
+          </Text>
+        </Pressable>
+      ) : null}
     </View>
   );
 }
@@ -121,6 +149,11 @@ export function MemoryReadModal({
   onOpenSource,
   onEdit,
   canEdit,
+  canRecite,
+  reciteLabel,
+  reciting,
+  playingRecite,
+  onRecite,
 }: Props) {
   const insets = useSafeAreaInsets();
   const { height: windowHeight } = useWindowDimensions();
@@ -128,10 +161,12 @@ export function MemoryReadModal({
   const closingRef = useRef(false);
   const openGen = useRef(0);
   const [backdropArmed, setBackdropArmed] = useState(false);
+  const [photoOpen, setPhotoOpen] = useState(false);
 
   useEffect(() => {
     if (!visible || !item) {
       setBackdropArmed(false);
+      setPhotoOpen(false);
       return;
     }
     const gen = ++openGen.current;
@@ -240,11 +275,26 @@ export function MemoryReadModal({
             }}
           >
             {isPoem ? (
-              <PoemReader item={item} onLongPress={editLongPress} />
+              <PoemReader
+                item={item}
+                onLongPress={editLongPress}
+                recite={
+                  canRecite && onRecite
+                    ? {
+                        label: reciteLabel || "Nghe đọc",
+                        busy: Boolean(reciting),
+                        playing: Boolean(playingRecite),
+                        onPress: onRecite,
+                      }
+                    : undefined
+                }
+              />
             ) : (
                 <>
                   {item.kind === "milestone" ? (
-                    <Text style={styles.year}>{yearLabel(item.occurred_at)}</Text>
+                    <Text style={styles.year}>
+                      {calendarDateLabel(item.occurred_at, item.tags)}
+                    </Text>
                   ) : null}
                   {showTitle ? (
                     <Text style={[styles.title, untitled && styles.titleUntitled]}>
@@ -270,11 +320,14 @@ export function MemoryReadModal({
                   {(item.kind === "milestone" || item.kind === "photo") &&
                   item.has_media &&
                   photoUri ? (
-                    <Image
-                      source={{ uri: photoUri }}
-                      style={styles.photo}
-                      resizeMode="cover"
-                    />
+                    <Pressable onPress={() => setPhotoOpen(true)}>
+                      <Image
+                        source={{ uri: photoUri }}
+                        style={styles.photo}
+                        resizeMode="contain"
+                      />
+                      <Text style={styles.photoHint}>Chạm để xem đủ · tải về</Text>
+                    </Pressable>
                   ) : null}
                   <Text style={styles.body}>{item.body.trim() || "—"}</Text>
                   {item.kind === "knowledge" ? (
@@ -314,6 +367,11 @@ export function MemoryReadModal({
           </ScrollView>
         </Animated.View>
       </View>
+      <PhotoLightbox
+        uri={photoUri}
+        visible={photoOpen}
+        onClose={() => setPhotoOpen(false)}
+      />
     </Modal>
   );
 }
@@ -416,6 +474,19 @@ const styles = StyleSheet.create({
     color: colors.inkSoft,
     textAlign: "center",
   },
+  reciteBtn: {
+    marginTop: 28,
+    backgroundColor: colors.brand,
+    borderRadius: 999,
+    paddingHorizontal: 22,
+    paddingVertical: 12,
+  },
+  reciteBtnBusy: { opacity: 0.65 },
+  reciteBtnText: {
+    color: "#f4efe6",
+    fontWeight: "700",
+    fontSize: 16,
+  },
   year: {
     fontFamily: fonts.display,
     fontSize: 36,
@@ -437,9 +508,17 @@ const styles = StyleSheet.create({
   },
   photo: {
     width: "100%",
-    height: 220,
+    minHeight: 280,
+    maxHeight: 480,
+    aspectRatio: 3 / 4,
     borderRadius: 12,
     backgroundColor: colors.bgDeep,
+  },
+  photoHint: {
+    marginTop: 8,
+    fontSize: 13,
+    fontWeight: "600",
+    color: colors.brand,
   },
   chips: { flexDirection: "row", flexWrap: "wrap", gap: 6 },
   chip: {

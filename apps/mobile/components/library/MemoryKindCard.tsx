@@ -10,12 +10,12 @@ import {
 import { IdentityProfile, MemoryItem } from "@forever/api-client";
 
 import {
+  calendarDateLabel,
+  isGiftPoem,
   meterFromTags,
   meterLabel,
   THEME_LABELS,
   themeFromTags,
-  isGiftPoem,
-  yearLabel,
 } from "@/lib/libraryShelves";
 import { formatLocalDate } from "@/lib/datetime";
 import {
@@ -25,7 +25,12 @@ import {
   kindLabel,
   poemPreview,
 } from "@/lib/memoryDisplay";
-import { heritageLabelsForMemory } from "@/lib/memoryTags";
+import {
+  CALENDAR_KIND_LABELS,
+  heritageLabelsForMemory,
+  parseCalendarKind,
+  tagTokens,
+} from "@/lib/memoryTags";
 import { colors, fonts } from "@/lib/theme";
 
 type Props = {
@@ -50,6 +55,10 @@ type Props = {
   onPlayVideo?: () => void;
   onRetryThumb?: () => void;
   onOpenSource?: () => void;
+  reciteLabel?: string;
+  reciting?: boolean;
+  playingRecite?: boolean;
+  onRecite?: () => void;
 };
 
 function isLongText(body: string, kind: string): boolean {
@@ -78,6 +87,10 @@ export function MemoryKindCard({
   onPlayVideo,
   onRetryThumb,
   onOpenSource,
+  reciteLabel,
+  reciting,
+  playingRecite,
+  onRecite,
 }: Props) {
   const title = displayMemoryTitle(item.kind, item.title);
   const untitled = isGenericMemoryTitle(item.kind, item.title);
@@ -93,6 +106,8 @@ export function MemoryKindCard({
   const gift = isGiftPoem(item.tags);
   const long = isLongText(item.body || "", item.kind);
   const isPoem = item.kind === "poem";
+  const calendarTagged = tagTokens(item.tags).some((t) => t.startsWith("lich:"));
+  const calendarKind = parseCalendarKind(item.tags);
   const showSourceTitle =
     item.kind === "knowledge" &&
     Boolean(item.title?.trim()) &&
@@ -124,9 +139,18 @@ export function MemoryKindCard({
   const bodyBlock =
     item.kind === "milestone" ? (
       <View style={styles.milestoneRow}>
-        <Text style={styles.year}>{yearLabel(item.occurred_at)}</Text>
+        <Text style={styles.year}>{calendarDateLabel(item.occurred_at, item.tags)}</Text>
         <View style={styles.milestoneBody}>
           <Text style={[styles.title, untitled && styles.titleUntitled]}>{title}</Text>
+          {calendarTagged && calendarKind !== "khac" ? (
+            <View style={styles.peopleRow}>
+              <View style={styles.personChip}>
+                <Text style={styles.personChipText}>
+                  {CALENDAR_KIND_LABELS[calendarKind]}
+                </Text>
+              </View>
+            </View>
+          ) : null}
           {note ? (
             <Text style={styles.note} numberOfLines={long ? 4 : undefined}>
               {note}
@@ -233,7 +257,7 @@ export function MemoryKindCard({
         <Image
           source={{ uri: photoUri }}
           style={styles.mediaPreview}
-          resizeMode="cover"
+          resizeMode="contain"
         />
       ) : null}
 
@@ -277,6 +301,25 @@ export function MemoryKindCard({
           <View style={styles.playBadge}>
             <Text style={styles.playBadgeText}>▶ Phát</Text>
           </View>
+        </Pressable>
+      ) : null}
+
+      {isPoem && onRecite ? (
+        <Pressable
+          style={styles.voiceBtn}
+          onPress={(e) => {
+            e.stopPropagation?.();
+            onRecite();
+          }}
+          disabled={reciting}
+        >
+          <Text style={styles.voiceBtnText}>
+            {playingRecite
+              ? "⏸ Đang đọc…"
+              : reciting
+                ? "Đang chuẩn bị…"
+                : reciteLabel || "Nghe đọc"}
+          </Text>
         </Pressable>
       ) : null}
 
@@ -418,7 +461,8 @@ const styles = StyleSheet.create({
   },
   mediaPreview: {
     width: "100%",
-    height: 200,
+    minHeight: 220,
+    aspectRatio: 4 / 3,
     borderRadius: 12,
     backgroundColor: colors.bgDeep,
   },

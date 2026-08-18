@@ -99,6 +99,7 @@ export interface Keepsake {
   space_id: string;
   identity_id: string;
   identity_name: string;
+  identity_relation?: string;
   memory_item_id: string;
   kind: "photo" | "poem" | string;
   opener: string;
@@ -113,6 +114,7 @@ export interface Keepsake {
   opened_message_id?: string | null;
   already_open: boolean;
   can_skip: boolean;
+  can_recite?: boolean;
   heard: boolean;
   last_opened_at?: string | null;
 }
@@ -1026,6 +1028,28 @@ export function createApiClient({
       `${resolveRoot()}/api/memories/${memoryId}/playback`,
     memoryThumbnailUrl: (memoryId: string) =>
       `${resolveRoot()}/api/memories/${memoryId}/thumbnail`,
+    recitePoem: async (memoryId: string, identityId?: string) => {
+      const root = resolveRoot();
+      const token = await getToken();
+      const headers = new Headers();
+      if (token) headers.set("Authorization", `Bearer ${token}`);
+      const q = identityId
+        ? `?identity_id=${encodeURIComponent(identityId)}`
+        : "";
+      const signal =
+        typeof AbortSignal !== "undefined" && "timeout" in AbortSignal
+          ? AbortSignal.timeout(VOICE_TTS_TIMEOUT_MS)
+          : undefined;
+      const res = await fetch(
+        `${root}/api/memories/${memoryId}/recite${q}`,
+        { method: "POST", headers, ...(signal ? { signal } : {}) },
+      );
+      if (!res.ok) {
+        const body = await parseBody(res);
+        throw new ApiError(res.status, body);
+      }
+      return new Uint8Array(await res.arrayBuffer());
+    },
     updateMemory: (
       memoryId: string,
       payload: {

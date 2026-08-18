@@ -534,7 +534,7 @@ def settle_library_ingest_proposals(
             )
         else:
             if kind == "milestone":
-                title = title or "Mốc đời"
+                title = title or "Ngày gia đình"
             elif kind == "knowledge":
                 title = title or "Điều nghe được"
             else:

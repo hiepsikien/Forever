@@ -20,7 +20,7 @@ from __future__ import annotations
 import json
 import re
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 from nanoid import generate
 from sqlalchemy.orm import Session
@@ -285,6 +285,34 @@ def recent_heritage_bodies(history: list[Message], *, limit: int = COMPARE_LAST)
         if msg.sender_kind == "heritage" and (msg.body or "").strip()
     ]
     return bodies[-limit:]
+
+
+_VN = timezone(timedelta(hours=7))
+
+
+def heritage_bodies_today(
+    history: list[Message], *, now: datetime | None = None
+) -> list[str]:
+    """Heritage replies already sent today (Vietnam calendar day)."""
+    now = now or datetime.now(timezone.utc)
+    if now.tzinfo is None:
+        now = now.replace(tzinfo=timezone.utc)
+    today = now.astimezone(_VN).date()
+    out: list[str] = []
+    for msg in history:
+        if msg.sender_kind != "heritage":
+            continue
+        body = (msg.body or "").strip()
+        if not body:
+            continue
+        ts = msg.created_at
+        if ts is None:
+            continue
+        if ts.tzinfo is None:
+            ts = ts.replace(tzinfo=timezone.utc)
+        if ts.astimezone(_VN).date() == today:
+            out.append(body)
+    return out
 
 
 def _meta_list(meta: object, key: str) -> list[str]:

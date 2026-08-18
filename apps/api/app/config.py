@@ -67,6 +67,9 @@ class Settings(BaseSettings):
     heritage_tts_enabled: bool = True
     # Skip TTS (text-only) above this length — aligned with story depth budget.
     heritage_tts_max_chars: int = 512
+    # Poem recitation is a separate path from chat (longer, cached per poem).
+    heritage_poem_tts_max_chars: int = 8000
+    heritage_poem_tts_chunk_chars: int = 900
 
     # Shared ElevenLabs key (primary for now). Space Cài đặt can override later.
     elevenlabs_api_key: str = ""

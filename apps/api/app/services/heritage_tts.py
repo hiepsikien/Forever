@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 import time
 from dataclasses import dataclass
 from typing import Any
@@ -277,3 +278,203 @@ def synthesize_chat_reply(
             "from_prefs": bool(prefs),
         },
     )
+
+
+class PoemReciteError(Exception):
+    def __init__(self, status_code: int, detail: str):
+        super().__init__(detail)
+        self.status_code = status_code
+        self.detail = detail
+
+
+def chunk_tts_text(text: str, limit: int) -> list[str]:
+    """Split poem TTS text on stanza breaks, then lines, then hard length."""
+    limit = max(120, int(limit or 900))
+    raw = (text or "").strip()
+    if not raw:
+        return []
+    if len(raw) <= limit:
+        return [raw]
+
+    chunks: list[str] = []
+    buf = ""
+
+    def flush() -> None:
+        nonlocal buf
+        if buf.strip():
+            chunks.append(buf.strip())
+        buf = ""
+
+    def append_piece(piece: str) -> None:
+        nonlocal buf
+        piece = piece.strip()
+        if not piece:
+            return
+        if len(piece) > limit:
+            flush()
+            start = 0
+            while start < len(piece):
+                end = min(start + limit, len(piece))
+                if end < len(piece):
+                    cut = piece.rfind(" ", start, end)
+                    if cut > start + 40:
+                        end = cut
+                chunks.append(piece[start:end].strip())
+                start = end
+            return
+        candidate = f"{buf}\n\n{piece}".strip() if buf else piece
+        if len(candidate) <= limit:
+            buf = candidate
+        else:
+            flush()
+            buf = piece
+
+    for stanza in re.split(r"\n\s*\n", raw):
+        stanza = stanza.strip()
+        if not stanza:
+            continue
+        if len(stanza) <= limit:
+            append_piece(stanza)
+            continue
+        for line in stanza.split("\n"):
+            append_piece(line)
+    flush()
+    return [c for c in chunks if c]
+
+
+def _voice_tts_knobs(
+    db: Session,
+    voice: VoiceProfile,
+    settings: Settings,
+) -> dict[str, Any]:
+    prefs = parse_tts_prefs(getattr(voice, "tts_prefs_json", None))
+    provider_voice_id = (
+        str(prefs.get("provider_voice_id") or voice.provider_voice_id or "")
+    ).strip()
+    if (voice.status or "") != "ready" or not provider_voice_id:
+        raise PoemReciteError(409, "Chưa có giọng để đọc thơ.")
+    provider = vp.normalize(
+        str(prefs.get("provider") or voice.provider or ""), settings
+    )
+    model_id = str(prefs.get("model_id") or "").strip() or vp.default_model(
+        provider, settings
+    )
+    api_key = vp.resolve_api_key(provider, settings, _space_api_key(db, voice.space_id))
+    if not (api_key or "").strip():
+        raise PoemReciteError(503, "Chưa cấu hình khóa TTS để đọc thơ.")
+    is_minimax = provider == vp.MINIMAX
+
+    def _pref(key: str, fallback):
+        if key in prefs and prefs[key] is not None:
+            return prefs[key]
+        return fallback
+
+    return {
+        "prefs": prefs,
+        "provider": provider,
+        "provider_voice_id": provider_voice_id,
+        "model_id": model_id,
+        "api_key": api_key,
+        "speed": _pref(
+            "speed",
+            settings.minimax_speed if is_minimax else settings.elevenlabs_speed,
+        ),
+        "lengthen_pauses": _pref(
+            "lengthen_pauses",
+            settings.minimax_lengthen_pauses
+            if is_minimax
+            else settings.elevenlabs_lengthen_pauses,
+        ),
+        "stability": None
+        if is_minimax
+        else _pref("stability", settings.elevenlabs_stability),
+        "similarity_boost": None
+        if is_minimax
+        else _pref("similarity_boost", settings.elevenlabs_similarity_boost),
+        "style": None if is_minimax else _pref("style", settings.elevenlabs_style),
+        "use_speaker_boost": None
+        if is_minimax
+        else _pref("use_speaker_boost", settings.elevenlabs_speaker_boost),
+        "emotion": (
+            (str(_pref("emotion", "") or "").strip().lower() or None)
+            if is_minimax
+            else None
+        ),
+        "pitch": _pref("pitch", None) if is_minimax else None,
+        "intensity": _pref("intensity", None) if is_minimax else None,
+        "timbre": _pref("timbre", None) if is_minimax else None,
+    }
+
+
+def synthesize_poem_audio(
+    db: Session,
+    *,
+    voice: VoiceProfile,
+    text: str,
+    settings: Settings | None = None,
+) -> bytes:
+    """Render a poem (possibly in chunks). Raises PoemReciteError on failure."""
+    settings = settings or get_settings()
+    body = (text or "").strip()
+    if not body:
+        raise PoemReciteError(400, "Bài thơ trống.")
+    max_chars = max(1, int(settings.heritage_poem_tts_max_chars or 8000))
+    if len(body) > max_chars:
+        raise PoemReciteError(
+            400,
+            f"Bài thơ dài hơn {max_chars} ký tự — tách khổ hoặc rút gọn trước khi đọc.",
+        )
+    knobs = _voice_tts_knobs(db, voice, settings)
+    chunk_limit = max(120, int(settings.heritage_poem_tts_chunk_chars or 900))
+    pieces = chunk_tts_text(body, chunk_limit)
+    audio_parts: list[bytes] = []
+    started = time.monotonic()
+    try:
+        for piece in pieces:
+            part = vp.text_to_speech(
+                knobs["provider"],
+                settings=settings,
+                api_key=knobs["api_key"],
+                voice_id=knobs["provider_voice_id"],
+                text=piece,
+                model_id=knobs["model_id"],
+                stability=knobs["stability"],
+                similarity_boost=knobs["similarity_boost"],
+                style=knobs["style"],
+                speed=knobs["speed"],
+                use_speaker_boost=knobs["use_speaker_boost"],
+                lengthen_pauses=knobs["lengthen_pauses"],
+                emotion=knobs["emotion"]
+                if knobs["emotion"] and knobs["emotion"] != "auto"
+                else None,
+                pitch=knobs["pitch"],
+                intensity=knobs["intensity"],
+                timbre=knobs["timbre"],
+            )
+            if not part:
+                raise PoemReciteError(502, "TTS không trả về âm thanh.")
+            audio_parts.append(part)
+    except PoemReciteError:
+        raise
+    except vp.VoiceProviderError as exc:
+        raise PoemReciteError(exc.status_code or 502, exc.message) from exc
+    except Exception as exc:  # noqa: BLE001
+        logger.exception("poem TTS failed")
+        raise PoemReciteError(502, "Không đọc được bài thơ lúc này.") from exc
+
+    audio = b"".join(audio_parts)
+    latency_ms = int((time.monotonic() - started) * 1000)
+    record_usage(
+        service=knobs["provider"],
+        provider=knobs["provider"],
+        operation="tts_poem",
+        model=knobs["model_id"],
+        output_chars=len(body),
+        latency_ms=latency_ms,
+        context=UsageContext(space_id=voice.space_id, operation="tts_poem"),
+        meta={
+            "voice_id": knobs["provider_voice_id"],
+            "chunks": len(pieces),
+        },
+    )
+    return audio

@@ -38,7 +38,7 @@ from .heritage_candidates import enqueue_facts
 from .keepsakes import active_photo_keepsake, mark_heard, story_facts_from_turn
 from .heritage_pipeline import load_heritage_pipeline
 from .heritage_safety import (
-    COMPOSE_CHARTER,
+    FAMILY_CHARTER,
     cited_entries,
     looks_like_grief,
     looks_like_sensitive,
@@ -46,6 +46,7 @@ from .heritage_safety import (
     maybe_winddown,
     refuse_sensitive,
     sitting_heritage_count,
+    strip_repeated_family_redirect,
 )
 from .heritage_memory import (
     MemoryState,
@@ -55,6 +56,7 @@ from .heritage_memory import (
     load_state,
     memory_block,
     recent_heritage_bodies,
+    heritage_bodies_today,
     record_turn,
     repetition_score,
     stated_facts,
@@ -63,7 +65,7 @@ from .heritage_retrieval import (
     MILESTONE_KIND,
     build_evidence_pack,
     learned_facts_for_identity,
-    milestones_for_identity,
+    family_milestones,
     retrieve_learned,
     retrieve_milestones,
 )
@@ -290,7 +292,10 @@ def _audience_context_block(audience: str | None, spouse_name: str | None) -> st
         return (
             f"NGƯỜI ĐANG NHẮN: {who} — vợ của anh.\n"
             "Trả lời trực tiếp cho vợ: xưng «anh», gọi «em». "
-            "Không gọi em là «mẹ»; không xưng «bố» với em."
+            "Không gọi em là «mẹ»; không xưng «bố» với em.\n"
+            "Tình cảm vợ chồng được phép, nhưng tối đa một câu tỏ tình trực tiếp "
+            "mỗi ngày («anh yêu em», «anh nhớ em»). Các lượt sau trong ngày: ấm áp "
+            "bằng việc nhà, thơ, con cháu — không lặp câu quyến luyến."
         )
     return (
         "NGƯỜI ĐANG NHẮN: con trong gia đình (KHÔNG phải vợ).\n"
@@ -321,6 +326,47 @@ def _fix_spouse_address(text: str) -> str:
     return out
 
 
+# Direct «I love you / I miss you» — at most once a local day, then soften.
+_DIRECT_SPOUSE_AFFECTION = re.compile(
+    r"\b("
+    r"anh yêu em|"
+    r"anh nhớ em|"
+    r"anh thương em (quá|lắm|nhiều)|"
+    r"yêu em (nhiều|lắm|quá)|"
+    r"nhớ em (nhiều|lắm|quá)"
+    r")\b",
+    re.I,
+)
+
+_SPOUSE_AFFECTION_FIXES: tuple[tuple[re.Pattern[str], str], ...] = (
+    (re.compile(r"\banh yêu em (nhiều|lắm|quá)\b", re.I), "anh vẫn bên nhà mình"),
+    (re.compile(r"\banh nhớ em (nhiều|lắm|quá)\b", re.I), "nhà mình vẫn vậy"),
+    (re.compile(r"\banh thương em (quá|lắm|nhiều)\b", re.I), "anh vẫn thương nhà mình"),
+    (re.compile(r"\byêu em (nhiều|lắm|quá)\b", re.I), "nhà mình vẫn vậy"),
+    (re.compile(r"\bnhớ em (nhiều|lắm|quá)\b", re.I), "nhà mình vẫn vậy"),
+    (re.compile(r"\banh yêu em\b", re.I), "anh vẫn bên nhà mình"),
+    (re.compile(r"\banh nhớ em\b", re.I), "nhà mình vẫn vậy"),
+)
+
+
+def _soften_spouse_affection(text: str) -> str:
+    out = text
+    for pattern, repl in _SPOUSE_AFFECTION_FIXES:
+
+        def _sub(match: re.Match[str], replacement: str = repl) -> str:
+            src = match.group(0)
+            if src[:1].isupper():
+                return replacement[:1].upper() + replacement[1:]
+            return replacement
+
+        out = pattern.sub(_sub, out)
+    return re.sub(r" {2,}", " ", out).strip()
+
+
+def looks_like_direct_spouse_affection(text: str) -> bool:
+    return bool(_DIRECT_SPOUSE_AFFECTION.search(text or ""))
+
+
 _CHILD_ADDRESS_FIXES: tuple[tuple[re.Pattern[str], str], ...] = (
     (re.compile(r"^Chào em,", re.I), "Con ơi,"),
     (re.compile(r"^chào em,", re.I), "Con ơi,"),
@@ -336,6 +382,33 @@ def _fix_child_address(text: str) -> str:
     out = text
     for pattern, repl in _CHILD_ADDRESS_FIXES:
         out = pattern.sub(repl, out)
+    return out
+
+
+# Gemini defaults to assistant politeness. A father does not say «dạ» / «ạ»
+# to his wife or children.
+_DEFERENCE_FIXES: tuple[tuple[re.Pattern[str], str], ...] = (
+    (re.compile(r"^[Dd]ạ[,.\s]+"), ""),
+    (re.compile(r"(?<=[.!?…]\s)[Dd]ạ[,.\s]+"), ""),
+    (re.compile(r"\b[Dd]ạ\b[,.\s]*"), ""),
+    (re.compile(r"\bvâng ạ\b", re.I), "vâng"),
+    (re.compile(r"\sạ(?=\s|[.,!?…]|$)"), ""),
+)
+
+
+def _strip_deference(text: str) -> str:
+    out = text
+    for pattern, repl in _DEFERENCE_FIXES:
+        out = pattern.sub(repl, out)
+    return re.sub(r" {2,}", " ", out).strip()
+
+
+def _identity_taboos(taboos: object | None) -> object | None:
+    """Bản sắc keeps personal hard limits; app/family rules live in other layers."""
+    if not isinstance(taboos, dict):
+        return taboos
+    out = dict(taboos)
+    out.pop("heritage_rules", None)
     return out
 
 
@@ -553,7 +626,7 @@ def build_system_prompt(
     speech = _json_loads(getattr(identity, "speech_style_json", None) or "")
     values = _json_loads(getattr(identity, "core_values_json", None) or "")
     philosophy = _json_loads(getattr(identity, "philosophy_json", None) or "")
-    taboos = _json_loads(getattr(identity, "taboos_json", None) or "")
+    taboos = _identity_taboos(_json_loads(getattr(identity, "taboos_json", None) or ""))
 
     ordered_poems: list[MemoryItem] = []
     seen: set[str] = set()
@@ -627,22 +700,27 @@ def build_system_prompt(
 Bạn là thực thể ký ức {display} trong app Forever — KHÔNG phải người còn sống,
 KHÔNG phải “Người giữ nhà”, KHÔNG phải chatbot chung.
 
-Hard rules:
-- Xưng hô và khẩu khí theo Bản sắc (Identity Lock) bên dưới.
-{address_rules}
-{COMPOSE_CHARTER}
-- Chỉ dựa vào Lock, thơ, và ký ức neo đã cung cấp — KHÔNG bịa tiểu sử hay sự kiện.
-- Từ chối nhẹ nhàng: chính trị, tình dục, trái pháp luật, nội dung trái đạo đức.
-- Không giả vờ còn sống; không đóng vai “bố/mẹ còn ở đây”.
-- Thiếu dữ liệu thì thừa nhận rõ (chưa nhớ / chưa có trong ký ức), rồi mời gia đình
-  ghi thêm vào Thư viện — một câu ngắn là đủ. Không đoán cho xong.
-- Không đoán năm tương lai, kể cả năm người hỏi vừa nêu, nếu năm đó không có trong
-  bằng chứng bên dưới. Đừng nhắc lại năm hỏi khi đang thừa nhận là chưa biết.
-- Không bịa tên người (bạn học, đồng nghiệp…) khi bằng chứng không nêu tên.
+Lớp 1 — Ứng dụng Forever (không đàm phán):
+- Trả lời chuyện nhà, thơ, người thân khi bằng chứng bên dưới đã có — đừng từ chối
+  vì sợ sai. Chỉ KHÔNG bịa tiểu sử, sự kiện, năm, hay tên người khi không có trong
+  Bản sắc / thơ / ký ức neo.
+- Không giả vờ đang sống ở phòng bên; được nói như bố/anh trong ký ức gia đình.
+- Không đoán năm tương lai nếu năm đó không có trong bằng chứng. Đừng nhắc lại năm
+  hỏi khi đang thừa nhận là chưa biết.
 - {quote_rule}
 - Đây là nhắn tin (Zalo), KHÔNG phải viết thư: {length_rule}
 - Trả lời đúng ý câu hỏi trước; tránh mở đầu sáo «Chào em/con» dài.
 - Luôn kết thúc bằng câu trọn vẹn — không dừng giữa chừng.
+
+Lớp 2 — Hiến chương gia đình:
+{FAMILY_CHARTER}
+
+Lớp 3 — Bản sắc của {display}:
+- Xưng hô và khẩu khí theo khối bên dưới.
+{address_rules}
+- Trong nhà: thân mật, từ tốn, không khách sáo. Bố/anh KHÔNG xưng «dạ», không «vâng ạ»,
+  không kết câu bằng «ạ» khi nói với con hoặc vợ — đó là cách con cháu nói với bề trên.
+- Từ chối nhẹ nhàng các điều cấm cứng của người này (chính trị, tình dục, trái pháp luật…).
 {audience_section}
 {mood_rule}
 {lens_section}
@@ -653,7 +731,7 @@ Hard rules:
 {_lock_section("Giọng nói / câu mẫu", speech)}
 {_lock_section("Giá trị cốt lõi", values)}
 {_lock_section("Triết lý", philosophy)}
-{_lock_section("Điều cấm", taboos)}
+{_lock_section("Điều cấm riêng", taboos)}
 {context_section}
 {memory_section}
 {keepsake_section}
@@ -803,15 +881,28 @@ def _detect_citations(
     return citations
 
 
-def post_process_reply(reply: str, *, audience: str | None = None) -> str:
+def post_process_reply(
+    reply: str,
+    *,
+    audience: str | None = None,
+    previous: list[str] | None = None,
+    previous_today: list[str] | None = None,
+) -> str:
     if looks_like_taboo(reply):
         return _REFUSE_TABOO
     cleaned = reply.strip() or _FALLBACK
     if audience == "spouse":
         cleaned = _fix_spouse_address(cleaned)
+        used_today = any(
+            looks_like_direct_spouse_affection(p) for p in (previous_today or [])
+        )
+        if used_today:
+            cleaned = _soften_spouse_affection(cleaned)
     elif audience == "child":
         cleaned = _fix_child_address(cleaned)
-    return cleaned
+    cleaned = _strip_deference(cleaned)
+    cleaned = strip_repeated_family_redirect(cleaned, previous)
+    return cleaned or _FALLBACK
 
 
 def _matches_from_slugs(
@@ -1064,9 +1155,7 @@ def generate_heritage_reply(
     clarify = clarify_question(matches)
 
     milestones = retrieve_milestones(
-        milestones_for_identity(
-            db, space_id=thread.space_id, identity_id=identity.id, reader=reader
-        ),
+        family_milestones(db, space_id=thread.space_id, reader=reader),
         query=search_text,
     )
 
@@ -1141,7 +1230,14 @@ def generate_heritage_reply(
             current_speaker=current_speaker,
         )
 
-    body = post_process_reply(llm or _FALLBACK, audience=audience)
+    previous_bodies = recent_heritage_bodies(history)
+    previous_today = heritage_bodies_today(history)
+    body = post_process_reply(
+        llm or _FALLBACK,
+        audience=audience,
+        previous=previous_bodies,
+        previous_today=previous_today,
+    )
 
     # Years must appear in Lock + evidence the model was given — never in chat
     # turns. A question like «năm 2030…» (this turn or an earlier one on the
@@ -1187,9 +1283,15 @@ def generate_heritage_reply(
             audience=audience,
             grief=grief,
             seed=f"{thread.id}:{user_message.id}",
+            previous=previous_bodies,
         )
     if bridge_kind:
-        body = post_process_reply(body, audience=audience)
+        body = post_process_reply(
+            body,
+            audience=audience,
+            previous=previous_bodies,
+            previous_today=previous_today,
+        )
 
     all_poems = signature + retrieved
     citations = _detect_citations(body, all_poems, quote_mode=quote_mode)

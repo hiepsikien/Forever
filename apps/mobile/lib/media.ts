@@ -287,3 +287,17 @@ export async function saveLocalAudioToLibrary(
   await MediaLibrary.createAssetAsync(fileUri);
   return "library";
 }
+
+/** Save a cached image into the device photo library. */
+export async function saveLocalImageToLibrary(uri: string): Promise<void> {
+  const fileUri = ensureFileUri(uri);
+  const info = await FileSystem.getInfoAsync(fileUri);
+  if (!info.exists) {
+    throw new Error("Không tìm thấy ảnh để lưu.");
+  }
+  const perm = await MediaLibrary.requestPermissionsAsync();
+  if (perm.status !== "granted") {
+    throw new Error("Cần quyền Ảnh để lưu hiện vật.");
+  }
+  await MediaLibrary.createAssetAsync(fileUri);
+}

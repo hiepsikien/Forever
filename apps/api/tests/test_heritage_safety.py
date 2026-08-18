@@ -4,6 +4,7 @@ from app.services.heritage_safety import (
     maybe_family_bridge,
     maybe_winddown,
     refuse_sensitive,
+    strip_repeated_family_redirect,
 )
 
 
@@ -16,6 +17,10 @@ def test_sensitive_domains_and_safe_smalltalk():
     assert looks_like_sensitive("Chào bố, gia đình khỏe không?") is None
     assert looks_like_sensitive("Bố ơi, con nhớ bài thơ về vợ") is None
     assert looks_like_sensitive("Bố nhớ ngày giỗ cha thế nào?") is None
+    # Memory, not a decision — must not refuse the whole turn.
+    assert looks_like_sensitive("Bố nhớ lần mẹ đi viện năm ấy không?") is None
+    assert looks_like_sensitive("Căn nhà Hoàng Mai nhà mình hồi ấy thế nào?") is None
+    assert looks_like_sensitive("Bố ơi con nhớ bố, bố kể bài thơ với con.") is None
 
 
 def test_refuse_contains_charter_markers():
@@ -58,4 +63,30 @@ def test_winddown_after_threshold():
 
 def test_looks_like_grief():
     assert looks_like_grief("Anh ơi, em nhớ anh quá.")
+    assert looks_like_grief("Con thương quá, bố ơi.")
     assert not looks_like_grief("Chào bố, gia đình khỏe không?")
+    assert not looks_like_grief("Con nhớ bố, bố kể bài thơ với con.")
+
+
+def test_family_bridge_skips_when_recent_turn_already_redirected():
+    body, kind = maybe_family_bridge(
+        "Anh nhớ em.",
+        enabled=True,
+        audience="spouse",
+        grief=True,
+        seed="t2",
+        previous=["Nhà mình còn đó — em kể với các con một câu hôm nay cũng được."],
+    )
+    assert kind is None
+    assert body == "Anh nhớ em."
+
+
+def test_strip_repeated_family_redirect_keeps_the_memory():
+    previous = ["Con nhớ bố thì kể với mẹ và anh chị một câu cũng được."]
+    raw = (
+        "Bố nhớ bài thơ tuổi bảy nhăm. "
+        "Con hãy nói chuyện với gia đình nhé."
+    )
+    out = strip_repeated_family_redirect(raw, previous)
+    assert "bảy nhăm" in out.lower()
+    assert "nói chuyện với gia đình" not in out.lower()

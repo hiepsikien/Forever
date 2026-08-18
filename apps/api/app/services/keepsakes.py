@@ -14,7 +14,8 @@ from nanoid import generate
 from sqlalchemy.orm import Session
 
 from ..models import IdentityProfile, Keepsake, MemoryItem, Message, Thread
-from .heritage import identity_for_thread
+from .heritage import identity_for_thread, voice_for_identity
+from .poem_recite import voice_can_recite
 
 logger = logging.getLogger(__name__)
 
@@ -296,11 +297,13 @@ def payload(
     identity = (
         db.query(IdentityProfile).filter(IdentityProfile.id == row.identity_id).one_or_none()
     )
+    voice = voice_for_identity(db, identity) if identity else None
     return {
         "id": row.id,
         "space_id": row.space_id,
         "identity_id": row.identity_id,
         "identity_name": (identity.display_name if identity else "") or "",
+        "identity_relation": (identity.relation_label if identity else "") or "",
         "memory_item_id": row.memory_item_id,
         "kind": row.kind,
         "opener": row.opener,
@@ -315,6 +318,7 @@ def payload(
         "opened_message_id": row.opened_message_id,
         "already_open": bool(row.opened_message_id),
         "can_skip": can_skip,
+        "can_recite": row.kind == POEM_KIND and voice_can_recite(voice),
         "heard": row.status == "heard",
         "last_opened_at": row.last_opened_at.isoformat() if row.last_opened_at else None,
     }

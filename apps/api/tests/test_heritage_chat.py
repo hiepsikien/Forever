@@ -14,6 +14,7 @@ from app.services.heritage_chat import (
     _infer_audience_from_message,
     _is_child_profile,
     _is_spouse_profile,
+    _strip_deference,
     build_system_prompt,
     looks_like_fabrication_request,
     looks_like_taboo,
@@ -199,6 +200,20 @@ def test_post_process_blocks_taboo_llm_output():
     assert "không bàn được" in post_process_reply(bad).lower()
 
 
+def test_strip_deference_drops_dạ_and_ạ():
+    raw = "Dạ, bố nhớ con. Con khoẻ không ạ? Vâng ạ, bố nghe rồi."
+    fixed = _strip_deference(raw)
+    assert "dạ" not in fixed.lower()
+    assert "ạ" not in fixed
+    assert "bố nhớ con" in fixed.lower()
+
+
+def test_post_process_strips_deference_for_child():
+    out = post_process_reply("Dạ con ơi, bố nhớ con.", audience="child")
+    assert not out.lower().startswith("dạ")
+    assert "ạ" not in out.split()
+
+
 def test_finalize_reply_text_trims_dangling_tail():
     cut = (
         "Con ơi, bố nghe em rồi. Cả nhà bình an là bố vui nhất, "
@@ -220,6 +235,24 @@ def test_fix_spouse_address_replaces_mẹ_vocative():
     assert "mẹ" not in fixed.lower()
     assert "em" in fixed.lower()
     assert "anh" in fixed.lower()
+
+
+def test_post_process_allows_one_direct_spouse_affection_per_day():
+    first = post_process_reply("Anh yêu em. Nhà mình yên.", audience="spouse")
+    assert "anh yêu em" in first.lower()
+    later = post_process_reply(
+        "Anh nhớ em. Em nhớ lấy sức.",
+        audience="spouse",
+        previous_today=[first],
+    )
+    lower = later.lower()
+    assert "anh nhớ em" not in lower
+    assert "nhà mình" in lower
+
+
+def test_post_process_keeps_child_miss_you():
+    out = post_process_reply("Con ơi, bố nhớ con.", audience="child")
+    assert "bố nhớ con" in out.lower()
 
 
 def test_infer_audience_steward_is_child_not_spouse(client):
@@ -486,6 +519,41 @@ def test_build_system_prompt_spouse_audience():
     assert "gọi vợ là «em»" in prompt
     assert "Không gọi em là «mẹ»" in prompt
     assert "NGƯỜI ĐANG NHẮN" in prompt
+    assert "Lớp 1 — Ứng dụng Forever" in prompt
+    assert "Lớp 2 — Hiến chương gia đình" in prompt
+    assert "Lớp 3 — Bản sắc" in prompt
+    assert "KHÔNG xưng «dạ»" in prompt
+    assert "anh yêu em" in prompt
+    assert "một câu tỏ tình" in prompt
+
+
+def test_build_system_prompt_omits_heritage_rules_from_identity_layer():
+    from app.models import IdentityProfile
+
+    identity = IdentityProfile(
+        id="id1",
+        space_id="s",
+        display_name="Nguyễn Đình Triệu",
+        relation_label="Bố",
+        status="remembered",
+        created_by="u",
+        taboos_json=(
+            '{"hard":["Chính trị"],'
+            '"heritage_rules":["Không bịa tiểu sử","Mời gia đình nói chuyện"]}'
+        ),
+    )
+    prompt = build_system_prompt(
+        identity,
+        signature_poems=[],
+        retrieved_poems=[],
+        knowledge=[],
+        live_context=None,
+        quote_mode="paraphrase",
+        audience="child",
+    )
+    assert "Chính trị" in prompt
+    assert "heritage_rules" not in prompt
+    assert "Mời gia đình nói chuyện" not in prompt
 
 
 def test_retrieve_poems_prefers_signature_and_theme():

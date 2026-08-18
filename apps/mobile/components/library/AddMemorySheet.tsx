@@ -21,7 +21,7 @@ const OPTIONS: { id: AddMemoryAction; label: string; hint: string }[] = [
   { id: "note", label: "Ghi chú", hint: "Một dòng nhớ ngắn" },
   { id: "photo", label: "Ảnh", hint: "Từ thư viện ảnh" },
   { id: "video", label: "Video", hint: "Clip gia đình" },
-  { id: "milestone", label: "Mốc đời", hint: "Năm + chuyện đã xảy ra" },
+  { id: "milestone", label: "Ngày gia đình", hint: "Giỗ, cưới, sinh, mất…" },
   { id: "poem", label: "Thơ", hint: "Dán tiêu đề và thân bài" },
 ];
 
@@ -54,7 +54,7 @@ export function AddMemorySheet({ visible, onClose, onSelect, onIngest }: Props) 
               }}
             >
               <Text style={styles.optionLabel}>Nhập tài liệu</Text>
-              <Text style={styles.optionHint}>Thơ, ảnh, mốc đời từ file</Text>
+              <Text style={styles.optionHint}>Thơ, ảnh, ngày gia đình từ file</Text>
             </Pressable>
           ) : null}
           <Pressable style={styles.cancel} onPress={onClose}>
