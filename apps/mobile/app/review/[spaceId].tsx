@@ -7,7 +7,6 @@ import {
   FlatList,
   Pressable,
   RefreshControl,
-  StyleSheet,
   Text,
   TextInput,
   View,
@@ -16,7 +15,7 @@ import {
 import { useAuth } from "@/lib/auth";
 import { formatLocalDate, formatLocalDateTime } from "@/lib/datetime";
 import { useSpaceScreenOptions } from "@/lib/spaceHeader";
-import { colors, fonts } from "@/lib/theme";
+import { colors, fonts, createThemedStyles } from "@/lib/theme";
 
 const KIND_LABELS: Record<string, string> = {
   life_state: "Hiện tại",
@@ -232,7 +231,7 @@ export default function ReviewScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = createThemedStyles((colors) => ({
   root: { flex: 1, backgroundColor: colors.bg },
   content: { padding: 20, paddingBottom: 40 },
   center: {
@@ -323,4 +322,4 @@ const styles = StyleSheet.create({
   drop: { paddingHorizontal: 10, paddingVertical: 11 },
   dropText: { fontSize: 14, fontWeight: "600", color: colors.inkSoft },
   disabled: { opacity: 0.5 },
-});
+}));

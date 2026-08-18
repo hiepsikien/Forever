@@ -10,7 +10,6 @@ import {
   Alert,
   FlatList,
   Pressable,
-  StyleSheet,
   Switch,
   Text,
   View,
@@ -33,7 +32,7 @@ import {
 import { formatLocalDateTime } from "@/lib/datetime";
 import { fetchAuthedMediaUri } from "@/lib/media";
 import { useSpaceScreenOptions } from "@/lib/spaceHeader";
-import { colors, fonts } from "@/lib/theme";
+import { colors, fonts, createThemedStyles } from "@/lib/theme";
 
 type Playback = { id: string; paused: boolean } | null;
 
@@ -344,7 +343,7 @@ export default function CloneVoiceScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = createThemedStyles((colors) => ({
   root: { flex: 1, backgroundColor: colors.bg },
   list: { flex: 1 },
   content: { padding: 20, paddingBottom: 40, gap: 8 },
@@ -457,4 +456,4 @@ const styles = StyleSheet.create({
   },
   btnText: { color: "#fff", fontWeight: "700", fontSize: 15 },
   disabled: { opacity: 0.5 },
-});
+}));

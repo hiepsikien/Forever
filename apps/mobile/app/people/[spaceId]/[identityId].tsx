@@ -4,7 +4,6 @@ import { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Pressable,
-  StyleSheet,
   Text,
   View,
 } from "react-native";
@@ -12,7 +11,7 @@ import {
 import { useAuth } from "@/lib/auth";
 import { identityChipLabel } from "@/lib/identityDisplay";
 import { useSpaceScreenOptions } from "@/lib/spaceHeader";
-import { colors, fonts } from "@/lib/theme";
+import { colors, fonts, createThemedStyles } from "@/lib/theme";
 
 export default function LivingPersonProfileScreen() {
   const { spaceId, identityId } = useLocalSearchParams<{
@@ -137,7 +136,7 @@ export default function LivingPersonProfileScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = createThemedStyles((colors) => ({
   root: { flex: 1, backgroundColor: colors.bg, padding: 20, gap: 12 },
   center: {
     flex: 1,
@@ -180,4 +179,4 @@ const styles = StyleSheet.create({
   actionTitle: { fontSize: 16, fontWeight: "700", color: colors.ink },
   actionSub: { fontSize: 13, color: colors.inkSoft },
   error: { color: "#b3261e", fontSize: 14, marginTop: 8 },
-});
+}));

@@ -21,7 +21,7 @@ import {
 import { useAuth } from "@/lib/auth";
 import { elVoiceSortKey, formatElVoiceWhen } from "@/lib/elVoice";
 import { useSpaceScreenOptions } from "@/lib/spaceHeader";
-import { colors, fonts } from "@/lib/theme";
+import { colors, fonts, createThemedStyles } from "@/lib/theme";
 
 const SWIPE_DELETE_WIDTH = 88;
 const SWIPE_OPEN_THRESHOLD = 48;
@@ -335,7 +335,7 @@ export default function VoiceClonesScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = createThemedStyles((colors) => ({
   root: { flex: 1, backgroundColor: colors.bg },
   content: { padding: 20, paddingBottom: 40 },
   center: {
@@ -405,4 +405,4 @@ const styles = StyleSheet.create({
   deleteBtn: { marginLeft: "auto", paddingVertical: 8, paddingHorizontal: 8 },
   deleteLink: { color: colors.danger, fontWeight: "700", fontSize: 13 },
   disabled: { opacity: 0.5 },
-});
+}));

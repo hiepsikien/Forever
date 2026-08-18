@@ -13,7 +13,6 @@ import {
   Alert,
   Pressable,
   ScrollView,
-  StyleSheet,
   Switch,
   Text,
   TextInput,
@@ -28,7 +27,9 @@ import {
   relationToRememberedPrompt,
 } from "@/lib/identityDisplay";
 import { useSpaceScreenOptions } from "@/lib/spaceHeader";
-import { colors, fonts } from "@/lib/theme";
+import { colors, fonts, createThemedStyles, useTheme } from "@/lib/theme";
+
+type SettingsTab = "account" | "space" | "ai";
 
 const ROLE_CHOICES: Array<{ role: SpaceRole; label: string; help: string }> = [
   { role: "owner", label: "Quản trị", help: "Mời và gỡ người, giữ Voice DNA." },
@@ -103,6 +104,7 @@ function StatCell({ label, value }: { label: string; value: string }) {
 }
 
 export default function SettingsScreen() {
+  const { themeId, setThemeId, themes } = useTheme();
   const { spaceId } = useLocalSearchParams<{ spaceId: string }>();
   const { api, user, signOut } = useAuth();
   const router = useRouter();
@@ -652,6 +654,59 @@ export default function SettingsScreen() {
               <Text style={styles.signOutText}>Đăng xuất</Text>
             </Pressable>
           </View>
+          <View style={styles.card}>
+            <Text style={styles.value}>Giao diện</Text>
+            <Text style={styles.help}>
+              Màu trên máy này. Năm cách nhìn — Rừng là mặc định Forever.
+            </Text>
+            <View style={styles.themeGrid}>
+              {themes.map((theme) => {
+                const active = theme.id === themeId;
+                return (
+                  <Pressable
+                    key={theme.id}
+                    onPress={() => setThemeId(theme.id)}
+                    style={[styles.themeCell, active && styles.themeCellActive]}
+                    accessibilityRole="button"
+                    accessibilityState={{ selected: active }}
+                    accessibilityLabel={theme.label}
+                  >
+                    <View style={styles.themeDots}>
+                      <View
+                        style={[
+                          styles.themeDot,
+                          { backgroundColor: theme.colors.bg },
+                        ]}
+                      />
+                      <View
+                        style={[
+                          styles.themeDot,
+                          { backgroundColor: theme.colors.brand },
+                        ]}
+                      />
+                      <View
+                        style={[
+                          styles.themeDot,
+                          { backgroundColor: theme.colors.accent },
+                        ]}
+                      />
+                    </View>
+                    <Text
+                      style={[
+                        styles.themeLabel,
+                        active && styles.themeLabelActive,
+                      ]}
+                    >
+                      {theme.label}
+                    </Text>
+                    <Text style={styles.themeHint} numberOfLines={2}>
+                      {theme.hint}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+          </View>
           <Pressable
             style={styles.philosophyLink}
             onPress={() => router.navigate("/")}
@@ -866,9 +921,9 @@ export default function SettingsScreen() {
                     disabled={busy || !settings?.can_edit}
                     trackColor={{
                       false: colors.line,
-                      true: "rgba(45, 74, 62, 0.45)",
+                      true: colors.brandWash,
                     }}
-                    thumbColor={flag.enabled ? colors.brand : "#f4efe6"}
+                    thumbColor={flag.enabled ? colors.brand : colors.onBrand}
                   />
                 </View>
               );
@@ -1439,7 +1494,7 @@ export default function SettingsScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = createThemedStyles((colors) => ({
   center: {
     flex: 1,
     alignItems: "center",
@@ -1463,7 +1518,7 @@ const styles = StyleSheet.create({
   },
   tabActive: {
     borderColor: colors.brand,
-    backgroundColor: "rgba(45, 74, 62, 0.08)",
+    backgroundColor: colors.brandWash,
   },
   tabText: { fontSize: 14, fontWeight: "600", color: colors.inkSoft },
   tabTextActive: { color: colors.brand },
@@ -1506,7 +1561,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 8,
   },
-  smallBtnText: { color: "#f4efe6", fontWeight: "600", fontSize: 13 },
+  smallBtnText: { color: colors.onBrand, fontWeight: "600", fontSize: 13 },
   smallBtnGhost: {
     borderRadius: 999,
     paddingHorizontal: 12,
@@ -1524,6 +1579,7 @@ const styles = StyleSheet.create({
     borderTopColor: colors.line,
   },
   archiveRowMain: { flex: 1, gap: 2 },
+  memberBlock: { gap: 8, paddingVertical: 4 },
   livingForm: { gap: 8, width: "100%", paddingTop: 4 },
   chipRow: { flexDirection: "row", flexWrap: "wrap", gap: 8, paddingTop: 4 },
   chip: {
@@ -1532,14 +1588,14 @@ const styles = StyleSheet.create({
     paddingVertical: 7,
     borderWidth: 1,
     borderColor: colors.line,
-    backgroundColor: "#fff",
+    backgroundColor: colors.inputBg,
   },
   chipActive: { backgroundColor: colors.brand, borderColor: colors.brand },
   chipText: { fontSize: 13, fontWeight: "600", color: colors.inkSoft },
-  chipTextActive: { color: "#f4efe6" },
+  chipTextActive: { color: colors.onBrand },
   btnSecondary: {
     alignSelf: "flex-start",
-    backgroundColor: "#fff",
+    backgroundColor: colors.inputBg,
     borderWidth: 1,
     borderColor: colors.brand,
     borderRadius: 999,
@@ -1556,7 +1612,7 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     fontSize: 15,
     color: colors.ink,
-    backgroundColor: "#fff",
+    backgroundColor: colors.inputBg,
   },
   btn: {
     marginTop: 8,
@@ -1566,7 +1622,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   btnDisabled: { opacity: 0.6 },
-  btnText: { color: "#fff", fontWeight: "700", fontSize: 15 },
+  btnText: { color: colors.onBrand, fontWeight: "700", fontSize: 15 },
   accountName: {
     fontFamily: fonts.display,
     fontSize: 22,
@@ -1693,4 +1749,40 @@ const styles = StyleSheet.create({
     flexShrink: 1,
     textAlign: "right",
   },
-});
+  themeGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+    marginTop: 4,
+  },
+  themeCell: {
+    width: "31%",
+    flexGrow: 1,
+    minWidth: 96,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: colors.line,
+    backgroundColor: colors.inputBg,
+    padding: 10,
+    gap: 6,
+  },
+  themeCellActive: {
+    borderColor: colors.brand,
+    backgroundColor: colors.brandWash,
+  },
+  themeDots: { flexDirection: "row", gap: 4 },
+  themeDot: {
+    width: 14,
+    height: 14,
+    borderRadius: 7,
+    borderWidth: 1,
+    borderColor: colors.line,
+  },
+  themeLabel: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: colors.ink,
+  },
+  themeLabelActive: { color: colors.brand },
+  themeHint: { fontSize: 12, lineHeight: 16, color: colors.inkSoft },
+}));

@@ -9,7 +9,6 @@ import {
   Platform,
   Pressable,
   ScrollView,
-  StyleSheet,
   Text,
   TextInput,
   View,
@@ -26,7 +25,7 @@ import {
 import { useAuth } from "@/lib/auth";
 import { stageLocalAudioFile } from "@/lib/media";
 import { useSpaceScreenOptions } from "@/lib/spaceHeader";
-import { colors, fonts } from "@/lib/theme";
+import { colors, fonts, createThemedStyles } from "@/lib/theme";
 
 type Phase = "pick" | "review";
 
@@ -360,7 +359,7 @@ export default function VoiceUploadScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = createThemedStyles((colors) => ({
   flex: { flex: 1, backgroundColor: colors.bg },
   steps: {
     flexDirection: "row",
@@ -515,4 +514,4 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
   disabled: { opacity: 0.5 },
-});
+}));

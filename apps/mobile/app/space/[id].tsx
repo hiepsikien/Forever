@@ -8,7 +8,6 @@ import {
   Image,
   Pressable,
   RefreshControl,
-  StyleSheet,
   Text,
   View,
 } from "react-native";
@@ -19,7 +18,7 @@ import { rememberedLibraryPeople } from "@/lib/libraryShelves";
 import { fetchAuthedMediaUri } from "@/lib/media";
 import { reciteListenLabel, usePoemRecite } from "@/lib/poemRecite";
 import { useSpaceScreenOptions } from "@/lib/spaceHeader";
-import { colors, fonts } from "@/lib/theme";
+import { colors, fonts, createThemedStyles } from "@/lib/theme";
 import { PhotoLightbox } from "@/components/library/PhotoLightbox";
 
 function threadPreview(item: ThreadSummary): string {
@@ -662,7 +661,7 @@ export default function SpaceScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = createThemedStyles((colors) => ({
   list: { flex: 1, backgroundColor: colors.bg },
   listContent: { padding: 20, paddingBottom: 40 },
   center: {
@@ -939,4 +938,4 @@ const styles = StyleSheet.create({
   },
   empty: { color: colors.inkSoft, lineHeight: 22, marginTop: 4 },
   error: { color: colors.danger, marginTop: 12 },
-});
+}));

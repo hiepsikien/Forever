@@ -12,7 +12,6 @@ import {
   Alert,
   Pressable,
   ScrollView,
-  StyleSheet,
   Text,
   TextInput,
   View,
@@ -21,7 +20,7 @@ import {
 import { useAuth } from "@/lib/auth";
 import { identityChipLabel, LIVING_RELATIONS_TO_REMEMBERED, relationToRememberedPrompt } from "@/lib/identityDisplay";
 import { useSpaceScreenOptions } from "@/lib/spaceHeader";
-import { colors, fonts } from "@/lib/theme";
+import { colors, fonts, createThemedStyles } from "@/lib/theme";
 
 type WorkflowStep = 0 | 1 | 2 | 3;
 
@@ -1024,7 +1023,7 @@ export default function VoiceDnaScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = createThemedStyles((colors) => ({
   screen: { flex: 1, backgroundColor: colors.bg },
   center: {
     flex: 1,
@@ -1289,4 +1288,4 @@ const styles = StyleSheet.create({
     color: colors.inkSoft,
     paddingHorizontal: 4,
   },
-});
+}));

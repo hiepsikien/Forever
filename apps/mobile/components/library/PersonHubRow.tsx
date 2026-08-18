@@ -1,7 +1,7 @@
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { Pressable, Text, View } from "react-native";
 
 import { formatShelfSummary, PersonHubRow } from "@/lib/libraryShelves";
-import { colors, fonts } from "@/lib/theme";
+import { colors, fonts, createThemedStyles } from "@/lib/theme";
 
 type Props = {
   row: PersonHubRow;
@@ -25,7 +25,7 @@ export function PersonHubRowView({ row, onPress }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = createThemedStyles((colors) => ({
   row: {
     flexDirection: "row",
     alignItems: "center",
@@ -54,4 +54,4 @@ const styles = StyleSheet.create({
     color: colors.brandSoft,
     lineHeight: 28,
   },
-});
+}));

@@ -19,7 +19,7 @@ import {
   CALENDAR_KIND_LABELS,
   CalendarKind,
 } from "@/lib/memoryTags";
-import { colors, fonts } from "@/lib/theme";
+import { colors, fonts, createThemedStyles } from "@/lib/theme";
 
 export type TextMemoryKind = "note" | "milestone" | "poem";
 
@@ -226,7 +226,7 @@ export function TextMemoryFormModal({
   );
 }
 
-const styles = StyleSheet.create({
+const styles = createThemedStyles((colors) => ({
   flex: { flex: 1 },
   backdrop: {
     flex: 1,
@@ -301,4 +301,4 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
   },
   saveText: { color: "#fff", fontWeight: "700", fontSize: 15 },
-});
+}));

@@ -5,7 +5,6 @@ import {
   Platform,
   Pressable,
   ScrollView,
-  StyleSheet,
   Text,
   TextInput,
   View,
@@ -15,7 +14,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { IdentityProfile } from "@forever/api-client";
 
 import { IdentityChipPicker } from "@/components/IdentityChipPicker";
-import { colors, fonts } from "@/lib/theme";
+import { colors, fonts, createThemedStyles } from "@/lib/theme";
 
 type Props = {
   visible: boolean;
@@ -142,7 +141,7 @@ export function MemoryCaptionModal({
   );
 }
 
-const styles = StyleSheet.create({
+const styles = createThemedStyles((colors) => ({
   flex: { flex: 1 },
   backdrop: {
     flex: 1,
@@ -209,4 +208,4 @@ const styles = StyleSheet.create({
   },
   saveText: { color: "#f4efe6", fontWeight: "600" },
   disabled: { opacity: 0.45 },
-});
+}));

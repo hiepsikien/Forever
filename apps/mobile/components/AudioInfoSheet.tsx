@@ -5,12 +5,11 @@ import {
   Modal,
   Pressable,
   ScrollView,
-  StyleSheet,
   Text,
   View,
 } from "react-native";
 
-import { colors, fonts } from "@/lib/theme";
+import { colors, fonts, createThemedStyles } from "@/lib/theme";
 
 export type AudioInfoTarget = {
   /** Shown as the sheet subtitle so the user knows which file they opened. */
@@ -195,7 +194,7 @@ export function AudioInfoSheet({ target, onClose }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = createThemedStyles((colors) => ({
   backdrop: {
     flex: 1,
     backgroundColor: "rgba(0,0,0,0.35)",
@@ -255,4 +254,4 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   closeText: { color: colors.brand, fontWeight: "700", fontSize: 14 },
-});
+}));

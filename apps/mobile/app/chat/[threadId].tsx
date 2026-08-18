@@ -27,7 +27,6 @@ import {
   NativeSyntheticEvent,
   Platform,
   Pressable,
-  StyleSheet,
   Text,
   TextInput,
   View,
@@ -56,7 +55,7 @@ import { useAuth } from "@/lib/auth";
 import { formatMessageTime } from "@/lib/datetime";
 import { fetchAuthedMediaUri } from "@/lib/media";
 import { useSpaceScreenOptions } from "@/lib/spaceHeader";
-import { colors } from "@/lib/theme";
+import { colors, createThemedStyles, useTheme } from "@/lib/theme";
 
 function uniqueById(items: ChatMessage[]): ChatMessage[] {
   const seen = new Set<string>();
@@ -234,6 +233,7 @@ const ChatMessageRow = memo(function ChatMessageRow({
   onSave,
   onOpenCited,
 }: MessageRowProps) {
+  useTheme();
   const isAgent = item.sender_kind === "agent";
   const isHeritage = item.sender_kind === "heritage";
   const voice = isVoiceMessage(item);
@@ -1129,7 +1129,7 @@ export default function ChatScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = createThemedStyles((colors) => ({
   root: { flex: 1, backgroundColor: colors.bgDeep },
   center: {
     flex: 1,
@@ -1348,4 +1348,4 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   blockedBtnText: { color: "#fff", fontWeight: "700", fontSize: 15 },
-});
+}));

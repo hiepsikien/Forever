@@ -5,7 +5,6 @@ import {
   Platform,
   Pressable,
   ScrollView,
-  StyleSheet,
   Text,
   TextInput,
   View,
@@ -20,7 +19,7 @@ import {
   getSavedLoginEmail,
   saveLoginEmail,
 } from "@/lib/loginCredentials";
-import { colors } from "@/lib/theme";
+import { colors, createThemedStyles, useTheme } from "@/lib/theme";
 
 /** Firebase error codes read like stack traces; mẹ needs a sentence. */
 function friendlyAuthError(e: unknown): string {
@@ -47,6 +46,7 @@ function friendlyAuthError(e: unknown): string {
 }
 
 export default function LoginScreen() {
+  useTheme();
   const { signIn, signInDev, resetPassword } = useAuth();
   const insets = useSafeAreaInsets();
   const passwordRef = useRef<TextInput>(null);
@@ -213,7 +213,7 @@ export default function LoginScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = createThemedStyles((colors) => ({
   root: { flex: 1, backgroundColor: colors.brand },
   centered: { alignItems: "center", justifyContent: "center" },
   loadingText: { color: "#f4efe6", fontSize: 16 },
@@ -285,4 +285,4 @@ const styles = StyleSheet.create({
     color: colors.inkSoft,
     lineHeight: 18,
   },
-});
+}));

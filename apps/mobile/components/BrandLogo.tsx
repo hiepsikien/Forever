@@ -1,11 +1,11 @@
 import { Image, ImageStyle, StyleProp, StyleSheet, Text, View, ViewStyle } from "react-native";
 
-import { colors, fonts } from "@/lib/theme";
+import { fonts, useTheme } from "@/lib/theme";
 
 type Variant = "onDark" | "onLight";
 
 type Props = {
-  /** Mark stroke: cream on dark surfaces, brand green on light. */
+  /** Mark stroke: cream on dark surfaces, brand color on light. */
   variant?: Variant;
   /** Show the Forever wordmark beside/below the mark. */
   showWordmark?: boolean;
@@ -30,7 +30,8 @@ export function BrandLogo({
   style,
   markStyle,
 }: Props) {
-  const onDark = variant === "onDark";
+  const { colors } = useTheme();
+  const onDark = variant === "onDark" || colors.isDark;
   const stacked = layout === "stacked";
 
   return (

@@ -21,7 +21,7 @@ import {
 
 import { useAuth } from "@/lib/auth";
 import { useSpaceScreenOptions } from "@/lib/spaceHeader";
-import { colors, fonts } from "@/lib/theme";
+import { colors, fonts, createThemedStyles } from "@/lib/theme";
 
 /**
  * Bản sắc — the Identity Lock behind a remembered person's voice.
@@ -629,7 +629,7 @@ export default function IdentityLockScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = createThemedStyles((colors) => ({
   screen: { flex: 1, backgroundColor: colors.bg },
   center: {
     flex: 1,
@@ -751,4 +751,4 @@ const styles = StyleSheet.create({
   revisionMain: { flex: 1, gap: 2 },
   revisionWhen: { fontSize: 14, fontWeight: "600", color: colors.ink },
   metaLine: { fontSize: 12, color: colors.inkSoft },
-});
+}));

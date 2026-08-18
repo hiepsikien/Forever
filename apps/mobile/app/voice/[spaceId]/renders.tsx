@@ -16,7 +16,6 @@ import {
   FlatList,
   Pressable,
   ScrollView,
-  StyleSheet,
   Text,
   View,
 } from "react-native";
@@ -37,7 +36,7 @@ import {
   prepareAudioExport,
   shareLocalAudio,
 } from "@/lib/media";
-import { colors, fonts } from "@/lib/theme";
+import { colors, fonts, createThemedStyles } from "@/lib/theme";
 
 type PlaybackKind = "render" | "sample";
 type Playback = { id: string; kind: PlaybackKind; paused: boolean } | null;
@@ -658,7 +657,7 @@ export default function VoiceRendersScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = createThemedStyles((colors) => ({
   root: { flex: 1, backgroundColor: colors.bg },
   content: { padding: 20, paddingBottom: 40, gap: 10 },
   center: {
@@ -843,4 +842,4 @@ const styles = StyleSheet.create({
   // Keeps the destructive action away from Nghe / Chia sẻ.
   deleteBtn: { marginLeft: "auto", paddingVertical: 8, paddingHorizontal: 8 },
   delete: { color: colors.danger, fontWeight: "700", fontSize: 13 },
-});
+}));

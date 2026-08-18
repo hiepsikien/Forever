@@ -6,14 +6,13 @@ import {
   Alert,
   Pressable,
   ScrollView,
-  StyleSheet,
   Text,
   View,
 } from "react-native";
 
 import { useAuth } from "@/lib/auth";
 import { useSpaceScreenOptions } from "@/lib/spaceHeader";
-import { colors, fonts } from "@/lib/theme";
+import { colors, fonts, createThemedStyles } from "@/lib/theme";
 
 function pillarLabel(done: boolean, active: boolean): string {
   if (done) return "✓";
@@ -268,7 +267,7 @@ export default function AwakeningScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = createThemedStyles((colors) => ({
   center: {
     flex: 1,
     alignItems: "center",
@@ -340,4 +339,4 @@ const styles = StyleSheet.create({
     color: colors.inkSoft,
     marginTop: 8,
   },
-});
+}));

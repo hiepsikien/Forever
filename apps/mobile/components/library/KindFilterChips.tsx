@@ -1,7 +1,7 @@
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Pressable, ScrollView, Text, View } from "react-native";
 
 import { SHELF_LABELS, ShelfCounts, ShelfFilter } from "@/lib/libraryShelves";
-import { colors } from "@/lib/theme";
+import { colors, createThemedStyles } from "@/lib/theme";
 
 const ORDER: ShelfFilter[] = ["all", "life", "poems", "artifacts", "heard"];
 
@@ -61,7 +61,7 @@ export function KindFilterChips({
   );
 }
 
-const styles = StyleSheet.create({
+const styles = createThemedStyles((colors) => ({
   wrap: {
     height: 44,
     marginBottom: 4,
@@ -95,4 +95,4 @@ const styles = StyleSheet.create({
     color: colors.brandSoft,
   },
   chipTextOn: { color: "#f4efe6" },
-});
+}));

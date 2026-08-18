@@ -5,7 +5,6 @@ import {
   ActivityIndicator,
   FlatList,
   RefreshControl,
-  StyleSheet,
   Text,
   View,
 } from "react-native";
@@ -19,7 +18,7 @@ import {
   UNTAGGED_PERSON_ID,
 } from "@/lib/libraryShelves";
 import { useSpaceScreenOptions } from "@/lib/spaceHeader";
-import { colors } from "@/lib/theme";
+import { colors, createThemedStyles } from "@/lib/theme";
 
 export default function LibraryHubScreen() {
   const { spaceId } = useLocalSearchParams<{ spaceId: string }>();
@@ -133,7 +132,7 @@ export default function LibraryHubScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = createThemedStyles((colors) => ({
   root: { flex: 1, backgroundColor: colors.bg },
   center: {
     flex: 1,
@@ -144,4 +143,4 @@ const styles = StyleSheet.create({
   list: { padding: 16, paddingTop: 12, paddingBottom: 40 },
   empty: { color: colors.inkSoft, lineHeight: 22, paddingTop: 24 },
   error: { color: colors.danger, padding: 16 },
-});
+}));

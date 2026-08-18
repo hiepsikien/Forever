@@ -13,7 +13,6 @@ import {
   FlatList,
   Pressable,
   RefreshControl,
-  StyleSheet,
   Text,
   View,
 } from "react-native";
@@ -21,7 +20,7 @@ import {
 import { useAuth } from "@/lib/auth";
 import { identityChipLabel } from "@/lib/identityDisplay";
 import { useSpaceScreenOptions } from "@/lib/spaceHeader";
-import { colors, fonts } from "@/lib/theme";
+import { colors, fonts, createThemedStyles } from "@/lib/theme";
 
 const KIND_LABEL: Record<string, string> = {
   poem: "Thơ",
@@ -635,7 +634,7 @@ export default function LibraryIngestScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = createThemedStyles((colors) => ({
   root: { flex: 1, backgroundColor: colors.bg, paddingTop: 12 },
   center: {
     flex: 1,
@@ -786,4 +785,4 @@ const styles = StyleSheet.create({
   settledLabel: { fontSize: 13, color: colors.inkSoft, marginTop: 4 },
   backLink: { padding: 16 },
   backLinkText: { color: colors.brand, fontWeight: "600" },
-});
+}));

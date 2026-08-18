@@ -7,7 +7,6 @@ import {
   Alert,
   Pressable,
   ScrollView,
-  StyleSheet,
   Text,
   TextInput,
   View,
@@ -19,7 +18,7 @@ import { useAuth } from "@/lib/auth";
 import { identityChipLabel } from "@/lib/identityDisplay";
 import { fetchAuthedMediaUri } from "@/lib/media";
 import { useSpaceScreenOptions } from "@/lib/spaceHeader";
-import { colors, fonts } from "@/lib/theme";
+import { colors, fonts, createThemedStyles } from "@/lib/theme";
 
 function statusLabel(status: string): string {
   switch (status) {
@@ -791,7 +790,7 @@ export default function ExtractJobScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = createThemedStyles((colors) => ({
   screen: { flex: 1, backgroundColor: colors.bg },
   flex: { flex: 1 },
   root: { padding: 20, gap: 12, paddingBottom: 48 },
@@ -920,4 +919,4 @@ const styles = StyleSheet.create({
   },
   btnGhostText: { color: colors.inkSoft, fontWeight: "600" },
   disabled: { opacity: 0.45 },
-});
+}));

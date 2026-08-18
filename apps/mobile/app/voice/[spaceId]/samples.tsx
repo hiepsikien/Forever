@@ -6,7 +6,6 @@ import {
   Alert,
   FlatList,
   Pressable,
-  StyleSheet,
   Text,
   TextInput,
   View,
@@ -27,7 +26,7 @@ import { useAuth } from "@/lib/auth";
 import { formatLocalDateTime } from "@/lib/datetime";
 import { fetchAuthedMediaUri } from "@/lib/media";
 import { useSpaceScreenOptions } from "@/lib/spaceHeader";
-import { colors, fonts } from "@/lib/theme";
+import { colors, fonts, createThemedStyles } from "@/lib/theme";
 
 type Playback = { id: string; paused: boolean } | null;
 type TabStage = "unprocessed" | "processed" | "archived";
@@ -870,7 +869,7 @@ export default function VoiceSamplesScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = createThemedStyles((colors) => ({
   root: { flex: 1, backgroundColor: colors.bg },
   list: { flex: 1 },
   content: { padding: 20, paddingBottom: 40, gap: 8 },
@@ -1045,4 +1044,4 @@ const styles = StyleSheet.create({
   },
   btnGhostText: { color: colors.inkSoft, fontWeight: "600", fontSize: 13 },
   disabled: { opacity: 0.5 },
-});
+}));

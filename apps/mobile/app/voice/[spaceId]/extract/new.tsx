@@ -7,7 +7,6 @@ import {
   Modal,
   Pressable,
   ScrollView,
-  StyleSheet,
   Text,
   TextInput,
   View,
@@ -22,7 +21,7 @@ import {
   pickExtractMediaFile,
 } from "@/lib/mediaPick";
 import { useSpaceScreenOptions } from "@/lib/spaceHeader";
-import { colors, fonts } from "@/lib/theme";
+import { colors, fonts, createThemedStyles } from "@/lib/theme";
 
 const MAX_UPLOAD_BYTES = 200 * 1024 * 1024;
 
@@ -280,7 +279,7 @@ export default function ExtractNewScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = createThemedStyles((colors) => ({
   screen: { flex: 1, backgroundColor: colors.bg },
   root: { padding: 20, gap: 14, paddingBottom: 40 },
   title: {
@@ -376,4 +375,4 @@ const styles = StyleSheet.create({
   },
   modalClose: { alignSelf: "center", paddingVertical: 12 },
   modalCloseText: { color: colors.inkSoft, fontSize: 16 },
-});
+}));

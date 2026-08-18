@@ -12,7 +12,7 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { colors, fonts } from "@/lib/theme";
+import { colors, fonts, createThemedStyles } from "@/lib/theme";
 
 type Props = {
   visible: boolean;
@@ -166,7 +166,7 @@ export function MemoryVideoModal({
   );
 }
 
-const styles = StyleSheet.create({
+const styles = createThemedStyles((colors) => ({
   backdrop: {
     flex: 1,
     backgroundColor: "#0f0f0f",
@@ -228,4 +228,4 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   bufferText: { color: "#f4efe6", fontSize: 15 },
-});
+}));

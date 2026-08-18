@@ -12,7 +12,6 @@ import {
   Platform,
   Pressable,
   ScrollView,
-  StyleSheet,
   Text,
   TextInput,
   View,
@@ -31,7 +30,7 @@ import { RecordingLevelMeter } from "@/lib/recordingMeter";
 import { VOICE_RECORDING_OPTIONS } from "@/lib/recordingOptions";
 import { useAuth } from "@/lib/auth";
 import { useSpaceScreenOptions } from "@/lib/spaceHeader";
-import { colors, fonts } from "@/lib/theme";
+import { colors, fonts, createThemedStyles } from "@/lib/theme";
 
 type Phase = "script" | "recording" | "review";
 
@@ -452,7 +451,7 @@ export default function VoiceRecordScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = createThemedStyles((colors) => ({
   flex: { flex: 1, backgroundColor: colors.bg },
   steps: {
     flexDirection: "row",
@@ -665,4 +664,4 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
   },
   disabled: { opacity: 0.5 },
-});
+}));

@@ -1,11 +1,12 @@
 import { useRouter } from "expo-router";
 import { useState } from "react";
-import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import { Pressable, Text, TextInput, View } from "react-native";
 
 import { useAuth } from "@/lib/auth";
-import { colors } from "@/lib/theme";
+import { colors, createThemedStyles, useTheme } from "@/lib/theme";
 
 export default function InviteScreen() {
+  useTheme();
   const { api } = useAuth();
   const router = useRouter();
   const [code, setCode] = useState("");
@@ -51,7 +52,7 @@ export default function InviteScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = createThemedStyles((colors) => ({
   root: { flex: 1, padding: 20, backgroundColor: colors.bg },
   title: { fontFamily: "Georgia", fontSize: 26, color: colors.ink },
   sub: { marginTop: 8, marginBottom: 20, color: colors.inkSoft, lineHeight: 22 },
@@ -75,4 +76,4 @@ const styles = StyleSheet.create({
   },
   ctaText: { color: "#f4efe6", fontWeight: "600" },
   error: { marginTop: 10, color: colors.danger },
-});
+}));

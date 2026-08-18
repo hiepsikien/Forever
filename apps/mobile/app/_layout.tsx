@@ -6,7 +6,7 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 
 import { AuthProvider, useAuth } from "@/lib/auth";
 import { Sentry } from "@/lib/sentry";
-import { colors } from "@/lib/theme";
+import { ThemeProvider, useTheme } from "@/lib/theme";
 
 // Expo Go on Android: keep-awake can fail if the Activity isn't ready. Harmless,
 // but without ignoreLogs it surfaces as a full-screen Console Error.
@@ -19,6 +19,7 @@ if (__DEV__) {
 
 function Gate({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
+  const { colors: palette } = useTheme();
   const segments = useSegments();
   const router = useRouter();
 
@@ -31,8 +32,15 @@ function Gate({ children }: { children: React.ReactNode }) {
 
   if (loading) {
     return (
-      <View style={{ flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: colors.bg }}>
-        <ActivityIndicator color={colors.brand} />
+      <View
+        style={{
+          flex: 1,
+          alignItems: "center",
+          justifyContent: "center",
+          backgroundColor: palette.bg,
+        }}
+      >
+        <ActivityIndicator color={palette.brand} />
       </View>
     );
   }
@@ -43,15 +51,27 @@ function Gate({ children }: { children: React.ReactNode }) {
 function RootLayout() {
   return (
     <SafeAreaProvider>
-      <AuthProvider>
-        <StatusBar style="dark" />
-        <Gate>
-          <Stack
+      <ThemeProvider>
+        <AuthProvider>
+          <ThemedStack />
+        </AuthProvider>
+      </ThemeProvider>
+    </SafeAreaProvider>
+  );
+}
+
+function ThemedStack() {
+  const { colors: palette } = useTheme();
+  return (
+    <>
+      <StatusBar style={palette.isDark ? "light" : "dark"} />
+      <Gate>
+        <Stack
             screenOptions={{
-              headerStyle: { backgroundColor: colors.bg },
-              headerTintColor: colors.ink,
+              headerStyle: { backgroundColor: palette.bg },
+              headerTintColor: palette.ink,
               headerTitleStyle: { fontFamily: "Georgia", fontWeight: "600" },
-              contentStyle: { backgroundColor: colors.bg },
+              contentStyle: { backgroundColor: palette.bg },
             }}
           >
             <Stack.Screen name="index" options={{ title: "Forever" }} />
@@ -117,8 +137,7 @@ function RootLayout() {
             />
           </Stack>
         </Gate>
-      </AuthProvider>
-    </SafeAreaProvider>
+    </>
   );
 }
 

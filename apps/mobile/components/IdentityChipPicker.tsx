@@ -1,8 +1,8 @@
 import { IdentityProfile } from "@forever/api-client";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { Pressable, Text, View } from "react-native";
 
 import { identityChipLabel } from "@/lib/identityDisplay";
-import { colors } from "@/lib/theme";
+import { colors, createThemedStyles } from "@/lib/theme";
 
 type Props = {
   identities: IdentityProfile[];
@@ -39,7 +39,7 @@ export function IdentityChipPicker({
   );
 }
 
-const styles = StyleSheet.create({
+const styles = createThemedStyles((colors) => ({
   chips: {
     flexDirection: "row",
     flexWrap: "wrap",
@@ -60,4 +60,4 @@ const styles = StyleSheet.create({
   },
   chipText: { fontWeight: "600", color: colors.ink, fontSize: 14 },
   chipTextActive: { color: "#fff" },
-});
+}));

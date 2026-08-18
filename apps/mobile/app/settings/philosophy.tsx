@@ -1,6 +1,6 @@
 import { useNavigation } from "@react-navigation/native";
 import { useLayoutEffect } from "react";
-import { ScrollView, StyleSheet, Text, View } from "react-native";
+import { ScrollView, Text, View } from "react-native";
 
 import {
   philosophyClosing,
@@ -9,7 +9,7 @@ import {
   philosophySections,
 } from "@forever/philosophy";
 
-import { colors, fonts } from "@/lib/theme";
+import { colors, fonts, createThemedStyles, useTheme } from "@/lib/theme";
 
 function Section({
   title,
@@ -31,6 +31,7 @@ function P({ children }: { children: string }) {
 }
 
 export default function PhilosophyScreen() {
+  useTheme();
   const navigation = useNavigation();
 
   useLayoutEffect(() => {
@@ -59,7 +60,7 @@ export default function PhilosophyScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = createThemedStyles((colors) => ({
   root: {
     padding: 20,
     paddingBottom: 48,
@@ -110,4 +111,4 @@ const styles = StyleSheet.create({
     color: colors.brand,
     textAlign: "center",
   },
-});
+}));

@@ -22,7 +22,6 @@ import {
   Platform,
   Pressable,
   ScrollView,
-  StyleSheet,
   Switch,
   Text,
   TextInput,
@@ -42,7 +41,7 @@ import {
   fetchAuthedMediaUri,
 } from "@/lib/media";
 import { useSpaceScreenOptions } from "@/lib/spaceHeader";
-import { colors, fonts } from "@/lib/theme";
+import { colors, fonts, createThemedStyles } from "@/lib/theme";
 import {
   activeTtsValues,
   clampModify,
@@ -1142,7 +1141,7 @@ export default function VoiceSpeakScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = createThemedStyles((colors) => ({
   flex: { flex: 1, backgroundColor: colors.bg },
   center: {
     flex: 1,
@@ -1389,4 +1388,4 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
   },
   modalCloseText: { color: colors.inkSoft, fontWeight: "700", fontSize: 15 },
-});
+}));

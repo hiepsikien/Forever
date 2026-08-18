@@ -7,7 +7,6 @@ import {
   FlatList,
   Pressable,
   RefreshControl,
-  StyleSheet,
   Text,
   TextInput,
   View,
@@ -16,9 +15,10 @@ import {
 import { BrandLogo } from "@/components/BrandLogo";
 import { useAuth } from "@/lib/auth";
 import { consumeHomeSkip, hasEnteredASpace } from "@/lib/homeSpace";
-import { colors, fonts } from "@/lib/theme";
+import { colors, fonts, createThemedStyles, useTheme } from "@/lib/theme";
 
 export default function HomeScreen() {
+  const { themeId } = useTheme();
   const { api, user, signOut } = useAuth();
   const router = useRouter();
   const navigation = useNavigation();
@@ -39,7 +39,7 @@ export default function HomeScreen() {
         </Pressable>
       ),
     });
-  }, [navigation, signOut]);
+  }, [navigation, signOut, themeId]);
 
   const load = useCallback(
     async (opts?: { silent?: boolean }) => {
@@ -156,7 +156,7 @@ export default function HomeScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = createThemedStyles((colors) => ({
   list: { flex: 1, backgroundColor: colors.bg },
   listContent: { padding: 20, paddingBottom: 40 },
   center: {
@@ -223,4 +223,4 @@ const styles = StyleSheet.create({
   cardMeta: { marginTop: 6, color: colors.inkSoft },
   empty: { color: colors.inkSoft, lineHeight: 22, marginTop: 4 },
   error: { color: colors.danger, marginTop: 12 },
-});
+}));

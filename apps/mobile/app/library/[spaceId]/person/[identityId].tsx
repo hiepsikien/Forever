@@ -69,7 +69,7 @@ import {
 } from "@/lib/memoryTags";
 import { guessVideoMime, pickVideoMemoryFile } from "@/lib/mediaPick";
 import { useSpaceScreenOptions } from "@/lib/spaceHeader";
-import { colors, fonts } from "@/lib/theme";
+import { colors, fonts, createThemedStyles } from "@/lib/theme";
 
 const MAX_VIDEO_BYTES = 200 * 1024 * 1024;
 const THUMB_RETRY_DELAYS_MS = [3000, 5000, 10000, 15000, 30000];
@@ -1275,7 +1275,7 @@ export default function LibraryPersonScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = createThemedStyles((colors) => ({
   root: { flex: 1, backgroundColor: colors.bg },
   center: {
     flex: 1,
@@ -1397,4 +1397,4 @@ const styles = StyleSheet.create({
   candKeep: { backgroundColor: colors.brand },
   candKeepText: { color: "#f4efe6", fontWeight: "700" },
   candDismissText: { color: colors.inkSoft, fontWeight: "600" },
-});
+}));

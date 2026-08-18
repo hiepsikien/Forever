@@ -4,13 +4,12 @@ import {
   Image,
   Modal,
   Pressable,
-  StyleSheet,
   Text,
   View,
 } from "react-native";
 
 import { saveLocalImageToLibrary } from "@/lib/media";
-import { colors } from "@/lib/theme";
+import { colors, createThemedStyles } from "@/lib/theme";
 
 type Props = {
   uri: string | null | undefined;
@@ -63,7 +62,7 @@ export function PhotoLightbox({ uri, visible, onClose }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = createThemedStyles((colors) => ({
   root: {
     flex: 1,
     backgroundColor: "#0d100e",
@@ -92,4 +91,4 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "700",
   },
-});
+}));

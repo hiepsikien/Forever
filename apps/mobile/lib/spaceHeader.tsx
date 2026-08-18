@@ -3,7 +3,7 @@ import { useRouter } from "expo-router";
 import { useLayoutEffect } from "react";
 import { Pressable, Text } from "react-native";
 
-import { colors } from "@/lib/theme";
+import { colors, useTheme } from "@/lib/theme";
 
 export function useSpaceScreenOptions(opts: {
   spaceId?: string;
@@ -11,6 +11,7 @@ export function useSpaceScreenOptions(opts: {
   showSettings?: boolean;
   backTitle?: string;
 }) {
+  const { themeId } = useTheme();
   const navigation = useNavigation();
   const router = useRouter();
   const {
@@ -53,5 +54,5 @@ export function useSpaceScreenOptions(opts: {
           )
         : undefined,
     });
-  }, [navigation, router, spaceId, title, showSettings, backTitle]);
+  }, [navigation, router, spaceId, title, showSettings, backTitle, themeId]);
 }

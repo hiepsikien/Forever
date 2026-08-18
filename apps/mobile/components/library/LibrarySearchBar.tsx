@@ -1,6 +1,6 @@
-import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import { Pressable, Text, TextInput, View } from "react-native";
 
-import { colors } from "@/lib/theme";
+import { colors, createThemedStyles } from "@/lib/theme";
 
 type Props = {
   value: string;
@@ -37,7 +37,7 @@ export function LibrarySearchBar({
   );
 }
 
-const styles = StyleSheet.create({
+const styles = createThemedStyles((colors) => ({
   wrap: {
     flexDirection: "row",
     alignItems: "center",
@@ -62,4 +62,4 @@ const styles = StyleSheet.create({
     fontSize: 16,
   },
   clear: { color: colors.brand, fontWeight: "600", fontSize: 14 },
-});
+}));

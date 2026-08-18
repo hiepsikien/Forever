@@ -53,7 +53,7 @@ import { HoldToTalkTarget } from "@/lib/holdToTalkTarget";
 import { RecordingLevelMeter } from "@/lib/recordingMeter";
 import { VOICE_RECORDING_OPTIONS } from "@/lib/recordingOptions";
 import { useSpaceScreenOptions } from "@/lib/spaceHeader";
-import { colors, fonts } from "@/lib/theme";
+import { colors, fonts, createThemedStyles } from "@/lib/theme";
 
 type CallPhase =
   | "idle"
@@ -1398,7 +1398,7 @@ export default function CallScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = createThemedStyles((colors) => ({
   root: {
     flex: 1,
     backgroundColor: colors.bg,
@@ -1800,4 +1800,4 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: colors.brand,
   },
-});
+}));

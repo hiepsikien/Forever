@@ -29,7 +29,7 @@ import {
   isGenericMemoryTitle,
   kindLabel,
 } from "@/lib/memoryDisplay";
-import { colors, fonts } from "@/lib/theme";
+import { colors, fonts, createThemedStyles } from "@/lib/theme";
 
 type Props = {
   item: MemoryItem | null;
@@ -376,7 +376,7 @@ export function MemoryReadModal({
   );
 }
 
-const styles = StyleSheet.create({
+const styles = createThemedStyles((colors) => ({
   backdrop: {
     flex: 1,
     backgroundColor: "rgba(28, 36, 31, 0.45)",
@@ -540,4 +540,4 @@ const styles = StyleSheet.create({
     color: colors.brand,
     marginTop: 4,
   },
-});
+}));

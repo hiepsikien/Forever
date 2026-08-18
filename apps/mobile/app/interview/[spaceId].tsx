@@ -11,7 +11,6 @@ import {
   Alert,
   FlatList,
   Pressable,
-  StyleSheet,
   Text,
   TextInput,
   View,
@@ -20,7 +19,7 @@ import {
 import { preparePlaybackMode, prepareRecordingMode } from "@/lib/audio";
 import { useAuth } from "@/lib/auth";
 import { useSpaceScreenOptions } from "@/lib/spaceHeader";
-import { colors, fonts } from "@/lib/theme";
+import { colors, fonts, createThemedStyles } from "@/lib/theme";
 
 export default function InterviewScreen() {
   const { spaceId } = useLocalSearchParams<{ spaceId: string }>();
@@ -216,7 +215,7 @@ export default function InterviewScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = createThemedStyles((colors) => ({
   root: { flex: 1, backgroundColor: colors.bg },
   center: {
     flex: 1,
@@ -286,4 +285,4 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 12,
   },
-});
+}));

@@ -3,7 +3,6 @@ import {
   Alert,
   Image,
   Pressable,
-  StyleSheet,
   Text,
   View,
 } from "react-native";
@@ -31,7 +30,7 @@ import {
   parseCalendarKind,
   tagTokens,
 } from "@/lib/memoryTags";
-import { colors, fonts } from "@/lib/theme";
+import { colors, fonts, createThemedStyles } from "@/lib/theme";
 
 type Props = {
   item: MemoryItem;
@@ -353,7 +352,7 @@ export function MemoryKindCard({
   );
 }
 
-const styles = StyleSheet.create({
+const styles = createThemedStyles((colors) => ({
   card: {
     backgroundColor: colors.card,
     borderRadius: 14,
@@ -528,4 +527,4 @@ const styles = StyleSheet.create({
     color: colors.brand,
     marginTop: 4,
   },
-});
+}));
