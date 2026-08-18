@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import re
 from datetime import datetime, timezone
 
@@ -73,6 +74,10 @@ from .heritage_values import select_value_lens, value_lens_block
 from .ai_usage import UsageContext
 from .heritage_gemini import GeminiCall, call_gemini
 from .memory_scope import readable_by, reader_for_thread
+from .poem_recite import PoemReciteError, get_or_create_recite_audio
+from .storage import save_bytes
+
+logger = logging.getLogger(__name__)
 
 # Theme tags on imported poems (see memories.ALLOWED_POEM_THEMES).
 THEME_QUERY_HINTS: dict[str, tuple[str, ...]] = {
@@ -529,6 +534,119 @@ def retrieve_poems(
     else:
         retrieved = [poem for _, poem in scored[: min(3, max_retrieved)]]
     return signature, retrieved
+
+
+_RECITE_HINT = re.compile(
+    r"("
+    r"\bdoc\s+tho\b|"
+    r"\bngam\s+tho\b|"
+    r"\bnghe\b.{0,24}\bdoc\b|"
+    r"\bdoc\s+bai\b|"
+    r"\bdoc\b.{0,12}\b(tho|bai)\b"
+    r")",
+    re.I,
+)
+
+_RECITE_FILLER = {
+    "doc", "ngam", "nghe", "tho", "bai", "bo", "anh", "giup", "voi", "ho",
+    "di", "nhe", "nha", "cho", "lai", "mot", "nua", "giup", "minh", "ho",
+    "oi", "a", "nhe", "di", "con", "noi",
+}
+
+
+def looks_like_poem_recite_request(text: str) -> bool:
+    return bool(_RECITE_HINT.search(_normalize_text(text)))
+
+
+def _recite_remainder(query: str) -> str:
+    tokens = [
+        tok
+        for tok in re.split(r"[^\w]+", _normalize_text(query))
+        if tok and tok not in _RECITE_FILLER and len(tok) >= 2
+    ]
+    return " ".join(tokens)
+
+
+def pick_poem_for_recite(poems: list[MemoryItem], query: str) -> MemoryItem | None:
+    """Match a library poem the family asked to hear — title over body."""
+    remainder = _recite_remainder(query)
+    query_norm = _normalize_text(query)
+    if not remainder:
+        return None
+    best: MemoryItem | None = None
+    best_score = 0
+    for poem in poems:
+        title_norm = _normalize_text(poem.title or "")
+        if not title_norm:
+            continue
+        score = 0
+        if remainder in title_norm:
+            score += 50
+        if title_norm in query_norm:
+            score += 40
+        for tok in remainder.split():
+            if tok in title_norm:
+                score += 10
+        if score > best_score:
+            best_score = score
+            best = poem
+    return best if best_score >= 10 else None
+
+
+def try_poem_recite_reply(
+    db: Session,
+    *,
+    thread: Thread,
+    identity: IdentityProfile,
+    user_message: Message,
+    settings: Settings | None = None,
+) -> tuple[str, dict, str, str] | None:
+    """If they asked to hear a poem, attach the cached Voice DNA recitation."""
+    user_text = (user_message.body or "").strip()
+    if not looks_like_poem_recite_request(user_text):
+        return None
+    reader = reader_for_thread(thread, user_message.sender_user_id)
+    poems = _poems_for_identity(
+        db, space_id=thread.space_id, identity_id=identity.id, reader=reader
+    )
+    poem = pick_poem_for_recite(poems, user_text)
+    if poem is None:
+        return None
+    try:
+        audio = get_or_create_recite_audio(
+            db,
+            poem,
+            user_id=user_message.sender_user_id,
+            preferred_identity_id=identity.id,
+        )
+    except PoemReciteError as exc:
+        logger.info("heritage poem recite skipped: %s", exc.detail)
+        return None
+    except Exception:
+        logger.exception("heritage poem recite failed")
+        return None
+    if not audio:
+        return None
+    relative = save_bytes(thread.space_id, audio, ext=".mp3")
+    audience = _detect_audience(
+        db,
+        space_id=thread.space_id,
+        sender_user_id=user_message.sender_user_id,
+        user_text=user_text,
+        thread=thread,
+    )
+    title = (poem.title or "thơ").strip()
+    if audience == "spouse":
+        lead = f"Bài «{title}» của anh đây em."
+    else:
+        lead = f"Bài «{title}» của bố đây con."
+    body = f"{lead}\n\n{(poem.body or '').strip()}".strip()
+    meta = {
+        "audience": audience,
+        "poem_recite": True,
+        "cited": [{"memory_id": poem.id, "title": title, "kind": "poem"}],
+    }
+    return body, meta, relative, "audio/mpeg"
 
 
 def _knowledge_snippets(
@@ -1363,6 +1481,11 @@ def maybe_heritage_reply(
     user_kind = getattr(user_message, "kind", "text") or "text"
     user_text = (user_message.body or "").strip()
 
+    kind = "text"
+    media_path = None
+    media_mime = None
+    recited = False
+
     if entity_status == "paused":
         body = _REFUSE_PAUSED
         meta: dict = {"heritage_refusal": "paused"}
@@ -1373,23 +1496,33 @@ def maybe_heritage_reply(
         body = _REFUSE_UNHEARD
         meta = {"heritage_refusal": "unheard"}
     else:
-        body, meta = generate_heritage_reply(
+        recited_pack = try_poem_recite_reply(
             db,
             thread=thread,
             identity=identity,
             user_message=user_message,
             settings=settings,
         )
+        if recited_pack is not None:
+            body, meta, media_path, media_mime = recited_pack
+            kind = "voice"
+            recited = True
+        else:
+            body, meta = generate_heritage_reply(
+                db,
+                thread=thread,
+                identity=identity,
+                user_message=user_message,
+                settings=settings,
+            )
 
-    kind = "text"
-    media_path = None
-    media_mime = None
     pipeline = load_heritage_pipeline(db, thread.space_id, settings=settings)
     # MiniMax/ElevenLabs only when the member spoke. Typed chat is Gemini text;
     # synthesizing every keyboard turn is the bulk of the TTS bill and nobody
-    # auto-plays those replies.
+    # auto-plays those replies. Poem recitation already attached audio.
     if (
-        pipeline.tts
+        not recited
+        and pipeline.tts
         and user_kind == "voice"
         and (body or "").strip()
         and meta.get("heritage_refusal") is None

@@ -17,9 +17,12 @@ from app.services.heritage_chat import (
     _strip_deference,
     build_system_prompt,
     looks_like_fabrication_request,
+    looks_like_poem_recite_request,
     looks_like_taboo,
+    pick_poem_for_recite,
     post_process_reply,
     retrieve_poems,
+    try_poem_recite_reply,
 )
 
 
@@ -253,6 +256,135 @@ def test_post_process_allows_one_direct_spouse_affection_per_day():
 def test_post_process_keeps_child_miss_you():
     out = post_process_reply("Con ơi, bố nhớ con.", audience="child")
     assert "bố nhớ con" in out.lower()
+
+
+def test_looks_like_poem_recite_request():
+    assert looks_like_poem_recite_request("bố đọc thơ em gái")
+    assert looks_like_poem_recite_request("Nghe bố đọc bài Tuổi bảy nhăm")
+    assert looks_like_poem_recite_request("anh đọc thơ em gái giúp em")
+    assert not looks_like_poem_recite_request("Bố nhớ bài thơ về vợ không?")
+    assert not looks_like_poem_recite_request("Con khỏe không bố")
+
+
+def test_pick_poem_for_recite_matches_title():
+    em_gai = MagicMock()
+    em_gai.title = "ĐỌC THƠ EM GÁI"
+    em_gai.body = "Đọc thơ em mấy bài thơ tâm đắc"
+    bay_nham = MagicMock()
+    bay_nham.title = "TUỔI BẢY NHĂM"
+    bay_nham.body = "Bảy nhăm đâu phải đã già"
+    picked = pick_poem_for_recite([em_gai, bay_nham], "bố đọc thơ em gái")
+    assert picked is em_gai
+    assert pick_poem_for_recite([em_gai, bay_nham], "bố đọc thơ") is None
+
+
+def test_try_poem_recite_reply_attaches_cached_audio():
+    from app.models import IdentityProfile, MemoryItem, Message, Thread
+
+    poem = MagicMock(spec=MemoryItem)
+    poem.id = "p1"
+    poem.title = "ĐỌC THƠ EM GÁI"
+    poem.body = "Đọc thơ em mấy bài thơ tâm đắc\nEm nhớ quê, anh lại nhớ em"
+    poem.tags = "heritage:i1 tho"
+
+    thread = MagicMock(spec=Thread)
+    thread.space_id = "s1"
+    identity = MagicMock(spec=IdentityProfile)
+    identity.id = "i1"
+    user_message = MagicMock(spec=Message)
+    user_message.body = "bố đọc thơ em gái"
+    user_message.sender_user_id = "u1"
+
+    db = MagicMock()
+    with (
+        patch(
+            "app.services.heritage_chat._poems_for_identity",
+            return_value=[poem],
+        ),
+        patch(
+            "app.services.heritage_chat.get_or_create_recite_audio",
+            return_value=b"ID3fake",
+        ),
+        patch(
+            "app.services.heritage_chat.save_bytes",
+            return_value="s1/recite.mp3",
+        ),
+        patch(
+            "app.services.heritage_chat._detect_audience",
+            return_value="spouse",
+        ),
+        patch(
+            "app.services.heritage_chat.reader_for_thread",
+            return_value="u1",
+        ),
+    ):
+        pack = try_poem_recite_reply(
+            db, thread=thread, identity=identity, user_message=user_message
+        )
+
+    assert pack is not None
+    body, meta, path, mime = pack
+    assert path == "s1/recite.mp3"
+    assert mime == "audio/mpeg"
+    assert meta["poem_recite"] is True
+    assert "ĐỌC THƠ EM GÁI" in body
+    assert "của anh đây em" in body
+    assert "tâm đắc" in body
+
+
+def test_maybe_heritage_recite_skips_chat_tts():
+    from app.models import IdentityProfile, Message, Thread
+    from app.services.heritage_chat import maybe_heritage_reply
+
+    db = MagicMock()
+    thread = MagicMock(spec=Thread)
+    thread.kind = "heritage"
+    thread.id = "t1"
+    thread.space_id = "s1"
+    message = MagicMock(spec=Message)
+    message.kind = "voice"
+    message.body = "bố đọc thơ em gái"
+    message.sender_user_id = "u1"
+    identity = MagicMock(spec=IdentityProfile)
+    identity.heritage_entity_status = "ready"
+    identity.id = "i1"
+
+    settings = MagicMock()
+    settings.agent_enabled = True
+    settings.heritage_memory_enabled = False
+
+    with (
+        patch(
+            "app.services.heritage_chat.identity_for_heritage_thread",
+            return_value=identity,
+        ),
+        patch(
+            "app.services.heritage_chat.try_poem_recite_reply",
+            return_value=(
+                "Bài «ĐỌC THƠ EM GÁI» của anh đây em.",
+                {"poem_recite": True, "audience": "spouse"},
+                "s1/a.mp3",
+                "audio/mpeg",
+            ),
+        ) as recite,
+        patch("app.services.heritage_chat.generate_heritage_reply") as gen,
+        patch("app.services.heritage_tts.synthesize_chat_reply") as tts,
+        patch(
+            "app.services.heritage_chat.load_heritage_pipeline",
+        ) as pipe,
+    ):
+        pipe.return_value.tts = True
+        reply = maybe_heritage_reply(
+            db, thread=thread, user_message=message, settings=settings
+        )
+
+    recite.assert_called_once()
+    gen.assert_not_called()
+    tts.assert_not_called()
+    assert reply is not None
+    assert reply.kind == "voice"
+    assert reply.media_path == "s1/a.mp3"
+    assert "ĐỌC THƠ EM GÁI" in reply.body
 
 
 def test_infer_audience_steward_is_child_not_spouse(client):
