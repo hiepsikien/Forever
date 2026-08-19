@@ -8,8 +8,9 @@ Both are steward actions, so nothing lands approved unless you say so:
   ./scripts/seed-heritage-context.py --identity <id> --milestones-only
 
 Codex rows come from the Lock's roles_json; milestones come from
-docs/heritage-bo-trieu/milestones.draft.json. Runs against the local database
-directly — see docs/heritage-chat-v2.plan.md.
+docs/heritage-bo-trieu/milestones.draft.json. Re-running updates existing
+mốc (match `moc:{id}`, title, or `replaces_titles`) instead of skipping.
+Runs against the local database — see docs/heritage-chat-v2.plan.md.
 """
 
 from __future__ import annotations
@@ -20,9 +21,26 @@ import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[1]
-API_DIR = ROOT / "apps" / "api"
+def _api_dir() -> Path:
+    here = Path(__file__).resolve()
+    candidates = [
+        Path("/app"),
+        here.parent,
+        here.parents[1] / "apps" / "api",
+    ]
+    for candidate in candidates:
+        if (candidate / "app" / "db.py").exists():
+            return candidate
+    raise SystemExit("Cannot find API package (app/db.py).")
+
+
+API_DIR = _api_dir()
 sys.path.insert(0, str(API_DIR))
+REPO_ROOT = (
+    API_DIR.parent.parent
+    if API_DIR.name == "api"
+    else Path(__file__).resolve().parents[1]
+)
 
 from nanoid import generate  # noqa: E402
 from app.db import SessionLocal  # noqa: E402
@@ -30,7 +48,9 @@ from app.models import FamilyEntity, IdentityProfile, MemoryItem  # noqa: E402
 from app.services.heritage import HERITAGE_TAG_PREFIX, tag_tokens  # noqa: E402
 from app.services.heritage_codex import seed_entities_from_lock  # noqa: E402
 
-DEFAULT_MILESTONES = ROOT / "docs" / "heritage-bo-trieu" / "milestones.draft.json"
+DEFAULT_MILESTONES = (
+    REPO_ROOT / "docs" / "heritage-bo-trieu" / "milestones.draft.json"
+)
 MILESTONE_KIND = "milestone"
 
 
@@ -58,59 +78,119 @@ def milestone_body(entry: dict) -> str:
     precision = entry.get("precision")
     if when and ended:
         parts.append(f"Khoảng thời gian: {when} – {ended}.")
-    elif when and precision in ("year_approx", "year_end"):
+    elif when and precision in ("year_approx", "year_end", "month"):
         parts.append(f"Thời điểm (ước lượng): {when}.")
     return "\n".join(p for p in parts if p)
 
 
+def milestone_tags(needle: str, entry: dict) -> str:
+    moc = (entry.get("id") or "").strip()
+    themes = [t for t in (entry.get("themes") or []) if isinstance(t, str)]
+    parts = [needle]
+    if moc:
+        parts.append(f"moc:{moc}")
+    parts.extend(f"chu-de:{t}" for t in themes)
+    return " ".join(parts)
+
+
+def _norm_title(value: str | None) -> str:
+    return (value or "").strip().lower()
+
+
+def find_existing_milestone(
+    rows: list[MemoryItem], entry: dict, needle: str
+) -> MemoryItem | None:
+    moc = (entry.get("id") or "").strip()
+    moc_tag = f"moc:{moc}" if moc else ""
+    title = _norm_title(entry.get("title"))
+    aliases = {_norm_title(t) for t in (entry.get("replaces_titles") or []) if t}
+    if title:
+        aliases.add(title)
+
+    for row in rows:
+        if needle not in tag_tokens(row.tags):
+            continue
+        tokens = tag_tokens(row.tags)
+        if moc_tag and moc_tag in tokens:
+            return row
+    for row in rows:
+        if needle not in tag_tokens(row.tags):
+            continue
+        if _norm_title(row.title) in aliases:
+            return row
+    return None
+
+
 def seed_milestones(
     db, *, identity: IdentityProfile, path: Path, created_by: str, dry_run: bool
-) -> tuple[int, int]:
+) -> tuple[int, int, int]:
     data = json.loads(path.read_text(encoding="utf-8"))
     entries = data.get("milestones") or []
     needle = f"{HERITAGE_TAG_PREFIX}{identity.id}"
 
-    existing_titles = {
-        (row.title or "").strip().lower()
-        for row in db.query(MemoryItem)
+    rows = (
+        db.query(MemoryItem)
         .filter(
             MemoryItem.space_id == identity.space_id,
             MemoryItem.kind == MILESTONE_KIND,
         )
         .all()
-        if needle in tag_tokens(row.tags)
-    }
+    )
 
     added = 0
-    skipped = 0
+    updated = 0
+    unchanged = 0
     now = datetime.now(timezone.utc)
+    claimed: set[str] = set()
     for entry in entries:
         title = (entry.get("title") or "").strip()
         if not title:
             continue
-        if title.lower() in existing_titles:
-            skipped += 1
+        body = milestone_body(entry)
+        tags = milestone_tags(needle, entry)
+        occurred = parse_occurred_at(entry.get("occurred_at"))
+        existing = find_existing_milestone(rows, entry, needle)
+        if existing and existing.id in claimed:
+            existing = None
+        if existing:
+            claimed.add(existing.id)
+            same = (
+                (existing.title or "") == title
+                and (existing.body or "") == body
+                and (existing.tags or "") == tags
+                and existing.occurred_at == occurred
+            )
+            if same:
+                unchanged += 1
+                continue
+            print(f"  ~ {existing.title} → {title}")
+            updated += 1
+            if dry_run:
+                continue
+            existing.title = title
+            existing.body = body
+            existing.tags = tags
+            existing.occurred_at = occurred
             continue
-        themes = [t for t in (entry.get("themes") or []) if isinstance(t, str)]
-        tags = " ".join([needle, *(f"chu-de:{t}" for t in themes)])
         print(f"  + {title}")
         added += 1
         if dry_run:
             continue
-        db.add(
-            MemoryItem(
-                id=generate(),
-                space_id=identity.space_id,
-                created_by=created_by,
-                kind=MILESTONE_KIND,
-                title=title,
-                body=milestone_body(entry),
-                tags=tags,
-                occurred_at=parse_occurred_at(entry.get("occurred_at")),
-                created_at=now,
-            )
+        row = MemoryItem(
+            id=generate(),
+            space_id=identity.space_id,
+            created_by=created_by,
+            kind=MILESTONE_KIND,
+            title=title,
+            body=body,
+            tags=tags,
+            occurred_at=occurred,
+            created_at=now,
         )
-    return added, skipped
+        db.add(row)
+        rows.append(row)
+        claimed.add(row.id)
+    return added, updated, unchanged
 
 
 def main() -> int:
@@ -162,14 +242,16 @@ def main() -> int:
 
         if not args.codex_only:
             print(f"\nMốc đời từ {args.milestones.name}:")
-            added, skipped = seed_milestones(
+            added, updated, unchanged = seed_milestones(
                 db,
                 identity=identity,
                 path=args.milestones,
                 created_by=identity.created_by,
                 dry_run=args.dry_run,
             )
-            print(f"  thêm {added} · bỏ qua {skipped} (đã có)")
+            print(
+                f"  thêm {added} · cập nhật {updated} · giữ nguyên {unchanged}"
+            )
 
         if args.dry_run:
             db.rollback()

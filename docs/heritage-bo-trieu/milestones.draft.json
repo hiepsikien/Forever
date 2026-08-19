@@ -1,6 +1,12 @@
 {
-  "$schema_note": "Milestones seeded from Profile KB — steward-editable. occurred_at may be approximate.",
+  "$schema_note": "Mốc Lịch gia đình — đối chiếu Profile KB + điếu văn Khoa Hóa (7/2026) + bài GS.TSKH Nguyễn Đình Triệu (Người không tuổi hưu) + Bản khai tin kỷ yếu 65 năm Khoa Hóa. occurred_at có thể ước lượng. Không gộp NCS Đức với tu nghiệp Hà Lan.",
   "identity_ref": "Nguyễn Đình Triệu",
+  "sources": [
+    "KB gia đình / identity lock (đã chốt với mẹ 2026-08-05)",
+    "Lời điếu Khoa Hóa học, ĐH KHTN — lễ tang 2026-07",
+    "GS.TSKH Nguyễn Đình Triệu — Người không tuổi hưu (bài sửa hoàn thiện)",
+    "Bản khai tin kỷ yếu — 65 năm Khoa Hóa học"
+  ],
   "milestones": [
     {
       "id": "birth",
@@ -8,23 +14,40 @@
       "occurred_at": "1940-06-01",
       "precision": "day",
       "themes": ["gia_dinh", "truyen_thong"],
-      "summary": "Sinh ngày 01/06/1940. Quê gốc phường Đáp Cầu, TP Bắc Ninh; gia phả ~8 đời tại Bắc Ninh."
+      "summary": "Sinh ngày 01/06/1940 tại phường Đáp Cầu, TP Bắc Ninh. Gia đình nhà nho trên đất Kinh Bắc; gia phả ~8 đời tại Bắc Ninh."
     },
     {
       "id": "father_passed_childhood",
-      "title": "Mồ côi bố năm 6 tuổi",
+      "title": "Mồ côi bố năm 6 tuổi — tản cư Bắc Giang",
       "occurred_at": "1946",
-      "precision": "year_approx",
+      "precision": "year",
       "themes": ["gia_dinh", "truyen_thong"],
-      "summary": "Bố Nguyễn Đình Nghiên mất sớm; sơ tán Bắc Giang cùng mẹ Đoàn Thị Thông (bà Triệu)."
+      "replaces_titles": ["Mồ côi bố năm 6 tuổi"],
+      "summary": "Toàn quốc kháng chiến (1946): bố Nguyễn Đình Nghiên mất; gia đình tản cư Bắc Giang. Con trưởng trong nhà 3 anh em; mẹ Đoàn Thị Thông (bà Triệu) tảo tần bán hàng nuôi con; cụ ông là nhà nho, từng bốc thuốc giúp người; cụ bà làm nông. Ông vừa học vừa giúp mẹ."
+    },
+    {
+      "id": "han_thuyen",
+      "title": "Về Bắc Ninh, học cấp 3 Hàn Thuyên",
+      "occurred_at": "1956",
+      "precision": "year",
+      "themes": ["nghe_giao", "truyen_thong"],
+      "summary": "Gia đình vẫn ở Bắc Giang; ông về quê học Trường cấp III Hàn Thuyên (mỗi tỉnh lúc ấy một trường cấp 3). Tốt nghiệp loại giỏi."
+    },
+    {
+      "id": "university_enter",
+      "title": "Thi đỗ Khoa Hóa — Đại học Tổng hợp Hà Nội",
+      "occurred_at": "1959",
+      "precision": "year",
+      "themes": ["nghe_giao"],
+      "summary": "Khóa học 4 năm; một trong những sinh viên đầu tiên của khóa."
     },
     {
       "id": "university_chemistry",
       "title": "Tốt nghiệp Hóa — Đại học Tổng hợp Hà Nội",
-      "occurred_at": null,
-      "precision": "unknown",
+      "occurred_at": "1963",
+      "precision": "year",
       "themes": ["nghe_giao"],
-      "summary": "Cấp 3 Bắc Ninh; tốt nghiệp khoa Hóa học ĐH Tổng hợp Hà Nội. PLACEHOLDER năm tốt nghiệp — bổ sung khi có."
+      "summary": "Tốt nghiệp xuất sắc (1963), được giữ lại trường — giảng viên Bộ môn Hóa hữu cơ, Khoa Hóa học."
     },
     {
       "id": "meeting_spouse",
@@ -32,23 +55,32 @@
       "occurred_at": null,
       "precision": "unknown",
       "themes": ["vo_chong", "gia_dinh"],
-      "summary": "Đến Hàng Da thăm chị gái (bà Lựu); gặp Lê Thị Định."
+      "summary": "Đến Hàng Da thăm chị gái (bà Lựu); gặp Lê Thị Định. (Chuyện gặp nhau do gia đình nhớ — giấy tờ khoa không ghi.)"
     },
     {
       "id": "marriage",
       "title": "Kết hôn với bà Lê Thị Định",
       "occurred_at": "1966",
-      "precision": "year_approx",
+      "precision": "year",
       "themes": ["vo_chong", "gia_dinh"],
-      "summary": "Ông 26 tuổi, bà 22 tuổi (bà sinh 21/07/1945). Xưng hô Anh — Em. Cùng giai đoạn học/công tác liên quan Đức; từng sơ tán Việt Trì."
+      "summary": "Ông 26 tuổi, bà 22 tuổi (bà sinh 21/07/1945). Xưng hô Anh — Em. Bà khi ấy là cán bộ Nhà máy giấy Việt Trì, Phú Thọ. Cùng giai đoạn học/công tác liên quan Đức; từng sơ tán Việt Trì."
     },
     {
-      "id": "phd_east_germany",
-      "title": "Nghiên cứu sinh tại Đông Đức; tu nghiệp Hà Lan",
-      "occurred_at": "1986",
-      "precision": "year_end",
+      "id": "evacuate_dai_tu",
+      "title": "Sơ tán Khoa Hóa lên Đại Từ, Thái Nguyên",
+      "occurred_at": "1967",
+      "precision": "year",
       "themes": ["nghe_giao"],
-      "summary": "NCS Tiến sĩ tại CHDC Đức; tu nghiệp Hà Lan; về nước năm 1986."
+      "summary": "Chiến tranh phá hoại: thầy trò Khoa Hóa sơ tán Đại Từ, Bắc Thái (nay Thái Nguyên). Cùng đồng nghiệp vào rừng chặt gỗ, đẵn nứa dựng lớp học và phòng thí nghiệm. Khác với sơ tán Việt Trì lúc cưới."
+    },
+    {
+      "id": "ncs_leipzig",
+      "title": "Đi nghiên cứu sinh tại Đại học Leipzig (CHDC Đức)",
+      "occurred_at": "1967-11",
+      "precision": "month",
+      "themes": ["nghe_giao"],
+      "replaces_titles": ["Nghiên cứu sinh tại Đông Đức; tu nghiệp Hà Lan"],
+      "summary": "Tháng 11/1967 được trường cử đi NCS tại ĐH Leipzig, Cộng hòa Dân chủ Đức. Không gộp với tu nghiệp Hà Lan (1986)."
     },
     {
       "id": "child_huong",
@@ -56,15 +88,15 @@
       "occurred_at": "1971",
       "precision": "year",
       "themes": ["con_cai", "gia_dinh"],
-      "summary": "Con gái đầu."
+      "summary": "Con gái đầu. Cùng giai đoạn ông còn NCS ở Leipzig (về nước 8/1972)."
     },
     {
-      "id": "child_anh",
-      "title": "Con thứ Nguyễn Anh Vỹ ra đời",
-      "occurred_at": "1974",
-      "precision": "year",
-      "themes": ["con_cai", "gia_dinh"],
-      "summary": "Con trai thứ — tên đầy đủ Nguyễn Anh Vỹ (không phải Nguyễn Anh)."
+      "id": "phd_return",
+      "title": "Bảo vệ Tiến sĩ, về nước",
+      "occurred_at": "1972-08",
+      "precision": "month",
+      "themes": ["nghe_giao"],
+      "summary": "Bảo vệ luận án Tiến sĩ (1972); tháng 8/1972 về nước, tiếp tục giảng dạy Bộ môn Hóa hữu cơ, ĐH Tổng hợp Hà Nội (nay ĐH Khoa học Tự nhiên, ĐHQGHN)."
     },
     {
       "id": "cam_hoi_years",
@@ -76,6 +108,14 @@
       "summary": "Tầng 3, nhà A, KTĐH Tổng hợp, phố Cảm Hội (gần Lò Đúc, Đống Mác, Hai Bà Trưng). Nơi nuôi dạy các con trong khó khăn nhưng ấm tình nghĩa."
     },
     {
+      "id": "child_anh",
+      "title": "Con thứ Nguyễn Anh Vỹ ra đời",
+      "occurred_at": "1974",
+      "precision": "year",
+      "themes": ["con_cai", "gia_dinh"],
+      "summary": "Con trai thứ — tên đầy đủ Nguyễn Anh Vỹ (không phải Nguyễn Anh)."
+    },
+    {
       "id": "child_dinh_anh",
       "title": "Con út Nguyễn Đình Anh ra đời",
       "occurred_at": "1982",
@@ -84,20 +124,86 @@
       "summary": "Con trai út."
     },
     {
+      "id": "internship_netherlands",
+      "title": "Tu nghiệp Hà Lan",
+      "occurred_at": "1986",
+      "precision": "year",
+      "themes": ["nghe_giao"],
+      "summary": "Thực tập tại Hà Lan (1986): tranh thủ kiểm tra, phân tích kết quả phục vụ luận án Tiến sĩ khoa học. Đây không phải năm về nước từ Đức."
+    },
+    {
+      "id": "associate_professor",
+      "title": "Phong Phó Giáo sư",
+      "occurred_at": "1991",
+      "precision": "year",
+      "themes": ["nghe_giao"],
+      "summary": "Học hàm Phó Giáo sư (1991). Trước đó (1989–1996) là Phó Chủ nhiệm Bộ môn Hóa hữu cơ."
+    },
+    {
+      "id": "dsc_1994",
+      "title": "Bảo vệ Tiến sĩ khoa học",
+      "occurred_at": "1994-06",
+      "precision": "month",
+      "themes": ["nghe_giao"],
+      "summary": "Tháng 6/1994 bảo vệ luận án TSKH tại Trường ĐH Khoa học Tự nhiên, ĐHQGHN. Luận án gom các công trình nghiên cứu nhiều năm."
+    },
+    {
+      "id": "department_chair",
+      "title": "Chủ nhiệm Bộ môn Hóa hữu cơ",
+      "occurred_at": "1997",
+      "ended_at": "2001",
+      "precision": "range",
+      "themes": ["nghe_giao"],
+      "summary": "Chủ nhiệm Bộ môn Hóa hữu cơ (1997–2001). Trước đó Phó Chủ nhiệm (1989–1996)."
+    },
+    {
+      "id": "professor",
+      "title": "Phong Giáo sư",
+      "occurred_at": "2002",
+      "precision": "year",
+      "themes": ["nghe_giao"],
+      "summary": "Học hàm Giáo sư (2002). Cùng năm gia đình chuyển về nhà riêng Đền Lừ / Hoàng Mai."
+    },
+    {
       "id": "move_den_lu",
       "title": "Chuyển về nhà riêng Đền Lừ / Hoàng Mai",
       "occurred_at": "2002",
       "precision": "year",
       "themes": ["gia_dinh"],
-      "summary": "Xây nhà và chuyển về 315A Hoàng Mai, phường Hoàng Văn Thụ, quận Hoàng Mai, Hà Nội."
+      "summary": "Xây nhà và chuyển về 315A Hoàng Mai (tổ 25). Nay ghi phường Tương Mai, TP Hà Nội (tên hành chính mới); trước ghi phường Hoàng Văn Thụ, quận Hoàng Mai."
+    },
+    {
+      "id": "labor_order_awards",
+      "title": "Huân chương Lao động và các ghi nhận nghề nghiệp",
+      "occurred_at": "2004",
+      "precision": "year",
+      "themes": ["nghe_giao", "biet_on"],
+      "summary": "Huân chương Lao động hạng Ba (2004). Cùng quá trình công tác: Huân chương kháng chiến chống Mỹ cứu nước hạng Nhất (còn ghi Huy chương chống Mỹ loại 1), Bằng khen Thủ tướng Chính phủ, Huy chương vì sự nghiệp giáo dục, Huy chương vì sự nghiệp Khoa học và Công nghệ, nhiều bằng khen Bộ GD&ĐT và ĐHQGHN. Năm các huy chương không ghi thì để trống — không bịa."
     },
     {
       "id": "retirement",
-      "title": "Về hưu — bắt đầu mùa thơ",
-      "occurred_at": "2005",
-      "precision": "year_approx",
+      "title": "Về hưu — vẫn dạy, mở mùa thơ",
+      "occurred_at": "2005-07",
+      "precision": "month",
       "themes": ["nghe_giao", "tho", "biet_on"],
-      "summary": "Nghỉ hưu ~2005; sở thích làm thơ; sáng lập/tham gia Chiếu thơ Đền Lừ cùng các cụ hưu trí."
+      "replaces_titles": ["Về hưu — bắt đầu mùa thơ"],
+      "summary": "Tháng 7/2005 nghỉ hưu nhưng vẫn nhận giảng (Huế, Đà Nẵng, Quy Nhơn, Thái Nguyên, ĐH Giáo dục – ĐHQGHN) và bồi dưỡng học sinh Olympic Hóa. Cùng giai đoạn làm thơ, tham gia Chiếu thơ Đền Lừ — tinh thần «người không tuổi hưu»."
+    },
+    {
+      "id": "ngut",
+      "title": "Danh hiệu Nhà giáo Ưu tú",
+      "occurred_at": "2006",
+      "precision": "year",
+      "themes": ["nghe_giao"],
+      "summary": "Phong tặng Nhà giáo Ưu tú năm 2006 (sau hưu một năm)."
+    },
+    {
+      "id": "azt_research",
+      "title": "Nghiên cứu tổng hợp AZT (zidovudin)",
+      "occurred_at": "2007",
+      "precision": "year",
+      "themes": ["nghe_giao"],
+      "summary": "Chủ trì đề tài nghiên cứu tổng hợp zidovudin (AZT) làm thuốc điều trị HIV/AIDS (khoảng 3 năm, nghiệm thu 2007): xây dựng quy trình công nghệ. Chưa đưa vào sản xuất vì yếu tố khách quan — không viết như thể thuốc đã ra thị trường."
     },
     {
       "id": "age_75_anchor",
@@ -116,5 +222,5 @@
       "summary": "13h42 ngày 18/07/2026 (05/06 Bính Ngọ), hưởng thọ 87 tuổi. An nghỉ Nghĩa trang Đồng Bối, Vũ Ninh, Bắc Ninh."
     }
   ],
-  "edit_hint": "Steward có thể sửa title/summary/dates trong app (milestone editor). Không xóa mốc đã dùng trong chat đã lưu mà không ghi chú revision."
+  "edit_hint": "Steward có thể sửa title/summary/dates trong app. Seed: ./scripts/seed-heritage-context.py --identity <id> --milestones-only — sẽ cập nhật mốc cũ theo id/title, không tạo bản trùng nếu đã có."
 }
