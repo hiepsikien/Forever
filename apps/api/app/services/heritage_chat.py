@@ -605,7 +605,7 @@ def try_poem_recite_reply(
     user_text = (user_message.body or "").strip()
     if not looks_like_poem_recite_request(user_text):
         return None
-    reader = reader_for_thread(thread, user_message.sender_user_id)
+    reader = reader_for_thread(thread)
     poems = _poems_for_identity(
         db, space_id=thread.space_id, identity_id=identity.id, reader=reader
     )

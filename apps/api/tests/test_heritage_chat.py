@@ -289,6 +289,8 @@ def test_try_poem_recite_reply_attaches_cached_audio():
 
     thread = MagicMock(spec=Thread)
     thread.space_id = "s1"
+    thread.audience_scope = "direct"
+    thread.member_user_id = "u1"
     identity = MagicMock(spec=IdentityProfile)
     identity.id = "i1"
     user_message = MagicMock(spec=Message)
@@ -312,10 +314,6 @@ def test_try_poem_recite_reply_attaches_cached_audio():
         patch(
             "app.services.heritage_chat._detect_audience",
             return_value="spouse",
-        ),
-        patch(
-            "app.services.heritage_chat.reader_for_thread",
-            return_value="u1",
         ),
     ):
         pack = try_poem_recite_reply(
