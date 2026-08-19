@@ -1,4 +1,3 @@
-import * as DocumentPicker from "expo-document-picker";
 import * as FileSystem from "expo-file-system/legacy";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useState } from "react";
@@ -24,6 +23,7 @@ import {
 } from "@/lib/audio";
 import { useAuth } from "@/lib/auth";
 import { stageLocalAudioFile } from "@/lib/media";
+import { documentPickerErrorMessage, getDocumentAsyncSafe } from "@/lib/mediaPick";
 import { useSpaceScreenOptions } from "@/lib/spaceHeader";
 import { colors, fonts, createThemedStyles } from "@/lib/theme";
 
@@ -95,7 +95,7 @@ export default function VoiceUploadScreen() {
     try {
       await stopActivePlayback();
       setPreviewing(false);
-      const result = await DocumentPicker.getDocumentAsync({
+      const result = await getDocumentAsyncSafe({
         type: ["audio/*", "video/*"],
         copyToCacheDirectory: true,
         multiple: false,
@@ -145,7 +145,7 @@ export default function VoiceUploadScreen() {
       }
       setPhase("review");
     } catch (e) {
-      Alert.alert("Lỗi", e instanceof Error ? e.message : "Không chọn được file.");
+      Alert.alert("Lỗi", documentPickerErrorMessage(e));
     } finally {
       setPicking(false);
     }

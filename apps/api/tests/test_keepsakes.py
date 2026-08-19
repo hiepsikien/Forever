@@ -398,3 +398,40 @@ def test_answering_photo_queues_dieu_nghe_duoc(client):
     assert listed.status_code == 200, listed.text
     statements = [c["statement"] for c in listed.json()["candidates"]]
     assert any("cưới" in s for s in statements)
+
+
+def test_today_stays_on_father_when_grandmother_thread_is_newer(client):
+    space_id, identity_id, thread_id, headers = _ready_heritage(
+        client, email="keep-ba@example.com", name="Andy"
+    )
+    photo = _photo(client, headers, space_id)
+    made = client.post(
+        f"/api/spaces/{space_id}/keepsakes/from-memory",
+        headers=headers,
+        json={
+            "identity_id": identity_id,
+            "memory_id": photo["id"],
+            "status": "ready",
+        },
+    )
+    assert made.status_code == 200, made.text
+    kid = made.json()["keepsake"]["id"]
+
+    grandma = client.post(
+        f"/api/spaces/{space_id}/identities",
+        headers=headers,
+        json={
+            "display_name": "Đoàn Thị Thông",
+            "relation_label": "Bà Nội",
+            "status": "remembered",
+        },
+    )
+    assert grandma.status_code == 200, grandma.text
+
+    today = client.get(f"/api/spaces/{space_id}/keepsake/today", headers=headers)
+    assert today.status_code == 200, today.text
+    card = today.json()["keepsake"]
+    assert card is not None
+    assert card["id"] == kid
+    assert card["thread_id"] == thread_id
+    assert card["identity_id"] == identity_id

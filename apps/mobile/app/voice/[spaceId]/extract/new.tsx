@@ -16,6 +16,7 @@ import { MemoryItem } from "@forever/api-client";
 
 import { useAuth } from "@/lib/auth";
 import {
+  documentPickerErrorMessage,
   guessAudioMime,
   guessVideoMime,
   pickExtractMediaFile,
@@ -123,7 +124,7 @@ export default function ExtractNewScreen() {
         },
       });
     } catch (e) {
-      Alert.alert("Không chọn được file", e instanceof Error ? e.message : "Thử lại.");
+      Alert.alert("Không chọn được file", documentPickerErrorMessage(e));
     }
   };
 

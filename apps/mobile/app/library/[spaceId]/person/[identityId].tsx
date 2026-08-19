@@ -67,7 +67,10 @@ import {
   parseHeritageIdentityIds,
   CalendarKind,
 } from "@/lib/memoryTags";
-import { guessVideoMime, pickVideoMemoryFile } from "@/lib/mediaPick";
+import {
+  documentPickerErrorMessage,
+  pickVideoFromPhotos,
+} from "@/lib/mediaPick";
 import { useSpaceScreenOptions } from "@/lib/spaceHeader";
 import { colors, fonts, createThemedStyles } from "@/lib/theme";
 
@@ -602,28 +605,27 @@ export default function LibraryPersonScreen() {
   const pickVideo = async () => {
     if (!spaceId) return;
     try {
-      const asset = await pickVideoMemoryFile();
+      const asset = await pickVideoFromPhotos();
       if (!asset) return;
       if (asset.size != null && asset.size > MAX_VIDEO_BYTES) {
         Alert.alert("File quá lớn", "Video tối đa 200 MB.");
         return;
       }
-      const name = asset.name ?? "video.mts";
       setPendingUpload({
         kind: "video",
         uri: asset.uri,
-        name,
-        mimeType: guessVideoMime(name, asset.mimeType),
+        name: asset.name,
+        mimeType: asset.mimeType,
       });
       setCaptionMode("upload");
       setCaptionKind("video");
-      setCaptionTitle(titleFromFileName(name));
+      setCaptionTitle(titleFromFileName(asset.name));
       setCaptionBody("");
       setCaptionIdentityIds(defaultIdentityIds);
       setEditingId(null);
       setCaptionOpen(true);
     } catch (e) {
-      Alert.alert("Không chọn được file", e instanceof Error ? e.message : "Thử lại.");
+      Alert.alert("Không chọn được file", documentPickerErrorMessage(e));
     }
   };
 

@@ -14,6 +14,12 @@ import {
 
 import { useAuth } from "@/lib/auth";
 import { markEnteredASpace } from "@/lib/homeSpace";
+import {
+  homeConversationRows,
+  HomeThreadRow,
+  isDirectThread,
+  pickLivingRoomThread,
+} from "@/lib/homeThreads";
 import { rememberedLibraryPeople } from "@/lib/libraryShelves";
 import { fetchAuthedMediaUri } from "@/lib/media";
 import { reciteListenLabel, usePoemRecite } from "@/lib/poemRecite";
@@ -31,35 +37,9 @@ function threadPreview(item: ThreadSummary): string {
   return last.body || "Chưa có tin nhắn";
 }
 
-/** A row the family has not created yet — tapping it opens the private thread. */
-type ThreadRow = ThreadSummary & { pendingDirectFor?: string };
-
-function isDirect(item: ThreadSummary): boolean {
-  return (item.audience_scope ?? "family") === "direct";
-}
-
-/** Phòng khách hero → heritage family room (Cả nhà), not kind=family. */
-function isLivingRoomCandidate(item: ThreadSummary): boolean {
-  return (
-    item.kind === "heritage" &&
-    !isDirect(item) &&
-    Boolean(item.heritage?.chat_ready)
-  );
-}
-
-function pickLivingRoomThread(threads: ThreadSummary[]): ThreadSummary | null {
-  const ready = threads.filter(isLivingRoomCandidate);
-  if (!ready.length) return null;
-  return ready.reduce((best, item) => {
-    const bestAt = best.last_message?.created_at ?? best.created_at;
-    const itemAt = item.last_message?.created_at ?? item.created_at;
-    return itemAt > bestAt ? item : best;
-  });
-}
-
 function threadKindLabel(item: ThreadSummary): string | null {
   if (item.kind !== "heritage") return null;
-  return isDirect(item) ? "Riêng" : "Cả nhà";
+  return isDirectThread(item) ? "Riêng" : "Cả nhà";
 }
 
 function threadRowMeta(item: ThreadSummary): { preview: string; cta: string; callReady?: boolean } {
@@ -73,7 +53,7 @@ function threadRowMeta(item: ThreadSummary): { preview: string; cta: string; cal
           callReady: true,
         };
       }
-      if (isDirect(item)) {
+      if (isDirectThread(item)) {
         return {
           preview: "Chỉ bạn đọc được — không ai khác trong nhà thấy",
           cta: "Nói riêng bằng giọng →",
@@ -204,40 +184,10 @@ export default function SpaceScreen() {
     livingRoomThread?.heritage?.identity_id ||
     threads.find((t) => t.heritage?.identity_id)?.heritage?.identity_id;
 
-  /** Every remembered person gets two rows: the family room and your own. */
-  const otherThreads = useMemo<ThreadRow[]>(() => {
-    const visible = livingRoomThread
-      ? threads.filter((t) => t.id !== livingRoomThread.id)
-      : threads;
-    const rows: ThreadRow[] = visible.map((thread) => ({ ...thread }));
-    // Pending directs must consider the hero room too — otherwise «Riêng với Bố»
-    // disappears when Cả nhà is elevated to Phòng khách.
-    for (const thread of threads) {
-      const identityId = thread.heritage?.identity_id;
-      if (
-        thread.kind !== "heritage" ||
-        isDirect(thread) ||
-        !identityId ||
-        !thread.heritage?.chat_ready
-      ) {
-        continue;
-      }
-      const hasDirect = threads.some(
-        (other) =>
-          isDirect(other) && other.heritage?.identity_id === identityId,
-      );
-      if (hasDirect) continue;
-      if (rows.some((row) => row.pendingDirectFor === identityId)) continue;
-      rows.push({
-        ...thread,
-        id: `direct:${identityId}`,
-        audience_scope: "direct",
-        last_message: null,
-        pendingDirectFor: identityId,
-      });
-    }
-    return rows;
-  }, [threads, livingRoomThread]);
+  const otherThreads = useMemo(
+    () => homeConversationRows(threads, livingRoomThread),
+    [threads, livingRoomThread],
+  );
 
   useEffect(() => {
     if (!keepsake?.has_media || !keepsake.memory_item_id) {
@@ -297,7 +247,7 @@ export default function SpaceScreen() {
     }
   };
 
-  const openThread = async (item: ThreadRow) => {
+  const openThread = async (item: HomeThreadRow) => {
     if (
       item.kind === "heritage" &&
       item.heritage &&

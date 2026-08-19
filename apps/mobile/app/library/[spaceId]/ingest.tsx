@@ -3,7 +3,6 @@ import {
   LibraryIngestJob,
   LibraryIngestProposal,
 } from "@forever/api-client";
-import * as DocumentPicker from "expo-document-picker";
 import * as ImagePicker from "expo-image-picker";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
@@ -19,6 +18,7 @@ import {
 
 import { useAuth } from "@/lib/auth";
 import { identityChipLabel } from "@/lib/identityDisplay";
+import { getDocumentAsyncSafe } from "@/lib/mediaPick";
 import { useSpaceScreenOptions } from "@/lib/spaceHeader";
 import { colors, fonts, createThemedStyles } from "@/lib/theme";
 
@@ -163,7 +163,7 @@ export default function LibraryIngestScreen() {
         name = asset.fileName ?? "page.jpg";
         mimeType = asset.mimeType ?? "image/jpeg";
       } else {
-        const picked = await DocumentPicker.getDocumentAsync({
+        const picked = await getDocumentAsyncSafe({
           type: [
             "application/pdf",
             "image/*",

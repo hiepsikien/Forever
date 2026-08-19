@@ -14,7 +14,7 @@ from nanoid import generate
 from sqlalchemy.orm import Session
 
 from ..models import IdentityProfile, Keepsake, MemoryItem, Message, Thread
-from .heritage import identity_for_thread, voice_for_identity
+from .heritage import identity_for_thread, normalize_text, voice_for_identity
 from .poem_recite import voice_can_recite
 
 logger = logging.getLogger(__name__)
@@ -52,11 +52,7 @@ def family_heritage_threads(db: Session, *, space_id: str) -> list[Thread]:
 
 
 def most_active_family_heritage_thread(db: Session, *, space_id: str) -> Thread | None:
-    """The shared chat with a remembered person that has the newest message.
-
-    Same rule as the mobile home hero: not kind=family (Người giữ nhà), not a
-    private direct room.
-    """
+    """Newest shared heritage chat — fallback when no Bố room exists."""
     threads = family_heritage_threads(db, space_id=space_id)
     if not threads:
         return None
@@ -75,6 +71,21 @@ def most_active_family_heritage_thread(db: Session, *, space_id: str) -> Thread 
         threads,
         key=lambda t: last_by_thread.get(t.id) or t.created_at,
     )
+
+
+def living_room_family_thread(db: Session, *, space_id: str) -> Thread | None:
+    """Cả nhà with Bố — same person as the mobile Phòng khách hero.
+
+    Do not follow the most recently active remembered person: a newer Bà Nội
+    thread would hide Bố's album photos and poems.
+    """
+    for thread in family_heritage_threads(db, space_id=space_id):
+        identity = identity_for_thread(db, thread)
+        if identity and normalize_text(identity.relation_label or "") == "bo":
+            return family_thread_for_identity(
+                db, space_id=space_id, identity_id=identity.id
+            )
+    return most_active_family_heritage_thread(db, space_id=space_id)
 
 
 def family_thread_for_identity(
@@ -221,7 +232,7 @@ def _next_ready(
 
 
 def pick_today(db: Session, *, space_id: str) -> tuple[Keepsake | None, Thread | None]:
-    thread = most_active_family_heritage_thread(db, space_id=space_id)
+    thread = living_room_family_thread(db, space_id=space_id)
     if not thread:
         return None, None
     identity = identity_for_thread(db, thread)

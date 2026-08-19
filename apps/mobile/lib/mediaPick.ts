@@ -1,4 +1,52 @@
 import * as DocumentPicker from "expo-document-picker";
+import * as ImagePicker from "expo-image-picker";
+
+const PICKING_IN_PROGRESS = /picking in progress/i;
+
+let pickLock: Promise<DocumentPicker.DocumentPickerResult> | null = null;
+
+function delay(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+export function documentPickerErrorMessage(error: unknown): string {
+  const message = error instanceof Error ? error.message : "";
+  if (PICKING_IN_PROGRESS.test(message)) {
+    return "Đang mở chọn file. Đợi cửa sổ chọn đóng rồi thử lại.";
+  }
+  return message || "Không chọn được file.";
+}
+
+/**
+ * iOS Expo DocumentPicker keeps a native lock; a second call throws
+ * "Different document picking in progress" instead of opening Files.
+ */
+export async function getDocumentAsyncSafe(
+  options: DocumentPicker.DocumentPickerOptions,
+): Promise<DocumentPicker.DocumentPickerResult> {
+  if (pickLock) {
+    throw new Error("Đang mở chọn file. Đợi cửa sổ chọn đóng rồi thử lại.");
+  }
+  const run = (async () => {
+    try {
+      return await DocumentPicker.getDocumentAsync(options);
+    } catch (error) {
+      if (!PICKING_IN_PROGRESS.test(error instanceof Error ? error.message : "")) {
+        throw error;
+      }
+      await delay(400);
+      try {
+        return await DocumentPicker.getDocumentAsync(options);
+      } catch (retry) {
+        throw new Error(documentPickerErrorMessage(retry));
+      }
+    }
+  })();
+  pickLock = run.finally(() => {
+    pickLock = null;
+  });
+  return run;
+}
 
 /** Camcorder / family archive extensions we accept as video for library + Extract. */
 export const VIDEO_FILE_EXTENSIONS = new Set([
@@ -113,8 +161,36 @@ export function isAllowedExtractFile(name: string, mimeType?: string | null): bo
   return mime.startsWith("audio/");
 }
 
+export type PickedVideo = {
+  uri: string;
+  name: string;
+  mimeType: string;
+  size?: number | null;
+};
+
+/** Phone camera roll — not Files. Avoids expo-document-picker's iOS native lock. */
+export async function pickVideoFromPhotos(): Promise<PickedVideo | null> {
+  const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
+  if (!perm.granted) {
+    throw new Error("Cho phép truy cập ảnh để lưu video vào thư viện.");
+  }
+  const picked = await ImagePicker.launchImageLibraryAsync({
+    mediaTypes: ["videos"],
+    quality: 1,
+  });
+  if (picked.canceled || !picked.assets[0]) return null;
+  const asset = picked.assets[0];
+  const name = asset.fileName ?? "video.mp4";
+  return {
+    uri: asset.uri,
+    name,
+    mimeType: guessVideoMime(name, asset.mimeType),
+    size: asset.fileSize ?? null,
+  };
+}
+
 export async function pickVideoMemoryFile(): Promise<DocumentPicker.DocumentPickerAsset | null> {
-  const result = await DocumentPicker.getDocumentAsync({
+  const result = await getDocumentAsyncSafe({
     type: VIDEO_MEMORY_PICKER_TYPES,
     copyToCacheDirectory: true,
     multiple: false,
@@ -131,7 +207,7 @@ export async function pickVideoMemoryFile(): Promise<DocumentPicker.DocumentPick
 }
 
 export async function pickExtractMediaFile(): Promise<DocumentPicker.DocumentPickerAsset | null> {
-  const result = await DocumentPicker.getDocumentAsync({
+  const result = await getDocumentAsyncSafe({
     type: EXTRACT_MEDIA_PICKER_TYPES,
     copyToCacheDirectory: true,
     multiple: false,
