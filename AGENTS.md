@@ -18,6 +18,23 @@ Plan: `docs/voice-to-voice.plan.md`. Flags: `STT_ENABLED`, `HERITAGE_TTS_ENABLED
 (default on). Mobile entry: `/call/[threadId]` — auto-play only for the reply to
 the turn she just spoke.
 
+Nút giữ để nói phải xin quyền mic qua `lib/micPermission.ts`. Gọi thẳng
+`requestRecordingPermissionsAsync` là Android mở `GrantPermissionsActivity`
+**dù quyền đã cấp, và cả khi quyền đã bị chặn hẳn**: cả hai trường hợp activity
+ấy loé ~200ms rồi tự đóng, app mất focus, `AppState` báo rời app và lượt vừa mở
+bị huỷ — đúng cái «mic loé rồi tắt» trên Samsung. Vì thế:
+
+- hỏi `getRecordingPermissionsAsync` trước (không UI, không đổi focus);
+- chỉ mở hộp thoại thật **một lần mỗi lần chạy app**; đã bị từ chối thì xin nữa
+ chỉ loé lại chứ Android không hỏi mẹ lần hai. Đường về là Cài đặt
+ (`openMicSettings`), và `micPermissionNeedsSettings()` cho UI biết để mời;
+- chốt quyền lúc **mở màn** `/call`, đừng để hộp thoại nhảy giữa lúc đang giữ nút.
+
+`expo-audio` phía native chỉ `checkSelfPermission` rồi ném `AudioPermissionsException`,
+không bao giờ tự xin — nên thấy `GrantPermissionsActivity` trong logcat là do JS gọi.
+Kèm đó: `AppState` chỉ huỷ khi `background` trên Android (không phải `inactive`),
+và `HoldToTalkTarget` bỏ qua `touchCancel` trên Android.
+
 ## Stack
 
 - `apps/api` — FastAPI + Postgres

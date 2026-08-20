@@ -43,7 +43,11 @@ module.exports = ({ config }) => {
     owner: "hiepsikien",
     android: {
       package: bundleId,
-      versionCode: 2,
+      // Bumped per build by scripts/build-apk.sh. A fixed number lets an older
+      // APK reinstall over a newer one — Android only blocks a *lower*
+      // versionCode, so an equal one passes without a word, kills the running
+      // app and quietly gives the phone back yesterday's bug.
+      versionCode: Number(process.env.FOREVER_VERSION_CODE) || 2,
       adaptiveIcon: {
         foregroundImage: "./assets/adaptive-icon.png",
         backgroundColor: "#2d4a3e",

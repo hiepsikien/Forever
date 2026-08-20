@@ -84,6 +84,11 @@ fi
 
 bash "$ROOT/scripts/ensure-keystore.sh"
 
+# Minutes since the epoch: always larger than the last build, so a stale APK
+# still sitting in a phone's Downloads can no longer install over this one.
+export FOREVER_VERSION_CODE="${FOREVER_VERSION_CODE:-$(( $(date +%s) / 60 ))}"
+echo "→ versionCode: $FOREVER_VERSION_CODE"
+
 echo "→ expo prebuild (android)"
 npx expo prebuild --platform android --clean
 

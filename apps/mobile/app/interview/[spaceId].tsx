@@ -1,9 +1,5 @@
 import { InterviewPrompt } from "@forever/api-client";
-import {
-  RecordingPresets,
-  requestRecordingPermissionsAsync,
-  useAudioRecorder,
-} from "expo-audio";
+import { useAudioRecorder } from "expo-audio";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
 import {
@@ -18,6 +14,8 @@ import {
 
 import { preparePlaybackMode, prepareRecordingMode } from "@/lib/audio";
 import { useAuth } from "@/lib/auth";
+import { ensureRecordingPermission } from "@/lib/micPermission";
+import { VOICE_RECORDING_OPTIONS } from "@/lib/recordingOptions";
 import { useSpaceScreenOptions } from "@/lib/spaceHeader";
 import { colors, fonts, createThemedStyles } from "@/lib/theme";
 
@@ -25,7 +23,7 @@ export default function InterviewScreen() {
   const { spaceId } = useLocalSearchParams<{ spaceId: string }>();
   const { api } = useAuth();
   const router = useRouter();
-  const recorder = useAudioRecorder(RecordingPresets.HIGH_QUALITY);
+  const recorder = useAudioRecorder(VOICE_RECORDING_OPTIONS);
   const [prompts, setPrompts] = useState<InterviewPrompt[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeId, setActiveId] = useState<string | null>(null);
@@ -80,8 +78,8 @@ export default function InterviewScreen() {
 
   const startRecording = async (promptId: string) => {
     try {
-      const perm = await requestRecordingPermissionsAsync();
-      if (!perm.granted) {
+      const allowed = await ensureRecordingPermission();
+      if (!allowed) {
         Alert.alert("Cần quyền", "Cho phép micro để ghi voice note.");
         return;
       }

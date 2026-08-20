@@ -1,9 +1,5 @@
 import { ApiError, StoryChunkDetail } from "@forever/api-client";
-import {
-  requestRecordingPermissionsAsync,
-  useAudioRecorder,
-  useAudioRecorderState,
-} from "expo-audio";
+import { useAudioRecorder, useAudioRecorderState } from "expo-audio";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
 import {
@@ -22,6 +18,7 @@ import {
   prepareRecordingMode,
   stopActivePlayback,
 } from "@/lib/audio";
+import { ensureRecordingPermission } from "@/lib/micPermission";
 import { RecordingLevelMeter } from "@/lib/recordingMeter";
 import { VOICE_RECORDING_OPTIONS } from "@/lib/recordingOptions";
 import { useAuth } from "@/lib/auth";
@@ -88,8 +85,8 @@ export default function StoryRecordScreen() {
   const startRecording = async () => {
     try {
       await stopActivePlayback();
-      const perm = await requestRecordingPermissionsAsync();
-      if (!perm.granted) {
+      const allowed = await ensureRecordingPermission();
+      if (!allowed) {
         Alert.alert("Cần quyền", "Cho phép micro để ghi.");
         return;
       }

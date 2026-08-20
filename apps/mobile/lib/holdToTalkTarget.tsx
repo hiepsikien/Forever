@@ -14,15 +14,13 @@ import { HOLD_TO_TALK_CANCEL_PX } from "@/lib/holdToTalk";
 const EDGE_SLOP = 20;
 /** Samsung/Android often emit bogus move coords right after touch-start. */
 const MOVE_ARM_MS = Platform.OS === "android" ? 450 : 0;
-/**
- * Wait before opening the mic. Filters tap noise and lets the gesture settle
- * before setAudioMode (which triggers ACTION_CANCEL on many Samsungs).
- */
+/** Wait before opening the mic so a plain tap never flashes the recorder. */
 const PRESS_ACTIVATE_MS = Platform.OS === "android" ? 100 : 0;
 /**
- * Audio-mode switch on Samsung fires ACTION_CANCEL while the finger is still
+ * Android fires ACTION_CANCEL whenever another activity takes focus (the mic
+ * permission dialog does, even when already granted) while the finger is still
  * down — that ended the hold (red flash → idle). Ignore cancel on Android;
- * real lift still gets touchEnd. AppState covers backgrounding.
+ * a real lift still gets touchEnd. AppState covers backgrounding.
  */
 const IGNORE_TOUCH_CANCEL = Platform.OS === "android";
 

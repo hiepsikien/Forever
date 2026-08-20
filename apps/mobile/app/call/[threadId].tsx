@@ -5,11 +5,7 @@ import {
   voiceProviderLabel,
   voiceTtsModelLabel,
 } from "@forever/api-client";
-import {
-  requestRecordingPermissionsAsync,
-  useAudioRecorder,
-  useAudioRecorderState,
-} from "expo-audio";
+import { useAudioRecorder, useAudioRecorderState } from "expo-audio";
 import { useFocusEffect } from "@react-navigation/native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -35,7 +31,16 @@ import {
   preparePlaybackMode,
   stopActivePlayback,
 } from "@/lib/audio";
-import { beginVoiceRecording } from "@/lib/beginVoiceRecording";
+import {
+  beginVoiceRecording,
+  recorderLooksLive,
+} from "@/lib/beginVoiceRecording";
+import {
+  ensureRecordingPermission,
+  isRequestingRecordingPermission,
+  micPermissionNeedsSettings,
+  openMicSettings,
+} from "@/lib/micPermission";
 import { useAuth } from "@/lib/auth";
 import {
   sentenceIndexForProgress,
@@ -288,6 +293,7 @@ export default function CallScreen() {
   const [pendingUserText, setPendingUserText] = useState("");
   const [playingReplyId, setPlayingReplyId] = useState<string | null>(null);
   const [activeSentence, setActiveSentence] = useState<number | null>(null);
+  const [micBlocked, setMicBlocked] = useState(false);
 
   const awaitingAfterIdRef = useRef<string | null>(null);
   const replyDeadlineRef = useRef(0);
@@ -735,7 +741,7 @@ export default function CallScreen() {
     return () => {
       void stopActivePlayback();
       try {
-        if (recorder.isRecording) void recorder.stop();
+        void recorder.stop();
       } catch {
         // ignore
       }
@@ -744,7 +750,8 @@ export default function CallScreen() {
 
   const abortListening = useCallback(async () => {
     try {
-      if (recorder.isRecording) await recorder.stop();
+      // Always ask for a stop: a lagging isRecording flag would leave it open.
+      await recorder.stop();
     } catch {
       // ignore
     }
@@ -761,19 +768,26 @@ export default function CallScreen() {
   const startListening = async (gen: number) => {
     const canStart =
       phaseRef.current === "idle" || phaseRef.current === "error";
-    if (!canStart || recorder.isRecording) return;
+    if (!canStart || recorderLooksLive(recorder)) return;
     setError(null);
     // Turn red immediately so mẹ sees the button react before mic open (~300ms).
     phaseRef.current = "listening";
     setPhase("listening");
     try {
-      const perm = await requestRecordingPermissionsAsync();
-      if (!perm.granted) {
+      const allowed = await ensureRecordingPermission();
+      if (!allowed) {
         holdingRef.current = false;
-        setError("Cho phép micro để nói với Bố.");
+        const blocked = micPermissionNeedsSettings();
+        setMicBlocked(blocked);
+        setError(
+          blocked
+            ? "Micro đang bị tắt cho Forever nên không thu được câu nói."
+            : `Cho phép micro để nói với ${displayName}.`,
+        );
         setPhase("error");
         return;
       }
+      setMicBlocked(false);
       if (!holdingRef.current || holdGenRef.current !== gen) {
         if (phaseRef.current === "listening") await abortListening();
         return;
@@ -853,23 +867,23 @@ export default function CallScreen() {
       // Finger may lift (or a late ghost end) while Samsung is still flipping
       // the audio session — wait briefly for MediaRecorder before treating it
       // as a cancelled open.
-      if (phaseRef.current === "listening" && !recorder.isRecording) {
+      if (phaseRef.current === "listening" && !recorderLooksLive(recorder)) {
         const deadline = Date.now() + 1200;
-        while (Date.now() < deadline && !recorder.isRecording) {
+        while (Date.now() < deadline && !recorderLooksLive(recorder)) {
           if (phaseRef.current !== "listening") break;
           await new Promise((r) => setTimeout(r, 40));
         }
       }
+      const live = recorderLooksLive(recorder);
       if (phaseRef.current !== "listening") {
         holdGenRef.current += 1;
-        if (recorder.isRecording) await abortListening();
+        if (live) await abortListening();
         return;
       }
       if (
         cancelArmedRef.current ||
-        (!recorder.isRecording &&
-          Date.now() - holdStartedAtRef.current < 800) ||
-        (recorder.isRecording &&
+        (!live && Date.now() - holdStartedAtRef.current < 800) ||
+        (live &&
           Date.now() -
             (recordStartedAtRef.current || holdStartedAtRef.current) <
             HOLD_TO_TALK_MIN_MS)
@@ -930,9 +944,24 @@ export default function CallScreen() {
     return () => clearTimeout(timer);
   }, [phase]);
 
+  // Settle the mic permission on open, while no finger is down — a dialog that
+  // appears mid-hold takes focus away and the take is lost.
+  useEffect(() => {
+    let live = true;
+    void ensureRecordingPermission().then((ok) => {
+      if (live) setMicBlocked(!ok && micPermissionNeedsSettings());
+    });
+    return () => {
+      live = false;
+    };
+  }, []);
+
   useEffect(() => {
     const sub = AppState.addEventListener("change", (next) => {
       if (next === "active") return;
+      // A permission dialog flashing over us is not mẹ leaving the app.
+      if (isRequestingRecordingPermission()) return;
+      if (Platform.OS === "android" && next !== "background") return;
       if (!holdingRef.current && phaseRef.current !== "listening") return;
       holdingRef.current = false;
       void abortListening();
@@ -1303,6 +1332,11 @@ export default function CallScreen() {
         ) : null}
 
         {error ? <Text style={styles.errorText}>{error}</Text> : null}
+        {micBlocked ? (
+          <Pressable onPress={openMicSettings} style={styles.secondaryBtn}>
+            <Text style={styles.secondaryBtnText}>Mở Cài đặt để bật micro</Text>
+          </Pressable>
+        ) : null}
       </ScrollView>
 
       <View style={styles.footer}>
@@ -1688,13 +1722,18 @@ const styles = createThemedStyles((colors) => ({
     height: 36,
     justifyContent: "center",
   },
+  /**
+   * Wide soft ring: hit slop mẹ can miss the middle of and still land.
+   * Radius must stay exactly half of 96 + 2×22 — a larger one made Android
+   * draw the fill as an octagon instead of a circle.
+   */
   mainBtnHit: {
     padding: 22,
-    borderRadius: 80,
+    borderRadius: 70,
     backgroundColor: "rgba(45, 74, 62, 0.14)",
     alignItems: "center",
     justifyContent: "center",
-    ...(Platform.OS === "android" ? { elevation: 4, zIndex: 21 } : null),
+    ...(Platform.OS === "android" ? { zIndex: 21 } : null),
   },
   mainBtnHitListening: {
     backgroundColor: "rgba(139, 58, 58, 0.22)",

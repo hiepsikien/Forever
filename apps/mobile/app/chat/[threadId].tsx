@@ -1,7 +1,6 @@
 import { ChatMessage, IdentityProfile, ThreadSummary } from "@forever/api-client";
 import {
   AudioRecorder,
-  requestRecordingPermissionsAsync,
   useAudioRecorder,
   useAudioRecorderState,
 } from "expo-audio";
@@ -41,7 +40,10 @@ import {
   preparePlaybackMode,
   stopActivePlayback,
 } from "@/lib/audio";
-import { beginVoiceRecording } from "@/lib/beginVoiceRecording";
+import {
+  beginVoiceRecording,
+  recorderLooksLive,
+} from "@/lib/beginVoiceRecording";
 import {
   HOLD_TO_TALK_MAX_MS,
   HOLD_TO_TALK_MIN_MS,
@@ -51,6 +53,12 @@ import {
   type SpeechGate,
 } from "@/lib/holdToTalk";
 import { HoldToTalkTarget } from "@/lib/holdToTalkTarget";
+import {
+  ensureRecordingPermission,
+  isRequestingRecordingPermission,
+  micPermissionNeedsSettings,
+  openMicSettings,
+} from "@/lib/micPermission";
 import { RecordingLevelMeter } from "@/lib/recordingMeter";
 import { VOICE_RECORDING_OPTIONS } from "@/lib/recordingOptions";
 import { useAuth } from "@/lib/auth";
@@ -724,7 +732,8 @@ export default function ChatScreen() {
 
   const abortRecording = useCallback(async () => {
     try {
-      if (recorder.isRecording) await recorder.stop();
+      // Always ask for a stop: a lagging isRecording flag would leave it open.
+      await recorder.stop();
     } catch {
       // ignore
     } finally {
@@ -738,16 +747,27 @@ export default function ChatScreen() {
   }, [recorder]);
 
   const startRecording = async (gen: number) => {
-    if (sendingRef.current || recorder.isRecording) return;
+    if (sendingRef.current || recorderLooksLive(recorder)) return;
     recordingRef.current = true;
     setRecording(true);
     try {
-      const perm = await requestRecordingPermissionsAsync();
-      if (!perm.granted) {
+      const allowed = await ensureRecordingPermission();
+      if (!allowed) {
         holdingRef.current = false;
         recordingRef.current = false;
         setRecording(false);
-        Alert.alert("Cần quyền", "Cho phép micro để gửi giọng nói.");
+        if (micPermissionNeedsSettings()) {
+          Alert.alert(
+            "Micro đang tắt",
+            "Bật micro cho Forever trong Cài đặt rồi giữ nút nói lại.",
+            [
+              { text: "Để sau", style: "cancel" },
+              { text: "Mở Cài đặt", onPress: openMicSettings },
+            ],
+          );
+        } else {
+          Alert.alert("Cần quyền", "Cho phép micro để gửi giọng nói.");
+        }
         return;
       }
       if (!holdingRef.current || holdGenRef.current !== gen) {
@@ -819,24 +839,24 @@ export default function ChatScreen() {
     finishingHoldRef.current = true;
     holdingRef.current = false;
     try {
-      if (recordingRef.current && !recorder.isRecording) {
+      if (recordingRef.current && !recorderLooksLive(recorder)) {
         const deadline = Date.now() + 1200;
-        while (Date.now() < deadline && !recorder.isRecording) {
+        while (Date.now() < deadline && !recorderLooksLive(recorder)) {
           if (!recordingRef.current) break;
           await new Promise((r) => setTimeout(r, 40));
         }
       }
+      const live = recorderLooksLive(recorder);
       if (!recordingRef.current) {
         // Finger left before the recorder finished opening — drop that take.
         holdGenRef.current += 1;
-        if (recorder.isRecording) await abortRecording();
+        if (live) await abortRecording();
         return;
       }
       if (
         cancelArmedRef.current ||
-        (!recorder.isRecording &&
-          Date.now() - holdStartedAtRef.current < 800) ||
-        (recorder.isRecording &&
+        (!live && Date.now() - holdStartedAtRef.current < 800) ||
+        (live &&
           Date.now() -
             (recordStartedAtRef.current || holdStartedAtRef.current) <
             HOLD_TO_TALK_MIN_MS)
@@ -896,6 +916,9 @@ export default function ChatScreen() {
   useEffect(() => {
     const sub = AppState.addEventListener("change", (next) => {
       if (next === "active") return;
+      // A permission dialog flashing over us is not the user leaving the app.
+      if (isRequestingRecordingPermission()) return;
+      if (Platform.OS === "android" && next !== "background") return;
       if (!holdingRef.current && !recordingRef.current) return;
       holdingRef.current = false;
       void abortRecording();
