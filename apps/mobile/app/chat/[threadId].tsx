@@ -409,6 +409,7 @@ export default function ChatScreen() {
   const recordingRef = useRef(false);
   const holdGenRef = useRef(0);
   const holdingRef = useRef(false);
+  const holdStartedAtRef = useRef(0);
   const recordStartedAtRef = useRef(0);
   const cancelArmedRef = useRef(false);
   const speechGateRef = useRef(emptySpeechGate());
@@ -749,10 +750,16 @@ export default function ChatScreen() {
         Alert.alert("Cần quyền", "Cho phép micro để gửi giọng nói.");
         return;
       }
-      if (!holdingRef.current || holdGenRef.current !== gen) return;
+      if (!holdingRef.current || holdGenRef.current !== gen) {
+        if (recordingRef.current) await abortRecording();
+        return;
+      }
       await stopActivePlayback();
       setPlayingId(null);
-      if (!holdingRef.current || holdGenRef.current !== gen) return;
+      if (!holdingRef.current || holdGenRef.current !== gen) {
+        if (recordingRef.current) await abortRecording();
+        return;
+      }
       await beginVoiceRecording(recorder);
       if (!holdingRef.current || holdGenRef.current !== gen) {
         await abortRecording();
@@ -819,7 +826,12 @@ export default function ChatScreen() {
       }
       if (
         cancelArmedRef.current ||
-        Date.now() - recordStartedAtRef.current < HOLD_TO_TALK_MIN_MS
+        (!recorder.isRecording &&
+          Date.now() - holdStartedAtRef.current < 800) ||
+        (recorder.isRecording &&
+          Date.now() -
+            (recordStartedAtRef.current || holdStartedAtRef.current) <
+            HOLD_TO_TALK_MIN_MS)
       ) {
         await abortRecording();
         return;
@@ -843,6 +855,7 @@ export default function ChatScreen() {
   const onMicPressIn = () => {
     if (sendingRef.current || holdingRef.current || recordingRef.current) return;
     holdingRef.current = true;
+    holdStartedAtRef.current = Date.now();
     cancelArmedRef.current = false;
     setCancelArmed(false);
     finishingHoldRef.current = false;
@@ -1051,6 +1064,7 @@ export default function ChatScreen() {
         onMomentumScrollBegin={onMomentumScrollBegin}
         onMomentumScrollEnd={onMomentumScrollEnd}
         scrollEventThrottle={16}
+        scrollEnabled={!recording}
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode="interactive"
         onContentSizeChange={onContentSizeChange}

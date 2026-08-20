@@ -300,6 +300,7 @@ export default function CallScreen() {
   const phaseRef = useRef<CallPhase>("idle");
   const holdGenRef = useRef(0);
   const holdingRef = useRef(false);
+  const holdStartedAtRef = useRef(0);
   const recordStartedAtRef = useRef(0);
   const cancelArmedRef = useRef(false);
   const finishingHoldRef = useRef(false);
@@ -773,14 +774,20 @@ export default function CallScreen() {
         setPhase("error");
         return;
       }
-      if (!holdingRef.current || holdGenRef.current !== gen) return;
+      if (!holdingRef.current || holdGenRef.current !== gen) {
+        if (phaseRef.current === "listening") await abortListening();
+        return;
+      }
       await stopActivePlayback();
       replayQueueRef.current = [];
       playLockRef.current = false;
       setReplaySession(null);
       setPlayingReplyId(null);
       setActiveSentence(null);
-      if (!holdingRef.current || holdGenRef.current !== gen) return;
+      if (!holdingRef.current || holdGenRef.current !== gen) {
+        if (phaseRef.current === "listening") await abortListening();
+        return;
+      }
       await beginVoiceRecording(recorder);
       if (!holdingRef.current || holdGenRef.current !== gen) {
         await abortListening();
@@ -848,8 +855,12 @@ export default function CallScreen() {
       }
       if (
         cancelArmedRef.current ||
-        recordStartedAtRef.current === 0 ||
-        Date.now() - recordStartedAtRef.current < HOLD_TO_TALK_MIN_MS
+        (!recorder.isRecording &&
+          Date.now() - holdStartedAtRef.current < 800) ||
+        (recorder.isRecording &&
+          Date.now() -
+            (recordStartedAtRef.current || holdStartedAtRef.current) <
+            HOLD_TO_TALK_MIN_MS)
       ) {
         await abortListening();
         return;
@@ -872,6 +883,7 @@ export default function CallScreen() {
     if (phaseRef.current !== "idle" && phaseRef.current !== "error") return;
     if (holdingRef.current) return;
     holdingRef.current = true;
+    holdStartedAtRef.current = Date.now();
     cancelArmedRef.current = false;
     setCancelArmed(false);
     finishingHoldRef.current = false;
@@ -1042,6 +1054,7 @@ export default function CallScreen() {
         ref={scrollRef}
         style={styles.transcriptScroll}
         contentContainerStyle={styles.transcriptContent}
+        scrollEnabled={phase === "idle" || phase === "error" || phase === "speaking"}
         keyboardShouldPersistTaps="handled"
         nestedScrollEnabled
         stickyHeaderIndices={keepsakeBanner?.settled ? [0] : undefined}

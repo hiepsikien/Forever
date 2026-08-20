@@ -6,19 +6,21 @@ import { VOICE_RECORDING_OPTIONS } from "@/lib/recordingOptions";
 
 /** Flip audio session after playback stops — both platforms need a beat. */
 const SESSION_SETTLE_MS = Platform.OS === "android" ? 280 : 200;
+const RECORD_READY_MS = Platform.OS === "android" ? 700 : 200;
 
 /**
- * Open the mic for a hold-to-talk take. Throws if MediaRecorder never starts —
- * expo-audio on Android can report isRecording=true even when start() no-ops,
- * so we re-read status after a short pause.
+ * Open the mic for a hold-to-talk take. Throws if MediaRecorder never starts.
+ * Samsung can report isRecording=false for a few hundred ms after record().
  */
 export async function beginVoiceRecording(recorder: AudioRecorder): Promise<void> {
   await prepareRecordingMode();
   await new Promise((r) => setTimeout(r, SESSION_SETTLE_MS));
   await recorder.prepareToRecordAsync(VOICE_RECORDING_OPTIONS);
   recorder.record();
-  await new Promise((r) => setTimeout(r, Platform.OS === "android" ? 80 : 40));
-  if (!recorder.isRecording) {
-    throw new Error("Micro không ghi được. Thử giữ lại nút hoặc mở lại app.");
+  const deadline = Date.now() + RECORD_READY_MS;
+  while (Date.now() < deadline) {
+    if (recorder.isRecording) return;
+    await new Promise((r) => setTimeout(r, 40));
   }
+  throw new Error("Micro không ghi được. Thử giữ lại nút hoặc mở lại app.");
 }

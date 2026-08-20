@@ -12,6 +12,8 @@ import { HOLD_TO_TALK_CANCEL_PX } from "@/lib/holdToTalk";
 
 /** Finger may drift this far past the hit ring before we treat it as gone. */
 const EDGE_SLOP = 20;
+/** Samsung/Android often emit bogus move coords right after touch-start. */
+const MOVE_ARM_MS = Platform.OS === "android" ? 450 : 0;
 
 type Props = {
   disabled?: boolean;
@@ -27,9 +29,9 @@ type Props = {
 };
 
 /**
- * Hold-to-talk host. Uses low-level touch events (not the responder system) so
- * Android gets the same reliable path as Pressable buttons like «Nghe lại».
- * Immediate pressed styling fires before async mic open.
+ * Hold-to-talk host. Low-level touch events (not the responder system).
+ * On Android we only slide-to-cancel via pageX/pageY — locationX/Y from move
+ * events are unreliable on Samsung and were ending the hold immediately.
  */
 export function HoldToTalkTarget({
   disabled,
@@ -45,6 +47,7 @@ export function HoldToTalkTarget({
   const sizeRef = useRef({ width: 0, height: 0 });
   const originXRef = useRef(0);
   const originYRef = useRef(0);
+  const startedAtRef = useRef(0);
   const holdingRef = useRef(false);
   const armedRef = useRef(false);
   const disabledRef = useRef(disabled);
@@ -93,10 +96,10 @@ export function HoldToTalkTarget({
       holdingRef.current = true;
       setPressed(true);
       armedRef.current = false;
+      startedAtRef.current = Date.now();
       originXRef.current = e.nativeEvent.pageX;
       originYRef.current = e.nativeEvent.pageY;
       startRef.current(e);
-      // Android locationX/Y at touch-start are unreliable; only iOS checks here.
       if (Platform.OS === "ios") {
         const { locationX, locationY } = e.nativeEvent;
         if (leftHitRing(locationX, locationY)) {
@@ -111,7 +114,8 @@ export function HoldToTalkTarget({
     (e: GestureResponderEvent) => {
       if (!holdingRef.current) return;
       const { locationX, locationY, pageX, pageY } = e.nativeEvent;
-      if (leftHitRing(locationX, locationY)) {
+      const armed = Date.now() - startedAtRef.current >= MOVE_ARM_MS;
+      if (armed && Platform.OS === "ios" && leftHitRing(locationX, locationY)) {
         endHold(true);
         return;
       }
