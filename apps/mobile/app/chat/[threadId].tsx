@@ -17,7 +17,6 @@ import {
   Image,
   Keyboard,
   KeyboardAvoidingView,
-  LayoutChangeEvent,
   NativeScrollEvent,
   NativeSyntheticEvent,
   Platform,
@@ -336,15 +335,13 @@ export default function ChatScreen() {
   /**
    * How far to lift the screen for the keyboard on Android.
    *
-   * Android draws edge to edge since SDK 53, so the window no longer shrinks
-   * for the keyboard and `KeyboardAvoidingView` has nothing to work with — the
-   * keyboard simply covered the composer. Lift by the height the system
-   * reports, minus whatever the window did give back, measured rather than
-   * assumed: a build that still resizes would otherwise jump twice as far.
+   * Edge-to-edge (SDK 53+) means `adjustResize` no longer shrinks the React
+   * root, so KeyboardAvoidingView has nothing to work with. Pad by the height
+   * the system reports. Do not remeasure the padded view and "subtract what
+   * the window gave back" — that subtraction was our own padding, so the inset
+   * fell to 0 and the keyboard covered the composer again.
    */
   const [keyboardInset, setKeyboardInset] = useState(0);
-  const keyboardHeightRef = useRef(0);
-  const rootHeightRef = useRef(0);
   const [playingId, setPlayingId] = useState<string | null>(null);
   const [spaceId, setSpaceId] = useState<string | null>(null);
   const [threadMeta, setThreadMeta] = useState<ThreadSummary | null>(null);
@@ -618,15 +615,14 @@ export default function ChatScreen() {
     const subs = [
       Keyboard.addListener(shown, (e) => {
         setKeyboardUp(true);
-        const height = e.endCoordinates?.height ?? 0;
-        keyboardHeightRef.current = height;
-        if (Platform.OS === "android") setKeyboardInset(height);
+        if (Platform.OS === "android") {
+          setKeyboardInset(Math.max(0, e.endCoordinates?.height ?? 0));
+        }
         // Opening the keyboard means she is writing, not reading back.
         jumpToLatest();
       }),
       Keyboard.addListener(hidden, () => {
         setKeyboardUp(false);
-        keyboardHeightRef.current = 0;
         setKeyboardInset(0);
       }),
     ];
@@ -806,18 +802,6 @@ export default function ChatScreen() {
     };
   }, [highlightId, loading, messages]);
 
-  const onRootLayout = useCallback((e: LayoutChangeEvent) => {
-    const height = e.nativeEvent.layout.height;
-    if (!keyboardHeightRef.current) {
-      // Keyboard down: this is the room we have to give back later.
-      rootHeightRef.current = height;
-      return;
-    }
-    if (Platform.OS !== "android" || !rootHeightRef.current) return;
-    const gaveBack = Math.max(0, rootHeightRef.current - height);
-    setKeyboardInset(Math.max(0, keyboardHeightRef.current - gaveBack));
-  }, []);
-
   const onContentSizeChange = useCallback((_w: number, h: number) => {
     const grew = h > lastContentHeightRef.current + 1;
     lastContentHeightRef.current = h;
@@ -853,16 +837,8 @@ export default function ChatScreen() {
     threadMeta.heritage &&
     !threadMeta.heritage.chat_ready;
 
-  return (
-    <KeyboardAvoidingView
-      style={[
-        styles.root,
-        Platform.OS === "android" ? { paddingBottom: keyboardInset } : null,
-      ]}
-      behavior={Platform.OS === "ios" ? "padding" : undefined}
-      keyboardVerticalOffset={Platform.OS === "ios" ? headerHeight : 0}
-      onLayout={onRootLayout}
-    >
+  const screen = (
+    <>
       <FlatList
         ref={listRef}
         data={messages}
@@ -950,38 +926,58 @@ export default function ChatScreen() {
           </Pressable>
         </View>
       ) : (
-      <>
-      <HandleSuggestBar
-        suggestions={handleSuggestions}
-        userId={user?.id}
-        onPick={pickHandleSuggestion}
-      />
-      <View
-        style={[
-          styles.composer,
-          // The keyboard already covers the home indicator, so reserving room
-          // for it as well leaves a dead band under the input.
-          { paddingBottom: keyboardUp ? 12 : Math.max(insets.bottom, 12) },
-        ]}
-      >
-        <TextInput
-          value={text}
-          onChangeText={setText}
-          placeholder="Nhắn cho cả nhà… (@tên để gắn)"
-          placeholderTextColor={colors.inkSoft}
-          style={styles.input}
-          multiline
-        />
-        <Pressable
-          onPress={send}
-          disabled={sending || !text.trim()}
-          style={[styles.send, (!text.trim() || sending) && { opacity: 0.5 }]}
-        >
-          <Text style={styles.sendText}>{sending ? "…" : "Gửi"}</Text>
-        </Pressable>
-      </View>
-      </>
+        <>
+          <HandleSuggestBar
+            suggestions={handleSuggestions}
+            userId={user?.id}
+            onPick={pickHandleSuggestion}
+          />
+          <View
+            style={[
+              styles.composer,
+              // The keyboard already covers the home indicator, so reserving room
+              // for it as well leaves a dead band under the input.
+              { paddingBottom: keyboardUp ? 12 : Math.max(insets.bottom, 12) },
+            ]}
+          >
+            <TextInput
+              value={text}
+              onChangeText={setText}
+              placeholder="Nhắn cho cả nhà… (@tên để gắn)"
+              placeholderTextColor={colors.inkSoft}
+              style={styles.input}
+              multiline
+            />
+            <Pressable
+              onPress={send}
+              disabled={sending || !text.trim()}
+              style={[styles.send, (!text.trim() || sending) && { opacity: 0.5 }]}
+            >
+              <Text style={styles.sendText}>{sending ? "…" : "Gửi"}</Text>
+            </Pressable>
+          </View>
+        </>
       )}
+    </>
+  );
+
+  // Android: plain View + bottom padding. KeyboardAvoidingView is a no-op when
+  // the window does not resize, and measuring a padded root wiped the pad.
+  if (Platform.OS === "android") {
+    return (
+      <View style={[styles.root, { paddingBottom: keyboardInset }]}>
+        {screen}
+      </View>
+    );
+  }
+
+  return (
+    <KeyboardAvoidingView
+      style={styles.root}
+      behavior="padding"
+      keyboardVerticalOffset={headerHeight}
+    >
+      {screen}
     </KeyboardAvoidingView>
   );
 }

@@ -20,9 +20,9 @@ the turn she just spoke.
 
 Phòng chat chữ (`/chat/[threadId]`) **không có nút Mic** — giọng chỉ đi qua
 `/call`. Bàn phím Android ở đó không dùng `KeyboardAvoidingView`: SDK 54 vẽ tràn
-viền nên cửa sổ không co lại, màn tự đội theo chiều cao bàn phím hệ thống báo và
-trừ đi phần cửa sổ đã nhường (đo bằng `onLayout`, đừng đoán) — đội hai lần là ô
-gõ bay lên giữa màn.
+viền nên cửa sổ không co lại; màn tự đội `paddingBottom` đúng chiều cao bàn phím
+hệ thống báo. Đừng đo lại root đã pad rồi «trừ phần cửa sổ đã nhường» — đó chính
+là padding vừa thêm, inset về 0 và ô gõ lại bị che.
 
 Chữ sáng theo giọng ở `/call` chỉ là phép chia theo số ký tự (TTS không trả mốc
 thời gian từng từ), nên lượt **đọc thơ / đọc truyện** phải nói cho màn hình biết
