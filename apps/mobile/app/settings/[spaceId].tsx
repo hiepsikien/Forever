@@ -7,7 +7,13 @@ import {
   StewardshipStatus,
 } from "@forever/api-client";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { useCallback, useLayoutEffect, useState, type ReactNode } from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useState,
+  type ReactNode,
+} from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -130,6 +136,11 @@ export default function SettingsScreen() {
   const [costOpen, setCostOpen] = useState(false);
   const [costTablesOpen, setCostTablesOpen] = useState(false);
   const [modelsOpen, setModelsOpen] = useState(false);
+  const [charterOpen, setCharterOpen] = useState(false);
+  const [charterBusy, setCharterBusy] = useState(false);
+  const [charterLines, setCharterLines] = useState<string[]>([]);
+  const [livingKin, setLivingKin] = useState("");
+  const [affectionPerDay, setAffectionPerDay] = useState(1);
   const [voiceKeyOpen, setVoiceKeyOpen] = useState(false);
   const [addingLivingFor, setAddingLivingFor] = useState<string | null>(null);
   const [newLivingName, setNewLivingName] = useState("");
@@ -141,6 +152,16 @@ export default function SettingsScreen() {
     showSettings: false,
     backTitle: "Nhà",
   });
+
+  // Hiến chương là văn bản gia đình sửa tay, nên form giữ bản nháp riêng và
+  // chỉ đồng bộ lại khi server trả về bản mới.
+  const charter = settings?.family_charter;
+  useEffect(() => {
+    if (!charter) return;
+    setCharterLines(charter.lines);
+    setLivingKin(charter.living_kin);
+    setAffectionPerDay(charter.spouse_affection_per_day);
+  }, [charter]);
 
   const load = useCallback(async () => {
     if (!spaceId) return;
@@ -175,6 +196,55 @@ export default function SettingsScreen() {
       setUsageLoading(false);
     }
   }, [api, spaceId, usageDays]);
+
+  const saveCharter = async () => {
+    if (!spaceId || !settings?.can_edit || charterBusy) return;
+    const lines = charterLines.map((l) => l.trim()).filter(Boolean);
+    if (!lines.length) {
+      Alert.alert(
+        "Hiến chương trống",
+        "Giữ ít nhất một điều, hoặc bấm «Về mặc định».",
+      );
+      return;
+    }
+    setCharterBusy(true);
+    try {
+      const res = await api.updateSpaceSettings(spaceId, {
+        family_charter: {
+          lines,
+          living_kin: livingKin.trim(),
+          spouse_affection_per_day: affectionPerDay,
+        },
+      });
+      setSettings(res);
+      Alert.alert("Đã lưu", "Hiến chương áp cho mọi người được nhớ trong nhà.");
+    } catch (e) {
+      Alert.alert(
+        "Lỗi",
+        e instanceof Error ? e.message : "Không lưu được hiến chương.",
+      );
+    } finally {
+      setCharterBusy(false);
+    }
+  };
+
+  const resetCharter = async () => {
+    if (!spaceId || !settings?.can_edit || charterBusy) return;
+    setCharterBusy(true);
+    try {
+      const res = await api.updateSpaceSettings(spaceId, {
+        family_charter: { lines: [], living_kin: "" },
+      });
+      setSettings(res);
+    } catch (e) {
+      Alert.alert(
+        "Lỗi",
+        e instanceof Error ? e.message : "Không đặt lại được.",
+      );
+    } finally {
+      setCharterBusy(false);
+    }
+  };
 
   const togglePipelineFlag = async (key: string, enabled: boolean) => {
     if (!spaceId || !settings?.can_edit || pipelineBusyKey) return;
@@ -885,6 +955,143 @@ export default function SettingsScreen() {
             <Text style={styles.help}>Chưa có số liệu.</Text>
           )}
 
+          <Text style={[styles.section, { marginTop: 24 }]}>
+            Hiến chương gia đình
+          </Text>
+          <Text style={styles.help}>
+            Điều nhà mình đã thống nhất. Áp cho MỌI người được nhớ ở đây — cách
+            xưng hô riêng của từng người nằm trong Bản sắc, không phải ở đây.
+          </Text>
+          <View style={{ marginTop: 12 }}>
+            <Disclosure
+              title="Xem và sửa"
+              subtitle={
+                charter?.overridden?.length
+                  ? "Nhà mình đã sửa"
+                  : "Đang theo bản mặc định"
+              }
+              open={charterOpen}
+              onToggle={() => setCharterOpen((v) => !v)}
+            >
+              {charterLines.map((line, index) => (
+                <View key={`charter-${index}`} style={styles.charterRow}>
+                  <TextInput
+                    style={[styles.input, styles.charterInput]}
+                    value={line}
+                    multiline
+                    editable={!!settings?.can_edit && !charterBusy}
+                    onChangeText={(text) =>
+                      setCharterLines((prev) =>
+                        prev.map((l, i) => (i === index ? text : l)),
+                      )
+                    }
+                    placeholderTextColor={colors.inkSoft}
+                  />
+                  {settings?.can_edit ? (
+                    <Pressable
+                      hitSlop={8}
+                      disabled={charterBusy}
+                      onPress={() =>
+                        setCharterLines((prev) =>
+                          prev.filter((_, i) => i !== index),
+                        )
+                      }
+                    >
+                      <Text style={styles.charterRemove}>Bỏ</Text>
+                    </Pressable>
+                  ) : null}
+                </View>
+              ))}
+              {settings?.can_edit ? (
+                <Pressable
+                  hitSlop={6}
+                  disabled={charterBusy}
+                  onPress={() => setCharterLines((prev) => [...prev, ""])}
+                >
+                  <Text style={styles.pipelineReset}>+ Thêm một điều</Text>
+                </Pressable>
+              ) : null}
+
+              <Text style={[styles.pipelineLabel, { marginTop: 18 }]}>
+                Gọi người đang sống là gì
+              </Text>
+              <Text style={styles.pipelineHelp}>
+                Dùng khi ký ức nhắc con cháu quay về với người thật — «kể với
+                {" "}
+                {livingKin.trim() || "người nhà"} một câu».
+              </Text>
+              <TextInput
+                style={styles.input}
+                value={livingKin}
+                editable={!!settings?.can_edit && !charterBusy}
+                onChangeText={setLivingKin}
+                placeholder="người nhà"
+                placeholderTextColor={colors.inkSoft}
+              />
+
+              <Text style={[styles.pipelineLabel, { marginTop: 18 }]}>
+                Câu tỏ tình vợ chồng mỗi ngày
+              </Text>
+              <Text style={styles.pipelineHelp}>
+                Chỉ áp cho người có vai vợ/chồng trong Bản sắc. Đặt 0 để tắt hẳn.
+              </Text>
+              <View style={styles.chipRow}>
+                {[0, 1, 2, 3].map((n) => {
+                  const active = affectionPerDay === n;
+                  return (
+                    <Pressable
+                      key={`affection-${n}`}
+                      style={[styles.chip, active && styles.chipActive]}
+                      disabled={!settings?.can_edit || charterBusy}
+                      onPress={() => setAffectionPerDay(n)}
+                    >
+                      <Text
+                        style={[
+                          styles.chipText,
+                          active && styles.chipTextActive,
+                        ]}
+                      >
+                        {n === 0 ? "Không" : `${n} câu`}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+
+              {settings?.can_edit ? (
+                <View style={styles.charterActions}>
+                  <Pressable
+                    style={[
+                      styles.btn,
+                      styles.charterSave,
+                      charterBusy && styles.btnDisabled,
+                    ]}
+                    disabled={charterBusy}
+                    onPress={() => void saveCharter()}
+                  >
+                    <Text style={styles.btnText}>
+                      {charterBusy ? "Đang lưu…" : "Lưu hiến chương"}
+                    </Text>
+                  </Pressable>
+                  <Pressable
+                    hitSlop={6}
+                    disabled={charterBusy}
+                    onPress={() => void resetCharter()}
+                  >
+                    <Text style={styles.pipelineReset}>Về mặc định →</Text>
+                  </Pressable>
+                </View>
+              ) : (
+                <Text style={styles.footnote}>
+                  Chỉ Steward / Quản trị sửa được hiến chương.
+                </Text>
+              )}
+              {charter?.note ? (
+                <Text style={styles.footnote}>{charter.note}</Text>
+              ) : null}
+            </Disclosure>
+          </View>
+
           <Text style={[styles.section, { marginTop: 24 }]}>Luồng ký ức</Text>
           <Text style={styles.help}>
             Bật/tắt từng bước khi ký ức trả lời. Chỉ nhà này.
@@ -1582,6 +1789,25 @@ const styles = createThemedStyles((colors) => ({
   memberBlock: { gap: 8, paddingVertical: 4 },
   livingForm: { gap: 8, width: "100%", paddingTop: 4 },
   chipRow: { flexDirection: "row", flexWrap: "wrap", gap: 8, paddingTop: 4 },
+  charterRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 10,
+    marginTop: 10,
+  },
+  charterInput: { flex: 1, minHeight: 60, textAlignVertical: "top" },
+  charterRemove: {
+    color: colors.danger,
+    fontWeight: "700",
+    fontSize: 14,
+    paddingTop: 12,
+  },
+  charterActions: {
+    marginTop: 18,
+    gap: 12,
+    alignItems: "flex-start",
+  },
+  charterSave: { alignSelf: "stretch" },
   chip: {
     borderRadius: 999,
     paddingHorizontal: 12,

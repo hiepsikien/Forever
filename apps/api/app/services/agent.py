@@ -83,11 +83,18 @@ def sender_display_name(sender_kind: str, user_name: str | None) -> str | None:
     return user_name
 
 
-def sender_handle(sender_kind: str, user_handle: str | None) -> str | None:
+def sender_handle(
+    sender_kind: str,
+    user_handle: str | None,
+    *,
+    heritage_handle: str | None = None,
+) -> str | None:
     if sender_kind == "user":
         return user_handle
     if sender_kind == "agent":
         return AGENT_HANDLE
+    if sender_kind == "heritage":
+        return heritage_handle
     return None
 
 

@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import logging
 import re
+from dataclasses import dataclass
 from datetime import datetime, timezone
 
 from nanoid import generate
@@ -38,17 +39,40 @@ from .heritage_grounding import (
 from .heritage_candidates import enqueue_facts
 from .keepsakes import active_photo_keepsake, mark_heard, story_facts_from_turn
 from .heritage_pipeline import load_heritage_pipeline
-from .heritage_safety import (
-    FAMILY_CHARTER,
-    cited_entries,
+from .heritage_persona import (
+    Persona,
+    address_rules_block,
+    audience_block,
+    persona_for,
+)
+from .heritage_rules_app import (
+    REFUSE_PAUSED,
+    app_refusal,
+    app_rules_block,
+    clarify_line,
+    fix_address_register,
+    fix_foreign_self_reference,
+    looks_like_direct_affection,
+    looks_like_fabrication_request,
+    looks_like_taboo,
+    soften_affection,
+    strip_deference,
+    strip_repeated_closing,
+)
+from .heritage_rules_family import (
+    DEFAULT_CHARTER,
+    FamilyCharter,
+    charter_block,
+    load_family_charter,
+    spouse_affection_rule,
     looks_like_grief,
     looks_like_sensitive,
     maybe_family_bridge,
     maybe_winddown,
     refuse_sensitive,
-    sitting_heritage_count,
     strip_repeated_family_redirect,
 )
+from .heritage_safety import cited_entries, sitting_heritage_count
 from .heritage_memory import (
     MemoryState,
     avoid_block,
@@ -67,6 +91,7 @@ from .heritage_retrieval import (
     build_evidence_pack,
     learned_facts_for_identity,
     family_milestones,
+    family_shared_for_identities,
     retrieve_learned,
     retrieve_milestones,
 )
@@ -80,65 +105,17 @@ from .storage import save_bytes
 logger = logging.getLogger(__name__)
 
 # Theme tags on imported poems (see memories.ALLOWED_POEM_THEMES).
+# Chỉ từ chung của chủ đề — tên người thân đến từ Family Codex của chính người
+# được nhớ, không nằm cứng ở đây.
 THEME_QUERY_HINTS: dict[str, tuple[str, ...]] = {
-    "vo_chong": ("vợ", "chồng", "tình", "nhau", "em", "anh", "định"),
-    "con_cai": ("con", "gái", "trai", "phương", "vỹ", "đình anh", "nhớ con"),
+    "vo_chong": ("vợ", "chồng", "tình", "nhau"),
+    "con_cai": ("con", "gái", "trai", "nhớ con"),
     "gia_dinh": ("gia đình", "nhà", "cháu", "ông", "bà", "cả nhà"),
-    "nghe_giao": ("thầy", "giáo", "dạy", "trò", "hưu", "gs", "khoa học"),
+    "nghe_giao": ("thầy", "giáo", "dạy", "trò", "hưu"),
     "tho": ("thơ", "lục bát", "vần", "câu thơ"),
     "biet_on": ("biết ơn", "giỗ", "cha", "mẹ", "tổ", "hiếu"),
     "truyen_thong": ("truyền thống", "anh em", "họ", "tổ tiên"),
 }
-
-_TABOO_PATTERNS = re.compile(
-    r"("
-    r"chính\s*trị|đảng\s*phái|bầu\s*cử|quốc\s*hội|"
-    r"tình\s*dục|gợi\s*dục|sex\b|"
-    r"ma\s*túy|buôn\s*lậu|giết\s*người|"
-    r"đóng\s*vai.{0,20}(còn\s+sống|sống\s+lại)|"
-    r"(bố|ba|má|mẹ|ông|bà).{0,24}(còn\s+sống|sống\s+lại)|"
-    r"bịa.{0,16}(chuyện|kỷ\s*niệm|tiểu\s*sử)|"
-    r"kể\s+(chuyện|về).{0,30}(hồi\s+còn\s+sống|khi\s+còn\s+sống)"
-    r")",
-    re.IGNORECASE | re.DOTALL,
-)
-
-_FABRICATION_PATTERNS = re.compile(
-    r"("
-    r"\bbịa\b|"
-    r"(bố|ba|anh)\s+(đoán|tưởng\s*tượng)\b|"
-    r"tưởng\s*tượng\s+(ra|giúp|một)|"
-    r"kể\s+(chuyện|về).{0,30}(chưa|không\s+có\s+trong)|"
-    r"nhớ\s+lại.{0,30}(sự\s+kiện|chuyến\s+đi).{0,20}(chưa|không)"
-    r")",
-    re.IGNORECASE | re.DOTALL,
-)
-
-_REFUSE_TABOO = (
-    "Con ơi, chỗ này bố không bàn được — mình giữ Phòng khách ấm áp, "
-    "điều tốt cho gia đình thôi. Hỏi bố chuyện nhà, chuyện thơ, chuyện con cháu nhé."
-)
-
-_REFUSE_FABRICATION = (
-    "Bố không bịa chuyện hay kỷ niệm chưa có trong kho ký ức gia đình. "
-    "Thiếu chỗ nào, con cứ ghi thêm vào Thư viện — bố sẽ nhớ đúng hơn."
-)
-
-_REFUSE_PAUSED = (
-    "Thực thể ký ức đang tạm dừng. Steward có thể mở lại trong màn Thổi hồn "
-    "khi gia đình sẵn sàng."
-)
-
-# Voice note with no usable transcript — do not invent an answer to a
-# question we did not hear (docs/voice-to-voice.plan.md V1).
-_REFUSE_UNHEARD = (
-    "Bố chưa nghe rõ, con nói lại giúp bố nhé."
-)
-
-_FALLBACK = (
-    "Bố nghe con rồi. Hỏi thêm về nhà, về thơ, hoặc về người thân — "
-    "bố trả lời trong phạm vi ký ức gia đình đã lưu."
-)
 
 
 def _json_loads(raw: str | None) -> object | None:
@@ -159,83 +136,68 @@ def _query_tokens(text: str) -> set[str]:
     return {p for p in parts if len(p) >= 2}
 
 
-def _spouse_name_from_lock(address: object | None, roles: object | None) -> str | None:
-    if isinstance(address, dict):
-        spouse = address.get("with_spouse")
-        if isinstance(spouse, dict):
-            notes = (spouse.get("notes") or "").strip()
-            if notes:
-                label = notes.replace("Với ", "").split("(")[0].strip()
-                if label:
-                    return label
-    if isinstance(roles, list):
-        for role in roles:
-            if not isinstance(role, str):
-                continue
-            if "vợ" in role.lower() or "Lê Thị Định" in role:
-                if "bà" in role:
-                    start = role.find("bà")
-                    chunk = role[start:].split("(")[0].strip()
-                    return chunk or None
-    return None
-
-
-def _address_rules_block(address: object | None, roles: object | None) -> str:
-    lines: list[str] = []
-    if isinstance(address, dict):
-        spouse = address.get("with_spouse")
-        if isinstance(spouse, dict):
-            self_x = (spouse.get("self") or "anh").strip()
-            other_x = (spouse.get("other") or "em").strip()
-            spouse_name = _spouse_name_from_lock(address, roles) or "vợ (bà Lê Thị Định)"
-            lines.append(
-                f"- Với {spouse_name}: xưng «{self_x}», gọi vợ là «{other_x}». "
-                "TUYỆT ĐỐI không gọi vợ là «mẹ» — dù app hay con cháu hay gọi bà là mẹ/bà ngoại."
-            )
-        children = address.get("with_children")
-        if isinstance(children, dict):
-            self_x = (children.get("self") or "bố").strip()
-            other_x = (children.get("other") or "con").strip()
-            lines.append(f"- Với con: xưng «{self_x}», gọi «{other_x}».")
-    return "\n".join(lines)
-
-
 def _is_spouse_profile(profile: IdentityProfile) -> bool:
-    """Wife profile only — not any name containing 'đinh'."""
+    """Người bạn đời của người được nhớ — nhận theo nhãn quan hệ, không theo tên."""
     rel = _normalize_text(profile.relation_label or "")
     name = _normalize_text(profile.display_name or "")
-    if name in ("dinh", "me", "le thi dinh", "ba le thi dinh"):
+    if rel in ("me", "mẹ", "vo", "vợ", "chong", "chồng"):
         return True
-    if "le thi dinh" in name:
-        return True
-    # Demo/living mirror: display «Mẹ» linked to wife account.
+    # Bản sao người sống hiển thị «Mẹ» gắn với tài khoản vợ.
     if name == "me" and rel in ("me", "mẹ", "to", "toi"):
         return True
-    if rel in ("me", "mẹ", "vo", "vợ"):
-        return True
     return False
+
+
+def _is_grandchild_profile(profile: IdentityProfile) -> bool:
+    """Cháu / chắt — vai riêng, không gộp vào con.
+
+    Một cụ bà xưng «mẹ» với con nhưng «bà» với cháu; gộp hai vai là cách
+    «Mẹ nhớ con» đến tay đứa cháu.
+    """
+    rel = _normalize_text(profile.relation_label or "")
+    if _is_spouse_profile(profile):
+        return False
+    return rel in ("chau", "cháu", "chat", "chắt") or rel.startswith(
+        ("chau ", "chat ")
+    )
 
 
 def _is_child_profile(profile: IdentityProfile) -> bool:
     rel = _normalize_text(profile.relation_label or "")
-    name = _normalize_text(profile.display_name or "")
-    if _is_spouse_profile(profile):
+    if _is_spouse_profile(profile) or _is_grandchild_profile(profile):
         return False
-    if rel in ("con", "chi", "chị", "anh", "chau", "cháu", "em"):
+    if rel in ("con", "chi", "chị", "anh", "em"):
         return True
     if rel.startswith("con "):  # «Con trai», «Con gái»
         return True
-    if name in ("huong", "vy", "vi", "dinh anh"):
-        return True
-    # Steward / owner «Tôi» mirror — child of Bố, not wife.
-    if rel in ("to", "toi") and not _is_spouse_profile(profile):
+    # Bản sao của steward/owner «Tôi» — là con cháu, không phải bạn đời.
+    if rel in ("to", "toi"):
         return True
     return False
 
 
+# «Cháu chào bà», «cháu nhớ bà quá» — tự xưng, không phải kể về một đứa cháu.
+# Đòi có động từ ngay sau để «Cháu Hương Ly mới đi học» không lọt.
+# Cho phép sau lời gọi («Bà ơi cháu nhớ bà quá») — đó là nhịp nói thường ngày.
+_GRANDCHILD_SELF = re.compile(
+    r"(^|[.!?…]\s+|\boi[,\s]+)(chau|chat)\s+"
+    r"(dang|day|oi|noi|chat|nho|hoi|muon|xin|thua|chao|cam|khong|co|moi|vua|se|cung|van)\b"
+)
+
+
+def _declares_grandchild(text: str) -> bool:
+    return bool(_GRANDCHILD_SELF.search(_normalize_text(text)))
+
+
 def _infer_audience_from_message(text: str) -> str | None:
     norm = _normalize_text(text)
-    if re.search(r"\b(con|chau)\s+(dang|day|oi|noi|chat)\b", norm):
+    # Người Việt tự xưng đúng vai của mình, nên «cháu» là tín hiệu chắc chắn
+    # hơn mọi suy đoán từ nhãn quan hệ (vốn neo vào một người trong nhà).
+    if re.search(r"\b(chau|chat)\s+(dang|day|oi|noi|chat|nho|hoi|muon|xin|thua)\b", norm):
+        return "grandchild"
+    if re.search(r"^(chau|chat)\b", norm):
+        return "grandchild"
+    if re.search(r"\bcon\s+(dang|day|oi|noi|chat)\b", norm):
         return "child"
     if re.search(r"^con\b", norm):
         return "child"
@@ -246,7 +208,85 @@ def _infer_audience_from_message(text: str) -> str | None:
     return None
 
 
-def _audience_for_user(db: Session, *, space_id: str, user_id: str | None) -> str | None:
+# Nhãn của người sống ghi theo người được nhớ mà gia đình neo vào: «Vợ của
+# Bố», «Con của Bố». Con số là số bậc người ấy đứng DƯỚI người neo.
+_LIVING_OFFSET: dict[str, int] = {
+    "vo": 0, "chong": 0, "me": 0, "bo": 0,
+    "con": 1, "con dau": 1, "con re": 1, "dau": 1, "re": 1,
+    "chau": 2, "chau noi": 2, "chau ngoai": 2,
+    "chat": 3,
+}
+
+
+def _living_offset(rel: str) -> int | None:
+    if rel in _LIVING_OFFSET:
+        return _LIVING_OFFSET[rel]
+    for word, offset in _LIVING_OFFSET.items():
+        if rel.startswith(f"{word} "):  # «Con trai», «Cháu nội đích tôn»
+            return offset
+    return None
+
+
+def _anchor_generation_rank(db: Session, space_id: str) -> int | None:
+    """Bậc của người được nhớ mà nhãn người sống neo vào.
+
+    Màn tạo hồ sơ hỏi «Với {người được nhớ đầu tiên}, người này là …», nên chỗ
+    neo là hồ sơ được nhớ cũ nhất còn hiện.
+    """
+    rows = (
+        db.query(IdentityProfile)
+        .filter(
+            IdentityProfile.space_id == space_id,
+            IdentityProfile.status == "remembered",
+            IdentityProfile.archived_at.is_(None),
+        )
+        .order_by(IdentityProfile.created_at.asc())
+        .all()
+    )
+    for row in rows:
+        rank = persona_for(row).generation_rank
+        if rank is not None:
+            return rank
+    return None
+
+
+def _audience_by_generation(
+    db: Session, *, space_id: str, profile: IdentityProfile, persona: Persona
+) -> str | None:
+    """Đếm bậc giữa người đang nói và người đang nghe.
+
+    Nhãn một mình không đủ: «Con trai» là con của Bố nhưng là cháu của Bà, và
+    bản sao đăng nhập chỉ ghi «Tôi». Đếm bậc trả lời được cả hai phòng bằng
+    cùng một phép tính, nên gia đình không phải sửa nhãn cho từng người.
+    """
+    rank = persona.generation_rank
+    if rank is None:
+        return None
+    rel = _normalize_text(profile.relation_label or "")
+    if rel in ("to", "toi"):
+        # Bản sao đăng nhập: chính người đặt nhãn, tức đời gốc.
+        listener = 0
+    else:
+        offset = _living_offset(rel)
+        anchor = _anchor_generation_rank(db, space_id)
+        if offset is None or anchor is None:
+            return None
+        listener = anchor - offset
+    gap = rank - listener
+    if gap <= 0:
+        return "spouse" if _is_spouse_profile(profile) else None
+    if gap == 1:
+        return "child"
+    return "grandchild"
+
+
+def _audience_for_user(
+    db: Session,
+    *,
+    space_id: str,
+    user_id: str | None,
+    persona: Persona | None = None,
+) -> str | None:
     if not user_id:
         return None
     profile = (
@@ -259,8 +299,16 @@ def _audience_for_user(db: Session, *, space_id: str, user_id: str | None) -> st
     )
     if not profile:
         return None
+    if persona is not None:
+        counted = _audience_by_generation(
+            db, space_id=space_id, profile=profile, persona=persona
+        )
+        if counted:
+            return counted
     if _is_spouse_profile(profile):
         return "spouse"
+    if _is_grandchild_profile(profile):
+        return "grandchild"
     if _is_child_profile(profile):
         return "child"
     return None
@@ -273,139 +321,43 @@ def _detect_audience(
     sender_user_id: str | None,
     user_text: str = "",
     thread: Thread | None = None,
+    persona: Persona | None = None,
 ) -> str:
-    """Return spouse | child — default child when unknown (safer than guessing wife)."""
-    # A direct thread already names the member, so nothing has to be inferred
-    # from wording — which is where the "chào em" to a son came from.
+    """spouse | child | grandchild — mặc định child khi không rõ.
+
+    Persona chốt lần cuối: người không có vai vợ/chồng trong Bản sắc thì không
+    thể có người nhắn là vợ/chồng, dù người gửi là ai.
+    """
+    def _fit(value: str) -> str:
+        return persona.audience(value) if persona else value
+
+    # Nhãn quan hệ trên hồ sơ neo vào một người trong nhà («Con trai» là con của
+    # Bố, nhưng là cháu của Bà). Khi người nhắn tự xưng «cháu», chính họ đã nói
+    # rõ thế hệ của mình với người đang nghe — tin họ trước nhãn.
+    if _declares_grandchild(user_text):
+        return _fit("grandchild")
+
+    # Phòng riêng đã nêu đích danh thành viên, không cần suy từ chữ nghĩa —
+    # chỗ ấy chính là nơi sinh ra câu «chào em» gửi nhầm cho con trai.
     if thread is not None and getattr(thread, "audience_scope", "family") == "direct":
         member_id = thread.member_user_id or sender_user_id
-        return _audience_for_user(db, space_id=space_id, user_id=member_id) or "child"
-    # Family room: who is speaking beats wording ("con mới về" from mẹ
-    # must not flip Bố into talking to the child).
-    from_profile = _audience_for_user(db, space_id=space_id, user_id=sender_user_id)
+        return _fit(
+            _audience_for_user(
+                db, space_id=space_id, user_id=member_id, persona=persona
+            )
+            or "child"
+        )
+    # Phòng chung: ai đang nói thắng chữ nghĩa («con mới về» do mẹ nhắn không
+    # được lật người được nhớ sang nói với con).
+    from_profile = _audience_for_user(
+        db, space_id=space_id, user_id=sender_user_id, persona=persona
+    )
     if from_profile:
-        return from_profile
+        return _fit(from_profile)
     hinted = _infer_audience_from_message(user_text)
     if hinted:
-        return hinted
+        return _fit(hinted)
     return "child"
-
-
-def _audience_context_block(audience: str | None, spouse_name: str | None) -> str:
-    if audience == "spouse":
-        who = spouse_name or "vợ (bà Lê Thị Định)"
-        return (
-            f"NGƯỜI ĐANG NHẮN: {who} — vợ của anh.\n"
-            "Trả lời trực tiếp cho vợ: xưng «anh», gọi «em». "
-            "Không gọi em là «mẹ»; không xưng «bố» với em.\n"
-            "Tình cảm vợ chồng được phép, nhưng tối đa một câu tỏ tình trực tiếp "
-            "mỗi ngày («anh yêu em», «anh nhớ em»). Các lượt sau trong ngày: ấm áp "
-            "bằng việc nhà, thơ, con cháu — không lặp câu quyến luyến."
-        )
-    return (
-        "NGƯỜI ĐANG NHẮN: con trong gia đình (KHÔNG phải vợ).\n"
-        "Xưng «bố», gọi «con» — không xưng «anh»/gọi «em» trừ khi trích thơ nguyên văn."
-    )
-
-
-_SPOUSE_VOCATIVE_FIXES: tuple[tuple[re.Pattern[str], str], ...] = (
-    (re.compile(r"\bmẹ ơi\b", re.I), "em ơi"),
-    (re.compile(r"\bchào mẹ\b", re.I), "chào em"),
-    (re.compile(r"\bnghe mẹ\b", re.I), "nghe em"),
-    (re.compile(r"\bmẹ nhé\b", re.I), "em nhé"),
-    (re.compile(r"\bmẹ à\b", re.I), "em à"),
-    (re.compile(r"\bmẹ ạ\b", re.I), "em ạ"),
-    (re.compile(r"\bbố chào mẹ\b", re.I), "anh chào em"),
-    (re.compile(r"\blòng bố\b", re.I), "lòng anh"),
-    (re.compile(r"\bbố nghe\b", re.I), "anh nghe"),
-    (re.compile(r"\bbố cũng\b", re.I), "anh cũng"),
-    (re.compile(r"\bbố vẫn\b", re.I), "anh vẫn"),
-    (re.compile(r"\bbố luôn\b", re.I), "anh luôn"),
-)
-
-
-def _fix_spouse_address(text: str) -> str:
-    out = text
-    for pattern, repl in _SPOUSE_VOCATIVE_FIXES:
-        out = pattern.sub(repl, out)
-    return out
-
-
-# Direct «I love you / I miss you» — at most once a local day, then soften.
-_DIRECT_SPOUSE_AFFECTION = re.compile(
-    r"\b("
-    r"anh yêu em|"
-    r"anh nhớ em|"
-    r"anh thương em (quá|lắm|nhiều)|"
-    r"yêu em (nhiều|lắm|quá)|"
-    r"nhớ em (nhiều|lắm|quá)"
-    r")\b",
-    re.I,
-)
-
-_SPOUSE_AFFECTION_FIXES: tuple[tuple[re.Pattern[str], str], ...] = (
-    (re.compile(r"\banh yêu em (nhiều|lắm|quá)\b", re.I), "anh vẫn bên nhà mình"),
-    (re.compile(r"\banh nhớ em (nhiều|lắm|quá)\b", re.I), "nhà mình vẫn vậy"),
-    (re.compile(r"\banh thương em (quá|lắm|nhiều)\b", re.I), "anh vẫn thương nhà mình"),
-    (re.compile(r"\byêu em (nhiều|lắm|quá)\b", re.I), "nhà mình vẫn vậy"),
-    (re.compile(r"\bnhớ em (nhiều|lắm|quá)\b", re.I), "nhà mình vẫn vậy"),
-    (re.compile(r"\banh yêu em\b", re.I), "anh vẫn bên nhà mình"),
-    (re.compile(r"\banh nhớ em\b", re.I), "nhà mình vẫn vậy"),
-)
-
-
-def _soften_spouse_affection(text: str) -> str:
-    out = text
-    for pattern, repl in _SPOUSE_AFFECTION_FIXES:
-
-        def _sub(match: re.Match[str], replacement: str = repl) -> str:
-            src = match.group(0)
-            if src[:1].isupper():
-                return replacement[:1].upper() + replacement[1:]
-            return replacement
-
-        out = pattern.sub(_sub, out)
-    return re.sub(r" {2,}", " ", out).strip()
-
-
-def looks_like_direct_spouse_affection(text: str) -> bool:
-    return bool(_DIRECT_SPOUSE_AFFECTION.search(text or ""))
-
-
-_CHILD_ADDRESS_FIXES: tuple[tuple[re.Pattern[str], str], ...] = (
-    (re.compile(r"^Chào em,", re.I), "Con ơi,"),
-    (re.compile(r"^chào em,", re.I), "Con ơi,"),
-    (re.compile(r"\bAnh đây em\b", re.I), "Bố đây con"),
-    (re.compile(r"\banh đây em\b", re.I), "bố đây con"),
-    (re.compile(r"\bngười vợ\b", re.I), "mẹ"),
-    (re.compile(r"\bvợ tào khang\b", re.I), "mẹ"),
-    (re.compile(r"\btình nghĩa vợ chồng\b", re.I), "tình cảm gia đình"),
-)
-
-
-def _fix_child_address(text: str) -> str:
-    out = text
-    for pattern, repl in _CHILD_ADDRESS_FIXES:
-        out = pattern.sub(repl, out)
-    return out
-
-
-# Gemini defaults to assistant politeness. A father does not say «dạ» / «ạ»
-# to his wife or children.
-_DEFERENCE_FIXES: tuple[tuple[re.Pattern[str], str], ...] = (
-    (re.compile(r"^[Dd]ạ[,.\s]+"), ""),
-    (re.compile(r"(?<=[.!?…]\s)[Dd]ạ[,.\s]+"), ""),
-    (re.compile(r"\b[Dd]ạ\b[,.\s]*"), ""),
-    (re.compile(r"\bvâng ạ\b", re.I), "vâng"),
-    (re.compile(r"\sạ(?=\s|[.,!?…]|$)"), ""),
-)
-
-
-def _strip_deference(text: str) -> str:
-    out = text
-    for pattern, repl in _DEFERENCE_FIXES:
-        out = pattern.sub(repl, out)
-    return re.sub(r" {2,}", " ", out).strip()
 
 
 def _identity_taboos(taboos: object | None) -> object | None:
@@ -424,14 +376,6 @@ def heritage_display_name(identity: IdentityProfile) -> str:
 def identity_for_heritage_thread(db: Session, thread_id: str) -> IdentityProfile | None:
     thread = db.query(Thread).filter(Thread.id == thread_id).one_or_none()
     return identity_for_thread(db, thread) if thread else None
-
-
-def looks_like_taboo(text: str) -> bool:
-    return bool(_TABOO_PATTERNS.search(text))
-
-
-def looks_like_fabrication_request(text: str) -> bool:
-    return bool(_FABRICATION_PATTERNS.search(text))
 
 
 def signature_poem_titles(identity: IdentityProfile) -> list[str]:
@@ -605,6 +549,7 @@ def try_poem_recite_reply(
     user_text = (user_message.body or "").strip()
     if not looks_like_poem_recite_request(user_text):
         return None
+    persona = persona_for(identity)
     reader = reader_for_thread(thread)
     poems = _poems_for_identity(
         db, space_id=thread.space_id, identity_id=identity.id, reader=reader
@@ -634,12 +579,10 @@ def try_poem_recite_reply(
         sender_user_id=user_message.sender_user_id,
         user_text=user_text,
         thread=thread,
+        persona=persona,
     )
     title = (poem.title or "thơ").strip()
-    if audience == "spouse":
-        lead = f"Bài «{title}» của anh đây em."
-    else:
-        lead = f"Bài «{title}» của bố đây con."
+    lead = f"Bài «{title}» của {persona.me(audience)} đây {persona.you(audience)}."
     body = f"{lead}\n\n{(poem.body or '').strip()}".strip()
     meta = {
         "audience": audience,
@@ -735,6 +678,8 @@ def build_system_prompt(
     frame: ContextFrame | None = None,
     memory: MemoryState | None = None,
     keepsake_photo: MemoryItem | None = None,
+    persona: Persona | None = None,
+    charter: FamilyCharter | None = None,
 ) -> str:
     display = heritage_display_name(identity)
     quote_mode = (quote_mode or "paraphrase").strip().lower()
@@ -776,9 +721,12 @@ def build_system_prompt(
         if pack.items
         else ""
     )
-    spouse_name = _spouse_name_from_lock(address, roles)
-    address_rules = _address_rules_block(address, roles)
-    audience_section = _audience_context_block(audience, spouse_name)
+    persona = persona or persona_for(identity)
+    address_rules = address_rules_block(persona)
+    audience_section = audience_block(persona, audience)
+    affection_rule = spouse_affection_rule(persona, audience, charter)
+    if affection_rule:
+        audience_section = f"{audience_section}\n{affection_rule}"
     clarify_section = (
         f"\nCHƯA RÕ NGƯỜI ĐƯỢC NHẮC: hỏi lại ngắn gọn, đại ý «{clarify}» — "
         "đừng đoán bừa rồi kể tiếp.\n"
@@ -818,26 +766,14 @@ def build_system_prompt(
 Bạn là thực thể ký ức {display} trong app Forever — KHÔNG phải người còn sống,
 KHÔNG phải “Người giữ nhà”, KHÔNG phải chatbot chung.
 
-Lớp 1 — Ứng dụng Forever (không đàm phán):
-- Trả lời chuyện nhà, thơ, người thân khi bằng chứng bên dưới đã có — đừng từ chối
-  vì sợ sai. Chỉ KHÔNG bịa tiểu sử, sự kiện, năm, hay tên người khi không có trong
-  Bản sắc / thơ / ký ức neo.
-- Không giả vờ đang sống ở phòng bên; được nói như bố/anh trong ký ức gia đình.
-- Không đoán năm tương lai nếu năm đó không có trong bằng chứng. Đừng nhắc lại năm
-  hỏi khi đang thừa nhận là chưa biết.
-- {quote_rule}
-- Đây là nhắn tin (Zalo), KHÔNG phải viết thư: {length_rule}
-- Trả lời đúng ý câu hỏi trước; tránh mở đầu sáo «Chào em/con» dài.
-- Luôn kết thúc bằng câu trọn vẹn — không dừng giữa chừng.
+{app_rules_block(persona, quote_rule=quote_rule, length_rule=length_rule)}
 
 Lớp 2 — Hiến chương gia đình:
-{FAMILY_CHARTER}
+{charter_block(charter)}
 
 Lớp 3 — Bản sắc của {display}:
 - Xưng hô và khẩu khí theo khối bên dưới.
 {address_rules}
-- Trong nhà: thân mật, từ tốn, không khách sáo. Bố/anh KHÔNG xưng «dạ», không «vâng ạ»,
-  không kết câu bằng «ạ» khi nói với con hoặc vợ — đó là cách con cháu nói với bề trên.
 - Từ chối nhẹ nhàng các điều cấm cứng của người này (chính trị, tình dục, trái pháp luật…).
 {audience_section}
 {mood_rule}
@@ -879,15 +815,23 @@ def _extract_gemini_text(data: dict) -> tuple[str | None, str | None]:
 
 
 _SENTENCE_END = re.compile(r'[.!?…]["\'\)\]]*\s*$')
+_CLAUSE_END = re.compile(r"[,;:—–]\s")
+TRUNCATED_FINISH = ("MAX_TOKENS", "LENGTH")
 
 
 def _finalize_reply_text(text: str, finish_reason: str | None = None) -> str:
-    """Drop a dangling tail when the model hit token limits mid-sentence."""
+    """Không bao giờ đưa ra một mẩu câu dở.
+
+    Suy nghĩ ẩn của model cũng tính vào hạn mức token, nên một câu ngắn vẫn có
+    thể bị chặn ngang. Ba nấc: câu đã trọn thì để nguyên; còn câu trọn vẹn phía
+    trước thì lùi về đó; không còn câu nào thì lùi về vế trọn vẹn rồi đóng lại —
+    «… trĩu nặng thương xót, nhưng» thành «… trĩu nặng thương xót.».
+    """
     cleaned = text.strip()
     if not cleaned:
         return cleaned
-    truncated = finish_reason in ("MAX_TOKENS", "LENGTH")
-    if not truncated and _SENTENCE_END.search(cleaned):
+    # Model có thể viết xong câu rồi mới bị chặn; cắt tiếp là vứt đi một câu tốt.
+    if _SENTENCE_END.search(cleaned):
         return cleaned
     best = ""
     for sep in (". ", "! ", "? ", "… ", ".\n", "!\n", "?\n"):
@@ -898,7 +842,17 @@ def _finalize_reply_text(text: str, finish_reason: str | None = None) -> str:
                 best = candidate
     if best:
         return best
+    clause = None
+    for match in _CLAUSE_END.finditer(cleaned):
+        if match.start() >= 20:
+            clause = match.start()
+    if clause is not None:
+        return f"{cleaned[:clause].rstrip()}."
     return cleaned
+
+
+def _looks_complete(text: str | None) -> bool:
+    return bool(text and _SENTENCE_END.search(text.strip()))
 
 
 def _label_user_turn(text: str, speaker: str | None) -> str:
@@ -952,24 +906,37 @@ def _gemini_heritage_reply(
     while contents and contents[0]["role"] == "model":
         contents.pop(0)
 
-    result = call_gemini(
-        settings,
-        GeminiCall(
-            system_prompt=system_prompt,
-            contents=contents,
-            model=(model or "").strip() or settings.compose_model,
-            temperature=0.5,
-            max_output_tokens=max_output_tokens,
-            timeout_s=60.0,
-            attempts=2,
-            usage=usage,
-        ),
-    )
-    if result.error and not result.text:
-        return None, result.finish_reason
+    def _ask(budget: int):
+        return call_gemini(
+            settings,
+            GeminiCall(
+                system_prompt=system_prompt,
+                contents=contents,
+                model=(model or "").strip() or settings.compose_model,
+                temperature=0.5,
+                max_output_tokens=budget,
+                timeout_s=60.0,
+                attempts=2,
+                usage=usage,
+            ),
+        )
+
+    result = _ask(max_output_tokens)
     if not result.text:
         return None, result.finish_reason
-    return _finalize_reply_text(result.text, result.finish_reason), result.finish_reason
+
+    body = _finalize_reply_text(result.text, result.finish_reason)
+    # Bị chặn ngang: hỏi lại một lần với chỗ rộng hơn. Cắt về câu trọn vẹn thì
+    # đọc xuôi nhưng vẫn mất phần người ấy đang định nói, nên chỉ dùng bản cắt
+    # khi lượt hỏi lại cũng không xong. Độ dài do luật trong prompt giữ, hạn mức
+    # chỉ là lưới an toàn — nới ra không làm câu dài thêm, chỉ thôi cắt ngang.
+    if result.finish_reason in TRUNCATED_FINISH and not _looks_complete(result.text):
+        wider = _ask(min(max_output_tokens * 3, 2048))
+        if wider.text:
+            retry_body = _finalize_reply_text(wider.text, wider.finish_reason)
+            if _looks_complete(retry_body):
+                return retry_body, wider.finish_reason
+    return body, result.finish_reason
 
 
 def _detect_citations(
@@ -1002,25 +969,29 @@ def _detect_citations(
 def post_process_reply(
     reply: str,
     *,
+    persona: Persona,
     audience: str | None = None,
     previous: list[str] | None = None,
     previous_today: list[str] | None = None,
+    charter: FamilyCharter | None = None,
 ) -> str:
+    """Kéo câu về đúng giọng người này, rồi mới áp hiến chương của nhà."""
     if looks_like_taboo(reply):
-        return _REFUSE_TABOO
-    cleaned = reply.strip() or _FALLBACK
-    if audience == "spouse":
-        cleaned = _fix_spouse_address(cleaned)
-        used_today = any(
-            looks_like_direct_spouse_affection(p) for p in (previous_today or [])
+        return app_refusal("taboo", persona)
+    cleaned = reply.strip() or app_refusal("fallback", persona)
+    cleaned = fix_address_register(cleaned, persona, audience)
+    cleaned = fix_foreign_self_reference(cleaned, persona, audience)
+    per_day = (charter or DEFAULT_CHARTER).spouse_affection_per_day
+    if persona.audience(audience) == "spouse" and per_day > 0:
+        used_today = sum(
+            1 for p in (previous_today or []) if looks_like_direct_affection(p, persona)
         )
-        if used_today:
-            cleaned = _soften_spouse_affection(cleaned)
-    elif audience == "child":
-        cleaned = _fix_child_address(cleaned)
-    cleaned = _strip_deference(cleaned)
-    cleaned = strip_repeated_family_redirect(cleaned, previous)
-    return cleaned or _FALLBACK
+        if used_today >= per_day:
+            cleaned = soften_affection(cleaned, persona)
+    cleaned = strip_deference(cleaned)
+    cleaned = strip_repeated_closing(cleaned, persona, audience, previous)
+    cleaned = strip_repeated_family_redirect(cleaned, previous, charter)
+    return cleaned or app_refusal("fallback", persona)
 
 
 def _matches_from_slugs(
@@ -1110,6 +1081,8 @@ def _enforce_grounding(
     grounding_enabled: bool | None = None,
     critic_enabled: bool | None = None,
     critic_model: str | None = None,
+    persona: Persona,
+    charter: FamilyCharter | None = None,
 ) -> tuple[str, dict | None]:
     """Rewrite, trim, or replace a reply that asserts something we cannot show."""
     if grounding_enabled is None:
@@ -1132,7 +1105,9 @@ def _enforce_grounding(
                 body, Ungrounded(years=list(found.years), names=[])
             )
             if trimmed:
-                fixed = post_process_reply(trimmed, audience=audience)
+                fixed = post_process_reply(
+                    trimmed, persona=persona, audience=audience, charter=charter
+                )
                 leftover = find_ungrounded(
                     fixed, corpus=corpus, year_corpus=year_corpus
                 )
@@ -1142,7 +1117,7 @@ def _enforce_grounding(
                     out["years"] = list(found.years)
                 return fixed, out
             info["action"] = "replaced"
-            return _FALLBACK, info
+            return app_refusal("fallback", persona), info
         info["action"] = "flagged"
         return body, info
 
@@ -1155,7 +1130,9 @@ def _enforce_grounding(
         model=critic_model,
     )
     if rewritten:
-        fixed = post_process_reply(rewritten, audience=audience)
+        fixed = post_process_reply(
+            rewritten, persona=persona, audience=audience, charter=charter
+        )
         if find_ungrounded(fixed, corpus=corpus, year_corpus=year_corpus).clean:
             info["action"] = "rewritten"
             return fixed, info
@@ -1167,7 +1144,7 @@ def _enforce_grounding(
     # Nothing survived. Saying less is the whole point of the hard rule, so the
     # family gets the neutral line instead of an invented life.
     info["action"] = "replaced"
-    return _FALLBACK, info
+    return app_refusal("fallback", persona), info
 
 
 def generate_heritage_reply(
@@ -1181,31 +1158,51 @@ def generate_heritage_reply(
     settings = settings or get_settings()
     pipeline = load_heritage_pipeline(db, thread.space_id, settings=settings)
     user_text = (user_message.body or "").strip()
+    persona = persona_for(identity)
+    charter = load_family_charter(db, thread.space_id)
     audience = _detect_audience(
         db,
         space_id=thread.space_id,
         sender_user_id=user_message.sender_user_id,
         user_text=user_text,
         thread=thread,
+        persona=persona,
     )
 
+    def _refusal_meta(kind: str, **extra: object) -> dict:
+        meta: dict = {"heritage_refusal": kind, "audience": audience, **extra}
+        if persona.lock_conflict:
+            meta["persona_conflict"] = persona.lock_conflict
+        return meta
+
     if looks_like_taboo(user_text):
-        body = post_process_reply(_REFUSE_TABOO, audience=audience)
-        return body, {"heritage_refusal": "taboo", "audience": audience}
+        body = post_process_reply(
+            app_refusal("taboo", persona),
+            persona=persona,
+            audience=audience,
+            charter=charter,
+        )
+        return body, _refusal_meta("taboo")
     if looks_like_fabrication_request(user_text):
-        body = post_process_reply(_REFUSE_FABRICATION, audience=audience)
-        return body, {"heritage_refusal": "fabrication", "audience": audience}
+        body = post_process_reply(
+            app_refusal("fabrication", persona),
+            persona=persona,
+            audience=audience,
+            charter=charter,
+        )
+        return body, _refusal_meta("fabrication")
 
     sensitive = looks_like_sensitive(user_text)
     if sensitive:
         body = post_process_reply(
-            refuse_sensitive(sensitive, audience=audience), audience=audience
+            refuse_sensitive(
+                sensitive, persona, audience=audience, charter=charter
+            ),
+            persona=persona,
+            audience=audience,
+            charter=charter,
         )
-        return body, {
-            "heritage_refusal": "sensitive",
-            "sensitive_domain": sensitive,
-            "audience": audience,
-        }
+        return body, _refusal_meta("sensitive", sensitive_domain=sensitive)
 
     quote_mode = (getattr(identity, "poetry_quote_mode", None) or "paraphrase").strip()
     history = (
@@ -1270,7 +1267,8 @@ def generate_heritage_reply(
     matches = resolve_mentions(user_text, entities) if entities else []
     matches += _matches_from_slugs(entities, frame.entity_slugs, seen=matches)
     codex_lines = entity_lines(matches)
-    clarify = clarify_question(matches)
+    clarify_names = clarify_question(matches)
+    clarify = clarify_line(clarify_names, persona) if clarify_names else None
 
     milestones = retrieve_milestones(
         family_milestones(db, space_id=thread.space_id, reader=reader),
@@ -1284,6 +1282,26 @@ def generate_heritage_reply(
             db, space_id=thread.space_id, identity_id=identity.id, reader=reader
         ),
         query=search_text,
+    )
+
+    # Shared family vault rows tagged to people this turn named (Codex), so the
+    # remembered person can answer about the house — never private, never own shelf.
+    codex_identity_ids = [
+        e.identity_profile_id
+        for match in matches
+        for e in match.entities
+        if e.identity_profile_id
+    ]
+    family_shared = retrieve_learned(
+        family_shared_for_identities(
+            db,
+            space_id=thread.space_id,
+            identity_ids=codex_identity_ids,
+            exclude_identity_id=identity.id,
+            reader=reader,
+        ),
+        query=search_text,
+        limit=3,
     )
 
     memory = (
@@ -1304,7 +1322,7 @@ def generate_heritage_reply(
         identity,
         signature_poems=signature,
         retrieved_poems=retrieved,
-        knowledge=[*knowledge, *learned],
+        knowledge=[*knowledge, *learned, *family_shared],
         live_context=live_context,
         quote_mode=quote_mode,
         audience=audience,
@@ -1314,6 +1332,8 @@ def generate_heritage_reply(
         frame=frame,
         memory=memory,
         keepsake_photo=keepsake_photo,
+        persona=persona,
+        charter=charter,
     )
 
     speaker_names = _speaker_names_for_messages(db, [*history, user_message])
@@ -1351,10 +1371,12 @@ def generate_heritage_reply(
     previous_bodies = recent_heritage_bodies(history)
     previous_today = heritage_bodies_today(history)
     body = post_process_reply(
-        llm or _FALLBACK,
+        llm or app_refusal("fallback", persona),
+        persona=persona,
         audience=audience,
         previous=previous_bodies,
         previous_today=previous_today,
+        charter=charter,
     )
 
     # Years must appear in Lock + evidence the model was given — never in chat
@@ -1377,6 +1399,8 @@ def generate_heritage_reply(
         audience=audience,
         max_output_tokens=frame.max_output_tokens,
         usage=usage,
+        persona=persona,
+        charter=charter,
         grounding_enabled=pipeline.grounding,
         critic_enabled=pipeline.critic,
         critic_model=pipeline.critic_model,
@@ -1390,7 +1414,9 @@ def generate_heritage_reply(
         body,
         sitting_turns=sitting,
         threshold=winddown_n,
+        persona=persona,
         audience=audience,
+        charter=charter,
     )
     if wind_kind:
         bridge_kind = wind_kind
@@ -1398,17 +1424,21 @@ def generate_heritage_reply(
         body, bridge_kind = maybe_family_bridge(
             body,
             enabled=pipeline.family_bridge,
+            persona=persona,
             audience=audience,
             grief=grief,
             seed=f"{thread.id}:{user_message.id}",
             previous=previous_bodies,
+            charter=charter,
         )
     if bridge_kind:
         body = post_process_reply(
             body,
+            persona=persona,
             audience=audience,
             previous=previous_bodies,
             previous_today=previous_today,
+            charter=charter,
         )
 
     all_poems = signature + retrieved
@@ -1418,6 +1448,7 @@ def generate_heritage_reply(
         retrieved,
         milestones,
         learned,
+        family_shared,
         [keepsake_photo] if keepsake_photo is not None else [],
     )
     meta: dict = {
@@ -1427,6 +1458,10 @@ def generate_heritage_reply(
     }
     if audience:
         meta["audience"] = audience
+        # Cặp xưng hô đã dùng — chỗ để soi khi giọng nghe lệch mà không rõ vì sao.
+        meta["persona_register"] = " — ".join(persona.register(audience))
+    if persona.lock_conflict:
+        meta["persona_conflict"] = persona.lock_conflict
     if finish_reason:
         meta["finish_reason"] = finish_reason
     if citations:
@@ -1437,6 +1472,8 @@ def generate_heritage_reply(
         meta["milestone_ids"] = [m.id for m in milestones]
     if learned:
         meta["learned_ids"] = [item.id for item in learned]
+    if family_shared:
+        meta["family_library_ids"] = [item.id for item in family_shared]
     if codex_lines:
         meta["codex_hits"] = codex_lines
         meta["codex_slugs"] = [
@@ -1487,13 +1524,13 @@ def maybe_heritage_reply(
     recited = False
 
     if entity_status == "paused":
-        body = _REFUSE_PAUSED
+        body = REFUSE_PAUSED
         meta: dict = {"heritage_refusal": "paused"}
     elif entity_status != "ready":
         return None
     elif user_kind == "voice" and not user_text:
         # STT empty or missing — refuse rather than invent an answer.
-        body = _REFUSE_UNHEARD
+        body = app_refusal("unheard", persona_for(identity))
         meta = {"heritage_refusal": "unheard"}
     else:
         recited_pack = try_poem_recite_reply(

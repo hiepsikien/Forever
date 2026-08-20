@@ -18,6 +18,10 @@ from ..services.heritage_pipeline import (
     apply_pipeline_overrides,
     pipeline_admin_payload,
 )
+from ..services.heritage_rules_family import (
+    apply_charter_overrides,
+    charter_admin_payload,
+)
 
 router = APIRouter(prefix="/api/spaces", tags=["settings"])
 
@@ -35,6 +39,8 @@ class SettingsUpdateBody(BaseModel):
     elevenlabs_api_key: str | None = Field(default=None, max_length=256)
     # Flat flag map (legacy) or { flags, models }.
     heritage_pipeline: dict[str, Any] | None = None
+    # Tầng 2 — { lines, living_kin, spouse_affection_per_day }.
+    family_charter: dict[str, Any] | None = None
 
 
 def _split_pipeline_update(
@@ -81,6 +87,7 @@ def _settings_payload(db: Session, row: SpaceSettings | None, *, can_edit: bool,
         "consent_heritage": HERITAGE_CONSENT,
         "updated_at": row.updated_at.isoformat() if row else None,
         "heritage_pipeline": pipeline_admin_payload(db, space_id),
+        "family_charter": charter_admin_payload(db, space_id),
     }
 
 
@@ -93,6 +100,7 @@ def get_or_create_settings(db: Session, space_id: str) -> SpaceSettings:
         space_id=space_id,
         elevenlabs_api_key=None,
         heritage_pipeline_json="",
+        family_charter_json="",
         updated_at=now,
         updated_by=None,
     )
@@ -141,6 +149,45 @@ def update_settings(
                 )
         try:
             apply_pipeline_overrides(row, flags=flags, models=models)
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+    if body.family_charter is not None:
+        raw = body.family_charter
+        unknown = [
+            k
+            for k in raw
+            if k not in ("lines", "living_kin", "spouse_affection_per_day")
+        ]
+        if unknown:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Unknown family_charter keys: {', '.join(unknown)}",
+            )
+        lines = raw.get("lines")
+        if lines is not None and (
+            not isinstance(lines, list)
+            or any(not isinstance(line, str) for line in lines)
+        ):
+            raise HTTPException(
+                status_code=400, detail="family_charter.lines must be a list of strings."
+            )
+        kin = raw.get("living_kin")
+        if kin is not None and not isinstance(kin, str):
+            raise HTTPException(
+                status_code=400, detail="family_charter.living_kin must be a string."
+            )
+        per_day = raw.get("spouse_affection_per_day")
+        if per_day is not None and (
+            not isinstance(per_day, int) or isinstance(per_day, bool)
+        ):
+            raise HTTPException(
+                status_code=400,
+                detail="family_charter.spouse_affection_per_day must be an integer.",
+            )
+        try:
+            apply_charter_overrides(
+                row, lines=lines, living_kin=kin, spouse_affection_per_day=per_day
+            )
         except ValueError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
     row.updated_at = datetime.now(timezone.utc)

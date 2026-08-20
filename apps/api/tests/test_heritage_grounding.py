@@ -1,9 +1,23 @@
 from __future__ import annotations
 
+from types import SimpleNamespace
 from unittest.mock import patch
 
 from app.config import Settings
 from app.services.heritage_chat import _enforce_grounding
+from app.services.heritage_persona import persona_for
+
+_FATHER = persona_for(
+    SimpleNamespace(
+        relation_label="Bố",
+        display_name="Nguyễn Đình Triệu",
+        address_forms_json=(
+            '{"with_spouse":{"self":"anh","other":"em"},'
+            '"with_children":{"self":"bố","other":"con"}}'
+        ),
+        roles_json="",
+    )
+)
 from app.services.heritage_gemini import GeminiResult
 from app.services.heritage_grounding import (
     Ungrounded,
@@ -134,6 +148,7 @@ def test_guard_trims_ungrounded_years_even_when_critic_is_off():
         corpus=CORPUS,
         audience="child",
         max_output_tokens=512,
+        persona=_FATHER,
     )
     assert "1975" not in body
     assert info["action"] == "trimmed_years"
@@ -147,6 +162,7 @@ def test_guard_only_flags_ungrounded_names_when_critic_is_off():
         corpus=CORPUS,
         audience="child",
         max_output_tokens=512,
+        persona=_FATHER,
     )
     assert "Trần Văn Bảo" in body
     assert info == {"names": ["Trần Văn Bảo"], "action": "flagged"}
@@ -183,6 +199,7 @@ def test_guard_trims_echoed_future_year_while_refusing():
         year_corpus="Lock… neo tuổi 2015.",
         audience="child",
         max_output_tokens=512,
+        persona=_FATHER,
     )
     assert "2030" not in body
     assert "bình an" in body.lower() or "Bố" in body
@@ -196,6 +213,7 @@ def test_guard_keeps_a_clean_reply_untouched():
         corpus=CORPUS,
         audience="child",
         max_output_tokens=512,
+        persona=_FATHER,
     )
     assert body == "Bố nghe con rồi."
     assert info is None
@@ -212,6 +230,7 @@ def test_guard_takes_a_rewrite_that_comes_back_clean():
             corpus=CORPUS,
             audience="child",
             max_output_tokens=512,
+            persona=_FATHER,
         )
     assert "1975" not in body
     assert info["action"] == "rewritten"
@@ -228,6 +247,7 @@ def test_guard_trims_when_the_rewrite_is_still_ungrounded():
             corpus=CORPUS,
             audience="child",
             max_output_tokens=512,
+            persona=_FATHER,
         )
     assert body == "Bố nghe con rồi."
     assert info["action"] == "trimmed"
@@ -241,6 +261,7 @@ def test_guard_falls_back_to_the_neutral_line_when_nothing_survives():
             corpus=CORPUS,
             audience="child",
             max_output_tokens=512,
+            persona=_FATHER,
         )
     assert "1975" not in body
     assert info["action"] == "replaced"
@@ -253,6 +274,7 @@ def test_guard_is_a_no_op_when_the_flag_is_off():
         corpus=CORPUS,
         audience="child",
         max_output_tokens=512,
+        persona=_FATHER,
     )
     assert body == DIRTY
     assert info is None

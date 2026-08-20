@@ -59,7 +59,11 @@ DEPTH_RULES: dict[str, str] = {
     "short": "Trả lời 1–2 câu, đúng trọng tâm câu hỏi — đừng mở rộng.",
     "story": "Kể 3–4 câu, có chi tiết cụ thể từ bằng chứng — vẫn là nhắn tin, không phải viết thư.",
 }
-DEPTH_TOKENS: dict[str, int] = {"ack": 128, "short": 256, "story": 512}
+# Chỗ cho câu trả lời NHÌN THẤY; phần suy nghĩ ẩn được `call_gemini` cộng thêm
+# theo model. Đây là lưới an toàn chứ không phải cách giữ câu ngắn — độ dài do
+# DEPTH_RULES ở trên giữ. Đặt sát độ dài mong muốn thì tiếng Việt (nhiều token)
+# tràn trần và gia đình đọc phải một câu cụt giữa chừng.
+DEPTH_TOKENS: dict[str, int] = {"ack": 320, "short": 640, "story": 1152}
 
 _SCHEMA = {
     "type": "object",

@@ -10,7 +10,9 @@ from unittest.mock import MagicMock, patch
 from fastapi.testclient import TestClient
 
 from app.config import Settings, get_settings
-from app.services.heritage_chat import _REFUSE_UNHEARD, maybe_heritage_reply
+from app.services.heritage_chat import maybe_heritage_reply
+from app.services.heritage_persona import persona_for
+from app.services.heritage_rules_app import app_refusal
 from app.services.heritage_tts import ChatTtsResult, synthesize_chat_reply
 from app.services.stt import Transcript, parse_stt_payload, transcribe, usable_speech
 from tests.test_heritage_chat import _login, _space
@@ -261,7 +263,7 @@ def test_maybe_heritage_unheard_refusal():
 
     gen.assert_not_called()
     assert reply is not None
-    assert reply.body == _REFUSE_UNHEARD
+    assert reply.body == app_refusal("unheard", persona_for(identity))
     meta = json.loads(reply.meta_json)
     assert meta["heritage_refusal"] == "unheard"
     assert reply.kind == "text"

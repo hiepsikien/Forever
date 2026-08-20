@@ -152,6 +152,56 @@ def learned_facts_for_identity(
     return [item for item in items if needle in tag_tokens(item.tags)]
 
 
+# Shared vault kinds a remembered person may cite when the family asks about
+# someone else in the Codex — never private, never the speaker's own shelf
+# (that already arrives via knowledge / learned).
+_FAMILY_SHARED_KINDS = ("knowledge", "note", "poem")
+
+
+def family_shared_for_identities(
+    db: Session,
+    *,
+    space_id: str,
+    identity_ids: list[str],
+    exclude_identity_id: str,
+    reader: str | None = None,
+    limit_scan: int = 120,
+) -> list[MemoryItem]:
+    """Family-visible library rows tagged to other people the turn just named.
+
+    Private items are already excluded by `readable_by` when reader is None
+    (family thread). The speaker's own `heritage:{id}` shelf is excluded so we
+    do not double-count with `_knowledge_snippets` / `learned_facts_for_identity`.
+    """
+    needles = [
+        f"{HERITAGE_TAG_PREFIX}{iid}"
+        for iid in identity_ids
+        if iid and iid != exclude_identity_id
+    ]
+    if not needles:
+        return []
+    self_needle = f"{HERITAGE_TAG_PREFIX}{exclude_identity_id}"
+    items = (
+        db.query(MemoryItem)
+        .filter(
+            MemoryItem.space_id == space_id,
+            MemoryItem.kind.in_(_FAMILY_SHARED_KINDS),
+            readable_by(reader),
+        )
+        .order_by(MemoryItem.created_at.desc())
+        .limit(limit_scan)
+        .all()
+    )
+    out: list[MemoryItem] = []
+    for item in items:
+        tokens = tag_tokens(item.tags)
+        if self_needle in tokens:
+            continue
+        if any(n in tokens for n in needles):
+            out.append(item)
+    return out
+
+
 def retrieve_learned(
     facts: list[MemoryItem], *, query: str, limit: int = 3
 ) -> list[MemoryItem]:

@@ -1,8 +1,8 @@
 import { IdentityProfile } from "@forever/api-client";
 import { Pressable, Text, View } from "react-native";
 
-import { identityChipLabel } from "@/lib/identityDisplay";
-import { colors, createThemedStyles } from "@/lib/theme";
+import { chipLabelWithHandle } from "@/lib/handles";
+import { createThemedStyles } from "@/lib/theme";
 
 type Props = {
   identities: IdentityProfile[];
@@ -30,7 +30,7 @@ export function IdentityChipPicker({
             onPress={() => onToggle(ident.id)}
           >
             <Text style={[styles.chipText, active && styles.chipTextActive]}>
-              {identityChipLabel(ident, userId)}
+              {chipLabelWithHandle(ident, userId)}
             </Text>
           </Pressable>
         );

@@ -1,4 +1,4 @@
-import { ChatMessage, ThreadSummary } from "@forever/api-client";
+import { ChatMessage, IdentityProfile, ThreadSummary } from "@forever/api-client";
 import {
   AudioRecorder,
   requestRecordingPermissionsAsync,
@@ -11,6 +11,7 @@ import {
   useCallback,
   useEffect,
   useLayoutEffect,
+  useMemo,
   useRef,
   useState,
 } from "react";
@@ -34,6 +35,7 @@ import {
 import { useHeaderHeight } from "@react-navigation/elements";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { HandleSuggestBar } from "@/components/HandleSuggestBar";
 import {
   playLocalAudio,
   preparePlaybackMode,
@@ -53,6 +55,11 @@ import { RecordingLevelMeter } from "@/lib/recordingMeter";
 import { VOICE_RECORDING_OPTIONS } from "@/lib/recordingOptions";
 import { useAuth } from "@/lib/auth";
 import { formatMessageTime } from "@/lib/datetime";
+import {
+  activeHandleQuery,
+  identityHandle,
+  suggestHandles,
+} from "@/lib/handles";
 import { fetchAuthedMediaUri } from "@/lib/media";
 import { useSpaceScreenOptions } from "@/lib/spaceHeader";
 import { colors, createThemedStyles, useTheme } from "@/lib/theme";
@@ -162,6 +169,7 @@ type MessageRowProps = {
   onPlay: (item: ChatMessage) => void;
   onSave: (item: ChatMessage) => void;
   onOpenCited?: (titles: string[]) => void;
+  onOpenHandle?: (handle: string) => void;
 };
 
 const LONG_PRESS_MS = 400;
@@ -232,6 +240,7 @@ const ChatMessageRow = memo(function ChatMessageRow({
   onPlay,
   onSave,
   onOpenCited,
+  onOpenHandle,
 }: MessageRowProps) {
   useTheme();
   const isAgent = item.sender_kind === "agent";
@@ -261,7 +270,6 @@ const ChatMessageRow = memo(function ChatMessageRow({
       {!mine ? (
         <Text
           selectable={false}
-          pointerEvents="none"
           style={[
             styles.sender,
             isAgent && styles.senderAgent,
@@ -270,12 +278,20 @@ const ChatMessageRow = memo(function ChatMessageRow({
         >
           {item.sender_name ?? (isAgent ? "Người giữ nhà" : "Thành viên")}
           {item.sender_handle ? (
-            <Text selectable={false} pointerEvents="none" style={styles.handle}>
+            <Text
+              selectable={false}
+              style={styles.handle}
+              onPress={
+                onOpenHandle && !isAgent
+                  ? () => onOpenHandle(item.sender_handle!)
+                  : undefined
+              }
+            >
               {" "}
               @{item.sender_handle}
             </Text>
           ) : isAgent ? (
-            <Text selectable={false} pointerEvents="none" style={styles.handle}>
+            <Text selectable={false} style={styles.handle}>
               {" "}
               @giunhà
             </Text>
@@ -371,6 +387,7 @@ export default function ChatScreen() {
   const [playingId, setPlayingId] = useState<string | null>(null);
   const [spaceId, setSpaceId] = useState<string | null>(null);
   const [threadMeta, setThreadMeta] = useState<ThreadSummary | null>(null);
+  const [identities, setIdentities] = useState<IdentityProfile[]>([]);
   const [highlightId, setHighlightId] = useState<string | null>(
     typeof focusMessageId === "string" ? focusMessageId : null,
   );
@@ -550,6 +567,45 @@ export default function ChatScreen() {
   useLayoutEffect(() => {
     load();
   }, [load]);
+
+  useEffect(() => {
+    if (!spaceId) return;
+    void api
+      .listIdentities(spaceId)
+      .then((res) => setIdentities(res.identities))
+      .catch(() => setIdentities([]));
+  }, [api, spaceId]);
+
+  const handleQuery = useMemo(() => activeHandleQuery(text), [text]);
+  const handleSuggestions = useMemo(
+    () =>
+      handleQuery == null
+        ? []
+        : suggestHandles(identities, handleQuery, user?.id),
+    [handleQuery, identities, user?.id],
+  );
+
+  const openHandle = useCallback(
+    async (handle: string) => {
+      if (!spaceId) return;
+      try {
+        const resolved = await api.resolveHandle(spaceId, handle);
+        router.push(resolved.library_path as never);
+      } catch {
+        Alert.alert("Không tìm thấy", `Không có @${handle.replace(/^@/, "")} trong nhà này.`);
+      }
+    },
+    [api, router, spaceId],
+  );
+
+  const pickHandleSuggestion = useCallback((ident: IdentityProfile) => {
+    const handle = identityHandle(ident);
+    if (!handle) return;
+    setText((prev) => {
+      const replaced = prev.replace(/@([a-z0-9_]*)$/i, `@${handle} `);
+      return replaced === prev ? `${prev}@${handle} ` : replaced;
+    });
+  }, []);
 
   useEffect(() => {
     if (!threadId) return;
@@ -914,10 +970,20 @@ export default function ChatScreen() {
           onPlay={playVoice}
           onSave={saveToLibrary}
           onOpenCited={openCited}
+          onOpenHandle={openHandle}
         />
       );
     },
-    [highlightId, openCited, playingId, playVoice, saveToLibrary, typewriter, user?.id],
+    [
+      highlightId,
+      openCited,
+      openHandle,
+      playingId,
+      playVoice,
+      saveToLibrary,
+      typewriter,
+      user?.id,
+    ],
   );
 
   useEffect(() => {
@@ -1063,6 +1129,12 @@ export default function ChatScreen() {
           </Pressable>
         </View>
       ) : (
+      <>
+      <HandleSuggestBar
+        suggestions={handleSuggestions}
+        userId={user?.id}
+        onPick={pickHandleSuggestion}
+      />
       <View
         style={[
           styles.composer,
@@ -1109,7 +1181,7 @@ export default function ChatScreen() {
             <TextInput
               value={text}
               onChangeText={setText}
-              placeholder="Nhắn cho cả nhà…"
+              placeholder="Nhắn cho cả nhà… (@tên để gắn)"
               placeholderTextColor={colors.inkSoft}
               style={styles.input}
               multiline
@@ -1124,6 +1196,7 @@ export default function ChatScreen() {
           </>
         )}
       </View>
+      </>
       )}
     </KeyboardAvoidingView>
   );

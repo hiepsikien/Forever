@@ -13,6 +13,13 @@ export function rememberedLibraryPeople(
   return identities.filter((i) => !i.archived_at && i.status === "remembered");
 }
 
+/** Living members (and linked «Tôi») — light pages on the family hub. */
+export function livingLibraryPeople(
+  identities: IdentityProfile[],
+): IdentityProfile[] {
+  return identities.filter((i) => !i.archived_at && i.status !== "remembered");
+}
+
 export type ShelfId = "life" | "poems" | "artifacts" | "heard";
 
 export type ShelfFilter = "all" | ShelfId;
@@ -22,6 +29,8 @@ export type ShelfCounts = Record<ShelfId, number>;
 export type PersonHubRow = {
   identityId: string;
   label: string;
+  handle?: string | null;
+  status?: string;
   counts: ShelfCounts;
   poemOwn: number;
   poemGift: number;
@@ -116,14 +125,11 @@ export function buildPersonHubRows(
     const { own, gift } = partitionPoems(poems);
     const total =
       counts.life + counts.poems + counts.artifacts + counts.heard;
-    // Linked living profiles (including your own "Tôi") are Voice DNA mirrors,
-    // not memorial pages. The app creates one per member on first touch, so an
-    // empty row would just read «Tôi · Chưa có ký ức». Once the family keeps
-    // something about them, they earn the shelf. Add still tags people via form.
-    if (total === 0 && identity.linked_user_id) continue;
     rows.push({
       identityId: identity.id,
       label: identityChipLabel(identity, userId),
+      handle: identity.handle ?? null,
+      status: identity.status,
       counts,
       poemOwn: own.length,
       poemGift: gift.length,
@@ -161,10 +167,21 @@ export function buildPersonHubRows(
 
 export function formatShelfSummary(
   counts: ShelfCounts,
-  opts?: { poemOwn?: number; poemGift?: number },
+  opts?: {
+    poemOwn?: number;
+    poemGift?: number;
+    /** Person memorial uses «mốc đời»; family hub calendar uses «ngày». */
+    lifeAsMilestones?: boolean;
+  },
 ): string {
   const parts: string[] = [];
-  if (counts.life) parts.push(`${counts.life} ngày gia đình`);
+  if (counts.life) {
+    parts.push(
+      opts?.lifeAsMilestones
+        ? `${counts.life} mốc đời`
+        : `${counts.life} ngày gia đình`,
+    );
+  }
   const own = opts?.poemOwn;
   const gift = opts?.poemGift;
   if (typeof own === "number" && typeof gift === "number" && (own > 0 || gift > 0)) {
@@ -436,3 +453,6 @@ export const SHELF_LABELS: Record<ShelfFilter, string> = {
   artifacts: "Hiện vật",
   heard: "Điều nghe được",
 };
+
+/** Person memorial shelf — only days tagged to that person. */
+export const PERSON_LIFE_LABEL = "Mốc đời";

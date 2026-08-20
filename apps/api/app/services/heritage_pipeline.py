@@ -32,7 +32,7 @@ PIPELINE_FLAG_KEYS = (
 PIPELINE_FLAG_META: dict[str, dict[str, str]] = {
     "stt": {
         "label": "STT",
-        "help": "Nghe giọng thành chữ trước khi Bố trả lời. Tắt = tin giọng không có chữ.",
+        "help": "Nghe giọng thành chữ trước khi người được nhớ trả lời. Tắt = tin giọng không có chữ.",
     },
     "analyzer": {
         "label": "Analyzer",
@@ -40,7 +40,7 @@ PIPELINE_FLAG_META: dict[str, dict[str, str]] = {
     },
     "grounding": {
         "label": "Grounding",
-        "help": "Kiểm tra năm/tên trong câu Bố có neo vào ký ức không.",
+        "help": "Kiểm tra năm/tên trong câu trả lời có neo vào ký ức không.",
     },
     "critic": {
         "label": "Critic",
@@ -70,11 +70,11 @@ LLM_MODEL_META: dict[str, dict[str, str]] = {
     },
     "analyzer": {
         "label": "Analyzer",
-        "help": "Phân tích ngữ cảnh trước khi Bố nói. Nên giữ 3.1 Flash-Lite.",
+        "help": "Phân tích ngữ cảnh trước lượt trả lời. Nên giữ 3.1 Flash-Lite.",
     },
     "compose": {
         "label": "Compose",
-        "help": "Câu trả lời chính của Bố (luôn bật). Nên 3.5 Flash.",
+        "help": "Câu trả lời chính của người được nhớ (luôn bật). Nên 3.5 Flash.",
     },
     "critic": {
         "label": "Critic",

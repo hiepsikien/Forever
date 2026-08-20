@@ -3,8 +3,12 @@ from __future__ import annotations
 from sqlalchemy import inspect, text
 
 from .db import SessionLocal, engine
-from .models import User
-from .services.handles import allocate_handle
+from .models import IdentityProfile, User
+from .services.handles import (
+    allocate_handle,
+    allocate_identity_handle,
+    sync_linked_identity_handles,
+)
 
 
 def _add_column_if_missing(table: str, column: str, ddl: str) -> None:
@@ -356,9 +360,29 @@ def ensure_schema() -> None:
         "ALTER TABLE space_settings ADD COLUMN heritage_pipeline_json TEXT DEFAULT ''",
     )
     _add_column_if_missing(
+        "space_settings",
+        "family_charter_json",
+        "ALTER TABLE space_settings ADD COLUMN family_charter_json TEXT DEFAULT ''",
+    )
+    _add_column_if_missing(
         "library_ingest_proposals",
         "authorship",
         "ALTER TABLE library_ingest_proposals ADD COLUMN authorship VARCHAR(16) DEFAULT 'own'",
+    )
+    _add_column_if_missing(
+        "identity_profiles",
+        "handle",
+        "ALTER TABLE identity_profiles ADD COLUMN handle VARCHAR(64)",
+    )
+    _add_column_if_missing(
+        "story_works",
+        "category",
+        "ALTER TABLE story_works ADD COLUMN category VARCHAR(32) DEFAULT 'classic'",
+    )
+    _add_column_if_missing(
+        "story_works",
+        "sort_order",
+        "ALTER TABLE story_works ADD COLUMN sort_order INTEGER DEFAULT 100",
     )
     _backfill_heritage_threads()
     try:
@@ -369,6 +393,12 @@ def ensure_schema() -> None:
             conn.execute(
                 text("CREATE UNIQUE INDEX IF NOT EXISTS ix_users_phone ON users (phone)")
             )
+            conn.execute(
+                text(
+                    "CREATE UNIQUE INDEX IF NOT EXISTS uq_identity_profile_handle "
+                    "ON identity_profiles (space_id, handle)"
+                )
+            )
     except Exception:
         pass
 
@@ -377,6 +407,22 @@ def ensure_schema() -> None:
         for user in db.query(User).filter(User.handle.is_(None)).all():
             user.handle = allocate_handle(db, name=user.name, email=user.email)
             db.flush()
+        for profile in db.query(IdentityProfile).filter(IdentityProfile.handle.is_(None)).all():
+            if profile.linked_user_id:
+                linked = db.query(User).filter(User.id == profile.linked_user_id).one_or_none()
+                preferred = linked.handle if linked and linked.handle else None
+            else:
+                preferred = None
+            profile.handle = allocate_identity_handle(
+                db,
+                space_id=profile.space_id,
+                display_name=profile.display_name,
+                preferred=preferred,
+                exclude_identity_id=profile.id,
+            )
+            db.flush()
+        for user in db.query(User).filter(User.handle.is_not(None)).all():
+            sync_linked_identity_handles(db, user)
         db.commit()
     finally:
         db.close()

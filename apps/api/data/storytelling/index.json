@@ -1,0 +1,104 @@
+{
+  "works": [
+    {
+      "slug": "kieu",
+      "title": "Truyện Kiều",
+      "author": "Nguyễn Du",
+      "category": "classic",
+      "sort_order": 10,
+      "source_note": "Wikisource tiếng Việt — Truyện Kiều (công cộng; Nguyễn Du mất 1820).",
+      "line_count": 3254,
+      "chunk_count": 163
+    },
+    {
+      "slug": "luc_van_tien",
+      "title": "Lục Vân Tiên",
+      "author": "Nguyễn Đình Chiểu",
+      "category": "classic",
+      "sort_order": 20,
+      "source_note": "Wikisource tiếng Việt — Lục Vân Tiên bản Quốc ngữ 2082 câu (công cộng; Nguyễn Đình Chiểu mất 1888).",
+      "line_count": 2082,
+      "chunk_count": 105
+    },
+    {
+      "slug": "luu_binh_duong_le",
+      "title": "Lưu Bình – Dương Lễ",
+      "author": "Khuyết danh (truyện thơ Nôm)",
+      "category": "classic",
+      "sort_order": 30,
+      "source_note": "Chưa có bản quốc ngữ sạch trong kho PD. Steward dán chữ từ sách gia đình qua Nhập chữ.",
+      "line_count": 0,
+      "chunk_count": 0
+    },
+    {
+      "slug": "chieu_quan_cong_ho",
+      "title": "Chiêu Quân Cống Hồ",
+      "author": "Khuyết danh (truyện thơ Nôm / Song Phụng Kỳ Duyên)",
+      "category": "classic",
+      "sort_order": 40,
+      "source_note": "Chưa có bản quốc ngữ sạch trong kho PD. Steward dán chữ từ sách gia đình qua Nhập chữ.",
+      "line_count": 0,
+      "chunk_count": 0
+    },
+    {
+      "slug": "kinh_a_di_da",
+      "title": "Kinh A Di Đà",
+      "author": "Kinh Phật (Tịnh Độ)",
+      "category": "sutra",
+      "sort_order": 10,
+      "source_note": "Bản dịch Việt thường còn bản quyền — dán từ kinh nhà / chùa qua Nhập chữ (văn xuôi).",
+      "line_count": 0,
+      "chunk_count": 0
+    },
+    {
+      "slug": "kinh_pho_mon",
+      "title": "Kinh Phổ Môn",
+      "author": "Phẩm Quan Thế Âm — Kinh Pháp Hoa",
+      "category": "sutra",
+      "sort_order": 20,
+      "source_note": "Bản dịch Việt — dán từ kinh nhà qua Nhập chữ. Cầu bình an, tai qua nạn khỏi.",
+      "line_count": 0,
+      "chunk_count": 0
+    },
+    {
+      "slug": "bat_nha_tam_kinh",
+      "title": "Bát Nhã Tâm Kinh",
+      "author": "Kinh Phật",
+      "category": "sutra",
+      "sort_order": 30,
+      "source_note": "Rất ngắn, dễ thuộc. Dán bản nhà đang đọc qua Nhập chữ.",
+      "line_count": 0,
+      "chunk_count": 0
+    },
+    {
+      "slug": "kinh_dia_tang",
+      "title": "Kinh Địa Tạng",
+      "author": "Kinh Phật",
+      "category": "sutra",
+      "sort_order": 40,
+      "source_note": "Cầu siêu, ngày giỗ / rằm. Dán từ kinh nhà qua Nhập chữ.",
+      "line_count": 0,
+      "chunk_count": 0
+    },
+    {
+      "slug": "kinh_duoc_su",
+      "title": "Kinh Dược Sư",
+      "author": "HT Thích Trí Quảng soạn",
+      "category": "sutra",
+      "sort_order": 50,
+      "source_note": "Bản gia đình — HT Thích Trí Quảng soạn. Đã mở rộng «N lần» thành nhắc lại; bỏ chỉ dẫn «N lạy».",
+      "line_count": 264,
+      "chunk_count": 31
+    },
+    {
+      "slug": "kinh_vu_lan",
+      "title": "Kinh Vu Lan",
+      "author": "Kinh Phật",
+      "category": "sutra",
+      "sort_order": 60,
+      "source_note": "Mùa Vu Lan (tháng 7 âm), báo hiếu. Dán từ kinh nhà qua Nhập chữ.",
+      "line_count": 0,
+      "chunk_count": 0
+    }
+  ]
+}

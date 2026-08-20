@@ -168,11 +168,23 @@ export type PickedVideo = {
   size?: number | null;
 };
 
-/** Phone camera roll — not Files. Avoids expo-document-picker's iOS native lock. */
+/** The phone refused the photo library — nothing to do with the family role. */
+export class MediaPermissionError extends Error {
+  constructor() {
+    super("Máy chưa cho Forever đọc Ảnh.");
+    this.name = "MediaPermissionError";
+  }
+}
+
+/**
+ * Phone camera roll — not Files. Avoids expo-document-picker's iOS native lock.
+ * Picking a photo needs no permission, but an untouched video does: iOS hands
+ * back the original file, so it asks for library access.
+ */
 export async function pickVideoFromPhotos(): Promise<PickedVideo | null> {
   const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
   if (!perm.granted) {
-    throw new Error("Cho phép truy cập ảnh để lưu video vào thư viện.");
+    throw new MediaPermissionError();
   }
   const picked = await ImagePicker.launchImageLibraryAsync({
     mediaTypes: ["videos"],

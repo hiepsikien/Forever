@@ -40,6 +40,12 @@ from ..services.heritage import (
     mark_profile_reviewed,
     sync_heritage_thread_title,
 )
+from ..services.handles import (
+    allocate_identity_handle,
+    is_valid_handle,
+    normalize_handle,
+    resolve_space_handle,
+)
 from ..services.identity_revisions import (
     apply_lock_snapshot,
     list_revisions,
@@ -86,20 +92,22 @@ class CreateIdentityBody(BaseModel):
     display_name: str = Field(min_length=1, max_length=120)
     relation_label: str = Field(default="", max_length=80)
     status: str = Field(default="living", pattern="^(living|remembered)$")
+    handle: str | None = Field(default=None, min_length=2, max_length=32)
 
 
 class UpdateIdentityBody(BaseModel):
     display_name: str | None = Field(default=None, min_length=1, max_length=120)
     relation_label: str | None = Field(default=None, max_length=80)
     status: str | None = Field(default=None, pattern="^(living|remembered)$")
+    handle: str | None = Field(default=None, min_length=2, max_length=32)
     # Identity Lock fields (JSON-serializable structures or pre-stringified)
     life_stage: dict | list | None = None
     roles: list | None = None
     address_forms: dict | None = None
     speech_style: dict | None = None
     core_values: list | None = None
-    philosophy: dict | None = None
-    taboos: dict | None = None
+    philosophy: dict | list | None = None
+    taboos: dict | list | None = None
     poetry_quote_mode: str | None = Field(
         default=None, pattern="^(paraphrase|verbatim)$"
     )
@@ -449,6 +457,7 @@ def _identity_payload(
         "id": row.id,
         "space_id": row.space_id,
         "display_name": row.display_name,
+        "handle": getattr(row, "handle", None),
         "relation_label": row.relation_label,
         "status": row.status,
         "linked_user_id": row.linked_user_id,
@@ -609,6 +618,10 @@ def _ensure_self_identity(
         id=generate(),
         space_id=space_id,
         display_name=user.name or "Tôi",
+        handle=user.handle
+        or allocate_identity_handle(
+            db, space_id=space_id, display_name=user.name or "toi"
+        ),
         relation_label="Tôi",
         status="living",
         linked_user_id=user.id,
@@ -734,6 +747,49 @@ def _get_voice_or_404(db: Session, voice_id: str) -> VoiceProfile:
 # --- Identities ---
 
 
+@router.get("/api/spaces/{space_id}/handles/{handle}")
+def resolve_handle(
+    space_id: str,
+    handle: str,
+    user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[Session, Depends(get_db)],
+):
+    """Resolve @handle → living profile or memorial library path."""
+    require_membership(db, space_id=space_id, user=user)
+    try:
+        kind, row = resolve_space_handle(db, space_id=space_id, handle=handle)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Handle không hợp lệ.") from None
+    except LookupError:
+        raise HTTPException(status_code=404, detail="Không tìm thấy @handle này.") from None
+
+    if kind == "identity":
+        identity = row  # type: ignore[assignment]
+        assert isinstance(identity, IdentityProfile)
+        if identity.status == "remembered":
+            path = f"/library/{space_id}/person/{identity.id}"
+        else:
+            path = f"/people/{space_id}/{identity.id}"
+        return {
+            "kind": "identity",
+            "id": identity.id,
+            "handle": identity.handle,
+            "display_name": identity.display_name,
+            "status": identity.status,
+            "library_path": path,
+        }
+
+    assert isinstance(row, User)
+    return {
+        "kind": "user",
+        "id": row.id,
+        "handle": row.handle,
+        "display_name": row.name,
+        "status": "living",
+        "library_path": f"/library/{space_id}",
+    }
+
+
 @router.get("/api/spaces/{space_id}/identities")
 def list_identities(
     space_id: str,
@@ -792,6 +848,14 @@ def create_identity(
 ):
     require_steward_or_owner(db, space_id=space_id, user=user)
     now = datetime.now(timezone.utc)
+    preferred = body.handle
+    if preferred is not None:
+        preferred = normalize_handle(preferred)
+        if not is_valid_handle(preferred):
+            raise HTTPException(
+                status_code=400,
+                detail="Handle must be 2–32 chars: a-z, 0-9, underscore.",
+            )
     thread_id = None
     thread = None
     if body.status == "remembered":
@@ -812,6 +876,12 @@ def create_identity(
         id=generate(),
         space_id=space_id,
         display_name=body.display_name.strip(),
+        handle=allocate_identity_handle(
+            db,
+            space_id=space_id,
+            display_name=body.display_name.strip(),
+            preferred=preferred,
+        ),
         relation_label=body.relation_label.strip(),
         status=body.status,
         linked_user_id=None,
@@ -872,6 +942,40 @@ def update_identity(
         row.display_name = body.display_name.strip()
     if body.relation_label is not None:
         row.relation_label = body.relation_label.strip()
+    if body.handle is not None:
+        handle = normalize_handle(body.handle)
+        if not is_valid_handle(handle):
+            raise HTTPException(
+                status_code=400,
+                detail="Handle must be 2–32 chars: a-z, 0-9, underscore.",
+            )
+        if row.linked_user_id:
+            # Living mirrors keep User.handle as source of truth.
+            linked = db.query(User).filter(User.id == row.linked_user_id).one_or_none()
+            if linked:
+                clash_user = (
+                    db.query(User)
+                    .filter(User.handle == handle, User.id != linked.id)
+                    .one_or_none()
+                )
+                if clash_user:
+                    raise HTTPException(status_code=409, detail="Handle already taken.")
+                linked.handle = handle
+        clash = (
+            db.query(IdentityProfile)
+            .filter(
+                IdentityProfile.space_id == space_id,
+                IdentityProfile.handle == handle,
+                IdentityProfile.id != row.id,
+            )
+            .one_or_none()
+        )
+        if clash:
+            raise HTTPException(
+                status_code=409,
+                detail="Handle already used in this family space.",
+            )
+        row.handle = handle
     if body.status is not None and body.status != row.status:
         row.status = body.status
         if body.status == "remembered" and not row.heritage_thread_id:
@@ -1217,6 +1321,18 @@ def link_identity_user(
         )
 
     row.linked_user_id = target.id
+    if target.handle:
+        clash = (
+            db.query(IdentityProfile)
+            .filter(
+                IdentityProfile.space_id == space_id,
+                IdentityProfile.handle == target.handle,
+                IdentityProfile.id != row.id,
+            )
+            .one_or_none()
+        )
+        if not clash:
+            row.handle = target.handle
     db.commit()
     db.refresh(row)
     return _identity_payload(row)

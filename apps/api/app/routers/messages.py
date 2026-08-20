@@ -49,6 +49,15 @@ def _heritage_sender_name(db: Session, thread: Thread, sender_kind: str) -> str 
     return heritage_display_name(identity)
 
 
+def _heritage_sender_handle(db: Session, thread: Thread) -> str | None:
+    if thread.kind != "heritage":
+        return None
+    identity = identity_for_heritage_thread(db, thread.id)
+    if not identity:
+        return None
+    return getattr(identity, "handle", None) or None
+
+
 def _apply_stt(db: Session, message: Message) -> None:
     """Fill Message.body from audio when caption is empty. Never raises."""
     settings = get_settings()
@@ -284,6 +293,7 @@ def list_messages(
             profiles[row.id] = row
 
     heritage_label = _heritage_sender_name(db, thread, "heritage")
+    heritage_handle = _heritage_sender_handle(db, thread)
 
     return {
         "messages": [
@@ -302,6 +312,7 @@ def list_messages(
                 handle=sender_handle(
                     m.sender_kind,
                     profiles[m.sender_user_id].handle if m.sender_user_id in profiles else None,
+                    heritage_handle=heritage_handle,
                 ),
             )
             for m in messages

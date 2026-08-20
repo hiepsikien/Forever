@@ -270,13 +270,16 @@ def entity_lines(matches: list[CodexMatch]) -> list[str]:
 
 
 def clarify_question(matches: list[CodexMatch]) -> str | None:
-    """When one name maps to several relatives, ask instead of guessing."""
+    """Ai đang bị nhắc tới, khi một cái tên trỏ tới nhiều người.
+
+    Chỉ trả về phần tên. Câu hỏi lại được dựng ở tầng 1 bằng xưng hô của người
+    đang nói (`heritage_rules_app.clarify_line`) — codex không biết ai đang nói.
+    """
     for match in matches:
         if not match.ambiguous:
             continue
-        names = " hay ".join(
+        return " hay ".join(
             f"{e.canonical_name} ({_json_dict(e.relation_json).get('to_subject') or 'người thân'})"
             for e in match.entities[:3]
         )
-        return f"Con nói {names} hả con? Bố hỏi lại cho chắc."
     return None

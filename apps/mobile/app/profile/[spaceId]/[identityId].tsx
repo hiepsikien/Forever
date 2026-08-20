@@ -74,6 +74,11 @@ function formatRevisionWhen(iso: string): string {
   }
 }
 
+/** Bỏ dòng trống — sửa tại chỗ nghĩa là một dòng có thể bị xoá sạch chữ. */
+function cleanList(items: string[]): string[] {
+  return items.map((i) => i.trim()).filter(Boolean);
+}
+
 function ListEditor({
   label,
   help,
@@ -99,8 +104,17 @@ function ListEditor({
       <Text style={styles.label}>{label}</Text>
       <Text style={styles.help}>{help}</Text>
       {items.map((item, idx) => (
-        <View key={`${item}-${idx}`} style={styles.listRow}>
-          <Text style={styles.listText}>{item}</Text>
+        <View key={`row-${idx}`} style={styles.listRow}>
+          <TextInput
+            style={styles.listInput}
+            value={item}
+            onChangeText={(text) =>
+              onChange(items.map((v, i) => (i === idx ? text : v)))
+            }
+            placeholder={placeholder}
+            placeholderTextColor={colors.inkSoft}
+            multiline
+          />
           <Pressable
             hitSlop={8}
             onPress={() => onChange(items.filter((_, i) => i !== idx))}
@@ -161,6 +175,10 @@ export default function IdentityLockScreen() {
     self: "",
     other: "",
   });
+  const [withGrandchildren, setWithGrandchildren] = useState<AddressPair>({
+    self: "",
+    other: "",
+  });
   const [dynamicContext, setDynamicContext] = useState("");
 
   useSpaceScreenOptions({
@@ -183,6 +201,9 @@ export default function IdentityLockScreen() {
     const address = (row.address_forms ?? {}) as Record<string, unknown>;
     setWithChildren(asPair(address.with_children, { self: "", other: "" }));
     setWithSpouse(asPair(address.with_spouse, { self: "", other: "" }));
+    setWithGrandchildren(
+      asPair(address.with_grandchildren, { self: "", other: "" }),
+    );
     setDynamicContext(row.dynamic_context ?? "");
   }, []);
 
@@ -224,14 +245,17 @@ export default function IdentityLockScreen() {
 
   const missing = useMemo(() => {
     const gaps: string[] = [];
-    if (coreValues.length < 3) {
-      gaps.push(`Giá trị sống — cần ít nhất 3, đang có ${coreValues.length}`);
+    const values = cleanList(coreValues);
+    if (values.length < 3) {
+      gaps.push(`Giá trị sống — cần ít nhất 3, đang có ${values.length}`);
     }
-    if (traits.length < 1) gaps.push("Khẩu khí — cần ít nhất 1 nét");
+    if (cleanList(traits).length < 1) gaps.push("Khẩu khí — cần ít nhất 1 nét");
     if (!withChildren.self.trim() && !withSpouse.self.trim()) {
       gaps.push("Cách xưng hô — điền ít nhất một cặp");
     }
-    if (hardTaboos.length < 1) gaps.push("Điều không bao giờ nói — cần ít nhất 1");
+    if (cleanList(hardTaboos).length < 1) {
+      gaps.push("Điều không bao giờ nói — cần ít nhất 1");
+    }
     return gaps;
   }, [coreValues, traits, withChildren, withSpouse, hardTaboos]);
 
@@ -250,13 +274,19 @@ export default function IdentityLockScreen() {
         ...(withSpouse.notes ? { notes: withSpouse.notes } : {}),
       };
     }
+    if (withGrandchildren.self.trim() || withGrandchildren.other.trim()) {
+      address.with_grandchildren = {
+        self: withGrandchildren.self.trim(),
+        other: withGrandchildren.other.trim(),
+      };
+    }
     return {
       display_name: displayName.trim(),
       relation_label: relation.trim(),
-      core_values: coreValues,
-      roles,
-      speech_style: { traits },
-      taboos: { hard: hardTaboos },
+      core_values: cleanList(coreValues),
+      roles: cleanList(roles),
+      speech_style: { traits: cleanList(traits) },
+      taboos: { hard: cleanList(hardTaboos) },
       address_forms: address,
       dynamic_context: dynamicContext.trim(),
     };
@@ -472,7 +502,9 @@ export default function IdentityLockScreen() {
         <View style={styles.field}>
           <Text style={styles.label}>Cách xưng hô</Text>
           <Text style={styles.help}>
-            Sai chỗ này là hỏng cả cuộc trò chuyện. Ghi đúng cách người ấy vẫn gọi.
+            Sai chỗ này là hỏng cả cuộc trò chuyện. Ghi đúng cách người ấy vẫn
+            gọi. Mỗi hàng là một vai khác nhau — cụ bà xưng «mẹ» với con nhưng
+            «bà» với cháu.
           </Text>
           <Text style={styles.sublabel}>Với con</Text>
           <View style={styles.pairRow}>
@@ -480,31 +512,55 @@ export default function IdentityLockScreen() {
               style={[styles.input, styles.pairInput]}
               value={withChildren.self}
               onChangeText={(t) => setWithChildren((p) => ({ ...p, self: t }))}
-              placeholder="tự xưng — vd. bố"
+              placeholder="tự xưng — bố / mẹ"
               placeholderTextColor={colors.inkSoft}
             />
             <TextInput
               style={[styles.input, styles.pairInput]}
               value={withChildren.other}
               onChangeText={(t) => setWithChildren((p) => ({ ...p, other: t }))}
-              placeholder="gọi — vd. con"
+              placeholder="gọi — con"
               placeholderTextColor={colors.inkSoft}
             />
           </View>
+          <Text style={styles.sublabel}>Với cháu / chắt</Text>
+          <View style={styles.pairRow}>
+            <TextInput
+              style={[styles.input, styles.pairInput]}
+              value={withGrandchildren.self}
+              onChangeText={(t) =>
+                setWithGrandchildren((p) => ({ ...p, self: t }))
+              }
+              placeholder="tự xưng — ông / bà"
+              placeholderTextColor={colors.inkSoft}
+            />
+            <TextInput
+              style={[styles.input, styles.pairInput]}
+              value={withGrandchildren.other}
+              onChangeText={(t) =>
+                setWithGrandchildren((p) => ({ ...p, other: t }))
+              }
+              placeholder="gọi — cháu"
+              placeholderTextColor={colors.inkSoft}
+            />
+          </View>
+          <Text style={styles.hint}>
+            Để trống hàng cháu thì app tự dùng «ông / bà — cháu».
+          </Text>
           <Text style={styles.sublabel}>Với vợ / chồng</Text>
           <View style={styles.pairRow}>
             <TextInput
               style={[styles.input, styles.pairInput]}
               value={withSpouse.self}
               onChangeText={(t) => setWithSpouse((p) => ({ ...p, self: t }))}
-              placeholder="tự xưng — vd. anh"
+              placeholder="tự xưng — anh / em"
               placeholderTextColor={colors.inkSoft}
             />
             <TextInput
               style={[styles.input, styles.pairInput]}
               value={withSpouse.other}
               onChangeText={(t) => setWithSpouse((p) => ({ ...p, other: t }))}
-              placeholder="gọi — vd. em"
+              placeholder="gọi — em / anh"
               placeholderTextColor={colors.inkSoft}
             />
           </View>
@@ -513,7 +569,7 @@ export default function IdentityLockScreen() {
         <ListEditor
           label="Vai trò trong nhà"
           help="Chồng của ai, bố của mấy người con, làm nghề gì — những điều đã chắc chắn."
-          placeholder="vd. Chồng bà Lê Thị Định"
+          placeholder="vd. Chồng của ..."
           items={roles}
           onChange={setRoles}
         />
@@ -665,6 +721,13 @@ const styles = createThemedStyles((colors) => ({
     marginTop: 8,
   },
   help: { fontSize: 13, color: colors.inkSoft, lineHeight: 19 },
+  hint: {
+    fontSize: 12,
+    color: colors.inkSoft,
+    lineHeight: 17,
+    marginTop: 6,
+    fontStyle: "italic",
+  },
   input: {
     backgroundColor: colors.card,
     borderWidth: 1,
@@ -678,7 +741,7 @@ const styles = createThemedStyles((colors) => ({
   multiline: { minHeight: 90, textAlignVertical: "top" },
   listRow: {
     flexDirection: "row",
-    alignItems: "center",
+    alignItems: "flex-start",
     gap: 12,
     backgroundColor: colors.card,
     borderWidth: 1,
@@ -687,8 +750,14 @@ const styles = createThemedStyles((colors) => ({
     paddingHorizontal: 14,
     paddingVertical: 10,
   },
-  listText: { flex: 1, fontSize: 15, color: colors.ink },
-  remove: { fontSize: 13, fontWeight: "600", color: colors.danger },
+  listInput: {
+    flex: 1,
+    fontSize: 15,
+    color: colors.ink,
+    padding: 0,
+    minHeight: 22,
+  },
+  remove: { fontSize: 13, fontWeight: "600", color: colors.danger, paddingTop: 2 },
   addRow: { flexDirection: "row", alignItems: "center", gap: 8 },
   addInput: { flex: 1 },
   pairRow: { flexDirection: "row", gap: 8 },

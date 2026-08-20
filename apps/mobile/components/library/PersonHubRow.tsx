@@ -1,22 +1,40 @@
 import { Pressable, Text, View } from "react-native";
 
 import { formatShelfSummary, PersonHubRow } from "@/lib/libraryShelves";
-import { colors, fonts, createThemedStyles } from "@/lib/theme";
+import { fonts, createThemedStyles } from "@/lib/theme";
 
 type Props = {
   row: PersonHubRow;
   onPress: () => void;
+  lifeAsMilestones?: boolean;
+  /** Living members — quieter row. */
+  compact?: boolean;
 };
 
-export function PersonHubRowView({ row, onPress }: Props) {
+export function PersonHubRowView({
+  row,
+  onPress,
+  lifeAsMilestones,
+  compact,
+}: Props) {
+  const handle = row.handle?.trim();
   return (
-    <Pressable style={styles.row} onPress={onPress}>
+    <Pressable
+      style={[styles.row, compact && styles.rowCompact]}
+      onPress={onPress}
+    >
       <View style={styles.textCol}>
-        <Text style={styles.label}>{row.label}</Text>
+        <View style={styles.titleRow}>
+          <Text style={[styles.label, compact && styles.labelCompact]}>
+            {row.label}
+          </Text>
+          {handle ? <Text style={styles.handle}>@{handle}</Text> : null}
+        </View>
         <Text style={styles.summary}>
           {formatShelfSummary(row.counts, {
             poemOwn: row.poemOwn,
             poemGift: row.poemGift,
+            lifeAsMilestones,
           })}
         </Text>
       </View>
@@ -38,11 +56,28 @@ const styles = createThemedStyles((colors) => ({
     marginBottom: 8,
     gap: 12,
   },
+  rowCompact: {
+    paddingVertical: 10,
+  },
   textCol: { flex: 1, gap: 4 },
+  titleRow: {
+    flexDirection: "row",
+    alignItems: "baseline",
+    flexWrap: "wrap",
+    gap: 8,
+  },
   label: {
     fontFamily: fonts.display,
     fontSize: 20,
     color: colors.ink,
+  },
+  labelCompact: {
+    fontSize: 17,
+  },
+  handle: {
+    fontSize: 13,
+    color: colors.brandSoft,
+    fontWeight: "600",
   },
   summary: {
     fontSize: 14,

@@ -11,6 +11,7 @@ import {
   ActivityIndicator,
   Alert,
   FlatList,
+  Linking,
   Pressable,
   RefreshControl,
   StyleSheet,
@@ -47,7 +48,7 @@ import {
   groupFamilyCalendar,
   memoriesForPerson,
   partitionPoems,
-  rememberedLibraryPeople,
+  PERSON_LIFE_LABEL,
   SHELF_LABELS,
   ShelfFilter,
   sortByCreatedDesc,
@@ -69,6 +70,7 @@ import {
 } from "@/lib/memoryTags";
 import {
   documentPickerErrorMessage,
+  MediaPermissionError,
   pickVideoFromPhotos,
 } from "@/lib/mediaPick";
 import { useSpaceScreenOptions } from "@/lib/spaceHeader";
@@ -191,18 +193,15 @@ export default function LibraryPersonScreen() {
     identityId === UNTAGGED_PERSON_ID
       ? "Chưa neo ai"
       : person
-        ? identityChipLabel(person, user?.id)
+        ? person.handle
+          ? `${identityChipLabel(person, user?.id)} · @${person.handle}`
+          : identityChipLabel(person, user?.id)
         : "Ký ức";
-
-  const rememberedPeople = useMemo(
-    () => rememberedLibraryPeople(identities),
-    [identities],
-  );
 
   useSpaceScreenOptions({
     spaceId,
     title,
-    backTitle: rememberedPeople.length === 1 ? "Nhà" : "Thư viện",
+    backTitle: "Thư viện",
   });
 
   const load = useCallback(async () => {
@@ -250,15 +249,10 @@ export default function LibraryPersonScreen() {
     () => (identityId ? memoriesForPerson(memories, identityId) : []),
     [memories, identityId],
   );
-  const familyMilestones = useMemo(
-    () => memories.filter((m) => m.kind === "milestone"),
-    [memories],
+  const personShelfCounts = useMemo(
+    () => countShelves(personMemories),
+    [personMemories],
   );
-  const personShelfCounts = useMemo(() => {
-    const counts = countShelves(personMemories);
-    counts.life = familyMilestones.length;
-    return counts;
-  }, [personMemories, familyMilestones]);
   const poemParts = useMemo(
     () => partitionPoems(personMemories.filter((m) => m.kind === "poem")),
     [personMemories],
@@ -308,13 +302,16 @@ export default function LibraryPersonScreen() {
     }
 
     if (showLife) {
-      const life = filterMemories(familyMilestones, {
-        query,
-        privateOnly,
-      });
+      const life = filterMemories(
+        personMemories.filter((m) => m.kind === "milestone"),
+        {
+          query,
+          privateOnly,
+        },
+      );
       if (life.length) {
         if (shelf === "all") {
-          rows.push({ type: "section", key: "life", title: SHELF_LABELS.life });
+          rows.push({ type: "section", key: "life", title: PERSON_LIFE_LABEL });
         }
         for (const section of groupFamilyCalendar(life)) {
           if (shelf === "life" || shelf === "all") {
@@ -421,7 +418,7 @@ export default function LibraryPersonScreen() {
     query,
     poemAuth,
     person?.display_name,
-    familyMilestones,
+    personMemories,
   ]);
 
   useEffect(() => {
@@ -523,11 +520,6 @@ export default function LibraryPersonScreen() {
   };
 
   const pickMilestonePhoto = async () => {
-    const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (!perm.granted) {
-      Alert.alert("Cần quyền", "Cho phép truy cập ảnh để gắn vào ngày gia đình.");
-      return;
-    }
     const picked = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ["images"],
       quality: 0.85,
@@ -576,11 +568,6 @@ export default function LibraryPersonScreen() {
 
   const pickPhoto = async () => {
     if (!spaceId) return;
-    const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (!perm.granted) {
-      Alert.alert("Cần quyền", "Cho phép truy cập ảnh để lưu vào thư viện.");
-      return;
-    }
     const picked = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ["images"],
       quality: 0.85,
@@ -625,6 +612,17 @@ export default function LibraryPersonScreen() {
       setEditingId(null);
       setCaptionOpen(true);
     } catch (e) {
+      if (e instanceof MediaPermissionError) {
+        Alert.alert(
+          "Máy chưa cho đọc Ảnh",
+          "Video cần quyền Ảnh của máy — không liên quan tới quyền trong nhà. Mở Cài đặt → Forever → Ảnh và chọn Tất cả ảnh.",
+          [
+            { text: "Để sau", style: "cancel" },
+            { text: "Mở Cài đặt", onPress: () => void Linking.openSettings() },
+          ],
+        );
+        return;
+      }
       Alert.alert("Không chọn được file", documentPickerErrorMessage(e));
     }
   };
@@ -925,6 +923,16 @@ export default function LibraryPersonScreen() {
             <Text style={styles.callLink}>Gọi bằng giọng</Text>
           </Pressable>
         ) : null}
+        {person && person.status === "remembered" ? (
+          <Pressable
+            onPress={() =>
+              router.push(`/stories/${spaceId}/${identityId}`)
+            }
+            hitSlop={8}
+          >
+            <Text style={styles.callLink}>Nghe đọc</Text>
+          </Pressable>
+        ) : null}
       </View>
       <LibrarySearchBar value={query} onChange={setQuery} />
       <KindFilterChips
@@ -935,6 +943,7 @@ export default function LibraryPersonScreen() {
         }}
         counts={personShelfCounts}
         poemsLabel={poemsChipLabel}
+        lifeLabel={PERSON_LIFE_LABEL}
       />
       <View style={styles.visibilityRow}>
         <View style={styles.visibilityCopy}>
@@ -1019,7 +1028,7 @@ export default function LibraryPersonScreen() {
             {privateOnly
               ? "Chưa có ký ức giữ riêng trên kệ này. Bật lại «Chỉ mình tôi» để xem cả nhà."
               : shelf === "life"
-                ? "Chưa có ngày gia đình. Bấm Thêm → Ngày gia đình (giỗ, cưới, sinh, mất…)."
+                ? "Chưa có mốc đời neo về người này. Bấm Thêm → Ngày gia đình và chọn người."
                 : "Chưa có ký ức trên kệ này. Bấm Thêm để ghi lại."}
           </Text>
         }

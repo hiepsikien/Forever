@@ -79,11 +79,89 @@ threads and pickers without deleting anything; `?include_archived=true` reveals 
 Bulk tool: `./scripts/archive-profiles.py`. A `ready` heritage entity must be paused
 first, and a profile linked to a login account can never be archived.
 
+## Library (Thư viện)
+
+IA: `docs/library-ia.plan.md`. One `MemoryItem` vault per `FamilySpace`.
+
+- **Hub** (`/library/{spaceId}`) — Lịch gia đình (all family milestones) + remembered
+  memorials + living light pages. Do not skip the hub when only one person is remembered.
+- **Memorial** (`/person/{identityId}`) — poems / artifacts / heard + milestones
+  tagged `heritage:{id}` only («Mốc đời»), never the whole family calendar.
+- **Living light** (`/people/{spaceId}/{identityId}`) — profile + `@handle` + tagged items.
+- **`@handle`** — `IdentityProfile.handle` unique per space; living linked mirrors
+  `User.handle`. Resolve via `GET /api/spaces/{id}/handles/{handle}`. Storage tags
+  stay `heritage:{uuid}`.
+
 ## Heritage chat
 
 Pipeline + rationale: `docs/heritage-chat-v2.plan.md`. Code is flat in
 `apps/api/app/services/heritage_*.py`; every stage sits behind a `heritage_*`
 flag in `config.py`.
+
+**Nghe đọc (truyện thơ + kinh Phật):** corpus ở `apps/api/data/storytelling/`;
+ghi giọng thật rồi chỉ phát lại (`routers/storytelling.py`, mobile
+`/stories/[spaceId]/[identityId]`). Không TTS đoạn chưa ghi. Steward bật tập
+trên kệ; kinh và truyện chưa có chữ PD thì **Nhập chữ** từ sách/kinh nhà.
+Tái tạo chunk: `./scripts/rebuild-storytelling-chunks.py`.
+
+### Ba tầng quy định — luật của một người không được áp cho người khác
+
+| Tầng | File | Phạm vi |
+|------|------|---------|
+| 1 · Ứng dụng | `heritage_rules_app.py` | Mọi người được nhớ, mọi nhà |
+| 2 · Gia đình | `heritage_rules_family.py` | Một `FamilySpace` — lưu ở `SpaceSettings.family_charter_json`, steward sửa qua `PATCH /settings` |
+| 3 · Cá nhân | `heritage_persona.py` | Một `IdentityProfile` — dựng từ Bản sắc |
+
+Tầng 1 và 2 **không được viết cứng đại từ** («bố», «mẹ», «anh», «em»…). Chúng
+nhận một `Persona` và hỏi `persona.me(audience)` / `persona.you(audience)`.
+`tests/test_heritage_layers.py` canh ranh giới này — thêm một câu có đại từ cố
+định vào tầng 1/2 sẽ làm hỏng test chứ không làm hỏng phòng chat của gia đình.
+
+Ba vai, ba cặp xưng hô: `with_children`, `with_grandchildren`, `with_spouse`. Cụ
+bà xưng «mẹ» với con nhưng «bà» với cháu — gộp hai vai làm một chính là cách
+«Mẹ nhớ con» đến tay đứa cháu. Ô cháu để trống thì app đoán ông/bà, không bao
+giờ mượn cặp của con.
+
+Vai người nhắn **đếm ra từ bậc**, không đọc từ nhãn. Nhãn neo vào một người
+(«Con trai» là con của Bố nhưng là cháu của Bà) và bản sao đăng nhập chỉ ghi
+«Tôi», nên `_audience_by_generation` lấy `Persona.generation_rank` của người
+được nhớ trừ đi bậc của người nghe: chênh 1 là con, chênh ≥2 là cháu. Chỗ neo
+cho nhãn người sống là hồ sơ được nhớ cũ nhất, đúng như câu hỏi trên màn tạo hồ
+sơ. Không đếm được bậc thì mới rơi về đọc nhãn. Người nhắn tự xưng «cháu» thì
+lời họ thắng tất — `_declares_grandchild`.
+
+`meta.persona_register` trên mỗi lượt ghi cặp xưng hô đã dùng («bà — cháu»);
+đó là chỗ soi đầu tiên khi giọng nghe lệch.
+
+`GeminiCall.max_output_tokens` là chỗ cho câu trả lời **nhìn thấy**. Suy nghĩ ẩn
+tính chung vào `maxOutputTokens` và Gemini 3 không cho đặt trần cho riêng nó
+(chỉ có `thinkingLevel`; 3.7 không nhận cả `minimal`), nên `call_gemini` tự cộng
+`thinking_headroom_tokens(model)` — đổi model trong Cài đặt không làm câu bị bóp
+cụt nữa. Chừa rộng không tốn thêm: hoá đơn tính trên token thực sinh ra.
+
+`DEPTH_TOKENS` là lưới an toàn, không phải cách giữ câu ngắn — độ dài do
+`DEPTH_RULES` trong prompt giữ. Bị chặn thì `_gemini_heritage_reply` hỏi lại một
+lần với chỗ rộng gấp ba; `_finalize_reply_text` chỉ là nước cuối.
+`meta.thoughts_tokens` trong telemetry cho biết model tiêu bao nhiêu cho suy nghĩ.
+
+Câu kết phải thưa. `maybe_winddown` nhắc nghỉ mỗi `threshold` lượt chứ không
+phải mọi lượt sau ngưỡng — bỏ mốt-đun ấy là «Bà nhớ cháu» dính vào cuối từng
+câu trả lời. `strip_repeated_closing` cắt câu thương nhớ và cái đuôi «…, con.»
+khi lượt ngay trước đã dùng, nên nói một lần vẫn được, nói mãi thì không.
+
+Steward sửa hiến chương ở Cài đặt → AI → **Hiến chương gia đình**
+(`PATCH /settings` với `family_charter`). Đổi `living_kin` là đổi được câu nói
+ra, không cần deploy.
+
+Bản sắc thắng suy đoán: `persona_for()` đọc `address_forms_json` trước, nhãn
+quan hệ chỉ lấp chỗ trống. Bản sắc mâu thuẫn (hồ sơ Bà chép xưng hô của Bố) thì
+báo ở `Persona.lock_conflict` để steward sửa — code không tự viết lại dữ liệu
+của gia đình. Chỉ Bản sắc có khối `with_spouse` mới có vai vợ/chồng, nên
+`_detect_audience` không thể biến người nhắn thành «vợ» của một người không có vợ.
+
+Bộ dò lời người dùng (nhạy cảm, thương nhớ, đòi bịa) phải phủ hết từ thân tộc
+trong `KINSHIP_SELF_WORDS`. Thiếu một từ là một người được nhớ mất lá chắn mà
+người khác có — đó là cách «nhớ bà quá» từng không kích hoạt nhịp cầu gia đình.
 
 - Each remembered person has one family thread and one private thread per member
   (`threads.audience_scope`). Never widen `require_thread_access`.

@@ -279,6 +279,21 @@ export interface HeritagePipelineSettings {
   note: string;
 }
 
+/** Tầng 2 — hiến chương gia đình. Áp cho MỌI người được nhớ trong nhà này;
+ *  xưng hô riêng của từng người nằm ở Bản sắc. */
+export interface FamilyCharterSettings {
+  lines: string[];
+  living_kin: string;
+  spouse_affection_per_day: number;
+  defaults: {
+    lines: string[];
+    living_kin: string;
+    spouse_affection_per_day: number;
+  };
+  overridden: string[];
+  note: string;
+}
+
 export interface SpaceSettings {
   elevenlabs_api_key_set: boolean;
   elevenlabs_api_key_hint: string;
@@ -287,6 +302,7 @@ export interface SpaceSettings {
   consent_heritage: string;
   updated_at?: string | null;
   heritage_pipeline?: HeritagePipelineSettings;
+  family_charter?: FamilyCharterSettings;
 }
 
 export interface AiUsageBucket {
@@ -345,6 +361,7 @@ export interface IdentityProfile {
   id: string;
   space_id: string;
   display_name: string;
+  handle?: string | null;
   relation_label: string;
   status: "living" | "remembered" | string;
   linked_user_id?: string | null;
@@ -371,6 +388,15 @@ export interface IdentityProfile {
   archived_at?: string | null;
 }
 
+export interface HandleResolveResult {
+  kind: "identity" | "user";
+  id: string;
+  handle?: string | null;
+  display_name: string;
+  status: string;
+  library_path: string;
+}
+
 export interface IdentityProfileRevision {
   id: string;
   space_id: string;
@@ -381,6 +407,51 @@ export interface IdentityProfileRevision {
   display_name?: string | null;
   relation_label?: string | null;
   profile_reviewed?: boolean;
+}
+
+/** Classic storytelling shelf (Kiều / Lục Vân Tiên) for a remembered person. */
+export interface StoryWorkSummary {
+  id: string;
+  slug: string;
+  title: string;
+  author: string;
+  source_note?: string;
+  category?: "classic" | "sutra" | string;
+  sort_order?: number;
+  enabled: boolean;
+  recorded_count: number;
+  chunk_count: number;
+}
+
+export interface StoryShelf {
+  identity_id: string;
+  display_name: string;
+  works: StoryWorkSummary[];
+  recorded_total: number;
+}
+
+export interface StoryChunkSummary {
+  id: string;
+  work_id: string;
+  sort_order: number;
+  label: string;
+  line_start: number;
+  line_end: number;
+  approx_seconds: number;
+  recorded: boolean;
+  recording_id?: string | null;
+  duration_ms?: number | null;
+  body?: string;
+}
+
+export interface StoryChunkDetail {
+  work: { id: string; slug: string; title: string; author: string };
+  chunk: StoryChunkSummary;
+  recording?: {
+    id: string;
+    duration_ms?: number | null;
+    media_mime?: string;
+  };
 }
 
 export interface VoiceSample {
@@ -1090,6 +1161,108 @@ export function createApiClient({
       request<{ prompts: InterviewPrompt[] }>(
         `/api/spaces/${spaceId}/interview/prompts`,
       ),
+
+    listStoryShelf: (spaceId: string, identityId: string) =>
+      request<StoryShelf>(
+        `/api/spaces/${spaceId}/identities/${identityId}/stories`,
+      ),
+    enableStoryWork: (spaceId: string, identityId: string, workSlug: string) =>
+      request<{ ok: boolean; already?: boolean }>(
+        `/api/spaces/${spaceId}/identities/${identityId}/stories/works/${workSlug}/enable`,
+        { method: "POST" },
+      ),
+    disableStoryWork: (spaceId: string, identityId: string, workSlug: string) =>
+      request<{ ok: boolean }>(
+        `/api/spaces/${spaceId}/identities/${identityId}/stories/works/${workSlug}/enable`,
+        { method: "DELETE" },
+      ),
+    importStoryWorkText: (
+      spaceId: string,
+      workSlug: string,
+      payload: {
+        text: string;
+        form?: "verse" | "prose";
+        source_note?: string;
+      },
+    ) =>
+      request<{
+        ok: boolean;
+        chunk_count: number;
+        work: StoryWorkSummary;
+      }>(`/api/spaces/${spaceId}/stories/works/${workSlug}/import`, {
+        method: "POST",
+        body: JSON.stringify({
+          text: payload.text,
+          form: payload.form ?? "verse",
+          source_note: payload.source_note ?? "",
+        }),
+      }),
+    listStoryChunks: (
+      spaceId: string,
+      identityId: string,
+      workSlug: string,
+      filter: "all" | "recorded" | "unrecorded" = "all",
+    ) => {
+      const q = filter !== "all" ? `?filter=${filter}` : "";
+      return request<{
+        work: StoryWorkSummary;
+        chunks: StoryChunkSummary[];
+      }>(
+        `/api/spaces/${spaceId}/identities/${identityId}/stories/works/${workSlug}/chunks${q}`,
+      );
+    },
+    getStoryChunk: (spaceId: string, identityId: string, chunkId: string) =>
+      request<StoryChunkDetail>(
+        `/api/spaces/${spaceId}/identities/${identityId}/stories/chunks/${chunkId}`,
+      ),
+    nextStoryToRecord: (
+      spaceId: string,
+      identityId: string,
+      workSlug?: string,
+    ) => {
+      const q = workSlug ? `?work=${encodeURIComponent(workSlug)}` : "";
+      return request<StoryChunkDetail>(
+        `/api/spaces/${spaceId}/identities/${identityId}/stories/next-to-record${q}`,
+      );
+    },
+    nextStoryToListen: (
+      spaceId: string,
+      identityId: string,
+      workSlug?: string,
+    ) => {
+      const q = workSlug ? `?work=${encodeURIComponent(workSlug)}` : "";
+      return request<StoryChunkDetail>(
+        `/api/spaces/${spaceId}/identities/${identityId}/stories/next-to-listen${q}`,
+      );
+    },
+    uploadStoryRecording: async (
+      spaceId: string,
+      identityId: string,
+      chunkId: string,
+      payload: {
+        uri: string;
+        name: string;
+        mimeType: string;
+        durationMs?: number;
+      },
+    ) => {
+      const form = new FormData();
+      if (payload.durationMs != null && payload.durationMs > 0) {
+        form.append("duration_ms", String(Math.round(payload.durationMs)));
+      }
+      form.append("file", {
+        uri: payload.uri,
+        name: payload.name,
+        type: payload.mimeType,
+      } as unknown as Blob);
+      return request<StoryChunkDetail>(
+        `/api/spaces/${spaceId}/identities/${identityId}/stories/chunks/${chunkId}/record`,
+        { method: "POST", body: form as unknown as BodyInit },
+        { json: false, timeoutMs: 60_000 },
+      );
+    },
+    storyRecordingMediaUrl: (recordingId: string) =>
+      `${resolveRoot()}/api/story-recordings/${recordingId}/media`,
     answerInterviewText: (
       spaceId: string,
       promptId: string,
@@ -1144,6 +1317,11 @@ export function createApiClient({
               flags?: Record<string, boolean | null>;
               models?: Record<string, string | null>;
             };
+        family_charter?: {
+          lines?: string[];
+          living_kin?: string;
+          spouse_affection_per_day?: number;
+        };
       },
     ) =>
       request<SpaceSettings>(`/api/spaces/${spaceId}/settings`, {
@@ -1159,6 +1337,12 @@ export function createApiClient({
         `/api/spaces/${spaceId}/identities${
           includeArchived ? "?include_archived=true" : ""
         }`,
+      ),
+    resolveHandle: (spaceId: string, handle: string) =>
+      request<HandleResolveResult>(
+        `/api/spaces/${spaceId}/handles/${encodeURIComponent(
+          handle.replace(/^@/, ""),
+        )}`,
       ),
     linkIdentityUser: (spaceId: string, identityId: string, userId: string) =>
       request<IdentityProfile>(
@@ -1186,6 +1370,7 @@ export function createApiClient({
         display_name: string;
         relation_label?: string;
         status?: "living" | "remembered";
+        handle?: string;
       },
     ) =>
       request<IdentityProfile>(`/api/spaces/${spaceId}/identities`, {
@@ -1199,6 +1384,7 @@ export function createApiClient({
         display_name?: string;
         relation_label?: string;
         status?: "living" | "remembered";
+        handle?: string;
         life_stage?: unknown;
         roles?: unknown;
         address_forms?: unknown;

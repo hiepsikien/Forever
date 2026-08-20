@@ -14,9 +14,10 @@ from .db import Base, SessionLocal, engine
 from .sentry_filter import before_send
 from .routers import auth, extract, interviews, keepsakes, memories, memory_candidates, messages, spaces, stewardship, threads
 from .routers import ai_usage, settings as settings_router
-from .routers import library_ingest, voice_dna
+from .routers import library_ingest, storytelling, voice_dna
 from .schema_patch import ensure_schema
 from .seed import seed_if_empty, seed_interview_prompts
+from .services.storytelling import seed_storytelling_corpus
 
 settings = get_settings()
 Path(settings.upload_dir).mkdir(parents=True, exist_ok=True)
@@ -89,6 +90,7 @@ def on_startup() -> None:
             seed_if_empty(db)
         else:
             seed_interview_prompts(db)
+        seed_storytelling_corpus(db)
     finally:
         db.close()
 
@@ -121,6 +123,7 @@ app.include_router(memories.router)
 app.include_router(memory_candidates.router)
 app.include_router(keepsakes.router)
 app.include_router(interviews.router)
+app.include_router(storytelling.router)
 app.include_router(voice_dna.router)
 app.include_router(extract.router)
 app.include_router(extract.internal_router)

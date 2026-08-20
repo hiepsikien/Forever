@@ -238,6 +238,8 @@ class SpaceSettings(Base):
     elevenlabs_api_key: Mapped[str | None] = mapped_column(String(256), nullable=True)
     # Optional JSON overrides for heritage AI stages — see heritage_pipeline.py.
     heritage_pipeline_json: Mapped[str] = mapped_column(Text, default="")
+    # Tầng 2 — hiến chương gia đình; xem heritage_rules_family.py.
+    family_charter_json: Mapped[str] = mapped_column(Text, default="")
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     updated_by: Mapped[str | None] = mapped_column(ForeignKey("users.id"), nullable=True)
 
@@ -248,10 +250,15 @@ class IdentityProfile(Base):
     """Person in the family vault — living member mirror or remembered heritage subject."""
 
     __tablename__ = "identity_profiles"
+    __table_args__ = (
+        UniqueConstraint("space_id", "handle", name="uq_identity_profile_handle"),
+    )
 
     id: Mapped[str] = mapped_column(String(32), primary_key=True)
     space_id: Mapped[str] = mapped_column(ForeignKey("family_spaces.id"), index=True)
     display_name: Mapped[str] = mapped_column(String(120))
+    # Space-scoped @handle for tagging / deep links (living mirrors User.handle).
+    handle: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)
     relation_label: Mapped[str] = mapped_column(String(80), default="")
     # living | remembered
     status: Mapped[str] = mapped_column(String(32), default="remembered", index=True)
@@ -690,4 +697,81 @@ class AiUsageEvent(Base):
     estimated_cost_usd: Mapped[float] = mapped_column(Float, default=0.0)
     ok: Mapped[bool] = mapped_column(Boolean, default=True)
     meta_json: Mapped[str] = mapped_column(Text, default="")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
+
+
+class StoryWork(Base):
+    """Reading prompts: classics (Kiều…) or Buddhist sutras the person recited."""
+
+    __tablename__ = "story_works"
+
+    id: Mapped[str] = mapped_column(String(32), primary_key=True)
+    slug: Mapped[str] = mapped_column(String(64), unique=True, index=True)
+    title: Mapped[str] = mapped_column(String(200))
+    author: Mapped[str] = mapped_column(String(120), default="")
+    source_note: Mapped[str] = mapped_column(Text, default="")
+    # classic — truyện thơ; sutra — kinh Phật (Tịnh Độ…)
+    category: Mapped[str] = mapped_column(String(32), default="classic", index=True)
+    # Display order within category (lower first).
+    sort_order: Mapped[int] = mapped_column(Integer, default=100)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+    chunks: Mapped[list[StoryChunk]] = relationship(back_populates="work")
+
+
+class StoryChunk(Base):
+    """One readable passage (~10 lục bát couplets)."""
+
+    __tablename__ = "story_chunks"
+    __table_args__ = (
+        UniqueConstraint("work_id", "sort_order", name="uq_story_chunk_order"),
+    )
+
+    id: Mapped[str] = mapped_column(String(32), primary_key=True)
+    work_id: Mapped[str] = mapped_column(ForeignKey("story_works.id"), index=True)
+    sort_order: Mapped[int] = mapped_column(Integer, default=0)
+    label: Mapped[str] = mapped_column(String(160), default="")
+    body: Mapped[str] = mapped_column(Text)
+    line_start: Mapped[int] = mapped_column(Integer, default=0)
+    line_end: Mapped[int] = mapped_column(Integer, default=0)
+    approx_seconds: Mapped[int] = mapped_column(Integer, default=60)
+
+    work: Mapped[StoryWork] = relationship(back_populates="chunks")
+
+
+class IdentityStoryWork(Base):
+    """Which classics are enabled on a remembered person's storytelling shelf."""
+
+    __tablename__ = "identity_story_works"
+    __table_args__ = (
+        UniqueConstraint("identity_id", "work_id", name="uq_identity_story_work"),
+    )
+
+    id: Mapped[str] = mapped_column(String(32), primary_key=True)
+    space_id: Mapped[str] = mapped_column(ForeignKey("family_spaces.id"), index=True)
+    identity_id: Mapped[str] = mapped_column(
+        ForeignKey("identity_profiles.id"), index=True
+    )
+    work_id: Mapped[str] = mapped_column(ForeignKey("story_works.id"), index=True)
+    enabled_by: Mapped[str] = mapped_column(ForeignKey("users.id"))
+    enabled_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+
+class StoryRecording(Base):
+    """Authentic audio of a person reading one chunk — listen only replays these."""
+
+    __tablename__ = "story_recordings"
+
+    id: Mapped[str] = mapped_column(String(32), primary_key=True)
+    space_id: Mapped[str] = mapped_column(ForeignKey("family_spaces.id"), index=True)
+    identity_id: Mapped[str] = mapped_column(
+        ForeignKey("identity_profiles.id"), index=True
+    )
+    chunk_id: Mapped[str] = mapped_column(ForeignKey("story_chunks.id"), index=True)
+    media_path: Mapped[str] = mapped_column(String(512))
+    media_mime: Mapped[str] = mapped_column(String(120), default="audio/mp4")
+    duration_ms: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    # ready | retired
+    status: Mapped[str] = mapped_column(String(16), default="ready", index=True)
+    created_by: Mapped[str] = mapped_column(ForeignKey("users.id"))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)

@@ -20,7 +20,6 @@ import {
   isDirectThread,
   pickLivingRoomThread,
 } from "@/lib/homeThreads";
-import { rememberedLibraryPeople } from "@/lib/libraryShelves";
 import { fetchAuthedMediaUri } from "@/lib/media";
 import { reciteListenLabel, usePoemRecite } from "@/lib/poemRecite";
 import { useSpaceScreenOptions } from "@/lib/spaceHeader";
@@ -160,20 +159,10 @@ export default function SpaceScreen() {
     showSettings: true,
   });
 
-  const openLibrary = useCallback(async () => {
+  const openLibrary = useCallback(() => {
     if (!id) return;
-    try {
-      const res = await api.listIdentities(id);
-      const remembered = rememberedLibraryPeople(res.identities);
-      if (remembered.length === 1) {
-        router.push(`/library/${id}/person/${remembered[0].id}`);
-        return;
-      }
-    } catch {
-      // Hub still loads the picker / empty state.
-    }
     router.push(`/library/${id}`);
-  }, [api, id, router]);
+  }, [id, router]);
 
   const livingRoomThread = useMemo(
     () => pickLivingRoomThread(threads),

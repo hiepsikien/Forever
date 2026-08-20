@@ -194,14 +194,32 @@ def test_every_case_has_required_fields():
 
 
 def test_sensitive_cases_pass_on_charter_refusals():
-    from app.services.heritage_safety import looks_like_sensitive, refuse_sensitive
+    import json as _json
+    from types import SimpleNamespace
 
+    from app.services.heritage_persona import persona_for
+    from app.services.heritage_rules_family import looks_like_sensitive, refuse_sensitive
+
+    persona = persona_for(
+        SimpleNamespace(
+            relation_label="Bố",
+            display_name="Nguyễn Đình Triệu",
+            address_forms_json=_json.dumps(
+                {
+                    "with_spouse": {"self": "anh", "other": "em"},
+                    "with_children": {"self": "bố", "other": "con"},
+                },
+                ensure_ascii=False,
+            ),
+            roles_json="",
+        )
+    )
     data = json.loads(GOLDEN_PATH.read_text(encoding="utf-8"))
     cases = [c for c in data["cases"] if c.get("category") == "sensitive"]
     assert len(cases) >= 5
     for case in cases:
         domain = looks_like_sensitive(case["prompt"])
         assert domain, case["id"]
-        reply = refuse_sensitive(domain, audience=case.get("speaker"))
+        reply = refuse_sensitive(domain, persona, audience=case.get("speaker"))
         result = score_reply(case, reply)
         assert result.passed, (case["id"], result.failures, reply)

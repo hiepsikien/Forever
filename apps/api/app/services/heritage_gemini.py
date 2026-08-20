@@ -28,6 +28,7 @@ class GeminiResult:
     prompt_tokens: int | None = None
     completion_tokens: int | None = None
     total_tokens: int | None = None
+    thoughts_tokens: int | None = None
 
     @property
     def ok(self) -> bool:
@@ -48,6 +49,15 @@ class GeminiCall:
     generation_extra: dict = field(default_factory=dict)
     usage: UsageContext | None = None
     audio_bytes: int = 0
+
+
+def thoughts_tokens(data: dict) -> int | None:
+    """Số token model tiêu cho phần suy nghĩ ẩn của lượt này."""
+    usage = data.get("usageMetadata") or {}
+    if not isinstance(usage, dict):
+        return None
+    count = usage.get("thoughtsTokenCount")
+    return int(count) if count is not None else None
 
 
 def parse_usage_metadata(data: dict) -> tuple[int | None, int | None, int | None]:
@@ -109,8 +119,18 @@ def _telemetry(
         ok=result.ok and not result.error,
         error=result.error,
         context=ctx,
-        meta={"finish_reason": result.finish_reason} if result.finish_reason else None,
+        meta=_telemetry_meta(result),
     )
+
+
+def _telemetry_meta(result: GeminiResult) -> dict | None:
+    """Ghi cả token suy nghĩ — thiếu nó thì một lượt bị bóp cụt trông như bình thường."""
+    meta: dict = {}
+    if result.finish_reason:
+        meta["finish_reason"] = result.finish_reason
+    if result.thoughts_tokens is not None:
+        meta["thoughts_tokens"] = result.thoughts_tokens
+    return meta or None
 
 
 def thinking_config_for_model(model: str) -> dict[str, int | str]:
@@ -126,6 +146,22 @@ def thinking_config_for_model(model: str) -> dict[str, int | str]:
     if "3.6" in name or "3.5-flash-lite" in name:
         return {"thinkingLevel": "minimal"}
     return {"thinkingBudget": 0}
+
+
+# Chỗ chừa cho phần suy nghĩ ẩn, KHÔNG phải trần của nó: Gemini 3 chỉ nhận mức
+# `thinkingLevel`, không cho đặt số. Suy nghĩ tính chung vào `maxOutputTokens`,
+# nên không chừa đủ thì câu trả lời bị bóp cụt — hoặc mất hẳn. Chừa rộng không
+# tốn thêm: hoá đơn tính trên token thực sinh ra, chỗ chừa chỉ là chỗ để câu trả
+# lời có đường đi.
+_THINKING_HEADROOM: dict[str, int] = {"minimal": 1024, "low": 2048}
+
+
+def thinking_headroom_tokens(model: str) -> int:
+    config = thinking_config_for_model(model)
+    if config.get("thinkingBudget") == 0:
+        return 0
+    level = str(config.get("thinkingLevel") or "")
+    return _THINKING_HEADROOM.get(level, 2048)
 
 
 def call_gemini(settings: Settings, call: GeminiCall) -> GeminiResult:
@@ -144,9 +180,13 @@ def call_gemini(settings: Settings, call: GeminiCall) -> GeminiResult:
         _telemetry(call=call, result=result, input_chars=0, output_chars=0)
         return result
 
+    # `max_output_tokens` là chỗ cho câu trả lời NHÌN THẤY. Phần suy nghĩ ẩn
+    # được cộng thêm ở đây, nên chỗ gọi không phải biết model nào đang chạy.
     generation: dict = {
         "temperature": call.temperature,
-        "maxOutputTokens": call.max_output_tokens,
+        "maxOutputTokens": (
+            call.max_output_tokens + thinking_headroom_tokens(call.model)
+        ),
         "thinkingConfig": thinking_config_for_model(call.model),
     }
     if call.json_mode:
@@ -169,6 +209,7 @@ def call_gemini(settings: Settings, call: GeminiCall) -> GeminiResult:
     last_prompt_tokens: int | None = None
     last_completion_tokens: int | None = None
     last_total_tokens: int | None = None
+    last_thoughts_tokens: int | None = None
 
     for attempt in range(max(1, call.attempts)):
         try:
@@ -184,6 +225,7 @@ def call_gemini(settings: Settings, call: GeminiCall) -> GeminiResult:
                 last_prompt_tokens, last_completion_tokens, last_total_tokens = (
                     parse_usage_metadata(data)
                 )
+                last_thoughts_tokens = thoughts_tokens(data)
                 text, finish_reason = extract_text(data)
                 elapsed = int((time.monotonic() - started) * 1000)
                 if not text:
@@ -194,6 +236,7 @@ def call_gemini(settings: Settings, call: GeminiCall) -> GeminiResult:
                         prompt_tokens=last_prompt_tokens,
                         completion_tokens=last_completion_tokens,
                         total_tokens=last_total_tokens,
+                        thoughts_tokens=last_thoughts_tokens,
                     )
                     _telemetry(
                         call=call,
@@ -210,6 +253,7 @@ def call_gemini(settings: Settings, call: GeminiCall) -> GeminiResult:
                     prompt_tokens=last_prompt_tokens,
                     completion_tokens=last_completion_tokens,
                     total_tokens=last_total_tokens,
+                    thoughts_tokens=last_thoughts_tokens,
                 )
                 _telemetry(
                     call=call,

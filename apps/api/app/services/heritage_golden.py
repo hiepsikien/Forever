@@ -33,11 +33,10 @@ _ADMIT_GAP_MARKERS = (
     "thư viện",
     "không bịa",
     "chưa ghi",
-    "bố không",
     "không có trong",
     "chưa từng",
     "làm sao mà",
-    "ký ức của bố",
+    "ký ức của",
 )
 
 _ADMIT_GAP_FLEX = re.compile(

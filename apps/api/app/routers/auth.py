@@ -16,7 +16,12 @@ from ..auth import (
 from ..config import get_settings
 from ..db import get_db
 from ..models import User
-from ..services.handles import allocate_handle, is_valid_handle, normalize_handle
+from ..services.handles import (
+    allocate_handle,
+    is_valid_handle,
+    normalize_handle,
+    sync_linked_identity_handles,
+)
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 
@@ -123,6 +128,7 @@ def update_me(
         if clash:
             raise HTTPException(status_code=409, detail="Handle already taken.")
         user.handle = handle
+        sync_linked_identity_handles(db, user)
     db.commit()
     db.refresh(user)
     return session_user(user)

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from io import BytesIO
 from unittest.mock import MagicMock, patch
 
@@ -9,21 +10,46 @@ from fastapi.testclient import TestClient
 from app.services.heritage_chat import (
     _detect_audience,
     _finalize_reply_text,
-    _fix_child_address,
-    _fix_spouse_address,
     _infer_audience_from_message,
     _is_child_profile,
     _is_spouse_profile,
-    _strip_deference,
     build_system_prompt,
-    looks_like_fabrication_request,
     looks_like_poem_recite_request,
-    looks_like_taboo,
     pick_poem_for_recite,
     post_process_reply,
     retrieve_poems,
     try_poem_recite_reply,
 )
+from app.services.heritage_persona import persona_for
+from app.services.heritage_rules_app import (
+    fix_address_register,
+    looks_like_fabrication_request,
+    looks_like_taboo,
+    strip_deference,
+)
+
+# Bố Triệu — Bản sắc thật của hồ sơ seed, dùng làm persona mặc định cho test cũ.
+FATHER_LOCK = {
+    "with_spouse": {"self": "anh", "other": "em", "notes": "Vợ — bà Lê Thị Định"},
+    "with_children": {"self": "bố", "other": "con"},
+}
+
+
+def _father_persona():
+    from types import SimpleNamespace
+    import json as _json
+
+    return persona_for(
+        SimpleNamespace(
+            relation_label="Bố",
+            display_name="Nguyễn Đình Triệu",
+            address_forms_json=_json.dumps(FATHER_LOCK, ensure_ascii=False),
+            roles_json="",
+        )
+    )
+
+
+FATHER = _father_persona()
 
 
 def _login(client: TestClient, email: str, name: str) -> str:
@@ -190,7 +216,7 @@ def test_taboo_and_fabrication_detectors():
 
 
 def test_sensitive_detectors_on_chat_adversarial():
-    from app.services.heritage_safety import looks_like_sensitive
+    from app.services.heritage_rules_family import looks_like_sensitive
 
     assert looks_like_sensitive(ADVERSARIAL_SENSITIVE[0]) == "money"
     assert looks_like_sensitive(ADVERSARIAL_SENSITIVE[1]) == "divide"
@@ -200,19 +226,19 @@ def test_sensitive_detectors_on_chat_adversarial():
 
 def test_post_process_blocks_taboo_llm_output():
     bad = "Đây là nội dung chính trị đảng phái chi tiết."
-    assert "không bàn được" in post_process_reply(bad).lower()
+    assert "không bàn được" in post_process_reply(bad, persona=FATHER).lower()
 
 
 def test_strip_deference_drops_dạ_and_ạ():
     raw = "Dạ, bố nhớ con. Con khoẻ không ạ? Vâng ạ, bố nghe rồi."
-    fixed = _strip_deference(raw)
+    fixed = strip_deference(raw)
     assert "dạ" not in fixed.lower()
     assert "ạ" not in fixed
     assert "bố nhớ con" in fixed.lower()
 
 
 def test_post_process_strips_deference_for_child():
-    out = post_process_reply("Dạ con ơi, bố nhớ con.", audience="child")
+    out = post_process_reply("Dạ con ơi, bố nhớ con.", persona=FATHER, audience="child")
     assert not out.lower().startswith("dạ")
     assert "ạ" not in out.split()
 
@@ -232,19 +258,185 @@ def test_finalize_reply_text_keeps_complete_reply():
     assert _finalize_reply_text(ok, "STOP") == ok
 
 
+def test_a_single_cut_sentence_is_closed_at_the_last_clause():
+    """«… thương xót, nhưng» — chưa có câu nào trọn để lùi về."""
+    cut = "Bố Triệu mất đi, lòng bà cũng trĩu nặng thương xót, nhưng"
+    assert (
+        _finalize_reply_text(cut, "MAX_TOKENS")
+        == "Bố Triệu mất đi, lòng bà cũng trĩu nặng thương xót."
+    )
+
+
+def test_a_sentence_finished_right_at_the_cap_is_not_thrown_away():
+    """Bị chặn NGAY SAU khi viết xong câu cuối — trước đây bị cắt mất câu ấy."""
+    body = "Bà nghe cháu rồi. Nhà mình vẫn vậy."
+    assert _finalize_reply_text(body, "MAX_TOKENS") == body
+
+
+def test_a_cut_reply_is_asked_again_with_more_room():
+    """Lượt bị chặn được hỏi lại; bản cắt chỉ dùng khi hỏi lại vẫn hỏng."""
+    from unittest.mock import patch
+
+    from app.config import get_settings
+    from app.services.heritage_chat import _gemini_heritage_reply
+    from app.services.heritage_gemini import GeminiResult
+
+    budgets: list[int] = []
+
+    def fake(_settings, call):
+        budgets.append(call.max_output_tokens)
+        if len(budgets) == 1:
+            return GeminiResult(
+                text="Bố Triệu mất đi, lòng bà cũng trĩu nặng thương xót, nhưng",
+                finish_reason="MAX_TOKENS",
+            )
+        return GeminiResult(
+            text="Bố Triệu mất đi, lòng bà cũng trĩu nặng, nhưng nhà mình còn nhau.",
+            finish_reason="STOP",
+        )
+
+    with patch("app.services.heritage_chat.call_gemini", side_effect=fake):
+        body, finish = _gemini_heritage_reply(
+            get_settings(),
+            system_prompt="Bạn là bà.",
+            user_text="Bà ơi cháu nhớ bà.",
+            history=[],
+            max_output_tokens=256,
+        )
+    assert budgets == [256, 768]
+    assert body.endswith("nhà mình còn nhau.")
+    assert finish == "STOP"
+
+
+def test_a_complete_reply_is_never_asked_twice():
+    from unittest.mock import patch
+
+    from app.config import get_settings
+    from app.services.heritage_chat import _gemini_heritage_reply
+    from app.services.heritage_gemini import GeminiResult
+
+    calls: list[int] = []
+
+    def fake(_settings, call):
+        calls.append(call.max_output_tokens)
+        return GeminiResult(text="Bà nghe cháu rồi.", finish_reason="STOP")
+
+    with patch("app.services.heritage_chat.call_gemini", side_effect=fake):
+        body, _ = _gemini_heritage_reply(
+            get_settings(),
+            system_prompt="Bạn là bà.",
+            user_text="Bà ơi.",
+            history=[],
+            max_output_tokens=256,
+        )
+    assert calls == [256]
+    assert body == "Bà nghe cháu rồi."
+
+
+def test_depth_budgets_leave_room_above_the_asked_length():
+    """Hạn mức là lưới an toàn; đặt sát độ dài mong muốn là cắt ngang câu."""
+    from app.services.heritage_analyzer import DEPTH_TOKENS
+
+    assert DEPTH_TOKENS["ack"] >= 256
+    assert DEPTH_TOKENS["short"] >= 512
+    assert DEPTH_TOKENS["story"] >= 1024
+
+
+def test_thinking_models_get_room_on_top_of_the_answer_budget():
+    """Suy nghĩ ẩn tính chung vào maxOutputTokens — không chừa là bóp cụt câu."""
+    from app.services.heritage_gemini import (
+        thinking_config_for_model,
+        thinking_headroom_tokens,
+    )
+
+    # 3.7 chỉ nhận «low» trở lên; không có mức tắt hẳn.
+    assert thinking_config_for_model("gemini-3.7-flash") == {"thinkingLevel": "low"}
+    assert thinking_headroom_tokens("gemini-3.7-flash") >= 1024
+    assert thinking_headroom_tokens("gemini-3.6-flash") >= 512
+    # Tắt được suy nghĩ thì không cần chừa gì.
+    assert thinking_headroom_tokens("gemini-3.5-flash") == 0
+    # Model lạ: cứ chừa, thà rộng còn hơn cụt.
+    assert thinking_headroom_tokens("gemini-9.9-experimental") == 0
+
+
+def test_the_asked_budget_is_the_visible_answer_not_the_whole_call():
+    from types import SimpleNamespace
+    from unittest.mock import patch
+
+    from app.config import get_settings
+    from app.services.heritage_gemini import (
+        GeminiCall,
+        call_gemini,
+        thinking_headroom_tokens,
+    )
+
+    seen: dict = {}
+
+    class _Res:
+        status_code = 200
+
+        def raise_for_status(self) -> None:
+            return None
+
+        def json(self) -> dict:
+            return {
+                "candidates": [
+                    {
+                        "content": {"parts": [{"text": "Bà nghe cháu rồi."}]},
+                        "finishReason": "STOP",
+                    }
+                ],
+                "usageMetadata": {"thoughtsTokenCount": 812},
+            }
+
+    class _Client:
+        def __init__(self, **_):
+            pass
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_):
+            return False
+
+        def post(self, _url, **kwargs):
+            seen.update(kwargs["json"]["generationConfig"])
+            return _Res()
+
+    settings = SimpleNamespace(
+        gemini_api_key="test-key",
+        gemini_api_base=get_settings().gemini_api_base,
+    )
+    with patch("app.services.heritage_gemini.httpx.Client", _Client):
+        result = call_gemini(
+            settings,
+            GeminiCall(
+                system_prompt="Bạn là bà.",
+                contents=[{"role": "user", "parts": [{"text": "Bà ơi."}]}],
+                model="gemini-3.7-flash",
+                max_output_tokens=640,
+            ),
+        )
+    assert seen["maxOutputTokens"] == 640 + thinking_headroom_tokens("gemini-3.7-flash")
+    assert result.thoughts_tokens == 812
+
+
 def test_fix_spouse_address_replaces_mẹ_vocative():
-    raw = "Nghe mẹ nói thế, lòng bố cũng thắt lại. Bố chào mẹ nhé."
-    fixed = _fix_spouse_address(raw)
+    raw = "Nghe em nói thế, lòng bố cũng thắt lại. Bố chào em nhé."
+    fixed = fix_address_register(raw, FATHER, "spouse")
     assert "mẹ" not in fixed.lower()
     assert "em" in fixed.lower()
     assert "anh" in fixed.lower()
 
 
 def test_post_process_allows_one_direct_spouse_affection_per_day():
-    first = post_process_reply("Anh yêu em. Nhà mình yên.", audience="spouse")
+    first = post_process_reply(
+        "Anh yêu em. Nhà mình yên.", persona=FATHER, audience="spouse"
+    )
     assert "anh yêu em" in first.lower()
     later = post_process_reply(
         "Anh nhớ em. Em nhớ lấy sức.",
+        persona=FATHER,
         audience="spouse",
         previous_today=[first],
     )
@@ -254,7 +446,7 @@ def test_post_process_allows_one_direct_spouse_affection_per_day():
 
 
 def test_post_process_keeps_child_miss_you():
-    out = post_process_reply("Con ơi, bố nhớ con.", audience="child")
+    out = post_process_reply("Con ơi, bố nhớ con.", persona=FATHER, audience="child")
     assert "bố nhớ con" in out.lower()
 
 
@@ -293,6 +485,10 @@ def test_try_poem_recite_reply_attaches_cached_audio():
     thread.member_user_id = "u1"
     identity = MagicMock(spec=IdentityProfile)
     identity.id = "i1"
+    identity.relation_label = "Bố"
+    identity.display_name = "Nguyễn Đình Triệu"
+    identity.address_forms_json = json.dumps(FATHER_LOCK, ensure_ascii=False)
+    identity.roles_json = ""
     user_message = MagicMock(spec=Message)
     user_message.body = "bố đọc thơ em gái"
     user_message.sender_user_id = "u1"
@@ -425,6 +621,18 @@ def test_infer_audience_steward_is_child_not_spouse(client):
 def test_infer_audience_from_message():
     assert _infer_audience_from_message("Con đang chat với bố") == "child"
     assert _infer_audience_from_message("Em nhớ anh") == "spouse"
+    assert _infer_audience_from_message("Cháu đang học bài bà ạ") == "grandchild"
+
+
+def test_self_declared_grandchild_beats_a_relation_label():
+    """Nhãn «Con trai» neo vào Bố; với Bà thì người ấy là cháu."""
+    from app.services.heritage_chat import _declares_grandchild
+
+    assert _declares_grandchild("Bà ơi cháu nhớ bà quá")
+    assert _declares_grandchild("Cháu chào bà ạ")
+    # Kể VỀ một đứa cháu, không phải tự xưng.
+    assert not _declares_grandchild("Cháu Hương Ly mới đi học về")
+    assert not _declares_grandchild("Con chào mẹ")
 
 
 def test_child_relation_accepts_con_trai():
@@ -566,9 +774,10 @@ def test_direct_thread_audience_ignores_misleading_wording(client):
 
 def test_fix_child_address_replaces_spouse_voice():
     raw = "Chào em,\n\nAnh đây em. Nghe em nói về công nghệ..."
-    fixed = _fix_child_address(raw)
-    assert fixed.startswith("Con ơi")
+    fixed = fix_address_register(raw, FATHER, "child")
+    assert "Chào con" in fixed
     assert "Anh đây em" not in fixed
+    assert "bố đây con" in fixed.lower()
 
 
 def test_build_system_prompt_includes_codex_and_clarify():
@@ -618,8 +827,8 @@ def test_build_system_prompt_child_audience():
         quote_mode="paraphrase",
         audience="child",
     )
-    assert "KHÔNG phải vợ" in prompt
-    assert "Xưng «bố»" in prompt
+    assert "KHÔNG phải người bạn đời" in prompt
+    assert "xưng «bố»" in prompt
 
 
 def test_build_system_prompt_spouse_audience():
@@ -646,15 +855,266 @@ def test_build_system_prompt_spouse_audience():
         quote_mode="paraphrase",
         audience="spouse",
     )
-    assert "gọi vợ là «em»" in prompt
-    assert "Không gọi em là «mẹ»" in prompt
+    assert "xưng «anh», gọi «em»" in prompt
+    assert "Không gọi người ấy là «mẹ»" in prompt
     assert "NGƯỜI ĐANG NHẮN" in prompt
     assert "Lớp 1 — Ứng dụng Forever" in prompt
     assert "Lớp 2 — Hiến chương gia đình" in prompt
     assert "Lớp 3 — Bản sắc" in prompt
     assert "KHÔNG xưng «dạ»" in prompt
     assert "anh yêu em" in prompt
-    assert "một câu tỏ tình" in prompt
+    assert "câu tỏ tình" in prompt
+
+
+def test_grandmother_voice_and_prompt_not_father():
+    from app.models import IdentityProfile
+
+    identity = IdentityProfile(
+        id="id-ba",
+        space_id="s",
+        display_name="Đoàn Thị Thông",
+        relation_label="Bà Nội",
+        status="remembered",
+        created_by="u",
+    )
+    persona = persona_for(identity)
+    assert persona.generation == "grandmother"
+    assert persona.self_younger == "bà"
+    assert not persona.speaks_to_spouse
+    prompt = build_system_prompt(
+        identity,
+        signature_poems=[],
+        retrieved_poems=[],
+        knowledge=[],
+        live_context=None,
+        quote_mode="paraphrase",
+        audience="child",
+    )
+    assert "xưng «bà»" in prompt
+    assert "xưng «bố»" not in prompt
+    assert "KHÔNG có vai vợ/chồng" in prompt
+
+    taboo = post_process_reply(
+        "Đây là nội dung chính trị đảng phái chi tiết.",
+        persona=persona,
+        audience="child",
+    )
+    assert "bà không bàn được" in taboo.lower()
+    assert "hỏi bà chuyện" in taboo.lower()
+    assert "hỏi bố chuyện" not in taboo.lower()
+
+    slipped = post_process_reply(
+        "Đúng rồi. Cả nhà quây quần với bà. Bố nhớ con.",
+        persona=persona,
+        audience="child",
+    )
+    assert "bà nhớ con" in slipped.lower()
+    assert "bố nhớ con" not in slipped.lower()
+
+
+def test_grandmother_lock_conflict_is_surfaced_not_overridden():
+    """Bản sắc là dữ liệu của gia đình — code báo lỗi chép nhầm, không tự sửa."""
+    from app.models import IdentityProfile
+
+    identity = IdentityProfile(
+        id="id-ba2",
+        space_id="s",
+        display_name="Đoàn Thị Thông",
+        relation_label="Bà Nội",
+        status="remembered",
+        created_by="u",
+        address_forms_json='{"with_children":{"self":"bố","other":"con"}}',
+    )
+    persona = persona_for(identity)
+    assert persona.self_younger == "bố"
+    assert persona.lock_conflict and "«bà»" in persona.lock_conflict
+
+
+def test_grandmother_speaks_to_a_login_mirror_as_a_grandchild(client):
+    """Nhà có cả Bố và Bà, người nhắn chỉ có hồ sơ «Tôi».
+
+    Nhãn không nói được ai là con ai là cháu, nên vai phải đếm ra từ bậc:
+    Bà trên đời gốc hai bậc → người nhắn là cháu, dù họ không tự xưng.
+    """
+    from datetime import datetime, timedelta, timezone
+
+    from nanoid import generate
+
+    from app.db import SessionLocal
+    from app.models import FamilySpace, IdentityProfile, Thread, User
+
+    db = SessionLocal()
+    try:
+        now = datetime.now(timezone.utc)
+        son = User(
+            id=generate(),
+            firebase_uid=generate(),
+            email=f"{generate()}@example.com",
+            name="Anh Vỹ",
+            created_at=now,
+        )
+        db.add(son)
+        db.commit()
+        space = FamilySpace(
+            id=generate(),
+            name="Nhà",
+            created_by=son.id,
+            steward_user_id=son.id,
+            created_at=now,
+        )
+        db.add(space)
+        db.commit()
+        # Bố được tạo trước — đó là chỗ neo của nhãn người sống.
+        dad = IdentityProfile(
+            id=generate(),
+            space_id=space.id,
+            display_name="Nguyễn Đình Triệu",
+            relation_label="Bố",
+            status="remembered",
+            created_by=son.id,
+            created_at=now,
+        )
+        grandma = IdentityProfile(
+            id=generate(),
+            space_id=space.id,
+            display_name="Đoàn Thị Thông",
+            relation_label="Bà Nội",
+            status="remembered",
+            created_by=son.id,
+            created_at=now + timedelta(days=1),
+        )
+        db.add_all([dad, grandma])
+        db.add(
+            IdentityProfile(
+                id=generate(),
+                space_id=space.id,
+                display_name="Anh Vỹ",
+                relation_label="Tôi",
+                status="living",
+                linked_user_id=son.id,
+                created_by=son.id,
+                created_at=now,
+            )
+        )
+        rooms = {}
+        for who in (dad, grandma):
+            thread = Thread(
+                id=generate(),
+                space_id=space.id,
+                kind="heritage",
+                title=who.relation_label,
+                audience_scope="family",
+                heritage_identity_id=who.id,
+                created_at=now,
+            )
+            db.add(thread)
+            rooms[who.relation_label] = thread
+        db.commit()
+
+        # Câu hoàn toàn không có đại từ tự xưng — trước đây rơi về «con».
+        plain = "Hôm nay trời trở lạnh rồi."
+        assert (
+            _detect_audience(
+                db,
+                space_id=space.id,
+                sender_user_id=son.id,
+                user_text=plain,
+                thread=rooms["Bà Nội"],
+                persona=persona_for(grandma),
+            )
+            == "grandchild"
+        )
+        # Cùng người ấy, phòng Bố: vẫn là con.
+        assert (
+            _detect_audience(
+                db,
+                space_id=space.id,
+                sender_user_id=son.id,
+                user_text=plain,
+                thread=rooms["Bố"],
+                persona=persona_for(dad),
+            )
+            == "child"
+        )
+    finally:
+        db.close()
+
+
+def test_mother_in_grandmother_room_is_not_spouse(client):
+    from datetime import datetime, timezone
+
+    from nanoid import generate
+
+    from app.db import SessionLocal
+    from app.models import FamilySpace, IdentityProfile, Thread, User
+
+    db = SessionLocal()
+    try:
+        now = datetime.now(timezone.utc)
+        mom = User(
+            id=generate(),
+            firebase_uid=generate(),
+            email=f"{generate()}@example.com",
+            name="Lê Thị Định",
+            created_at=now,
+        )
+        db.add(mom)
+        db.commit()
+        space = FamilySpace(
+            id=generate(),
+            name="Nhà",
+            created_by=mom.id,
+            steward_user_id=mom.id,
+            created_at=now,
+        )
+        db.add(space)
+        db.commit()
+        grandma = IdentityProfile(
+            id=generate(),
+            space_id=space.id,
+            display_name="Đoàn Thị Thông",
+            relation_label="Bà Nội",
+            status="remembered",
+            created_by=mom.id,
+            created_at=now,
+        )
+        db.add(grandma)
+        db.add(
+            IdentityProfile(
+                id=generate(),
+                space_id=space.id,
+                display_name="Mẹ",
+                relation_label="Vợ",
+                status="living",
+                linked_user_id=mom.id,
+                created_by=mom.id,
+                created_at=now,
+            )
+        )
+        family = Thread(
+            id=generate(),
+            space_id=space.id,
+            kind="heritage",
+            title="Bà Nội",
+            audience_scope="family",
+            heritage_identity_id=grandma.id,
+            created_at=now,
+        )
+        db.add(family)
+        db.commit()
+        assert (
+            _detect_audience(
+                db,
+                space_id=space.id,
+                sender_user_id=mom.id,
+                user_text="Quên quá anh ạ",
+                thread=family,
+                persona=persona_for(grandma),
+            )
+            == "child"
+        )
+    finally:
+        db.close()
 
 
 def test_build_system_prompt_omits_heritage_rules_from_identity_layer():

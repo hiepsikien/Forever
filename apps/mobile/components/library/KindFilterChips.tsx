@@ -11,6 +11,8 @@ type Props = {
   counts?: ShelfCounts;
   /** Override the poems chip label, e.g. "Thơ · 41+72". */
   poemsLabel?: string;
+  /** Person memorial: «Mốc đời» instead of family calendar label. */
+  lifeLabel?: string;
 };
 
 export function KindFilterChips({
@@ -18,6 +20,7 @@ export function KindFilterChips({
   onChange,
   counts,
   poemsLabel,
+  lifeLabel,
 }: Props) {
   return (
     // Fixed-height wrap stops a horizontal ScrollView from eating the column
@@ -31,7 +34,9 @@ export function KindFilterChips({
       >
         {ORDER.map((id) => {
           const selected = value === id;
-          let label = SHELF_LABELS[id];
+          const baseLabel =
+            id === "life" && lifeLabel ? lifeLabel : SHELF_LABELS[id];
+          let label = baseLabel;
           if (id === "poems" && poemsLabel) {
             label = poemsLabel;
           } else if (counts) {
@@ -39,7 +44,7 @@ export function KindFilterChips({
               id === "all"
                 ? counts.life + counts.poems + counts.artifacts + counts.heard
                 : counts[id];
-            if (n > 0) label = `${SHELF_LABELS[id]} · ${n}`;
+            if (n > 0) label = `${baseLabel} · ${n}`;
           }
           return (
             <Pressable

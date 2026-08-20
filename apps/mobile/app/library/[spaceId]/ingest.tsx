@@ -148,11 +148,6 @@ export default function LibraryIngestScreen() {
       let name = "document";
       let mimeType = "application/octet-stream";
       if (source === "image") {
-        const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
-        if (!perm.granted) {
-          Alert.alert("Cần quyền", "Cho phép truy cập ảnh để nhập tài liệu.");
-          return;
-        }
         const picked = await ImagePicker.launchImageLibraryAsync({
           mediaTypes: ["images"],
           quality: 0.9,
