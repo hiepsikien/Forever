@@ -5,6 +5,7 @@ import {
   SpaceRole,
   SpaceSettings,
   StewardshipStatus,
+  StorageSummary,
 } from "@forever/api-client";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import {
@@ -64,6 +65,16 @@ function familyProfileForUser(
 function formatUsd(value: number): string {
   if (value < 0.01 && value > 0) return "< $0.01";
   return `$${value.toFixed(2)}`;
+}
+
+function formatBytes(value: number): string {
+  if (value < 1024) return `${value} B`;
+  const kb = value / 1024;
+  if (kb < 1024) return `${kb < 10 ? kb.toFixed(1) : kb.toFixed(0)} KB`;
+  const mb = kb / 1024;
+  if (mb < 1024) return `${mb < 10 ? mb.toFixed(1) : mb.toFixed(0)} MB`;
+  const gb = mb / 1024;
+  return `${gb.toFixed(gb < 10 ? 1 : 0)} GB`;
 }
 
 function Disclosure({
@@ -132,6 +143,9 @@ export default function SettingsScreen() {
   const [aiUsage, setAiUsage] = useState<AiUsageSummary | null>(null);
   const [usageLoading, setUsageLoading] = useState(false);
   const [usageDays, setUsageDays] = useState(30);
+  const [storage, setStorage] = useState<StorageSummary | null>(null);
+  const [storageLoading, setStorageLoading] = useState(false);
+  const [storageOpen, setStorageOpen] = useState(false);
   const [pipelineBusyKey, setPipelineBusyKey] = useState<string | null>(null);
   const [costOpen, setCostOpen] = useState(false);
   const [costTablesOpen, setCostTablesOpen] = useState(false);
@@ -196,6 +210,19 @@ export default function SettingsScreen() {
       setUsageLoading(false);
     }
   }, [api, spaceId, usageDays]);
+
+  const loadStorage = useCallback(async () => {
+    if (!spaceId) return;
+    setStorageLoading(true);
+    try {
+      setStorage(await api.getStorage(spaceId));
+    } catch {
+      // Cloud API before this route exists answers 404 — keep the AI tab usable.
+      setStorage(null);
+    } finally {
+      setStorageLoading(false);
+    }
+  }, [api, spaceId]);
 
   const saveCharter = async () => {
     if (!spaceId || !settings?.can_edit || charterBusy) return;
@@ -325,8 +352,9 @@ export default function SettingsScreen() {
   useLayoutEffect(() => {
     if (tab === "ai" && settings?.can_edit) {
       void loadUsage();
+      void loadStorage();
     }
-  }, [tab, settings?.can_edit, loadUsage]);
+  }, [tab, settings?.can_edit, loadUsage, loadStorage]);
 
   const makeInvite = async () => {
     if (!spaceId) return;
@@ -953,6 +981,87 @@ export default function SettingsScreen() {
             </>
           ) : (
             <Text style={styles.help}>Chưa có số liệu.</Text>
+          )}
+
+          <Text style={[styles.section, { marginTop: 24 }]}>Kho lưu trữ</Text>
+          <Text style={styles.help}>
+            Chỉ tệp nhà mình trên volume uploads. Image Docker và bản backup GCS
+            không nằm trong số này.
+          </Text>
+          {storageLoading ? (
+            <ActivityIndicator color={colors.brand} style={{ marginVertical: 16 }} />
+          ) : storage ? (
+            <>
+              <View style={styles.statGrid}>
+                <StatCell
+                  label="Nhà mình"
+                  value={formatBytes(storage.space.bytes)}
+                />
+                <StatCell
+                  label="Volume uploads"
+                  value={formatBytes(storage.uploads.bytes)}
+                />
+                <StatCell
+                  label="Còn trống trên đĩa"
+                  value={formatBytes(storage.volume.free_bytes)}
+                />
+              </View>
+              <View style={styles.volumeTrack}>
+                <View
+                  style={[
+                    styles.volumeFill,
+                    {
+                      width: `${Math.min(
+                        100,
+                        Math.max(0, Math.round(storage.volume.used_ratio * 100)),
+                      )}%`,
+                    },
+                  ]}
+                />
+              </View>
+              <Text style={styles.volumeCaption}>
+                Kho {formatBytes(storage.volume.used_bytes)} trên đĩa{" "}
+                {formatBytes(storage.volume.total_bytes)} ·{" "}
+                {Math.round(storage.volume.used_ratio * 100)}%
+              </Text>
+              <Disclosure
+                title="Chi tiết tệp"
+                subtitle={`${storage.space.files} tệp nhà mình · ${storage.uploads.files} tệp cả kho`}
+                open={storageOpen}
+                onToggle={() => setStorageOpen((v) => !v)}
+              >
+                {storage.space.by_kind.length > 0 ? (
+                  <View style={styles.nestedBlock}>
+                    <Text style={styles.nestedLabel}>Theo loại</Text>
+                    {storage.space.by_kind.map((row) => (
+                      <View key={row.key} style={styles.memberUsageRow}>
+                        <Text style={styles.usageRowLabel}>{row.label}</Text>
+                        <Text style={styles.usageRowValue}>
+                          {formatBytes(row.bytes)} · {row.files} tệp
+                        </Text>
+                      </View>
+                    ))}
+                  </View>
+                ) : (
+                  <Text style={styles.help}>Nhà này chưa giữ tệp trên kho.</Text>
+                )}
+                {storage.space.by_folder.length > 0 ? (
+                  <View style={styles.nestedBlock}>
+                    <Text style={styles.nestedLabel}>Theo ngăn</Text>
+                    {storage.space.by_folder.map((row) => (
+                      <View key={row.key} style={styles.memberUsageRow}>
+                        <Text style={styles.usageRowLabel}>{row.label}</Text>
+                        <Text style={styles.usageRowValue}>
+                          {formatBytes(row.bytes)} · {row.files} tệp
+                        </Text>
+                      </View>
+                    ))}
+                  </View>
+                ) : null}
+              </Disclosure>
+            </>
+          ) : (
+            <Text style={styles.help}>Chưa đo được kho.</Text>
           )}
 
           <Text style={[styles.section, { marginTop: 24 }]}>
@@ -1974,6 +2083,23 @@ const styles = createThemedStyles((colors) => ({
     color: colors.inkSoft,
     flexShrink: 1,
     textAlign: "right",
+  },
+  volumeTrack: {
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: colors.line,
+    overflow: "hidden",
+    marginBottom: 6,
+  },
+  volumeFill: {
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: colors.brand,
+  },
+  volumeCaption: {
+    fontSize: 13,
+    color: colors.inkSoft,
+    marginBottom: 12,
   },
   themeGrid: {
     flexDirection: "row",

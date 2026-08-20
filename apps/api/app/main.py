@@ -13,7 +13,7 @@ from .config import get_settings
 from .db import Base, SessionLocal, engine
 from .sentry_filter import before_send
 from .routers import auth, extract, interviews, keepsakes, memories, memory_candidates, messages, spaces, stewardship, threads
-from .routers import ai_usage, settings as settings_router
+from .routers import ai_usage, settings as settings_router, storage as storage_router
 from .routers import library_ingest, storytelling, voice_dna
 from .schema_patch import ensure_schema
 from .seed import seed_if_empty, seed_interview_prompts
@@ -115,6 +115,7 @@ app.include_router(auth.router)
 app.include_router(spaces.router)
 app.include_router(stewardship.router)
 app.include_router(ai_usage.router)
+app.include_router(storage_router.router)
 app.include_router(settings_router.router)
 app.include_router(threads.router)
 app.include_router(messages.router)

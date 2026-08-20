@@ -357,6 +357,32 @@ export interface AiUsageSummary {
   };
 }
 
+export interface StorageBucket {
+  key: string;
+  label: string;
+  bytes: number;
+  files: number;
+}
+
+export interface StorageSummary {
+  space: {
+    bytes: number;
+    files: number;
+    by_kind: StorageBucket[];
+    by_folder: StorageBucket[];
+  };
+  uploads: {
+    bytes: number;
+    files: number;
+  };
+  volume: {
+    total_bytes: number;
+    used_bytes: number;
+    free_bytes: number;
+    used_ratio: number;
+  };
+}
+
 export interface IdentityProfile {
   id: string;
   space_id: string;
@@ -1343,6 +1369,8 @@ export function createApiClient({
       request<AiUsageSummary>(
         `/api/spaces/${spaceId}/ai-usage?days=${Math.max(1, Math.min(366, days))}`,
       ),
+    getStorage: (spaceId: string) =>
+      request<StorageSummary>(`/api/spaces/${spaceId}/storage`),
     listIdentities: (spaceId: string, includeArchived = false) =>
       request<{ identities: IdentityProfile[] }>(
         `/api/spaces/${spaceId}/identities${
