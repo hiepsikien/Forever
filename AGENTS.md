@@ -83,8 +83,13 @@ first, and a profile linked to a login account can never be archived.
 
 IA: `docs/library-ia.plan.md`. One `MemoryItem` vault per `FamilySpace`.
 
-- **Hub** (`/library/{spaceId}`) — Lịch gia đình (all family milestones) + remembered
-  memorials + living light pages. Do not skip the hub when only one person is remembered.
+Space home (`/space/{id}`) order: (1) keepsake if any · (2) Bố Cả nhà, Bà Nội
+Cả nhà, Thư viện · (3) điều nghe về bố/bà if any · (4) lịch + nghe thơ/kể
+chuyện + Time Capsule + Voice DNA · (5) phòng riêng bố/bà.
+
+- **Hub** (`/library/{spaceId}`) — remembered memorials + living light pages.
+  Family calendar lives at `/library/{spaceId}/calendar` (also from space home).
+  Do not skip the hub when only one person is remembered.
 - **Memorial** (`/person/{identityId}`) — poems / artifacts / heard + milestones
   tagged `heritage:{id}` only («Mốc đời»), never the whole family calendar.
 - **Living light** (`/people/{spaceId}/{identityId}`) — profile + `@handle` + tagged items.

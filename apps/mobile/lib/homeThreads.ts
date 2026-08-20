@@ -35,11 +35,11 @@ export function threadRelationFold(item: ThreadSummary): string {
   return "";
 }
 
-function isFatherFamilyRoom(item: ThreadSummary): boolean {
+export function isFatherFamilyRoom(item: ThreadSummary): boolean {
   return isHeritageFamilyRoom(item) && threadRelationFold(item) === "bo";
 }
 
-function isPaternalGrandmotherFamilyRoom(item: ThreadSummary): boolean {
+export function isPaternalGrandmotherFamilyRoom(item: ThreadSummary): boolean {
   return isHeritageFamilyRoom(item) && threadRelationFold(item) === "ba noi";
 }
 
@@ -59,28 +59,105 @@ function mostRecentReadyFamilyHeritage(
   });
 }
 
+/** Cả nhà with Bố — show even before chat_ready (awakening CTA). */
+export function pickFatherFamilyRoom(
+  threads: ThreadSummary[],
+): ThreadSummary | null {
+  return threads.find(isFatherFamilyRoom) ?? null;
+}
+
+/** Cả nhà with Bà Nội — show even before chat_ready. */
+export function pickBaNoiFamilyRoom(
+  threads: ThreadSummary[],
+): ThreadSummary | null {
+  return threads.find(isPaternalGrandmotherFamilyRoom) ?? null;
+}
+
 /**
- * Hero «Phòng khách» is Cả nhà with Bố. Do not promote another remembered
- * person into that slot just because they spoke more recently.
+ * Hero «Bố (Cả nhà)» prefers the father family room. Fallback only when this
+ * house has no Bố profile at all.
  */
 export function pickLivingRoomThread(
   threads: ThreadSummary[],
 ): ThreadSummary | null {
-  const fatherReady = threads.find(
-    (item) => isFatherFamilyRoom(item) && Boolean(item.heritage?.chat_ready),
-  );
-  if (fatherReady) return fatherReady;
-  if (threads.some(isFatherFamilyRoom)) return null;
+  const father = pickFatherFamilyRoom(threads);
+  if (father) {
+    return father.heritage?.chat_ready ? father : null;
+  }
   return mostRecentReadyFamilyHeritage(threads);
 }
 
-function listRank(item: HomeThreadRow): number {
-  if (isPaternalGrandmotherFamilyRoom(item)) return 0;
-  if (isHeritageFamilyRoom(item) && !item.pendingDirectFor) return 1;
+function ensurePendingDirect(
+  rows: HomeThreadRow[],
+  threads: ThreadSummary[],
+  familyRoom: ThreadSummary | null,
+): void {
+  const identityId = familyRoom?.heritage?.identity_id;
+  if (
+    !familyRoom ||
+    !identityId ||
+    !familyRoom.heritage?.chat_ready
+  ) {
+    return;
+  }
+  const hasDirect = threads.some(
+    (other) =>
+      isDirectThread(other) && other.heritage?.identity_id === identityId,
+  );
+  if (hasDirect) return;
+  if (rows.some((row) => row.pendingDirectFor === identityId)) return;
+  rows.push({
+    ...familyRoom,
+    id: `direct:${identityId}`,
+    audience_scope: "direct",
+    last_message: null,
+    pendingDirectFor: identityId,
+  });
+}
+
+function directRank(item: HomeThreadRow): number {
+  if (threadRelationFold(item) === "bo") return 0;
+  if (threadRelationFold(item) === "ba noi") return 1;
   return 2;
 }
 
-/** List under the hero: Bà Nội Cả nhà first; hide Người giữ nhà. */
+/**
+ * SECTION 5 — private rooms with Bố and Bà Nội only when that person is
+ * chat_ready (existing direct or a pending open-direct row).
+ */
+export function homePrivateRows(threads: ThreadSummary[]): HomeThreadRow[] {
+  const father = pickFatherFamilyRoom(threads);
+  const baNoi = pickBaNoiFamilyRoom(threads);
+  const readyFocusIds = new Set(
+    [father, baNoi]
+      .filter((t) => t?.heritage?.chat_ready && t.heritage.identity_id)
+      .map((t) => t!.heritage!.identity_id),
+  );
+
+  const rows: HomeThreadRow[] = threads
+    .filter((item) => {
+      if (!isDirectThread(item) || item.kind !== "heritage") return false;
+      const id = item.heritage?.identity_id;
+      if (!id || !readyFocusIds.has(id)) return false;
+      return Boolean(item.heritage?.chat_ready);
+    })
+    .map((thread) => ({ ...thread }));
+
+  if (father?.heritage?.chat_ready) {
+    ensurePendingDirect(rows, threads, father);
+  }
+  if (baNoi?.heritage?.chat_ready) {
+    ensurePendingDirect(rows, threads, baNoi);
+  }
+
+  rows.sort((a, b) => directRank(a) - directRank(b));
+  return rows;
+}
+
+/**
+ * @deprecated Prefer homePrivateRows — kept for any leftover call sites.
+ * List under the hero: Bà Nội Cả nhà first; hide Người giữ nhà.
+ */
 export function homeConversationRows(
   threads: ThreadSummary[],
   livingRoom: ThreadSummary | null,
@@ -93,8 +170,6 @@ export function homeConversationRows(
     })
     .map((thread) => ({ ...thread }));
 
-  // Pending directs must consider the hero too — otherwise «Riêng với Bố»
-  // disappears when Cả nhà is elevated to Phòng khách.
   for (const thread of threads) {
     const identityId = thread.heritage?.identity_id;
     if (
@@ -120,6 +195,12 @@ export function homeConversationRows(
     });
   }
 
-  rows.sort((a, b) => listRank(a) - listRank(b));
+  rows.sort((a, b) => {
+    if (isPaternalGrandmotherFamilyRoom(a)) return -1;
+    if (isPaternalGrandmotherFamilyRoom(b)) return 1;
+    if (isHeritageFamilyRoom(a) && !a.pendingDirectFor) return -1;
+    if (isHeritageFamilyRoom(b) && !b.pendingDirectFor) return 1;
+    return 0;
+  });
   return rows;
 }

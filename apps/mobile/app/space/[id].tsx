@@ -15,10 +15,11 @@ import {
 import { useAuth } from "@/lib/auth";
 import { markEnteredASpace } from "@/lib/homeSpace";
 import {
-  homeConversationRows,
+  homePrivateRows,
   HomeThreadRow,
   isDirectThread,
-  pickLivingRoomThread,
+  pickBaNoiFamilyRoom,
+  pickFatherFamilyRoom,
 } from "@/lib/homeThreads";
 import { fetchAuthedMediaUri } from "@/lib/media";
 import { reciteListenLabel, usePoemRecite } from "@/lib/poemRecite";
@@ -98,6 +99,9 @@ export default function SpaceScreen() {
   const [keepsakeBusy, setKeepsakeBusy] = useState(false);
   const [keepsakeOpen, setKeepsakeOpen] = useState(false);
   const [keepsakePhotoOpen, setKeepsakePhotoOpen] = useState(false);
+  const [heardByIdentity, setHeardByIdentity] = useState<Record<string, number>>(
+    {},
+  );
   const [error, setError] = useState<string | null>(null);
   const recite = usePoemRecite();
   const spaceRef = useRef<FamilySpace | null>(null);
@@ -129,6 +133,24 @@ export default function SpaceScreen() {
           setKeepsake(today.keepsake);
         } catch {
           setKeepsake(null);
+        }
+        try {
+          const mem = await api.listMemories(id);
+          const counts: Record<string, number> = {};
+          for (const m of mem.memories) {
+            if (m.kind !== "knowledge" || m.visibility === "private") continue;
+            const tags = m.tags || "";
+            const seen = new Set<string>();
+            for (const match of tags.matchAll(/heritage:([0-9a-f-]{36})/gi)) {
+              const hid = match[1];
+              if (seen.has(hid)) continue;
+              seen.add(hid);
+              counts[hid] = (counts[hid] || 0) + 1;
+            }
+          }
+          setHeardByIdentity(counts);
+        } catch {
+          setHeardByIdentity({});
         }
       } catch (e) {
         setError(e instanceof Error ? e.message : "Không tải được.");
@@ -164,18 +186,23 @@ export default function SpaceScreen() {
     router.push(`/library/${id}`);
   }, [id, router]);
 
-  const livingRoomThread = useMemo(
-    () => pickLivingRoomThread(threads),
+  const fatherFamily = useMemo(
+    () => pickFatherFamilyRoom(threads),
     [threads],
   );
-  const poemPersonId =
-    keepsake?.identity_id ||
-    livingRoomThread?.heritage?.identity_id ||
-    threads.find((t) => t.heritage?.identity_id)?.heritage?.identity_id;
+  const baNoiFamily = useMemo(
+    () => pickBaNoiFamilyRoom(threads),
+    [threads],
+  );
+  const fatherId = fatherFamily?.heritage?.identity_id ?? null;
+  const baNoiId = baNoiFamily?.heritage?.identity_id ?? null;
+  const fatherHeard = fatherId ? heardByIdentity[fatherId] || 0 : 0;
+  const baNoiHeard = baNoiId ? heardByIdentity[baNoiId] || 0 : 0;
+  const showHeardSection = fatherHeard > 0 || baNoiHeard > 0;
 
-  const otherThreads = useMemo(
-    () => homeConversationRows(threads, livingRoomThread),
-    [threads, livingRoomThread],
+  const privateThreads = useMemo(
+    () => homePrivateRows(threads),
+    [threads],
   );
 
   useEffect(() => {
@@ -280,10 +307,10 @@ export default function SpaceScreen() {
         <View style={styles.keepsake}>
           <Text style={styles.keepsakeKicker}>
             {keepsake.kind === "poem"
-              ? "Thơ"
+              ? "Nhắc lại kỷ niệm · Thơ"
               : keepsake.heard
-                ? "Đã kể hôm nay"
-                : "Ảnh kỷ niệm"}
+                ? "Nhắc lại kỷ niệm · Đã kể hôm nay"
+                : "Nhắc lại kỷ niệm"}
           </Text>
           {keepsake.kind === "photo" && keepsake.heard ? (
             <Pressable
@@ -440,25 +467,72 @@ export default function SpaceScreen() {
         </View>
       ) : null}
 
-      {livingRoomThread ? (
+      {fatherFamily ? (
         <Pressable
-          style={styles.hero}
-          onPress={() => openThread(livingRoomThread)}
+          style={
+            fatherFamily.heritage?.chat_ready ? styles.hero : styles.heroMuted
+          }
+          onPress={() => openThread(fatherFamily)}
         >
-          <Text style={styles.heroKicker}>Phòng khách</Text>
-          <Text style={styles.heroPreview} numberOfLines={2}>
-            {livingRoomThread.last_message
-              ? threadPreview(livingRoomThread)
-              : "Sẵn sàng trò chuyện — gửi lời chào"}
+          <Text
+            style={
+              fatherFamily.heritage?.chat_ready
+                ? styles.heroKicker
+                : styles.heroKickerMuted
+            }
+          >
+            Bố (Cả nhà)
           </Text>
-          <Text style={styles.heroCta}>Gọi bằng giọng →</Text>
+          <Text
+            style={
+              fatherFamily.heritage?.chat_ready
+                ? styles.heroPreview
+                : styles.heroPreviewMuted
+            }
+            numberOfLines={2}
+          >
+            {threadRowMeta(fatherFamily).preview}
+          </Text>
+          <Text
+            style={
+              fatherFamily.heritage?.chat_ready
+                ? styles.heroCta
+                : styles.threadCta
+            }
+          >
+            {threadRowMeta(fatherFamily).cta}
+          </Text>
         </Pressable>
       ) : (
         <View style={styles.heroMuted}>
-          <Text style={styles.heroKickerMuted}>Phòng khách</Text>
-          <Text style={styles.heroPreviewMuted}>Chưa có cuộc trò chuyện chung.</Text>
+          <Text style={styles.heroKickerMuted}>Bố (Cả nhà)</Text>
+          <Text style={styles.heroPreviewMuted}>
+            Chưa có phòng trò chuyện với bố.
+          </Text>
         </View>
       )}
+
+      {baNoiFamily?.heritage?.chat_ready ? (
+        <Pressable
+          style={styles.familyCard}
+          onPress={() => openThread(baNoiFamily)}
+        >
+          <Text style={styles.familyCardKicker}>Bà Nội (Cả nhà)</Text>
+          <Text style={styles.threadPreview} numberOfLines={2}>
+            {threadRowMeta(baNoiFamily).preview}
+          </Text>
+          <Text style={styles.threadCta}>{threadRowMeta(baNoiFamily).cta}</Text>
+        </Pressable>
+      ) : null}
+
+      <Pressable style={styles.libraryGate} onPress={() => void openLibrary()}>
+        <Text style={styles.libraryKicker}>Két sắt ký ức</Text>
+        <Text style={styles.libraryTitle}>Thư viện</Text>
+        <Text style={styles.librarySub}>
+          Thơ, hiện vật và những điều nghe được — giữ lại cho cả nhà.
+        </Text>
+        <Text style={styles.libraryCta}>Vào Thư viện →</Text>
+      </Pressable>
 
       {pendingCount > 0 ? (
         <Pressable
@@ -474,22 +548,81 @@ export default function SpaceScreen() {
         </Pressable>
       ) : null}
 
-      <Pressable style={styles.libraryGate} onPress={() => void openLibrary()}>
-        <Text style={styles.libraryKicker}>Két sắt ký ức</Text>
-        <Text style={styles.libraryTitle}>Thư viện</Text>
-        <Text style={styles.librarySub}>
-          Thơ, lịch gia đình, hiện vật và những điều nghe được — giữ lại cho cả nhà.
-        </Text>
-        <Text style={styles.libraryCta}>Vào Thư viện →</Text>
-      </Pressable>
+      {showHeardSection ? (
+        <>
+          <Text style={styles.memoryLabel}>Điều nghe được</Text>
+          <View style={styles.memoryCol}>
+            {fatherHeard > 0 && fatherId ? (
+              <Pressable
+                style={styles.heardRow}
+                onPress={() =>
+                  id &&
+                  router.push(
+                    `/library/${id}/person/${fatherId}?shelf=heard` as never,
+                  )
+                }
+              >
+                <Text style={styles.heardTitle}>Điều nghe được về bố</Text>
+                <Text style={styles.heardSub}>{fatherHeard} món →</Text>
+              </Pressable>
+            ) : null}
+            {baNoiHeard > 0 && baNoiId ? (
+              <Pressable
+                style={styles.heardRow}
+                onPress={() =>
+                  id &&
+                  router.push(
+                    `/library/${id}/person/${baNoiId}?shelf=heard` as never,
+                  )
+                }
+              >
+                <Text style={styles.heardTitle}>Điều nghe được về bà Nội</Text>
+                <Text style={styles.heardSub}>{baNoiHeard} món →</Text>
+              </Pressable>
+            ) : null}
+          </View>
+        </>
+      ) : null}
 
-      <Text style={styles.memoryLabel}>Ghi lại & giọng</Text>
+      <Text style={styles.memoryLabel}>Lịch & giọng & đọc</Text>
       <View style={styles.memoryRow}>
+        <Pressable
+          style={styles.memoryTile}
+          onPress={() => id && router.push(`/library/${id}/calendar` as never)}
+        >
+          <Text style={styles.memoryTitle}>Lịch gia đình</Text>
+          <Text style={styles.memorySub}>Ngày · giỗ · mốc</Text>
+        </Pressable>
+        {fatherId ? (
+          <Pressable
+            style={styles.memoryTile}
+            onPress={() =>
+              id &&
+              router.push(
+                `/library/${id}/person/${fatherId}?shelf=poems` as never,
+              )
+            }
+          >
+            <Text style={styles.memoryTitle}>Nghe bố đọc thơ</Text>
+            <Text style={styles.memorySub}>Thơ trong Thư viện</Text>
+          </Pressable>
+        ) : null}
+        {baNoiId ? (
+          <Pressable
+            style={styles.memoryTile}
+            onPress={() =>
+              id && router.push(`/stories/${id}/${baNoiId}` as never)
+            }
+          >
+            <Text style={styles.memoryTitle}>Nghe bà kể chuyện</Text>
+            <Text style={styles.memorySub}>Truyện · kinh</Text>
+          </Pressable>
+        ) : null}
         <Pressable
           style={styles.memoryTile}
           onPress={() => id && router.push(`/interview/${id}`)}
         >
-          <Text style={styles.memoryTitle}>Time-Capsule</Text>
+          <Text style={styles.memoryTitle}>Time Capsule</Text>
           <Text style={styles.memorySub}>Câu hỏi cội nguồn</Text>
         </Pressable>
         <Pressable
@@ -499,28 +632,16 @@ export default function SpaceScreen() {
           <Text style={styles.memoryTitle}>Voice DNA</Text>
           <Text style={styles.memorySub}>Giọng & TTS</Text>
         </Pressable>
-        {poemPersonId ? (
-          <Pressable
-            style={styles.memoryTile}
-            onPress={() =>
-              id &&
-              router.push(
-                `/library/${id}/person/${poemPersonId}?shelf=poems` as never,
-              )
-            }
-          >
-            <Text style={styles.memoryTitle}>Thơ</Text>
-            <Text style={styles.memorySub}>Nghe bố đọc</Text>
-          </Pressable>
-        ) : null}
       </View>
 
       <Text style={styles.section}>
-        {otherThreads.length ? "Cuộc trò chuyện khác" : "Cuộc trò chuyện"}
+        {privateThreads.length
+          ? "Các cuộc trò chuyện khác"
+          : "Cuộc trò chuyện riêng"}
       </Text>
-      {!otherThreads.length && livingRoomThread ? (
+      {!privateThreads.length ? (
         <Text style={styles.emptyHint}>
-          Các phòng Ký ức (người thân) sẽ hiện ở đây khi được tạo.
+          Phòng riêng với bố và bà Nội hiện khi mỗi người đã sẵn sàng trò chuyện.
         </Text>
       ) : null}
     </View>
@@ -539,7 +660,7 @@ export default function SpaceScreen() {
     <FlatList
       style={styles.list}
       contentContainerStyle={styles.listContent}
-      data={otherThreads}
+      data={privateThreads}
       keyExtractor={(item) => item.id}
       ListHeaderComponent={renderHeader}
       refreshControl={
@@ -582,11 +703,7 @@ export default function SpaceScreen() {
           </Pressable>
         );
       }}
-      ListEmptyComponent={
-        !livingRoomThread ? (
-          <Text style={styles.empty}>Chưa có cuộc trò chuyện nào.</Text>
-        ) : null
-      }
+      ListEmptyComponent={null}
       ListFooterComponent={
         error ? <Text style={styles.error}>{error}</Text> : null
       }
@@ -778,6 +895,21 @@ const styles = createThemedStyles((colors) => ({
     fontWeight: "700",
     color: colors.brand,
   },
+  familyCard: {
+    backgroundColor: colors.card,
+    borderRadius: 16,
+    padding: 16,
+    gap: 6,
+    borderWidth: 1,
+    borderColor: colors.line,
+  },
+  familyCardKicker: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: colors.inkSoft,
+    textTransform: "uppercase",
+    letterSpacing: 0.4,
+  },
   memoryLabel: {
     fontSize: 12,
     fontWeight: "700",
@@ -785,6 +917,30 @@ const styles = createThemedStyles((colors) => ({
     textTransform: "uppercase",
     letterSpacing: 0.4,
     marginTop: 4,
+  },
+  memoryCol: { gap: 8 },
+  heardRow: {
+    backgroundColor: colors.card,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: colors.line,
+    paddingVertical: 14,
+    paddingHorizontal: 14,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 12,
+  },
+  heardTitle: {
+    flex: 1,
+    fontSize: 15,
+    fontWeight: "600",
+    color: colors.ink,
+  },
+  heardSub: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: colors.brand,
   },
   memoryRow: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
   memoryTile: {

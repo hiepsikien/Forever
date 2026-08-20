@@ -1,7 +1,9 @@
 # Quy hoạch lại trang Ký ức
 
-> **Trạng thái (2026-08):** Hub hai tầng đã ship — Thư viện chung (Lịch gia đình +
-> người nhà) và không gian riêng người đã mất; `@handle` trên mọi `IdentityProfile`.
+> **Trạng thái (2026-08):** Hub hai tầng đã ship — Thư viện chung (người nhà) và
+> không gian riêng người đã mất; `@handle` trên mọi `IdentityProfile`. **Lịch gia
+> đình** tách sang `/library/{spaceId}/calendar` và lối vào từ màn nhà (không
+> còn block lịch trên hub).
 > Đọc cùng `docs/PROJECT.md` §10.
 > Bối cảnh gốc: Thư viện của "Nhà tôi ở Đền Lừ" từng có 48 món trên một dòng chảy phẳng.
 
@@ -20,7 +22,8 @@ nhân bản** trên mọi trang người đã mất dù đó là tầng nhà.
 
 | Tầng | Nội dung |
 |------|----------|
-| Thư viện chung | Lịch gia đình (mọi `milestone` `visibility=family`), tìm, «Chưa neo ai», lối vào người |
+| Thư viện chung | Tìm, «Chưa neo ai», lối vào người (không còn lịch trên hub) |
+| Lịch gia đình | `/library/{spaceId}/calendar` + tile trên màn nhà |
 | Không gian người đã mất | Thơ / hiện vật / điều nghe được + **chỉ** mốc đời có `heritage:{id}` |
 | Trang nhẹ người sống | Hồ sơ + `@handle` + món đã neo về họ |
 
@@ -33,7 +36,6 @@ nhân bản** trên mọi trang người đã mất dù đó là tầng nhà.
 ## 3. Hình dung hub
 
 ```
-Lịch gia đình     14 ngày · sắp tới…
 Người được nhớ
   Bố Triệu @bo_trieu   18 thơ · 7 hiện vật · 9 điều nghe · 3 mốc đời
   …
@@ -42,6 +44,8 @@ Người nhà
   …
 Chưa neo ai
 ```
+
+Lịch gia đình: màn riêng + màn nhà (SECTION «Lịch & giọng & đọc»).
 
 ## 4. Đã làm
 

@@ -155,7 +155,7 @@ export default function LivingPersonProfileScreen() {
               onPress={() => spaceId && router.push(`/library/${spaceId}`)}
             >
               <Text style={styles.actionTitle}>Thư viện chung</Text>
-              <Text style={styles.actionSub}>Lịch gia đình và cả nhà</Text>
+              <Text style={styles.actionSub}>Thơ, hiện vật và cả nhà</Text>
             </Pressable>
 
             <Text style={styles.sectionTitle}>
