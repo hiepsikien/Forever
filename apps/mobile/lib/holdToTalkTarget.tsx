@@ -2,6 +2,7 @@ import { ReactNode, useCallback, useRef } from "react";
 import {
   GestureResponderEvent,
   LayoutChangeEvent,
+  Pressable,
   StyleProp,
   View,
   ViewStyle,
@@ -26,9 +27,9 @@ type Props = {
 };
 
 /**
- * Hold-to-talk host that keeps the pan (iOS ScrollView must not steal it) and
- * treats sliding off the visible control as cancel — not as a still-pressed
- * red button.
+ * Hold-to-talk host. Pressable gives Android the same reliable touch path as
+ * the old Mic button; onTouchMove keeps slide-to-cancel and leaving the hit
+ * ring. The responder system was iOS-first and often never granted on Android.
  */
 export function HoldToTalkTarget({
   disabled,
@@ -75,7 +76,18 @@ export function HoldToTalkTarget({
     [setArmed],
   );
 
-  const onGrant = useCallback(
+  const leftHitRing = useCallback((locationX: number, locationY: number) => {
+    const { width, height } = sizeRef.current;
+    if (width <= 0) return false;
+    return (
+      locationX < -EDGE_SLOP ||
+      locationY < -EDGE_SLOP ||
+      locationX > width + EDGE_SLOP ||
+      locationY > height + EDGE_SLOP
+    );
+  }, []);
+
+  const onPressIn = useCallback(
     (e: GestureResponderEvent) => {
       if (disabledRef.current || holdingRef.current) return;
       holdingRef.current = true;
@@ -83,35 +95,21 @@ export function HoldToTalkTarget({
       originXRef.current = e.nativeEvent.pageX;
       originYRef.current = e.nativeEvent.pageY;
       startRef.current(e);
-      // iOS can delay grant until the finger has already slid off a light
+      // iOS can delay press-in until the finger has already slid off a light
       // rest. Don't keep a hold that started outside the control.
       const { locationX, locationY } = e.nativeEvent;
-      const { width, height } = sizeRef.current;
-      if (
-        width > 0 &&
-        (locationX < -EDGE_SLOP ||
-          locationY < -EDGE_SLOP ||
-          locationX > width + EDGE_SLOP ||
-          locationY > height + EDGE_SLOP)
-      ) {
+      if (leftHitRing(locationX, locationY)) {
         endHold(true);
       }
     },
-    [endHold],
+    [endHold, leftHitRing],
   );
 
-  const onMove = useCallback(
+  const onTouchMove = useCallback(
     (e: GestureResponderEvent) => {
       if (!holdingRef.current) return;
       const { locationX, locationY, pageX, pageY } = e.nativeEvent;
-      const { width, height } = sizeRef.current;
-      const left =
-        width > 0 &&
-        (locationX < -EDGE_SLOP ||
-          locationY < -EDGE_SLOP ||
-          locationX > width + EDGE_SLOP ||
-          locationY > height + EDGE_SLOP);
-      if (left) {
+      if (leftHitRing(locationX, locationY)) {
         endHold(true);
         return;
       }
@@ -121,31 +119,25 @@ export function HoldToTalkTarget({
           : originYRef.current - pageY > HOLD_TO_TALK_CANCEL_PX;
       setArmed(slid);
     },
-    [endHold, setArmed],
+    [endHold, leftHitRing, setArmed],
   );
 
-  const onRelease = useCallback(() => endHold(false), [endHold]);
-  const onTerminate = useCallback(() => endHold(true), [endHold]);
-  const onStartShouldSet = useCallback(() => !disabledRef.current, []);
-  const onMoveShouldSet = useCallback(() => holdingRef.current, []);
-  const onTerminationRequest = useCallback(() => false, []);
+  const onPressOut = useCallback(() => endHold(false), [endHold]);
+  const onTouchCancel = useCallback(() => endHold(true), [endHold]);
   const onLayout = useCallback((e: LayoutChangeEvent) => {
     const { width, height } = e.nativeEvent.layout;
     sizeRef.current = { width, height };
   }, []);
 
   return (
-    <View
+    <Pressable
       collapsable={false}
-      onStartShouldSetResponder={onStartShouldSet}
-      onMoveShouldSetResponder={onMoveShouldSet}
-      onResponderTerminationRequest={onTerminationRequest}
+      disabled={disabled}
+      onPressIn={onPressIn}
+      onPressOut={onPressOut}
+      onTouchMove={onTouchMove}
+      onTouchCancel={onTouchCancel}
       onLayout={onLayout}
-      onResponderGrant={onGrant}
-      onResponderMove={onMove}
-      onResponderRelease={onRelease}
-      onResponderTerminate={onTerminate}
-      onTouchCancel={onTerminate}
       style={style}
       accessibilityRole="button"
       accessibilityState={{ disabled: Boolean(disabled) }}
@@ -153,6 +145,6 @@ export function HoldToTalkTarget({
       accessibilityHint={accessibilityHint}
     >
       <View pointerEvents="none">{children}</View>
-    </View>
+    </Pressable>
   );
 }
