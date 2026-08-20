@@ -37,20 +37,24 @@ def expand_ritual_spoken(text: str) -> str:
     out = re.sub(r"\s*\(\s*\d+\s*lạy\s*\)\.?", "", out, flags=re.I)
 
     def repl_lan(m: re.Match[str]) -> str:
-        before = m.group(1).rstrip()
+        raw_before = m.group(1)
+        # Keep a leading newline from the match so the repeat does not glue onto
+        # the previous verse line (e.g. «Đại Từ,» + «Bổn Tôn… (3 lần)»).
+        leading_nl = "\n" if raw_before.startswith("\n") else ""
+        before = raw_before.rstrip()
         n = int(m.group(2))
         lines = before.split("\n")
         i = len(lines) - 1
         while i >= 0 and not lines[i].strip():
             i -= 1
         if i < 0:
-            return before
+            return leading_nl + before
         phrase = lines[i].strip()
         head = "\n".join(lines[:i])
         repeated = "\n".join([phrase] * max(1, n))
         if head.strip():
             return head.rstrip() + "\n\n" + repeated
-        return repeated
+        return leading_nl + repeated
 
     out = re.sub(
         r"((?:^|\n)[^\n]*?)\s*\(\s*(\d+)\s*lần\s*\)\.?",
@@ -143,7 +147,7 @@ def seed_storytelling_corpus(db: Session) -> None:
                 disk_chunks
                 and db_count > 0
                 and db_count != len(disk_chunks)
-                and slug == "kinh_duoc_su"
+                and slug in {"kinh_duoc_su", "kinh_dia_tang"}
             ):
                 # One-shot sync when family sutra text lands on disk after empty seed.
                 replace_work_chunks(db, work=work, chunks=disk_chunks)

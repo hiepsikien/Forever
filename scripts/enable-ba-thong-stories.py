@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Enable classics / sutras on Bà Nội's storytelling shelf.
 
-Includes Phạm Công – Cúc Hoa (family Quốc ngữ text in corpus).
+Includes Phạm Công – Cúc Hoa and Kinh Địa Tạng (family texts in corpus).
 
 Run inside forever-api after corpus seed (API boot with data/storytelling in image):
 
@@ -22,7 +22,7 @@ from pathlib import Path
 
 from nanoid import generate
 
-SLUGS = ("kieu", "luc_van_tien", "pham_cong_cuc_hoa", "kinh_duoc_su")
+SLUGS = ("kieu", "luc_van_tien", "pham_cong_cuc_hoa", "kinh_duoc_su", "kinh_dia_tang")
 OWNER_EMAIL = "anh.nguyendinh.cs@gmail.com"
 
 

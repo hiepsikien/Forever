@@ -21,7 +21,7 @@ Bản dịch Việt hiện đại thường còn bản quyền — **không** nh
 | `kinh_a_di_da` | Kinh A Di Đà | Phổ biến nhất (Tịnh Độ) |
 | `kinh_pho_mon` | Kinh Phổ Môn | Bình an, tai qua nạn khỏi |
 | `bat_nha_tam_kinh` | Bát Nhã Tâm Kinh | Ngắn, dễ thuộc |
-| `kinh_dia_tang` | Kinh Địa Tạng | Cầu siêu, giỗ / rằm |
+| `kinh_dia_tang` | Kinh Địa Tạng | **Đã nhập** bản HT Thích Trí Tịnh (gia đình / Đạo Tràng Liên Hoa); «N lần» → nhắc lại |
 | `kinh_duoc_su` | Kinh Dược Sư | **Đã nhập** bản HT Thích Trí Quảng (gia đình); «N lần» → nhắc lại |
 | `kinh_vu_lan` | Kinh Vu Lan | Tháng 7 âm, báo hiếu |
 
