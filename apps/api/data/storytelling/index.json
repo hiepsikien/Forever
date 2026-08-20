@@ -83,12 +83,12 @@
     {
       "slug": "kinh_dia_tang",
       "title": "Kinh Địa Tạng",
-      "author": "Kinh Phật",
+      "author": "HT Thích Trí Tịnh Việt dịch",
       "category": "sutra",
       "sort_order": 40,
-      "source_note": "Cầu siêu, ngày giỗ / rằm. Dán từ kinh nhà qua Nhập chữ.",
-      "line_count": 0,
-      "chunk_count": 0
+      "source_note": "Bản gia đình — HT Thích Trí Tịnh Việt dịch (Đạo Tràng Liên Hoa, ấn tống). Đã mở rộng «N lần» thành nhắc lại; bỏ chỉ dẫn «N lạy»; bỏ header/trang in.",
+      "line_count": 1415,
+      "chunk_count": 259
     },
     {
       "slug": "kinh_duoc_su",

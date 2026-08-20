@@ -81,7 +81,7 @@ def test_storytelling_listen_needs_voice_or_cache(client: TestClient):
     assert all(
         w["chunk_count"] > 0
         for w in works
-        if w["slug"] in {"kieu", "luc_van_tien", "pham_cong_cuc_hoa"}
+        if w["slug"] in {"kieu", "luc_van_tien", "pham_cong_cuc_hoa", "kinh_dia_tang"}
     )
 
     # No work enabled → nothing to hear
@@ -242,6 +242,55 @@ def test_import_luu_binh_prose_then_record(client: TestClient):
     )
     assert nxt.status_code == 200, nxt.text
     assert "Lưu Bình" in nxt.json()["chunk"]["body"]
+
+
+def test_expand_ritual_spoken_keeps_newline_before_repeat():
+    from app.services.storytelling import expand_ritual_spoken
+
+    text = (
+        "Đại Bi, Đại Nguyện, Đại Thánh, Đại Từ,\n"
+        "Bổn Tôn Địa Tạng Bồ Tát Ma Ha Tát. (3 lần)\n"
+    )
+    out = expand_ritual_spoken(text)
+    assert "Từ,Bổn" not in out
+    assert "Đại Từ,\nBổn Tôn" in out or "Đại Từ,\n\nBổn Tôn" in out
+    assert out.count("Bổn Tôn Địa Tạng Bồ Tát Ma Ha Tát.") == 3
+    assert "(3 lần)" not in out
+
+
+def test_kinh_dia_tang_seeded_with_expanded_repeats(client: TestClient):
+    token = _login(client, "diatang@forever.family", "Con")
+    headers = {"Authorization": f"Bearer {token}"}
+    space_id = _space(client, token)
+    identity_id = _identity(client, token, space_id)
+
+    shelf = client.get(
+        f"/api/spaces/{space_id}/identities/{identity_id}/stories",
+        headers=headers,
+    )
+    assert shelf.status_code == 200
+    work = next(w for w in shelf.json()["works"] if w["slug"] == "kinh_dia_tang")
+    assert work["chunk_count"] >= 100
+    assert work["category"] == "sutra"
+    assert "Trí Tịnh" in (work.get("author") or "")
+
+    chunks = client.get(
+        f"/api/spaces/{space_id}/identities/{identity_id}/stories/works/kinh_dia_tang/chunks",
+        headers=headers,
+    )
+    assert chunks.status_code == 200
+    bodies = "\n".join(c.get("body") or "" for c in chunks.json()["chunks"][:8])
+    # list endpoint may omit body — fetch first chunk detail if needed
+    if "Bổn Tôn" not in bodies and "Địa Tạng" not in bodies:
+        first_id = chunks.json()["chunks"][0]["id"]
+        detail = client.get(
+            f"/api/spaces/{space_id}/identities/{identity_id}/stories/chunks/{first_id}",
+            headers=headers,
+        )
+        assert detail.status_code == 200
+        bodies = detail.json()["chunk"]["body"]
+    assert "3 lần" not in bodies
+    assert "1 lạy" not in bodies
 
 
 def test_kinh_duoc_su_seeded_with_expanded_repeats(client: TestClient):

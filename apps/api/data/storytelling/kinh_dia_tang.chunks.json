@@ -1,11 +1,2343 @@
 {
   "slug": "kinh_dia_tang",
   "title": "Kinh Địa Tạng",
-  "author": "Kinh Phật",
+  "author": "HT Thích Trí Tịnh Việt dịch",
   "category": "sutra",
   "sort_order": 40,
-  "source_note": "Cầu siêu, ngày giỗ / rằm. Dán từ kinh nhà qua Nhập chữ.",
-  "line_count": 0,
-  "chunk_count": 0,
-  "chunks": []
+  "source_note": "Bản gia đình — HT Thích Trí Tịnh Việt dịch (Đạo Tràng Liên Hoa, ấn tống). Đã mở rộng «N lần» thành nhắc lại; bỏ chỉ dẫn «N lạy»; bỏ header/trang in.",
+  "line_count": 1415,
+  "chunk_count": 259,
+  "chunks": [
+    {
+      "id": "kinh_dia_tang-0001",
+      "sort_order": 1,
+      "label": "TỰA ĐỊA TẠNG BỒ TÁT",
+      "body": "TỰA ĐỊA TẠNG BỒ TÁT\n\nCHÍ TÂM QUY MẠNG LỄ:\n\nU Minh Giáo Chủ Bổn Tôn\nĐịa Tạng Bồ Tát Ma Ha Tát\nLạy đức từ bi đại Giáo Chủ\n“Địa” là dày chắc, “Tạng” chứa đủ\nCõi nước phương Nam nổi mây thơm\nRưới hương, rưới hoa, hoa vần vũ\nMây xinh, mưa báu số không lường\nLành tốt, trang nghiêm cảnh dị thường\nNgười, Trời bạch Phật: Nhơn gì thế?",
+      "line_start": 1,
+      "line_end": 3,
+      "approx_seconds": 46
+    },
+    {
+      "id": "kinh_dia_tang-0002",
+      "sort_order": 2,
+      "label": "Phật rằng: Địa Tạng đến Thiên Đường",
+      "body": "Phật rằng: Địa Tạng đến Thiên Đường\nChư Phật ba đời đồng khen chuộng\nMười phương Bồ Tát chung tin tưởng\nNay con sẵn có thiện nhơn duyên\nNgợi khen Địa Tạng đức vô lượng\nLòng từ do chứa hạnh lành\nTrải bao số kiếp độ sinh khỏi nàn\nTrong tay đã sẵn gậy vàng\nDộng tan cửa ngục cứu toàn chúng sinh\nTay cầm châu sáng tròn vìn\nHào quang soi khắp ba nghìn Đại Thiên\nDiêm Vương trước điện chẳng hiền\nĐài cao nghiệp cảnh soi liền tội căn\nĐịa Tạng Bồ Tát thượng nhân\nChứng minh công đức của dân Diêm Phù.",
+      "line_start": 4,
+      "line_end": 4,
+      "approx_seconds": 70
+    },
+    {
+      "id": "kinh_dia_tang-0003",
+      "sort_order": 3,
+      "label": "Đại Bi, Đại Nguyện, Đại Thánh, Đại Từ,",
+      "body": "Đại Bi, Đại Nguyện, Đại Thánh, Đại Từ,\nBổn Tôn Địa Tạng Bồ Tát Ma Ha Tát.\n\nBổn Tôn Địa Tạng Bồ Tát Ma Ha Tát.\n\nBổn Tôn Địa Tạng Bồ Tát Ma Ha Tát.\n\nVĂN PHÁT NGUYỆN\n\nLạy đấng Tam Giới Tôn\nQuy mạng mười phương Phật\nNay con phát nguyện rộng\nThọ trì kinh Địa Tạng\nTrên đền bốn ơn nặng\nDưới cứu khổ tam đồ\nNếu có kẻ thấy nghe\nĐều phát Bồ Đề tâm\nHết một báo thân nầy\nSinh qua cõi Cực Lạc.\n\nNam mô Bổn Sư Thích Ca Mâu Ni Phật.\n\nNam mô Bổn Sư Thích Ca Mâu Ni Phật.\n\nNam mô Bổn Sư Thích Ca Mâu Ni Phật.\n\nKỆ KHAI KINH",
+      "line_start": 5,
+      "line_end": 13,
+      "approx_seconds": 72
+    },
+    {
+      "id": "kinh_dia_tang-0004",
+      "sort_order": 4,
+      "label": "Pháp vi diệu rất sâu vô lượng",
+      "body": "Pháp vi diệu rất sâu vô lượng\nTrăm nghìn muôn ức kiếp khó gặp\nNay con thấy nghe được thọ trì\nNguyện hiểu nghĩa chân thật của Phật.\n\nNam mô U Minh giáo chủ hoằng nguyện\nđộ sanh: Địa ngục vị không, thệ bất thành\nPhật, Chúng sinh độ tận phương chứng\nBồ Đề...\n\nĐại Bi, Đại Nguyện, Đại Thánh, Đại Từ,\nBổn Tôn Địa Tạng Bồ Tát Ma Ha Tát.\n\nBổn Tôn Địa Tạng Bồ Tát Ma Ha Tát.\n\nBổn Tôn Địa Tạng Bồ Tát Ma Ha Tát.\n\nKINH ĐỊA TẠNG BỒ TÁT BỔN NGUYỆN\n\nQUYỂN THƯỢNG\n\nPHẨM THỨ NHẤT\n\nTHẦN THÔNG TRÊN CUNG TRỜI\n\nĐAO LỢI\n\n1) PHẬT HIỆN THẦN THÔNG.",
+      "line_start": 14,
+      "line_end": 24,
+      "approx_seconds": 75
+    },
+    {
+      "id": "kinh_dia_tang-0005",
+      "sort_order": 5,
+      "label": "Đoạn 5",
+      "body": "Ta nghe như thế nầy: Một thuở nọ, tại cung Trời Đao Lợi, đức Phật vì Thánh Mẫu mà thuyết pháp.\n\nLúc đó, bất khả thuyết, bất khả thuyết tất cả chư Phật và đại Bồ Tát trong vô lượng thế giới ở mười phương đều đến hội họp, rồi đồng khen ngợi rằng:\nĐức Phật Thích Ca Mâu Ni có thể ở trong đời ác ngũ trược mà hiện sức “Đại trí tuệ thần thông chẳng thể nghĩ bàn” để điều phục chúng sanh cang cường làm cho chúng nó rõ “Pháp khổ pháp vui”.\n\nKhen xong, chư Phật đều sai thị giả kính thăm đức Thế Tôn.",
+      "line_start": 25,
+      "line_end": 27,
+      "approx_seconds": 70
+    },
+    {
+      "id": "kinh_dia_tang-0006",
+      "sort_order": 6,
+      "label": "Đoạn 6",
+      "body": "Bấy giờ, đức Như Lai mỉm cười phóng ra trăm nghìn vừng mây sáng rỡ lớn. Như là:\nVừng mây sáng rỡ đầy đủ,\nVừng mây sáng rỡ đại từ bi,\nVừng mây sáng rỡ đại trí huệ,\nVừng mây sáng rỡ đại Bát Nhã,\nVừng mây sáng rỡ đại tam muội,\nVừng mây sáng rỡ đại kiết tường,\nVừng mây sáng rỡ đại phước đức,\nVừng mây sáng rỡ đại công đức,\nVừng mây sáng rỡ đại quy y,\nVừng mây sáng rỡ đại tán thán...,\nĐức Phật phóng ra bất khả thuyết vừng mây sáng rỡ như thế rồi lại phát ra các thứ tiếng vi diệu. Như là:\nTiếng Bố thí độ,\nTiếng Trì giới độ,\nTiếng Nhẫn nhục độ,\nTiếng Tinh tấn độ,\nTiếng Thiền định độ,\nTiếng Bát Nhã độ,\nTiếng Từ bi,\nTiếng Hỷ xả,\nTiếng Giải thoát,\nTiếng Vô lậu,\nTiếng Trí huệ,\nTiếng Sư tử hống,\nTiếng Đại Sư tử hống,\nTiếng Mây sấm,\nTiếng Mây sấm lớn…",
+      "line_start": 28,
+      "line_end": 28,
+      "approx_seconds": 106
+    },
+    {
+      "id": "kinh_dia_tang-0007",
+      "sort_order": 7,
+      "label": "Đoạn 7",
+      "body": "2) TRỜI RỒNG… HỘI HỌP.\n\nKhi đức Phật phát ra bất khả thuyết, bất khả thuyết tiếng vi diệu như thế xong, thời có vô lượng ức hàng Trời, Rồng, Quỷ, Thần ở trong cõi Ta Bà và cõi nước phương khác cũng đến hội họp nơi cung Trời Đao Lợi.",
+      "line_start": 29,
+      "line_end": 30,
+      "approx_seconds": 35
+    },
+    {
+      "id": "kinh_dia_tang-0008",
+      "sort_order": 8,
+      "label": "Như là:",
+      "body": "Như là:\nTrời Tứ Thiên Vương,\nTrời Đao Lợi,\nTrời Tu Diệm Ma,\nTrời Đâu Suất Đà,\nTrời Hóa Lạc,\nTrời Tha Hóa Tự Tại,\nTrời Phạm Chúng,\nTrời Phạm Phụ,\nTrời Đại Phạm,\nTrời Thiểu Quang,\nTrời Vô Lượng Quang,\nTrời Quang Âm,\nTrời Thiểu Tịnh,\nTrời Vô Lượng Tịnh,\nTrời Biến Tịnh,\nTrời Phước Sanh,\nTrời Phước Ái,\nTrời Quảng Quả,\nTrời Nghiêm Sức,\nTrời Vô Lượng Nghiêm Sức,\nTrời Nghiêm Sức Quả Thiệt,\nTrời Vô Tưởng,\nTrời Vô Phiền,\nTrời Vô Nhiệt,\nTrời Thiện Kiến,\nTrời Thiện Hiện,\nTrời Sắc Cứu Cánh,\nTrời Ma Hê Thủ La, cho đến Trời Phi\nTưởng, Phi Phi Tưởng Xứ. Tất cả Thiên chúng, Long chúng, cùng các chúng Quỷ, Thần đều đến hội họp.",
+      "line_start": 31,
+      "line_end": 31,
+      "approx_seconds": 88
+    },
+    {
+      "id": "kinh_dia_tang-0009",
+      "sort_order": 9,
+      "label": "Đoạn 9",
+      "body": "Lại có những vị Thần ở cõi Ta Bà cùng cõi nước phương khác, như:\nThần biển,\nThần sông,\nThần rạch,\nThần cây,\nThần núi,\nThần đất,\nThần sông chằm,\nThần lúa mạ,\nThần chủ ngày,\nThần chủ đêm,\nThần hư không,\nThần trên Trời,\nThần chủ ăn uống,\nThần cây cỏ... Các vị Thần như thế đều đến hội họp.",
+      "line_start": 32,
+      "line_end": 32,
+      "approx_seconds": 40
+    },
+    {
+      "id": "kinh_dia_tang-0010",
+      "sort_order": 10,
+      "label": "Lại có những Đại Quỷ Vương ở cõi Ta",
+      "body": "Lại có những Đại Quỷ Vương ở cõi Ta\nBà cùng cõi nước phương khác, như:\nÁc Mục Quỷ Vương,\nĐạm Huyết Quỷ Vương,\nĐạm Tinh Khí Quỷ Vương,\nĐạm Thai Noãn Quỷ Vương,\nHành Bịnh Quỷ Vương,\nNhiếp Độc Quỷ Vương,\nTừ Tâm Quỷ Vương,\nPhước Lợi Quỷ Vương,\nĐại Ái Kính Quỷ Vương... Các Quỷ\nVương như thế đều đến hội họp.\n\n3) ĐỨC PHẬT PHÁT KHỞI.",
+      "line_start": 33,
+      "line_end": 34,
+      "approx_seconds": 46
+    },
+    {
+      "id": "kinh_dia_tang-0011",
+      "sort_order": 11,
+      "label": "Đoạn 11",
+      "body": "Bấy giờ đức\nThích Ca Mâu Ni Phật bảo Ngài Văn Thù\nSư Lợi Pháp Vương tử đại Bồ Tát rằng:\n“Ông xem coi tất cả chư Phật, Bồ Tát và\nTrời, Rồng, Quỷ, Thần đó ở trong thế giới nầy cùng thế giới khác, ở trong quốc độ nầy cùng quốc độ khác, nay đều đến hội họp tại cung Trời Đao Lợi như thế, ông có biết số bao nhiêu chăng?”.\n\nNgài Văn Thù Sư Lợi bạch Phật rằng:\n“Bạch đức Thế Tôn! Nếu dùng thần lực của con để tính đếm trong nghìn kiếp cũng không biết là số bao nhiêu!”.",
+      "line_start": 35,
+      "line_end": 36,
+      "approx_seconds": 66
+    },
+    {
+      "id": "kinh_dia_tang-0012",
+      "sort_order": 12,
+      "label": "Đoạn 12",
+      "body": "Đức Phật bảo Ngài Văn Thù Sư Lợi rằng: “Đến Ta dùng Phật nhãn xem hãy còn không đếm xiết! Số Thánh, phàm nầy đều của ngài Địa Tạng Bồ Tát từ thuở kiếp lâu xa đến nay, hoặc đã độ, đương độ, chưa độ, hoặc đã thành tựu, đương thành tựu, chưa thành tựu”.",
+      "line_start": 37,
+      "line_end": 37,
+      "approx_seconds": 35
+    },
+    {
+      "id": "kinh_dia_tang-0013",
+      "sort_order": 13,
+      "label": "Đoạn 13",
+      "body": "Ngài Văn Thù Sư Lợi bạch đức Phật rằng: “Từ thuở lâu xa về trước con đã tu căn lành chứng đặng trí vô ngại, nghe lời đức Phật nói đó thời tin nhận liền. Còn hàng tiểu quả Thanh Văn, Trời, Rồng, tám bộ chúng và những chúng sanh trong đời sau, dầu nghe lời thành thật của Như Lai, nhưng chắc là sanh lòng nghi ngờ, dầu cho có lạy vâng đi nữa cũng chưa khỏi hủy báng. Cúi mong đức Thế Tôn nói rõ nhơn địa của ngài Địa Tạng Bồ Tát; Ngài tu hạnh gì, lập nguyện gì mà thành tựu được sự không thể nghĩ bàn như thế?”.",
+      "line_start": 38,
+      "line_end": 38,
+      "approx_seconds": 72
+    },
+    {
+      "id": "kinh_dia_tang-0014",
+      "sort_order": 14,
+      "label": "Đoạn 14",
+      "body": "Đức Phật bảo Ngài Văn Thù Sư Lợi rằng: “Ví như bao nhiêu cỏ, cây, lùm, rừng, lúa, mè, tre, lau, đá, núi, bụi bặm trong cõi tam thiên đại thiên, cứ một vật làm một sông Hằng, rồi cứ số cát trong mỗi sông Hằng, một hột cát làm một cõi nước, rồi trong một cõi nước cứ một hột bụi nhỏ làm một kiếp, rồi bao nhiêu số bụi nhỏ chứa trong một kiếp đều đem làm kiếp cả. Từ lúc ngài Địa Tạng Bồ Tát chứng quả thập địa Bồ Tát đến nay nghìn lần lâu hơn số kiếp tỉ dụ ở trên, huống là những thuở ngài Địa Tạng còn ở bực Thanh Văn và Bích Chi Phật!",
+      "line_start": 39,
+      "line_end": 39,
+      "approx_seconds": 76
+    },
+    {
+      "id": "kinh_dia_tang-0015",
+      "sort_order": 15,
+      "label": "Nầy Văn Thù Sư Lợi! Oai thần thệ",
+      "body": "Nầy Văn Thù Sư Lợi! Oai thần thệ\nnguyện của Bồ Tát đó không thể nghĩ bàn\nđến được. Về đời sau, nếu có trang thiện nam, người thiện nữ nào nghe danh tự của Địa Tạng Bồ Tát, hoặc khen ngợi, hoặc chiêm ngưỡng vái lạy, hoặc xưng danh hiệu, hoặc cúng dường, nhẫn đến vẽ, khắc, đắp, sơn hình tượng của Địa Tạng Bồ Tát, thời người đó sẽ được một trăm lần sanh lên cõi Trời Đao Lợi, vĩnh viễn chẳng còn bị sa đọa vào chốn ác đạo.\n\n4) TRƯỞNG GIẢ TỬ PHÁT NGUYỆN.",
+      "line_start": 40,
+      "line_end": 41,
+      "approx_seconds": 64
+    },
+    {
+      "id": "kinh_dia_tang-0016",
+      "sort_order": 16,
+      "label": "Nầy",
+      "body": "Nầy\nVăn Thù Sư Lợi! Trải qua bất khả thuyết, bất khả thuyết kiếp lâu xa về trước, tiền thân của ngài Địa Tạng Bồ Tát làm một vị Trưởng Giả Tử. Lúc đó, trong đời có đức Phật hiệu là: Sư Tử Phấn Tấn Cụ Túc Vạn Hạnh Như Lai. Trưởng giả tử thấy đức Phật tướng mạo tốt đẹp nghìn phước trang nghiêm, mới bạch hỏi đức Phật tu hạnh nguyện gì mà đặng tốt đẹp như thế?",
+      "line_start": 42,
+      "line_end": 42,
+      "approx_seconds": 51
+    },
+    {
+      "id": "kinh_dia_tang-0017",
+      "sort_order": 17,
+      "label": "Khi ấy, đức Sư Tử Phấn Tấn Cụ Túc",
+      "body": "Khi ấy, đức Sư Tử Phấn Tấn Cụ Túc\nVạn Hạnh Như Lai bảo Trưởng giả tử rằng: “Muốn chứng được thân tướng tốt đẹp nầy, cần phải trải qua trong một thời gian lâu xa độ thoát tất cả chúng sanh bị khốn khổ”.\n\nNầy Văn Thù Sư Lợi! Trưởng giả tử nghe xong liền phát nguyện rằng: “Từ nay đến tột số chẳng thể kể xiết ở đời sau, tôi vì những chúng sanh tội khổ trong sáu đường mà giảng bày nhiều phương tiện làm cho chúng đó được giải thoát hết cả, rồi tự thân tôi mới chứng thành Phật Đạo”.",
+      "line_start": 43,
+      "line_end": 44,
+      "approx_seconds": 68
+    },
+    {
+      "id": "kinh_dia_tang-0018",
+      "sort_order": 18,
+      "label": "Bởi ở trước đức Phật Sư Tử Phấn Tấn",
+      "body": "Bởi ở trước đức Phật Sư Tử Phấn Tấn\nCụ Túc Vạn Hạnh Như Lai, Ngài lập\nnguyện rộng đó, nên đến nay đã trải qua\ntrăm nghìn muôn ức vô số bất khả thuyết kiếp, mà Ngài vẫn còn làm vị Bồ Tát!\n\n5) BÀ LA MÔN NỮ CỨU MẸ.",
+      "line_start": 45,
+      "line_end": 46,
+      "approx_seconds": 35
+    },
+    {
+      "id": "kinh_dia_tang-0019",
+      "sort_order": 19,
+      "label": "Đoạn 19",
+      "body": "Lại thuở bất khả tư nghị vô số kiếp về trước, lúc đó có đức Phật hiệu là: Giác Hoa Định Tự Tại Vương Như Lai, Đức Phật ấy thọ đến bốn trăm nghìn muôn ức vô số kiếp. Trong thời tượng pháp, có một người con gái dòng Bà La Môn, người nầy nhiều đời chứa phước sâu dày, mọi người đều kính nể, khi đi đứng lúc nằm ngồi, chư Thiên thường theo hộ vệ. Bà mẹ của người mê tín tà đạo, thường khinh khi ngôi Tam Bảo. Thuở ấy, mặc dầu Thánh nữ đem nhiều lời phương tiện khuyên nhủ bà mẹ người, hầu làm cho bà mẹ người sanh chánh kiến, nhưng mà bà mẹ người chưa tin hẳn. Chẳng bao lâu bà ấy chết, thần hồn sa đọa vào Vô Gián địa ngục.",
+      "line_start": 47,
+      "line_end": 47,
+      "approx_seconds": 88
+    },
+    {
+      "id": "kinh_dia_tang-0020",
+      "sort_order": 20,
+      "label": "Đoạn 20",
+      "body": "Lúc đó, Thánh Nữ biết rằng người mẹ khi còn sống không tin nhơn quả, liệu chắc phải theo nghiệp quấy mà sanh vào đường ác. Thánh Nữ bèn bán nhà, đất, sắm nhiều hương hoa cùng những đồ lễ cúng, rồi đem cúng dường tại các chùa tháp thờ đức Phật Giác Hoa Định Tự Tại Vương. Trong một ngôi chùa kia thấy hình tượng của đức Phật Giác Hoa Định Tự Tại Vương đắp vẽ oai dung đủ cách tôn nghiêm.",
+      "line_start": 48,
+      "line_end": 48,
+      "approx_seconds": 55
+    },
+    {
+      "id": "kinh_dia_tang-0021",
+      "sort_order": 21,
+      "label": "Thánh Nữ chiêm bái tượng của đức",
+      "body": "Thánh Nữ chiêm bái tượng của đức\nPhật lại càng sanh lòng kính ngưỡng, tự nghĩ thầm rằng: “Đức Phật là đấng Đại Giác đủ tất cả trí huệ, nếu đức Phật còn trụ ở đời, thì khi mẹ tôi khuất, tôi đến bạch hỏi Phật, chắc thế nào cũng rõ mẹ tôi sanh vào chốn nào”.\n\nNghĩ đến đó, Thánh Nữ buồn tủi rơi lệ chăm nhìn tượng Như Lai mà lòng quyến luyến mãi.\n\nBỗng nghe trên hư không có tiếng bảo rằng: “Thánh Nữ đương khóc kia, thôi đừng có bi ai quá lắm! Nay ta sẽ bảo cho ngươi biết chỗ của mẹ ngươi”.",
+      "line_start": 49,
+      "line_end": 51,
+      "approx_seconds": 69
+    },
+    {
+      "id": "kinh_dia_tang-0022",
+      "sort_order": 22,
+      "label": "Đoạn 22",
+      "body": "Thánh Nữ chắp tay hướng lên hư không mà vái rằng: “Đức thần nào đó mà giải bớt lòng sầu lo của tôi như thế? Từ khi mẹ tôi mất đến nay, tôi thương nhớ ngày đêm, không biết đâu để hỏi cho rõ mẹ tôi thác sanh vào chốn nào?”.\n\nTrên hư không lại có tiếng bảo\nThánh Nữ rằng: “Ta là đức Phật quá khứ\nGiác Hoa Định Tự Tại Vương Như Lai, mà ngươi đương chiêm bái đó. Thấy ngươi thương nhớ mẹ trội hơn thường tình của chúng sanh nên ta đến chỉ bảo”.",
+      "line_start": 52,
+      "line_end": 53,
+      "approx_seconds": 62
+    },
+    {
+      "id": "kinh_dia_tang-0023",
+      "sort_order": 23,
+      "label": "Đoạn 23",
+      "body": "Thánh Nữ nghe nói xong liền té xỉu xuống, tay chân mình mẩy đều bị tổn thương. Những người đứng bên vội vàng đỡ dậy, một lát sau Thánh Nữ mới tỉnh lại rồi bạch cùng trên hư không rằng: “Cúi xin đức Phật xót thương bảo ngay cho rõ chỗ thác sanh của mẹ con, nay thân tâm của con sắp chết mất!”.\n\nĐức Giác Hoa Định Tự Tại Vương\nNhư Lai bảo Thánh Nữ rằng: “Cúng dường xong, ngươi mau mau trở về nhà, rồi ngồi ngay thẳng nghĩ tưởng danh hiệu của Ta, thời ngươi sẽ biết chỗ thác sanh của mẹ ngươi”.",
+      "line_start": 54,
+      "line_end": 55,
+      "approx_seconds": 70
+    },
+    {
+      "id": "kinh_dia_tang-0024",
+      "sort_order": 24,
+      "label": "Đoạn 24",
+      "body": "Lễ Phật xong, Thánh Nữ liền trở về nhà. Vì thương nhớ mẹ, nên Thánh Nữ ngồi ngay thẳng niệm danh hiệu của Giác Hoa Định Tự Tại Vương Như Lai trải suốt một ngày một đêm, bỗng thấy thân mình đến một bờ biển kia. Nước trong biển đó sôi sùng sục, có rất nhiều thú dữ thân thể toàn bằng sắt bay nhảy trên mặt biển, chạy rảo bên nầy, xua đuổi bên kia.\n\nThấy những trai cùng gái số nhiều đến nghìn muôn thoạt chìm thoạt nổi ở trong biển, bị các thú dữ giành nhau ăn thịt.",
+      "line_start": 56,
+      "line_end": 57,
+      "approx_seconds": 66
+    },
+    {
+      "id": "kinh_dia_tang-0025",
+      "sort_order": 25,
+      "label": "Đoạn 25",
+      "body": "Lại thấy quỷ Dạ Xoa hình thù đều lạ lùng: Hoặc nhiều tay, nhiều mắt, nhiều chân, nhiều đầu... răng nanh chỉa ra ngoài miệng bén nhọn dường gươm, lùa những người tội gần thú dữ. Rồi quỷ lại chụp bắt người tội, túm quắp đầu chân người tội lại, hình trạng muôn thứ chẳng dám nhìn lâu.\n\nKhi ấy, Thánh Nữ nhờ nương sức niệm Phật nên tự nhiên không kinh sợ.\n\nCó một vị Quỷ Vương tên là Vô Độc, đến cúi đầu nghênh tiếp, hỏi Thánh Nữ rằng: “Hay thay Bồ Tát! Ngài có duyên sự gì đến chốn nầy?”.",
+      "line_start": 58,
+      "line_end": 60,
+      "approx_seconds": 69
+    },
+    {
+      "id": "kinh_dia_tang-0026",
+      "sort_order": 26,
+      "label": "Đoạn 26",
+      "body": "Thánh Nữ hỏi Quỷ Vương rằng: “Đây là chốn nào?”.\n\nQuỷ Vương Vô Độc đáp rằng: “Đây là từng biển thứ nhứt ở phía Tây núi đại Thiết Vi”.\n\nThánh Nữ hỏi rằng: “Tôi nghe trong núi Thiết Vi có địa ngục, việc ấy có thiệt như thế chăng?”.\n\nVô Độc đáp rằng: “Thiệt có địa ngục”.\n\nThánh Nữ hỏi rằng: “Nay tôi làm sao để được đến chốn địa ngục đó?”.\n\nVô Độc đáp rằng: “Nếu không phải sức oai thần, cần phải do nghiệp lực.\n\nNgoài hai điều nầy ra ắt không bao giờ có thể đến đó được”.",
+      "line_start": 61,
+      "line_end": 67,
+      "approx_seconds": 67
+    },
+    {
+      "id": "kinh_dia_tang-0027",
+      "sort_order": 27,
+      "label": "Đoạn 27",
+      "body": "Thánh Nữ lại hỏi: “Duyên cớ vì sao mà nước trong biển nầy sôi sùng sục như thế, và có những người tội cùng với các thú dữ?”.\n\nVô Độc đáp rằng: “Những người tội trong biển nầy là những kẻ tạo ác ở cõi Diêm Phù Đề mới chết, trong khoảng bốn mươi chín ngày không người kế tự để làm công đức hầu cứu vớt khổ nạn cho; lúc sống, kẻ đó lại không làm được nhơn lành nào cả.\n\nVì thế nên cứ theo nghiệp ác của họ đã gây tạo mà cảm lấy báo khổ ở địa ngục, tự nhiên họ phải lội qua biển nầy.",
+      "line_start": 68,
+      "line_end": 70,
+      "approx_seconds": 68
+    },
+    {
+      "id": "kinh_dia_tang-0028",
+      "sort_order": 28,
+      "label": "Đoạn 28",
+      "body": "Cách biển nầy mười muôn do tuần về phía Đông lại có một cái biển, những sự thống khổ trong biển đó sắp bội hơn biển nầy.\n\nPhía Đông của biển đó lại có một cái biển nữa, sự thống khổ trong đó càng trội hơn.\n\nĐó đều là do những nghiệp nhơn xấu xa của ba nghiệp mà cảm vời ra, đồng gọi là biển nghiệp, chính là ba cái biển nầy vậy”.\n\nThánh Nữ lại hỏi Quỷ Vương Vô Độc rằng: “Địa ngục ở đâu?”.",
+      "line_start": 71,
+      "line_end": 74,
+      "approx_seconds": 55
+    },
+    {
+      "id": "kinh_dia_tang-0029",
+      "sort_order": 29,
+      "label": "Đoạn 29",
+      "body": "Vô Độc đáp rằng: “Trong ba cái biển đó đều là địa ngục, nhiều đến số trăm nghìn, mỗi ngục đều khác nhau. Về địa ngục lớn thời có 18 chỗ, bực kế đó có 500 chỗ đủ không lường sự khổ sở, bực kế nữa có đến nghìn trăm cũng đầy không lường sự thống khổ”.\n\nThánh Nữ lại hỏi đại Quỷ Vương rằng: “Thân Mẫu của tôi mới khuất gần đây, không rõ thần hồn của người phải sa vào chốn nào?”.\n\nQuỷ Vương hỏi Thánh Nữ rằng:\n“Thân mẫu của Bồ Tát khi còn sống, quen làm những nghiệp gì?”.",
+      "line_start": 75,
+      "line_end": 77,
+      "approx_seconds": 66
+    },
+    {
+      "id": "kinh_dia_tang-0030",
+      "sort_order": 30,
+      "label": "Đoạn 30",
+      "body": "Thánh Nữ đáp rằng: “Thân mẫu của tôi mê tín tà đạo, khinh chê ngôi Tam Bảo, hoặc có lúc tạm thời tin chánh pháp, xong rồi chẳng kính. Dầu khuất không bao lâu, mà chưa rõ đọa lạc vào đâu?”.\n\nVô Độc hỏi rằng: “Thân mẫu của Bồ\nTát tên họ là gì?”.\n\nThánh Nữ đáp rằng: “Thân phụ và thân mẫu của tôi đều dòng dõi Bà La Môn. Thân phụ tôi là Thi La Thiện Kiến.\n\nThân mẫu tôi hiệu là Duyệt Đế Lợi”.\n\nVô Độc chắp tay thưa Thánh Nữ rằng: “Xin Thánh Nữ hãy trở về, chớ đem lòng thương nhớ buồn rầu quá lắm nữa.",
+      "line_start": 78,
+      "line_end": 82,
+      "approx_seconds": 71
+    },
+    {
+      "id": "kinh_dia_tang-0031",
+      "sort_order": 31,
+      "label": "Tội nữ Duyệt Đế Lợi được sanh lên cõi",
+      "body": "Tội nữ Duyệt Đế Lợi được sanh lên cõi\nTrời đến nay đã ba ngày rồi.\n\nNghe nói nhờ con gái của người có lòng hiếu thuận, vì mẹ mà sắm sửa lễ vật, tu tạo phước lành, cúng dường chùa tháp, thờ đức Giác Hoa Định Tự Tại Vương Như Lai. Chẳng phải chỉ riêng thân mẫu của Bồ Tát đặng thoát khỏi địa ngục, mà ngày đó, những tội nhơn Vô Gián cũng đều được vui vẻ, đồng đặng thác sanh cả”.\n\nNói xong, Quỷ Vương chắp tay chào\nThánh Nữ mà cáo lui.",
+      "line_start": 83,
+      "line_end": 85,
+      "approx_seconds": 61
+    },
+    {
+      "id": "kinh_dia_tang-0032",
+      "sort_order": 32,
+      "label": "Đoạn 32",
+      "body": "Bấy giờ, Thánh Nữ dường chiêm bao chợt tỉnh, rõ biết việc đó rồi, bèn đối trước tháp tượng của đức Giác Hoa Định Tự Tại Vương Như Lai mà phát thệ\nnguyện rộng lớn rằng:\n“Tôi nguyện từ nay nhẫn đến đời vị lai những chúng sanh mắc phải tội khổ, thì tôi lập ra nhiều phương chước làm cho chúng đó được giải thoát”.\n\nĐức Phật bảo Ngài Văn Thù Sư Lợi rằng: “Quỷ Vương Vô Độc trước đó nay chính ông Tài Thủ Bồ Tát. Còn Thánh Nữ Bà La Môn đó, nay là Địa Tạng Bồ Tát vậy”.\n\nPHẨM THỨ HAI\n\nPHÂN THÂN TẬP HỘI\n\n1) HÓA THÂN CÙNG QUYẾN THUỘC.",
+      "line_start": 86,
+      "line_end": 90,
+      "approx_seconds": 75
+    },
+    {
+      "id": "kinh_dia_tang-0033",
+      "sort_order": 33,
+      "label": "Đoạn 33",
+      "body": "Lúc đó phân thân Địa Tạng Bồ Tát ở các nơi có địa ngục trăm nghìn muôn ức bất khả tư, bất khả nghị, bất khả lượng, bất khả thuyết, vô lượng vô số thế giới đều đến hội họp tại cung trời Đao Lợi.\n\nDo nhờ thần lực của Như Lai, phân thân đó hiệp với những chúng đã được giải thoát ra khỏi chốn nghiệp đạo ở mười phương, cũng đều đông đến số nghìn muôn ức na do tha, đồng cầm hương hoa đến cúng dường Phật.",
+      "line_start": 91,
+      "line_end": 92,
+      "approx_seconds": 57
+    },
+    {
+      "id": "kinh_dia_tang-0034",
+      "sort_order": 34,
+      "label": "Đoạn 34",
+      "body": "Những chúng cùng đến với phân thân đó, thảy đều nhờ Địa Tạng Bồ Tát giáo hóa làm cho trụ nơi đạo vô thượng chánh đẳng chánh giác trọn không còn thối chuyển.\n\nNhững chúng đó từ kiếp lâu xa đến nay trôi lăn trong vòng sanh tử ở trong sáu đường, chịu những điều khổ sở không có lúc nào tạm ngừng dứt, nhờ lòng từ bi lớn và thệ nguyện sâu dày của ngài Địa Tạng Bồ Tát, nên tất cả đều chứng được đạo quả.\n\nĐại chúng đó khi đã đến cung trời\nĐao Lợi, lòng họ vui mừng hớn hở, chiêm ngưỡng đức Như Lai mắt nhìn mãi không rời.",
+      "line_start": 93,
+      "line_end": 95,
+      "approx_seconds": 73
+    },
+    {
+      "id": "kinh_dia_tang-0035",
+      "sort_order": 35,
+      "label": "Đoạn 35",
+      "body": "2) ĐỨC NHƯ LAI AN ỦI ỦY THÁC.\n\nBấy giờ,\nThế Tôn dơ tay sắc vàng xoa đảnh của hóa thân Địa Tạng đại Bồ Tát trong trăm nghìn muôn ức bất khả tư, bất khả nghị, bất khả lượng, bất khả thuyết, vô lượng vô số thế giới, mà dạy rằng: “Ta ở trong đời ác ngũ trược giáo hóa những chúng sanh cang cường như thế, làm cho lòng chúng nó điều phục bỏ tà về chánh; nhưng trong mười phần vẫn còn một hai phần chúng sanh quen theo tánh ác.",
+      "line_start": 96,
+      "line_end": 97,
+      "approx_seconds": 60
+    },
+    {
+      "id": "kinh_dia_tang-0036",
+      "sort_order": 36,
+      "label": "Đoạn 36",
+      "body": "Muốn độ chúng đó, ta cũng phân nghìn trăm ức thân lập ra nhiều phương chước. Trong chúng sanh đó, hoặc có người căn tánh sáng lẹ nghe Pháp của Ta thời liền tín nhận. Hoặc có người phải ân cần khuyên bảo mới thành tựu, được thiện quả. Hoặc có kẻ vì tội nghiệp quá nặng nên chẳng đem lòng kính tin ngưỡng mộ. Ta phân ra nhiều thân độ thoát những hạng chúng sanh mỗi mỗi sai khác như thế.",
+      "line_start": 98,
+      "line_end": 98,
+      "approx_seconds": 55
+    },
+    {
+      "id": "kinh_dia_tang-0037",
+      "sort_order": 37,
+      "label": "Hoặc hiện ra thân trai,",
+      "body": "Hoặc hiện ra thân trai,\nHoặc hiện ra thân gái,\nHoặc hiện ra thân Trời, Rồng,\nHoặc hiện ra thân Quỷ, Thần,\nHoặc hiện ra rừng, núi, sông, ngòi, ao, rạch, suối, làm lợi ích cho mọi người, để rồi độ họ được giải thoát.\n\nHoặc hiện ra thân Thiên Đế,\nHoặc hiện ra thân Trời Phạm Vương,\nHoặc hiện ra thân vua Chuyển Luân,\nHoặc hiện ra thân Quốc Vương,\nHoặc hiện ra thân Cư Sĩ,\nHoặc hiện ra thân Tể Phụ,\nHoặc hiện ra thân các hàng quan thuộc,\nHoặc hiện ra thân Tỳ Kheo, Tỳ Kheo\nNi, Ưu Bà Tắc, Ưu Bà Di.",
+      "line_start": 99,
+      "line_end": 100,
+      "approx_seconds": 70
+    },
+    {
+      "id": "kinh_dia_tang-0038",
+      "sort_order": 38,
+      "label": "Nhẫn đến hiện ra những thân Thanh",
+      "body": "Nhẫn đến hiện ra những thân Thanh\nVăn, La Hán, Bích Chi Phật và Bồ Tát để hóa độ chúng sanh, chớ chẳng phải chỉ có thân Phật hiện ra trước chúng thôi đâu!\n\nĐịa Tạng! Ông xem ta đã trải qua bao số kiếp nhọc nhằn độ thoát những chúng sanh cang cường đầy tội khổ khó khai hóa như thế. Ngoài ra những kẻ chưa điều phục được, thời phải theo nghiệp thọ báo.",
+      "line_start": 101,
+      "line_end": 102,
+      "approx_seconds": 50
+    },
+    {
+      "id": "kinh_dia_tang-0039",
+      "sort_order": 39,
+      "label": "Đoạn 39",
+      "body": "Nếu khi chúng đó có bị đọa vào đường dữ chịu nhiều sự thống khổ, thời ông nên nghĩ nhớ Ta ở cung Trời Đao Lợi ân cần phó chúc đây mà gắng độ chúng sanh, làm cho chúng sanh trong cõi Ta Bà nầy đến lúc Phật Di Lặc ra đời, đều đặng giải thoát, khỏi hẳn các điều khổ, gặp Phật, được đức Phật thọ ký”.",
+      "line_start": 103,
+      "line_end": 103,
+      "approx_seconds": 42
+    },
+    {
+      "id": "kinh_dia_tang-0040",
+      "sort_order": 40,
+      "label": "Đoạn 40",
+      "body": "Bấy giờ, những hóa thân Địa Tạng Bồ\nTát ở các thế giới hiệp chung lại một hình, rơi lệ thương cảm mà bạch cùng đức Phật rằng: “Từ số kiếp lâu xa đến nay, con nhờ đức Thế Tôn tiếp độ dắt dìu làm cho con được thần lực chẳng thể nghĩ bàn, đầy đủ trí huệ rộng lớn.\n\nCon phân hiện thân hình ra ở cùng khắp trăm nghìn muôn ức Hằng hà sa thế giới. Trong mỗi thế giới hóa hiện trăm nghìn muôn ức thân. Mỗi thân đó hóa độ trăm nghìn muôn ức người làm cho quy kính ngôi Tam Bảo, khỏi hẳn vòng sanh tử hưởng vui Niết Bàn.",
+      "line_start": 104,
+      "line_end": 105,
+      "approx_seconds": 72
+    },
+    {
+      "id": "kinh_dia_tang-0041",
+      "sort_order": 41,
+      "label": "Những chúng sanh nào ở nơi Phật",
+      "body": "Những chúng sanh nào ở nơi Phật\nPháp chỉ làm việc lành bằng một sợi lông, một giọt nước, một hột cát, một bụi nhỏ, hoặc chỉ bằng chừng mảy lông tóc, con đều độ thoát lần lần, làm cho chúng đó được lợi ích lớn.\n\nCúi mong đức Như Lai chớ vì những chúng sanh ác nghiệp trong đời sau mà sanh lòng lo lắng!... Cúi mong đức Như Lai chớ vì những chúng sanh ác nghiệp trong đời sau mà sanh lòng lo lắng!...”\nNgài Địa Tạng Bồ Tát bạch cùng đức Phật ba lần như thế.",
+      "line_start": 106,
+      "line_end": 107,
+      "approx_seconds": 65
+    },
+    {
+      "id": "kinh_dia_tang-0042",
+      "sort_order": 42,
+      "label": "Đoạn 42",
+      "body": "Lúc ấy, đức Phật khen ngài Địa Tạng\nBồ Tát rằng: “Hay thay! Hay thay! Ta hộ trợ cho ông được toại nguyện! Từ số kiếp lâu xa đến nay thường phát nguyện rộng lớn, cứu độ tất cả chúng sanh xong rồi, thời ông liền chứng quả Bồ Đề”. ❖\n\nPHẨM THỨ BA\n\nQUÁN CHÚNG SANH NGHIỆP DUYÊN\n\n1) PHẬT MẪU THƯA HỎI.",
+      "line_start": 108,
+      "line_end": 111,
+      "approx_seconds": 42
+    },
+    {
+      "id": "kinh_dia_tang-0043",
+      "sort_order": 43,
+      "label": "Đoạn 43",
+      "body": "Lúc đó, đức\nPhật Mẫu là bà Ma Da Phu Nhơn chắp tay cung kính mà hỏi ngài Địa Tạng Bồ tát:\n“Thánh Giả! Chúng sanh trong cõi Diêm\nPhù Đề tạo nghiệp sai khác, cảm thọ quả báo ra thế nào?”\nNgài Địa Tạng Bồ tát đáp rằng:\n“Trong nghìn muôn thế giới cho đến quốc độ, hoặc nơi thời có địa ngục, nơi thời không địa ngục, hoặc nơi thời có hàng nữ nhơn, nơi thời không có hàng nữ nhơn, hoặc nơi Phật pháp, nơi thời không Phật pháp, nhẫn đến bực Thanh Văn và Bích Chi Phật v.v... Cũng sai khác như thế, chớ chẳng phải riêng tội báo nơi địa ngục sai khác thôi đâu!”\nBà Ma Da Phu Nhơn lại bạch cùng Bồ tát rằng: “Tôi muốn nghe tội báo trong cõi Diêm Phù Đề chiêu cảm lấy ác đạo”.",
+      "line_start": 112,
+      "line_end": 112,
+      "approx_seconds": 95
+    },
+    {
+      "id": "kinh_dia_tang-0044",
+      "sort_order": 44,
+      "label": "Ngài Địa Tạng đáp rằng: “Thánh",
+      "body": "Ngài Địa Tạng đáp rằng: “Thánh\nMẫu! Trông mong Ngài lóng nghe nhận lấy, Tôi sẽ lược nói việc đó”.\n\nThánh Mẫu bạch rằng: “Xin Thánh\nGiả nói cho”.\n\n2) BỒ TÁT LƯỢC THUẬT.\n\nBây giờ, ngài Địa\nTạng Bồ tát thưa Thánh Mẫu rằng: “Danh hiệu của những tội báo trong cõi Nam Diêm Phù Đề như dưới đây:\nNhư có chúng sanh chẳng hiếu thảo với cha mẹ, cho đến giết hại cha mẹ, kẻ đó phải đọa vào Vô Gián địa ngục mãi đến nghìn muôn ức kiếp không lúc nào mong ra khỏi được.",
+      "line_start": 113,
+      "line_end": 116,
+      "approx_seconds": 65
+    },
+    {
+      "id": "kinh_dia_tang-0045",
+      "sort_order": 45,
+      "label": "Đoạn 45",
+      "body": "Như có chúng sanh nào có lòng ác, làm thân Phật bị thương chảy máu, khinh chê ngôi Tam Bảo, chẳng kính kinh điển, cũng phải đọa vào Vô Gián địa ngục, trong nghìn muôn ức kiếp không khi nào ra khỏi được.\n\nHoặc có chúng sanh xâm tổn của thường trụ, ô phạm Tăng, Ni, hoặc tứ tình làm sự dâm loạn trong chốn chùa chiền, hoặc giết, hoặc hại... Những chúng sanh đó phải đọa vào Vô Gián địa ngục, trong nghìn muôn ức kiếp không lúc nào mong ra khỏi được.",
+      "line_start": 117,
+      "line_end": 118,
+      "approx_seconds": 63
+    },
+    {
+      "id": "kinh_dia_tang-0046",
+      "sort_order": 46,
+      "label": "Như có chúng sanh giả làm thầy Sa",
+      "body": "Như có chúng sanh giả làm thầy Sa\nMôn kỳ thật tâm chẳng phải Sa Môn, lạm dụng của thường trụ, trái phạm giới luật, gạt gẫm hàng bạch y, tạo nhiều điều tội ác. Hạng người như thế phải đọa vào Vô Gián địa ngục, trong nghìn muôn ức kiếp không lúc nào mong ra khỏi được.\n\nHoặc có chúng sanh trộm cắp những tài vật lúa gạo, đồ ăn uống, y phục v.v...\n\ncủa thường trụ, cho đến không cho mà lấy một vật, kẻ đó phải đọa vào Vô Gián địa ngục trong nghìn muôn ức kiếp không lúc nào mong ra khỏi được”.",
+      "line_start": 119,
+      "line_end": 121,
+      "approx_seconds": 70
+    },
+    {
+      "id": "kinh_dia_tang-0047",
+      "sort_order": 47,
+      "label": "Ngài Địa Tạng Bồ Tát thưa rằng:",
+      "body": "Ngài Địa Tạng Bồ Tát thưa rằng:\n“Thánh Mẫu! Nếu có chúng sanh nào phạm những tội như trên đó thời phải đọa vào địa ngục ngũ Vô Gián, cầu tạm ngừng sự đau khổ chừng khoảng một niệm cũng không được”.\n\nBà Ma Da Phu Nhơn lại bạch cùng\nĐịa Tạng Bồ Tát: “Thế nào gọi là Vô Gián địa ngục?”.\n\nNgài Địa Tạng Bồ Tát thưa rằng:\n“Thánh Mẫu! Bao nhiêu địa ngục ở trong núi Thiết Vi, lớn có 18 chỗ, thứ kế đó 500 chỗ danh hiệu đều riêng khác nhau, thứ kế lại có nghìn trăm danh hiệu cũng đều riêng khác nhau.",
+      "line_start": 122,
+      "line_end": 124,
+      "approx_seconds": 70
+    },
+    {
+      "id": "kinh_dia_tang-0048",
+      "sort_order": 48,
+      "label": "Đoạn 48",
+      "body": "Nói về địa ngục Vô Gián đó, giáp vòng ngục thành hơn tám muôn dặm, thành đó thuần bằng sắt cao đến một muôn dặm. Lửa cháy trên thành không có chỗ nào hở trống. Trong ngục thành đó có các nhà ngục liên tiếp nhau đều có danh hiệu sai khác.\n\nRiêng có một sở ngục tên là Vô Gián.\n\nNgục nầy châu vi một muôn tám nghìn dặm, tường ngục cao một nghìn dặm, toàn bằng sắt cả. Lửa cháy hực hở suốt trên suốt dưới. Trên tường ngục rắn sắt, chó sắt, phun lửa đuổi nhau chạy bên nầy sang bên kia.",
+      "line_start": 125,
+      "line_end": 127,
+      "approx_seconds": 68
+    },
+    {
+      "id": "kinh_dia_tang-0049",
+      "sort_order": 49,
+      "label": "Đoạn 49",
+      "body": "Trong ngục có giường rộng khắp muôn dặm. Một người thọ tội thời tự thấy thân mình nằm đầy chật cả giường, đến nghìn muôn người thọ tội cũng đều tự thấy thân của mình nằm chật cả trên giường. Đó là do vì những tội nghiệp đã tạo ra nó cảm vời như thế.\n\nLại những người tội chịu đủ sự khổ sở: Trăm nghìn quỷ Dạ Xoa cùng với loài ác quỷ, răng nanh bén nhọn dường gươm, cặp mắt chói sáng như chớp nhoáng, móng tay cứng như đồng, móc ruột bằm chặt.",
+      "line_start": 128,
+      "line_end": 129,
+      "approx_seconds": 63
+    },
+    {
+      "id": "kinh_dia_tang-0050",
+      "sort_order": 50,
+      "label": "Đoạn 50",
+      "body": "Lại có quỷ Dạ Xoa khác cầm chỉa lớn bằng sắt đâm vào mình người tội, hoặc đâm trúng miệng mũi, hoặc đâm trúng bụng lưng... Rồi dồi lên trên không, lấy chỉa hứng lấy để lại trên giường. Lại có diều hâu bằng sắt mổ mắt người tội. Lại có rắn sắt cắn đầu người tội. Nơi lóng đốt khắp trong thân thể đều lấy đinh dài đóng xuống giường, kéo lưỡi ra rồi cày bừa trên đó, lôi kéo người tội, nước đồng đổ vào miệng, dây sắt nóng đỏ quấn lấy thân người tội, một ngày một đêm, muôn lần chết muôn lần sống lại. Do vì tội nghiệp mà cảm lấy như thế, trải qua ức kiếp, không lúc nào mong ra khỏi được.",
+      "line_start": 130,
+      "line_end": 130,
+      "approx_seconds": 83
+    },
+    {
+      "id": "kinh_dia_tang-0051",
+      "sort_order": 51,
+      "label": "Đoạn 51",
+      "body": "Lúc thế giới nầy hư hoại thời sanh nhờ qua địa ngục ở thế giới khác. Lúc thế giới khác đó hư hoại thời lại sanh vào cõi khác nữa. Lúc cõi khác đó hư hoại thời cũng xoay vần sanh vào cõi khác. Đến khi thế giới nầy thành xong thời sanh trở về thế giới nầy. Những sự tội báo trong ngục Vô Gián như thế đó.\n\nLại địa ngục đó do có năm điều nghiệp cảm, nên kêu là Vô Gián. Năm điều đó là những gì?\n\n1. Tội nhơn trong đó chịu khổ ngày lẫn đêm, cho đến trải qua số kiếp không lúc nào ngừng ngớt, nên gọi là Vô Gián.",
+      "line_start": 131,
+      "line_end": 133,
+      "approx_seconds": 72
+    },
+    {
+      "id": "kinh_dia_tang-0052",
+      "sort_order": 52,
+      "label": "Đoạn 52",
+      "body": "2. Một người tội thân đầy chật cả ngục, nhiều người tội mỗi mỗi thân cũng đều đầy chật cả ngục, nên gọi là Vô Gián.\n\n3. Những khí cụ để hành hình tội nhơn như chĩa ba, gậy, diều hâu, rắn, sói, chó, cối giã, cối xay, cưa, đục, dao mác, chảo dầu sôi, lưới sắt, dây sắt, lừa sắt, ngựa sắt, da sống niền đầu, nước sắt nóng rưới thân, đói thời ăn hoàn sắt nóng, khát thời uống nước sắt sôi. Từ năm trọn kiếp, đến vô số kiếp những sự khổ sở nối nhau luôn không một giây ngừng ngớt nên gọi là Vô Gián.",
+      "line_start": 134,
+      "line_end": 135,
+      "approx_seconds": 70
+    },
+    {
+      "id": "kinh_dia_tang-0053",
+      "sort_order": 53,
+      "label": "4. Không luận là trai hay gái, Mường,",
+      "body": "4. Không luận là trai hay gái, Mường,\nMán, Mọi rợ, già trẻ, sang hèn, hoặc là\nRồng, là Trời, hoặc là Thần, là Quỷ, hễ gây tội ác theo đó mà cảm lấy, tất cả đều đồng chịu khổ, nên gọi là Vô Gián.\n\n5. Nếu người nào bị đọa vào địa ngục đó, thời từ khi mới vào cho đến trăm nghìn kiếp mỗi một ngày đêm muôn lần chết, muôn lần sống lại, muốn cầu tạm ngừng chừng khoảng một niệm cũng không đặng, trừ khi tội nghiệp tiêu hết mới đặng thọ sanh. Do vì lẽ liên miên mãi nên gọi là Vô Gián.",
+      "line_start": 136,
+      "line_end": 137,
+      "approx_seconds": 68
+    },
+    {
+      "id": "kinh_dia_tang-0054",
+      "sort_order": 54,
+      "label": "Ngài Địa Tạng Bồ Tát thưa Thánh",
+      "body": "Ngài Địa Tạng Bồ Tát thưa Thánh\nMẫu rằng: “Nói sơ lược về địa ngục Vô\nGián như thế. Nếu nói rộng ra thời tên của những khí cụ để hành tội cùng những sự thống khổ trong địa ngục đó, dầu đến suốt một kiếp cũng không thể nào nói cho hết được”.\n\nBà Ma Da Phu Nhơn nghe ngài Địa\nTạng Bồ Tát nói xong, không xiết lo rầu.\n\nBà chắp tay đảnh lễ Bồ Tát mà lui ra.\n\nPHẨM THỨ TƯ\n\nNGHIỆP CẢM CỦA CHÚNG SANH\n\n1) BỒ TÁT VÂNG CHỈ.",
+      "line_start": 138,
+      "line_end": 143,
+      "approx_seconds": 59
+    },
+    {
+      "id": "kinh_dia_tang-0055",
+      "sort_order": 55,
+      "label": "Đoạn 55",
+      "body": "Lúc đó, ngài Địa\nTạng đại Bồ Tát bạch cùng đức Phật rằng:\n“Bạch Thế Tôn! Con nương sức oai thần của đức Như Lai, nên chia thân hình nầy ở khắp trăm nghìn muôn ức thế giới, để cứu vớt tất cả chúng sanh bị nghiệp báo.\n\nNếu không nhờ sức đại từ của đức\nNhư Lai, thời chẳng có thể biến hóa ra như thế được. Nay con lại được Như Lai phó chúc: Từ nay đến khi Ngài A Dật Đa thành Phật, làm cho chúng sanh trong sáu đường đều đặng độ thoát. Xin vâng!\n\nBạch đức Thế Tôn! Xin đức Thế Tôn chớ lo!”.",
+      "line_start": 144,
+      "line_end": 146,
+      "approx_seconds": 69
+    },
+    {
+      "id": "kinh_dia_tang-0056",
+      "sort_order": 56,
+      "label": "Đoạn 56",
+      "body": "Bấy giờ đức Phật bảo ngài Địa Tạng\nBồ Tát rằng: “Những chúng sanh mà chưa được giải thoát, tánh thức của nó không định, hễ quen làm dữ thời kết thành nghiệp báo dữ, còn quen làm lành thời kết thành quả báo lành.\n\nLàm lành cùng làm dữ tùy theo cảnh duyên mà sanh ra, lăn mãi trong năm đường không lúc nào tạm ngừng ngớt, mê lầm chướng nạn trải đến kiếp số nhiều như vi trần.",
+      "line_start": 147,
+      "line_end": 148,
+      "approx_seconds": 53
+    },
+    {
+      "id": "kinh_dia_tang-0057",
+      "sort_order": 57,
+      "label": "Đoạn 57",
+      "body": "Ví như loài cá bơi lội trong lưới theo dòng nước chảy, thoạt hoặc tạm được ra, rồi lại mắc vào lưới. Vì thế nên ta phải lo nghĩ đến những chúng sanh đó.\n\nĐời trước ông trót đã lập nguyện trải qua nhiều kiếp phát thệ rộng lớn độ hết cả hàng chúng sanh bị tội khổ, thời Ta còn lo gì!”\n2) ĐỊNH TỰ TẠI VƯƠNG BẠCH HỎI.",
+      "line_start": 149,
+      "line_end": 150,
+      "approx_seconds": 44
+    },
+    {
+      "id": "kinh_dia_tang-0058",
+      "sort_order": 58,
+      "label": "Khi đức",
+      "body": "Khi đức\nPhật dạy lời như thế xong, trong Pháp hội có vị Đại Bồ Tát hiệu là Định Tự Tại Vương ra bạch cùng đức Phật rằng:\n“Bạch Thế Tôn! Từ nhiều kiếp đến nay, ngài Địa Tạng Bồ Tát đã phát thệ\nnguyện gì, mà nay được đức Thế Tôn ân\ncần ngợi khen như thế? Cúi mong đức\nThế Tôn lược nói cho”.\n\nBấy giờ, đức Thế Tôn bảo Ngài Định\nTự Tại Vương Bồ tát: “Lóng nghe! Lóng nghe! Phải khéo suy xét đó, Ta sẽ vì ông mà giải bày rõ ràng.\n\n3) ÔNG VUA NƯỚC LÂN CẬN.",
+      "line_start": 151,
+      "line_end": 153,
+      "approx_seconds": 64
+    },
+    {
+      "id": "kinh_dia_tang-0059",
+      "sort_order": 59,
+      "label": "Đoạn 59",
+      "body": "Vô lượng vô số na do tha bất khả thuyết kiếp về thuở trước, lúc đó, có đức Phật ra đời hiệu là Nhứt Thiết Trí Thành Tựu Như Lai, Ứng Cúng, Chánh Biến Tri, Minh Hạnh Túc, Thiện Thệ, Thế Gian Giải, Vô Thượng Sĩ, Điều Ngự Trượng Phu, Thiên Nhơn Sư, Phật, Thế Tôn.\n\nĐức Phật đó thọ sáu muôn kiếp. Khi\nNgài chưa xuất gia, thời Ngài làm Vua một nước nhỏ kia, kết bạn cùng với Vua nước lân cận; hai Vua đồng thật hành mười hạnh lành làm lợi ích cho nhơn dân.",
+      "line_start": 154,
+      "line_end": 155,
+      "approx_seconds": 64
+    },
+    {
+      "id": "kinh_dia_tang-0060",
+      "sort_order": 60,
+      "label": "Đoạn 60",
+      "body": "Nhơn dân trong nước lân cận đó phần nhiều tạo những việc ác. Hai Vua cùng nhau bàn tính tìm những phương chước để dắt dìu dân chúng ấy.\n\nMột ông phát nguyện: “Tôi nguyện sớm thành Phật sẽ độ dân chúng ấy làm cho đều được giải thoát không còn thừa”.\n\nMột ông phát nguyện: “Như tôi chẳng trước độ những kẻ tội khổ làm cho đều đặng an vui chứng quả Bồ Đề, thời tôi\nnguyện chưa chịu thành Phật”.",
+      "line_start": 156,
+      "line_end": 158,
+      "approx_seconds": 55
+    },
+    {
+      "id": "kinh_dia_tang-0061",
+      "sort_order": 61,
+      "label": "Đức Phật bảo Ngài Định Tự Tại",
+      "body": "Đức Phật bảo Ngài Định Tự Tại\nVương Bồ tát rằng: “Ông Vua phát\nnguyện sớm thành Phật đó, chính là đức\nNhứt Thiết Trí Thành Tựu Như Lai.\n\nCòn ông vua phát nguyện độ chưa hết những chúng sanh tội khổ thời chưa\nnguyện thành Phật đó, chính là ngài Địa\nTạng Bồ tát đây vậy.\n\n4) QUANG MỤC CỨU MẸ.\n\nLại vô lượng vô số kiếp về thuở trước, có đức Phật ra đời, hiệu là Liên Hoa Mục Như Lai. Đức Phật đó thọ bốn mươi kiếp.",
+      "line_start": 159,
+      "line_end": 162,
+      "approx_seconds": 58
+    },
+    {
+      "id": "kinh_dia_tang-0062",
+      "sort_order": 62,
+      "label": "Trong thời mạt pháp, có một vị La",
+      "body": "Trong thời mạt pháp, có một vị La\nHán phước đức cứu độ chúng sanh. Nhơn vì đi tuần tự giáo hóa mọi người, La Hán gặp một người nữ tên là Quang Mục, nàng nầy sắm sửa đồ ăn cúng dường La Hán.\n\nLa Hán thọ cúng rồi hỏi: “Nàng muốn những gì?”\nQuang Mục thưa rằng: “Ngày thân mẫu tôi khuất, tôi làm việc phước thiện để nhờ đó mà cứu vớt thân mẫu tôi, chẳng rõ thân mẫu tôi thác sanh vào đường nào?”\nLa Hán nghe nói cảm thương bèn nhập định quan sát, thời thấy bà mẹ của Quang Mục đọa vào chốn địa ngục rất là khổ sở.",
+      "line_start": 163,
+      "line_end": 164,
+      "approx_seconds": 72
+    },
+    {
+      "id": "kinh_dia_tang-0063",
+      "sort_order": 63,
+      "label": "Đoạn 63",
+      "body": "La Hán hỏi Quang Mục rằng: “Thân mẫu người lúc sanh tiền đã làm những hạnh nghiệp gì, mà nay phải đọa vào chốn địa ngục rất khổ sở như thế?”\nQuang Mục thưa rằng: “Ngày còn sống, thân mẫu tôi chỉ ưa ăn thịt loài cá trạnh, phần nhiều là hay ăn cá con và trạnh con, hoặc chiên, hoặc nấu, tha hồ mà ăn cho thỏa mãn.",
+      "line_start": 165,
+      "line_end": 165,
+      "approx_seconds": 44
+    },
+    {
+      "id": "kinh_dia_tang-0064",
+      "sort_order": 64,
+      "label": "Đoạn 64",
+      "body": "Nếu tính đếm số cá trạnh của người đã ăn thời đến hơn nghìn muôn. Xin Tôn Giả thương xót chỉ dạy phải làm cách nào để cứu thân mẫu tôi?”\nLa Hán xót thương bèn dạy phương chước, ngài khuyên Quang Mục rằng:\n“Ngươi phải đem lòng chí thành mà niệm đức Thanh Tịnh Liên Hoa Mục Như Lai, và vẽ đắp hình tượng đức Phật, thời kẻ còn cùng người mất đều được phước lợi!”\nQuang Mục nghe xong, liền xuất tiền của, họa tượng Phật mà thờ cúng. Nàng lại đem lòng cung kính, khóc than chiêm ngưỡng đảnh lễ tượng Phật.",
+      "line_start": 166,
+      "line_end": 166,
+      "approx_seconds": 71
+    },
+    {
+      "id": "kinh_dia_tang-0065",
+      "sort_order": 65,
+      "label": "Đoạn 65",
+      "body": "Đêm đó, nàng chiêm bao thấy thân của đức Phật sắc vàng sáng chói như hòn núi Tu Di. Đức Phật phóng ánh sáng mà bảo Quang Mục rằng: “Chẳng bao lâu đây thân mẫu ngươi sẽ thác sanh vào trong nhà của ngươi, khi vừa biết đói lạnh thời liền biết nói”.",
+      "line_start": 167,
+      "line_end": 167,
+      "approx_seconds": 35
+    },
+    {
+      "id": "kinh_dia_tang-0066",
+      "sort_order": 66,
+      "label": "Đoạn 66",
+      "body": "Sau đó, đứa tớ gái trong nhà sanh một đứa con trai, chưa đầy ba ngày đã biết nói. Trẻ đó buồn khóc mà nói với Quang Mục rằng:\n“Nghiệp duyên trong vòng sanh tử phải tự lãnh lấy quả báo. Tôi là mẹ của người, lâu nay ở chốn tối tăm. Từ khi vĩnh biệt người, tôi phải đọa vào đại địa ngục.",
+      "line_start": 168,
+      "line_end": 168,
+      "approx_seconds": 40
+    },
+    {
+      "id": "kinh_dia_tang-0067",
+      "sort_order": 67,
+      "label": "Đoạn 67",
+      "body": "Nhờ phước lực của người, nên nay được thọ sanh làm kẻ hạ tiện, lại thêm số mạng ngắn ngủi, năm mười ba tuổi đây sẽ bị đọa vào địa ngục nữa. Người có phương thế gì làm cho tôi được thoát khỏi nỗi khổ sở?”\nNghe đứa trẻ nói, Quang Mục biết chắc là mẹ mình. Nàng nghẹn ngào khóc lóc mà nói với đứa trẻ rằng: “Đã là mẹ của tôi, thời phải tự biết tội của mình, đã gây tạo hạnh nghiệp chi mà bị đọa vào địa ngục như thế?”\nĐứa trẻ đáp rằng: “Do hai nghiệp:\ngiết hại sanh vật và chê bai mắng nhiếc, mà thọ báo khổ. Nếu không nhờ phước đức của người cứu nạn cho tôi, thời cứ theo tội nghiệp đó vẫn còn chưa được thoát khổ”.",
+      "line_start": 169,
+      "line_end": 169,
+      "approx_seconds": 87
+    },
+    {
+      "id": "kinh_dia_tang-0068",
+      "sort_order": 68,
+      "label": "Đoạn 68",
+      "body": "Quang Mục hỏi rằng: “Những việc tội báo trong địa ngục ra làm sao?”\nĐứa trẻ đáp rằng: “Những việc tội khổ nói ra càng bất nhẫn, dầu đến trăm nghìn năm cũng không thuật hết được.\n\nQuang Mục nghe xong, than khóc rơi lệ mà bạch cùng giữa hư không rằng:\n“Nguyện cho thân mẫu tôi khỏi hẳn địa ngục khi mãn mười ba tuổi không còn có trọng tội cùng không còn đọa vào ác đạo nữa.",
+      "line_start": 170,
+      "line_end": 171,
+      "approx_seconds": 53
+    },
+    {
+      "id": "kinh_dia_tang-0069",
+      "sort_order": 69,
+      "label": "Đoạn 69",
+      "body": "Xin chư Phật trong mười phương thương xót chứng minh cho tôi, vì mẹ mà tôi phát nguyện rộng lớn như vầy:\nNhư thân mẫu tôi khỏi hẳn chốn tam đồ và hạng hạ tiện cùng thân gái, cùng kiếp không còn thọ những quả báo xấu đó nữa, tôi đối trước tượng của đức Thanh Tịnh Liên Hoa Mục Như Lai mà phát lời\nnguyện rằng: Từ ngày nay nhẫn về sau\nđến trăm nghìn muôn ức kiếp trong những thế giới nào mà các hàng chúng sanh bị tội khổ nơi địa ngục cùng ba ác đạo, tôi nguyện cứu vớt chúng đó làm cho tất cả đều thoát khỏi chốn ác đạo: địa ngục, súc sanh, và ngạ quỷ v.v...",
+      "line_start": 172,
+      "line_end": 172,
+      "approx_seconds": 79
+    },
+    {
+      "id": "kinh_dia_tang-0070",
+      "sort_order": 70,
+      "label": "Đoạn 70",
+      "body": "Những kẻ mắc phải tội báo như thế thành Phật cả rồi, vậy sau tôi mới thành bực Chánh Giác.”\nQuang Mục phát nguyện đó xong, liền nghe tiếng của đức Phật Thanh Tịnh Liên Hoa Mục Như Lai dạy rằng: “Nầy Quang Mục! Nhà ngươi rất có lòng từ mẫn, vì mẹ mà phát ra lời thệ nguyện rộng lớn như thế, thật là hay lắm!\n\nTa quan sát thấy mẹ nhà ngươi lúc mãn mười ba tuổi, khi bỏ báo thân nầy sẽ thác sanh làm người Phạm Chí sống lâu trăm tuổi.\n\nSau đó vãng sanh về cõi nước Vô Ưu sống lâu đến số không thể tính kể.",
+      "line_start": 173,
+      "line_end": 175,
+      "approx_seconds": 71
+    },
+    {
+      "id": "kinh_dia_tang-0071",
+      "sort_order": 71,
+      "label": "Đoạn 71",
+      "body": "Sau rốt sẽ thành Phật độ nhiều hạng người, Trời, số đông như số cát sông Hằng”.\n\nĐức Phật bảo ngài Định Tự Tại\nVương Bồ Tát rằng: “Vị La Hán phước lành độ Quang Mục thuở đó, chính là Vô Tận Ý Bồ Tát. Thân mẫu của Quang Mục là ngài Giải Thoát Bồ Tát.\n\nCòn Quang Mục thời là ngài Địa\nTạng Bồ Tát đây vậy. Trong nhiều kiếp lâu xa về trước ngài có lòng từ mẫn, phát ra Hằng hà sa số lời thệ nguyện độ khắp chúng sanh như thế.",
+      "line_start": 176,
+      "line_end": 178,
+      "approx_seconds": 60
+    },
+    {
+      "id": "kinh_dia_tang-0072",
+      "sort_order": 72,
+      "label": "Đoạn 72",
+      "body": "Trong đời sau, như có chúng sanh không làm lành, mà làm ác, nhẫn đến kẻ chẳng tin luật nhơn quả, kẻ tà dâm, vọng ngữ, kẻ lưỡng thiệt, ác khẩu, kẻ hủy báng Đại Thừa. Những chúng sanh có tội nghiệp như thế chắc phải bị đọa vào ác đạo.\n\nNếu gặp được hàng thiện tri thức khuyên bảo quy y với ngài Địa Tạng Bồ Tát chừng trong khoảng khảy móng tay, những chúng sanh đó liền đặng thoát khỏi báo khổ nơi ba ác đạo.",
+      "line_start": 179,
+      "line_end": 180,
+      "approx_seconds": 58
+    },
+    {
+      "id": "kinh_dia_tang-0073",
+      "sort_order": 73,
+      "label": "Đoạn 73",
+      "body": "Nếu người nào có thể quy kính và chiêm ngưỡng đảnh lễ ngợi khen, cùng dưng cúng những y phục, đồ ăn vật uống, các thứ trân bảo... Thời người đó, trong trăm nghìn muôn ức kiếp sau, thường ở cõi trời hưởng thọ sự vui thắng diệu.\n\nHoặc lúc phước trời hết, sanh xuống chốn nhơn gian, vẫn còn thường làm vị Đế Vương trong trăm nghìn kiếp, lại nhớ được cội ngành nhơn quả trong các đời trước của mình.",
+      "line_start": 181,
+      "line_end": 182,
+      "approx_seconds": 56
+    },
+    {
+      "id": "kinh_dia_tang-0074",
+      "sort_order": 74,
+      "label": "Nầy Định Tự Tại Vương! Ngài Địa",
+      "body": "Nầy Định Tự Tại Vương! Ngài Địa\nTạng Bồ Tát có sức oai thần rất lớn không thể nghĩ bàn, nhiều sự lợi ích cho chúng sanh như thế. Các ông, những bực Bồ Tát, phải ghi nhớ kinh nầy hầu tuyên truyền lưu bố rộng ra”.\n\nNgài Định Tự Tại Vương bạch đức\nPhật rằng: “Bạch đức Thế Tôn! Xin Phật chớ lo! Nghìn muôn ức đại Bồ tát chúng con đều có thể nương oai thần của Phật mà tuyên lưu rộng kinh nầy nơi cõi Diêm Phù Đề để cho lợi ích chúng sanh”.",
+      "line_start": 183,
+      "line_end": 184,
+      "approx_seconds": 62
+    },
+    {
+      "id": "kinh_dia_tang-0075",
+      "sort_order": 75,
+      "label": "Đoạn 75",
+      "body": "Ngài Định Tự Tại Vương Bồ Tát bạch với đức Phật xong, bèn cung kính chắp tay lễ Phật mà lui ra.\n\n5) TỨ THIÊN VƯƠNG HỎI PHẬT.\n\nBấy giờ, bốn ông Thiên Vương đồng từ chỗ ngồi đứng dậy cung kính chắp tay mà bạch cùng đức Phật rằng: “Bạch đức Thế Tôn!\n\nNgài Địa Tạng Bồ Tát từ kiếp lâu xa nhẫn lại đã phát nguyện rộng lớn như thế, tại sao ngày nay mà vẫn độ chưa hết, ngài lại còn phải phát lời nguyện rộng lớn nữa?\n\nCúi mong đức Thế Tôn dạy cho chúng con rõ”.",
+      "line_start": 185,
+      "line_end": 189,
+      "approx_seconds": 65
+    },
+    {
+      "id": "kinh_dia_tang-0076",
+      "sort_order": 76,
+      "label": "Đoạn 76",
+      "body": "Đức Phật bảo bốn vị Thiên Vương rằng: “Hay thay! Hay thay! Nay vì muốn được sự lợi cho chúng sanh, Ta vì các ông cùng chúng thiên nhơn ở hiện tại và vị lai, mà nói những sự phương tiện của ngài Địa Tạng Bồ Tát ở trong đường sanh tử nơi Diêm Phù Đề ở Ta Bà thế giới nầy, vì lòng từ mẫn xót thương mà cứu vớt, độ thoát tất cả chúng sanh mắc phải tội khổ”.\n\nBốn ông Thiên Vương bạch rằng:\n“Vâng! Bạch đức Thế Tôn! Chúng con xin muốn được nghe”.\n\n6) PHƯƠNG TIỆN GIÁO HÓA.",
+      "line_start": 190,
+      "line_end": 192,
+      "approx_seconds": 66
+    },
+    {
+      "id": "kinh_dia_tang-0077",
+      "sort_order": 77,
+      "label": "Đoạn 77",
+      "body": "Đức Phật bảo bốn ông Thiên Vương rằng: “Từ kiếp lâu xa nhẫn đến ngày nay, ngài Địa Tạng Bồ Tát độ thoát chúng sanh vẫn còn chưa mãn nguyện, Ngài thương xót chúng sanh mắc tội khổ đời nầy, lại quan sát vô lượng kiếp về sau, tội khổ cứ lây dây mãi không dứt. Vì lẽ đó nên Ngài lại phát ra lời trọng nguyện.\n\nĐịa Tạng Bồ Tát ở trong cõi Diêm\nPhù Đề nơi thế giới Ta Bà, dùng trăm nghìn muôn ức phương chước để giáo hóa chúng sanh.",
+      "line_start": 193,
+      "line_end": 194,
+      "approx_seconds": 60
+    },
+    {
+      "id": "kinh_dia_tang-0078",
+      "sort_order": 78,
+      "label": "Nầy bốn ông Thiên Vương! Ngài Địa",
+      "body": "Nầy bốn ông Thiên Vương! Ngài Địa\nTạng Bồ Tát nếu gặp kẻ sát hại loài sanh vật, thời Ngài dạy rõ quả báo vì ương lụy đời trước mà phải bị chết yểu.\n\nNếu gặp kẻ trộm cắp, thời Ngài dạy rõ quả báo nghèo khốn khổ sở.\n\nNếu gặp kẻ tà dâm, thời Ngài dạy rõ quả báo làm chim se sẻ, bồ câu, uyên ương.\n\nNếu gặp kẻ nói lời thô ác, thời Ngài dạy rõ quả báo quyến thuộc kình chống nhau.\n\nNếu gặp kẻ hay khinh chê, thời Ngài dạy rõ quả báo không lưỡi, miệng lở.\n\nNếu gặp kẻ nóng giận, thời Ngài dạy rõ quả báo thân hình xấu xí tàn tật.",
+      "line_start": 195,
+      "line_end": 200,
+      "approx_seconds": 74
+    },
+    {
+      "id": "kinh_dia_tang-0079",
+      "sort_order": 79,
+      "label": "Đoạn 79",
+      "body": "Nếu gặp kẻ bỏn xẻn, thời Ngài dạy rõ quả báo cầu muốn không được toại nguyện.\n\nNếu gặp kẻ buông lung săn bắn, thời\nNgài dạy rõ quả báo kinh hãi điên cuồng mất mạng.\n\nNếu gặp kẻ trái nghịch cha mẹ, thời\nNgài dạy rõ quả báo Trời đất tru lục.\n\nNếu gặp kẻ đốt núi rừng cây cỏ, thời\nNgài dạy rõ quả báo cuồng mê đến chết.\n\nNếu gặp cha ghẻ, mẹ ghẻ ăn ở độc ác, thời Ngài dạy rõ quả báo thác sanh trở lại hiện đời bị roi vọt.\n\nNếu gặp kẻ dùng lưới bắt chim non, thời Ngài dạy rõ quả báo cốt nhục chia lìa.",
+      "line_start": 201,
+      "line_end": 206,
+      "approx_seconds": 71
+    },
+    {
+      "id": "kinh_dia_tang-0080",
+      "sort_order": 80,
+      "label": "Nếu gặp kẻ hủy báng Tam Bảo, thời",
+      "body": "Nếu gặp kẻ hủy báng Tam Bảo, thời\nNgài dạy rõ quả báo đui, điếc, câm, ngọng.\n\nNếu gặp kẻ khinh chê giáo pháp, thời Ngài dạy rõ quả báo ở mãi trong ác đạo.\n\nNếu gặp kẻ lạm phá của thường trụ, thời Ngài dạy rõ quả báo ức kiếp luân hồi nơi địa ngục.\n\nNếu gặp kẻ ô nhục người hạnh thanh tịnh và vu báng Tăng già, thời Ngài dạy rõ quả báo ở mãi trong loài súc sanh.\n\nNếu gặp kẻ dùng nước sôi hay lửa, chém chặt, giết hại sanh vật, thời Ngài dạy rõ quả báo phải luân hồi thường mạng lẫn nhau.",
+      "line_start": 207,
+      "line_end": 211,
+      "approx_seconds": 69
+    },
+    {
+      "id": "kinh_dia_tang-0081",
+      "sort_order": 81,
+      "label": "Nếu gặp kẻ phá giới phạm trai, thời",
+      "body": "Nếu gặp kẻ phá giới phạm trai, thời\nNgài dạy rõ quả báo cầm thú đói khát.\n\nNếu gặp kẻ phung phí phá tổn của cải một cách phi lý, thời Ngài dạy rõ quả báo tiêu dùng thiếu hụt.\n\nNếu gặp kẻ tao ta kiêu mạn cống cao, thời Ngài dạy rõ quả báo hèn hạ bị người sai khiến.\n\nNếu gặp kẻ đâm chọc gây gổ, thời\nNgài dạy rõ quả báo không lưỡi hay trăm lưỡi.\n\nNếu gặp kẻ tà kiến mê tín, thời Ngài dạy rõ quả báo thọ sanh vào chốn hẻo lánh.",
+      "line_start": 212,
+      "line_end": 216,
+      "approx_seconds": 60
+    },
+    {
+      "id": "kinh_dia_tang-0082",
+      "sort_order": 82,
+      "label": "Những chúng sanh trong cõi Diêm",
+      "body": "Những chúng sanh trong cõi Diêm\nPhù Đề, từ nơi thân, khẩu, ý tạo ác, kết quả trăm nghìn muôn sự báo ứng như thế, nay chỉ nói sơ lược đó thôi.\n\nNhững nghiệp cảm sai khác của chúng sanh trong chốn Diêm Phù Đề như thế, Địa Tạng Bồ Tát dùng trăm nghìn phương chước để giáo hóa đó.\n\nNhững chúng sanh ấy trước phải chịu lấy các quả báo như thế, sau lại đọa vào địa ngục trải qua nhiều kiếp không lúc nào thoát khỏi.",
+      "line_start": 217,
+      "line_end": 219,
+      "approx_seconds": 58
+    },
+    {
+      "id": "kinh_dia_tang-0083",
+      "sort_order": 83,
+      "label": "Đoạn 83",
+      "body": "Vì thế nên các ông là bực hộ vệ người cùng bảo trợ cõi nước, chớ để những nghiệp chướng đó nó làm mê hoặc chúng sanh.\n\nBốn ông Thiên Vương nghe xong, rơi lệ than thở chắp tay lễ Phật mà lui ra.\n\nKINH ĐỊA TẠNG BỒ TÁT BỔN\n\nNGUYỆN\n\nQUYỂN THƯỢNG\n\nHẾT\nBổn nguyện Địa Tạng\nĐao Lợi Thiên cung\nThần thông hiển hóa độ quần mông\nĐời ngũ trược khó thông\nChúng sanh cang cường\nHam vui khổ vô cùng.\n\nNam mô Thường Trụ Thập Phương Phật.\n\nNam mô Thường Trụ Thập Phương Phật.\n\nNam mô Thường Trụ Thập Phương Phật.\n\nNam mô Đại Nguyện Địa Tạng Bồ Tát.",
+      "line_start": 220,
+      "line_end": 229,
+      "approx_seconds": 76
+    },
+    {
+      "id": "kinh_dia_tang-0084",
+      "sort_order": 84,
+      "label": "Đoạn 84",
+      "body": "Nam mô Đại Nguyện Địa Tạng Bồ Tát.\n\nNam mô Đại Nguyện Địa Tạng Bồ Tát.\n\nKINH ĐỊA TẠNG BỒ TÁT BỔN NGUYỆN\n\nQUYỂN TRUNG\n\nPHẨM THỨ NĂM\n\nDANH HIỆU CỦA ĐỊA NGỤC\n\n1) PHỔ HIỀN HAN HỎI.",
+      "line_start": 230,
+      "line_end": 236,
+      "approx_seconds": 35
+    },
+    {
+      "id": "kinh_dia_tang-0085",
+      "sort_order": 85,
+      "label": "Đoạn 85",
+      "body": "Lúc đó, ngài Phổ\nHiền Bồ Tát thưa cùng ngài Địa Tạng Bồ\nTát rằng: “Thưa Nhơn Giả! Xin Ngài vì\nTrời, Rồng bát bộ và tất cả chúng sanh ở hiện tại cùng vị lai, mà nói danh hiệu của những địa ngục là chỗ thọ báo của hạng chúng sanh bị tội khổ ở trong cõi Ta Bà cùng Diêm Phù Đề nầy, và nói những sự về quả báo không lành. Làm cho chúng sanh trong thời mạt pháp sau nầy biết rõ những quả báo đó”.",
+      "line_start": 237,
+      "line_end": 237,
+      "approx_seconds": 55
+    },
+    {
+      "id": "kinh_dia_tang-0086",
+      "sort_order": 86,
+      "label": "Ngài Địa Tạng Bồ Tát đáp rằng:",
+      "body": "Ngài Địa Tạng Bồ Tát đáp rằng:\n“Thưa Nhơn Giả! Nay tôi nương oai thần của đức Phật cùng oai lực của Ngài mà nói danh hiệu của các địa ngục, cùng những sự về tội báo và ác báo.\n\n2) DANH HIỆU CỦA ĐỊA NGỤC.\n\nThưa Nhơn\nGiả! Phương Đông của Diêm Phù Đề có dãy núi tên là Thiết Vi. Dãy Núi đó tối thẩm không có ánh sáng của mặt trời, mặt trăng, trong đó có địa ngục lớn tên là Cực Vô Gián.",
+      "line_start": 238,
+      "line_end": 240,
+      "approx_seconds": 54
+    },
+    {
+      "id": "kinh_dia_tang-0087",
+      "sort_order": 87,
+      "label": "Lại có địa ngục tên là Đại A Tỳ,",
+      "body": "Lại có địa ngục tên là Đại A Tỳ,\nLại có địa ngục tên là Tứ Giác,\nLại có địa ngục tên là Phi Đao,\nLại có địa ngục tên là Hỏa Tiễn,\nLại có địa ngục tên là Giáp Sơn,\nLại có địa ngục tên là Thông Thương,\nLại có địa ngục tên là Thiết Xa,\nLại có địa ngục tên là Thiết Sàng,\nLại có địa ngục tên là Thiết Ngưu,\nLại có địa ngục tên là Thiết Y,\nLại có địa ngục tên là Thiên Nhẫn,\nLại có địa ngục tên là Thiết Lư,\nLại có địa ngục tên là Dương Đồng,\nLại có địa ngục tên là Bảo Trụ,\nLại có địa ngục tên là Lưu Hỏa,\nLại có địa ngục tên là Canh Thiệt,\nLại có địa ngục tên là Tỏa Thủ,\nLại có địa ngục tên là Thiêu Cước,\nLại có địa ngục tên là Đạm Nhãn,\nLại có địa ngục tên là Thiết Hoàn,\nLại có địa ngục tên là Tránh Luận,\nLại có địa ngục tên là Thiết Thù,\nLại có địa ngục tên là Đa Sân...",
+      "line_start": 241,
+      "line_end": 241,
+      "approx_seconds": 110
+    },
+    {
+      "id": "kinh_dia_tang-0088",
+      "sort_order": 88,
+      "label": "Ngài Địa Tạng Bồ Tát nói rằng:",
+      "body": "Ngài Địa Tạng Bồ Tát nói rằng:\n“Thưa Nhơn Giả! Trong dãy núi Thiết Vi có những địa ngục như thế số nhiều vô hạn.",
+      "line_start": 242,
+      "line_end": 242,
+      "approx_seconds": 35
+    },
+    {
+      "id": "kinh_dia_tang-0089",
+      "sort_order": 89,
+      "label": "Lại có địa ngục Kiếu Oán,",
+      "body": "Lại có địa ngục Kiếu Oán,\nĐịa ngục Bạt Thiệt,\nĐịa ngục Phẩn Niếu,\nĐịa ngục Đồng Tỏa,\nĐịa ngục Hỏa Tượng,\nĐịa ngục Hỏa Cẩu,\nĐịa ngục Hỏa Mã,\nĐịa ngục Hỏa Ngưu,\nĐịa ngục Hỏa Sơn,\nĐịa ngục Hỏa Thạch,\nĐịa ngục Hỏa Sàng,\nĐịa ngục Hỏa Lương,\nĐịa ngục Hỏa Ưng,\nĐịa ngục Cứ Nha,\nĐịa ngục Bác Bì,\nĐịa ngục Ẩm Huyết,\nĐịa ngục Thiêu Thủ,\nĐịa ngục Thiêu Cước,\nĐịa ngục Đảo Thích,\nĐịa ngục Hỏa Ốc,\nĐịa ngục Thiết Ốc,\nĐịa ngục Hỏa Lang...",
+      "line_start": 243,
+      "line_end": 243,
+      "approx_seconds": 60
+    },
+    {
+      "id": "kinh_dia_tang-0090",
+      "sort_order": 90,
+      "label": "Đoạn 90",
+      "body": "Những địa ngục như thế trong đó mỗi ngục lớn lại có những ngục nhỏ, hoặc một, hoặc hai, hoặc ba, hoặc bốn, nhẫn đến trăm nghìn, trong số đó, danh hiệu đều chẳng đồng nhau”.\n\nNgài Địa Tạng Bồ Tát nói với Ngài\nPhổ Hiền Bồ Tát rằng: “Thưa Nhơn Giả!\n\nĐó đều là do chúng sanh trong cõi Diêm\nPhù Đề làm những điều ác mà tùy nghiệp chiêu cảm ra những địa ngục như thế.\n\nNghiệp lực rất lớn, có thể sánh với núi Tu Di, có thể sâu dường biển cả, có thể ngăn đạo thánh.",
+      "line_start": 244,
+      "line_end": 247,
+      "approx_seconds": 65
+    },
+    {
+      "id": "kinh_dia_tang-0091",
+      "sort_order": 91,
+      "label": "Đoạn 91",
+      "body": "Vì thế chúng sanh chớ khinh điều quấy nhỏ mà cho là không tội, sau khi chết đều có quả báo dầu đến mảy mún đều phải chịu lấy.\n\nChí thân như cha với con, mỗi người cũng theo nghiệp của mình mà đi khác đường, dầu cho có gặp nhau cũng chẳng bằng lòng chịu khổ thay nhau.\n\nNay tôi nương oai lực của đức Phật mà nói sơ lược những sự tội báo nơi địa ngục. Trông mong Nhơn Giả tạm nghe lời đó”.",
+      "line_start": 248,
+      "line_end": 250,
+      "approx_seconds": 55
+    },
+    {
+      "id": "kinh_dia_tang-0092",
+      "sort_order": 92,
+      "label": "Đoạn 92",
+      "body": "Ngài Phổ Hiền Bồ Tát đáp rằng: “Dầu từ lâu tôi đã rõ tội báo nơi ba đường ác đạo rồi, nhưng tôi muốn Nhơn Giả nói ra để làm cho tất cả chúng sanh có tâm hạnh ác trong đời mạt pháp sau nầy, nghe được lời dạy của Nhơn Giả, mà biết quy hướng về Giáo Pháp của Phật”.\n\n3) TỘI BÁO TRONG ĐỊA NGỤC.\n\nNgài Địa\nTạng Bồ Tát nói rằng: “Thưa Nhơn Giả!\n\nNhững sự tội báo trong chốn địa ngục như vầy:\nHoặc có địa ngục kéo lưỡi người tội ra mà cho trâu cày trên đó.\n\nHoặc có địa ngục moi tim người tội để cho quỷ Dạ Xoa ăn.",
+      "line_start": 251,
+      "line_end": 255,
+      "approx_seconds": 72
+    },
+    {
+      "id": "kinh_dia_tang-0093",
+      "sort_order": 93,
+      "label": "Đoạn 93",
+      "body": "Hoặc có địa ngục vạc dầu sôi sùng sục nấu thân người tội.\n\nHoặc có địa ngục đốt cột đồng cháy đỏ rồi bắt người tội ôm lấy.\n\nHoặc có địa ngục từng bựng lửa lớn bay tấp vào người tội.\n\nHoặc có địa ngục toàn cả thuần là băng giá.\n\nHoặc có địa ngục đầy vô hạn đồ phẩn tiểu.\n\nHoặc có địa ngục lao gai chong sắt.\n\nHoặc có địa ngục đâm nhiều giáo lửa.\n\nHoặc có địa ngục chỉ đập vai lưng.\n\nHoặc có địa ngục chỉ đốt chân tay.\n\nHoặc có địa ngục cho rắn sắt quấn cắn.\n\nHoặc có địa ngục xua đuổi chó sắt.\n\nHoặc có địa ngục đóng ách lừa sắt.",
+      "line_start": 256,
+      "line_end": 267,
+      "approx_seconds": 75
+    },
+    {
+      "id": "kinh_dia_tang-0094",
+      "sort_order": 94,
+      "label": "Đoạn 94",
+      "body": "Nhơn Giả! Những quả báo như thế trong mỗi mỗi ngục có trăm nghìn thứ khí cụ để hành hình, đều là bằng đồng, bằng sắt, bằng đá, bằng lửa. Bốn loại khí cụ nầy do các hạnh nghiệp quấy ác của chúng sanh mà cảm vời ra.\n\nNếu tôi thuật rõ cả những sự về tội báo ở địa ngục, thời trong mỗi ngục lại có trăm nghìn thứ khổ sở, huống chi là nhiều ngục!\n\nNay tôi nương sức oai thần của đức\nPhật và vì Nhơn Giả hỏi mà nói sơ lược như thế. Nếu nói rõ cả thời cùng kiếp nói cũng không hết”.\n\nPHẨM THỨ SÁU\n\nNHƯ LAI TÁN THÁN",
+      "line_start": 268,
+      "line_end": 272,
+      "approx_seconds": 72
+    },
+    {
+      "id": "kinh_dia_tang-0095",
+      "sort_order": 95,
+      "label": "Đoạn 95",
+      "body": "1) PHẬT PHÓNG QUANG DẶN BẢO.\n\nLúc đó khắp thân của đức Thế Tôn phóng ra ánh sáng lớn soi khắp đến trăm nghìn muôn ức Hằng hà sa cõi nước của chư Phật; trong ánh sáng đó vang ra tiếng lớn bảo khắp các cõi nước của chư Phật rằng:\n“Tất cả hàng đại Bồ Tát và Trời,\nRồng, Quỷ, Thần v.v... lóng nghe hôm nay\nTa khen ngợi rao bày những sự của ngài\nĐịa Tạng Bồ Tát ở trong mười phương thế giới, hiện ra sức từ bi oai thần không thể nghĩ bàn, để cứu giúp tất cả tội khổ chúng sanh.",
+      "line_start": 273,
+      "line_end": 274,
+      "approx_seconds": 67
+    },
+    {
+      "id": "kinh_dia_tang-0096",
+      "sort_order": 96,
+      "label": "Sau khi ta diệt độ, thời hàng Bồ Tát",
+      "body": "Sau khi ta diệt độ, thời hàng Bồ Tát\nĐại Sĩ các ông cùng với Trời, Rồng, Quỷ,\nThần v.v... nên dùng nhiều phương chước để gìn giữ kinh nầy, làm cho tất cả mọi loài chúng sanh đều khỏi tất cả sự khổ, mà chứng cảnh vui Niết Bàn”.\n\n2) PHỔ QUẢNG THƯA THỈNH.\n\nNói lời ấy xong, trong Pháp hội có một vị Bồ Tát tên là Phổ Quảng cung kính chắp tay mà bạch cùng đức Phật rằng: “Nay con nghe đức Thế Tôn ngợi khen ngài Địa Tạng Bồ Tát có đức oai thần rộng lớn không thể nghĩ bàn như thế.",
+      "line_start": 275,
+      "line_end": 277,
+      "approx_seconds": 68
+    },
+    {
+      "id": "kinh_dia_tang-0097",
+      "sort_order": 97,
+      "label": "Đoạn 97",
+      "body": "Trông mong đức Như Lai lại vì những chúng sanh trong thời mạt pháp sau nầy, mà tuyên nói các sự nhơn quả của ngài Địa Tạng Bồ Tát làm lợi ích cho hàng Trời, người. Làm cho hàng Trời, Rồng, Bát bộ và chúng sanh trong đời sau kính vâng lời của đức Phật”.\n\nBấy giờ, đức Thế Tôn, bảo Ngài Phổ\nQuảng Bồ Tát cùng trong tứ chúng rằng:\n“Lóng nghe! Lóng nghe! Ta sẽ vì các ông nói lược về những sự phước đức của ngài Địa Tạng Bồ Tát làm lợi ích cho người cùng Trời”.",
+      "line_start": 278,
+      "line_end": 279,
+      "approx_seconds": 65
+    },
+    {
+      "id": "kinh_dia_tang-0098",
+      "sort_order": 98,
+      "label": "Ngài Phổ Quảng bạch Phật rằng:",
+      "body": "Ngài Phổ Quảng bạch Phật rằng:\n“Vâng! Bạch đức Thế Tôn! Chúng con xin ham muốn nghe”.\n\n3) PHẬT DẠY SỰ LỢI ÍCH.\n\nĐức Phật bảo\nNgài Phổ Quảng Bồ Tát: “Trong đời sau, như có người thiện nam, kẻ thiện nữ nào nghe được danh hiệu của Địa Tạng đại Bồ Tát, hoặc là chắp tay, hoặc là ngợi khen, hoặc là đảnh lễ, hoặc là luyến mộ, người đó sẽ qua khỏi tội khổ trong ba mươi kiếp.",
+      "line_start": 280,
+      "line_end": 282,
+      "approx_seconds": 52
+    },
+    {
+      "id": "kinh_dia_tang-0099",
+      "sort_order": 99,
+      "label": "Đoạn 99",
+      "body": "Nầy Phổ Quảng! Như có kẻ thiện nam hay người thiện nữ nào hoặc là họa vẽ hình tượng của ngài Địa Tạng Bồ Tát rồi chừng một lần chiêm ngưỡng, một lần đảnh lễ, người đó sẽ được sanh lên cõi Trời Đao Lợi một trăm lần, không còn phải bị sa đọa vào ác đạo nữa.\n\nVí dầu ngày kia phước Trời đã hết mà sanh xuống nhơn gian, cũng vẫn làm vị Quốc Vương, không hề mất sự lợi lớn.\n\n4) KHỎI NỮ THÂN.",
+      "line_start": 283,
+      "line_end": 285,
+      "approx_seconds": 55
+    },
+    {
+      "id": "kinh_dia_tang-0100",
+      "sort_order": 100,
+      "label": "Đoạn 100",
+      "body": "Như có người nữ nào nhàm chán thân gái, hết lòng cúng dường tượng vẽ của Địa Tạng Bồ Tát, và những tượng cất bằng đất, đá, keo, sơn, đồng, sắt, v.v... Ngày ngày thường đem hoa, hương, đồ ăn, đồ uống, y phục, gấm lụa, tràng phan, tiền bạc, vật báu v.v... cúng dường như thế mãi không thôi.\n\nNgười thiện nữ đó sau khi mãn một thân gái hiện tại, thời đến trăm nghìn muôn kiếp còn không sanh vào cõi nước có người nữ, huống nữa là thọ thân gái!",
+      "line_start": 286,
+      "line_end": 287,
+      "approx_seconds": 62
+    },
+    {
+      "id": "kinh_dia_tang-0101",
+      "sort_order": 101,
+      "label": "Đoạn 101",
+      "body": "Trừ khi vì lòng từ phát nguyện cần phải thọ thân gái để độ chúng sanh. Nương nơi phước cúng dường Địa Tạng Bồ Tát và sức công đức đó, trong trăm nghìn muôn kiếp chẳng còn thọ thân người nữ lại nữa.\n\n5) THÂN XINH ĐẸP.\n\nLại nữa, nầy Phổ\nQuảng Bồ Tát! Nếu có người nữ nào chán thân xấu xí và nhiều bịnh tật, đến nơi trước tượng của ngài Địa Tạng Bồ Tát chí tâm chiêm ngưỡng đảnh lễ chừng trong khoảng một bữa ăn, người nữ đó trong nghìn vạn kiếp thọ sanh được thân hình tướng mạo xinh đẹp không có bịnh tật.",
+      "line_start": 288,
+      "line_end": 290,
+      "approx_seconds": 72
+    },
+    {
+      "id": "kinh_dia_tang-0102",
+      "sort_order": 102,
+      "label": "Đoạn 102",
+      "body": "Người nữ xấu xí đó nếu không nhàm thân gái, thời trăm nghìn muôn ức đời thường làm con gái nhà Vua cho đến làm Vương Phi, dòng dõi nhà quan lớn cùng con gái các vị đại Trưởng Giả, tướng mạo đoan trang xinh đẹp.\n\nDo vì có lòng chí thành chiêm ngưỡng đảnh lễ hình tượng của ngài Địa Tạng Bồ Tát mà đặng phước như thế.\n\n6) QUỶ THẦN HỘ VỆ.",
+      "line_start": 291,
+      "line_end": 293,
+      "approx_seconds": 47
+    },
+    {
+      "id": "kinh_dia_tang-0103",
+      "sort_order": 103,
+      "label": "Lại nữa, nầy Phổ",
+      "body": "Lại nữa, nầy Phổ\nQuảng! Như có người thiện nam, người thiện nữ nào có thể đối trước tượng của Địa Tạng Bồ Tát mà trổi các thứ kỹ nhạc, ngâm ca khen ngợi, dùng hương hoa cúng dường, cho đến khuyến hóa được một người hay nhiều người.\n\nNhững hạng người đó ở trong đời hiện tại cùng thuở vị lai sau, thường được trăm nghìn vị Quỷ Thần ngày đêm theo hộ vệ còn không cho những việc hung dữ đến tai người đó, huống là để cho người đó phải chịu các tai vạ bất ngờ!\n\n7) KHINH CHÊ MẮC TỘI.",
+      "line_start": 294,
+      "line_end": 296,
+      "approx_seconds": 68
+    },
+    {
+      "id": "kinh_dia_tang-0104",
+      "sort_order": 104,
+      "label": "Lại nữa, nầy Phổ",
+      "body": "Lại nữa, nầy Phổ\nQuảng Bồ Tát! Trong đời sau, như có người ác và ác thần, ác quỷ nào thấy kẻ thiện nam, người thiện nữ quy y cung kính, cúng dường ngợi khen chiêm ngưỡng đảnh lễ hình tượng của ngài Địa Tạng Bồ Tát, mà vọng sanh khinh chê là không có công đức cùng không có sự lợi ích, hoặc nhăn răng ra cười, hoặc chê sau lưng hay chê trước mặt, hoặc khuyên bảo người khác cùng chê, hoặc khuyên bảo một người cùng chê hay nhiều người cùng chê, cho đến sanh lòng chê bai trong chừng một niệm.",
+      "line_start": 297,
+      "line_end": 297,
+      "approx_seconds": 70
+    },
+    {
+      "id": "kinh_dia_tang-0105",
+      "sort_order": 105,
+      "label": "Đoạn 105",
+      "body": "Thời những kẻ như thế đến sau khi một nghìn đức Phật trong Hiền kiếp nhập diệt cả, bị tội báo khinh chê nên còn ở trong địa ngục A Tỳ chịu tội khổ rất nặng.\n\nQua khỏi Hiền kiếp nầy mới được thọ thân ngạ quỷ, rồi mãi đến một nghìn kiếp sau mới thọ thân súc sanh; lại phải trải qua đến một nghìn kiếp nữa mới đặng sanh làm người.\n\nDầu được làm người nhưng ở vào hạng bần cùng hèn hạ tật nguyền thiếu sứt, hay bị những nghiệp ác ràng buộc vào thân, không bao lâu phải sa đọa vào ác đạo nữa.",
+      "line_start": 298,
+      "line_end": 300,
+      "approx_seconds": 69
+    },
+    {
+      "id": "kinh_dia_tang-0106",
+      "sort_order": 106,
+      "label": "Đoạn 106",
+      "body": "Nầy Phổ Quảng! Khinh chê người khác cúng dường mà còn mắc phải tội báo xấu khổ như thế, huống nữa là tự sanh ác kiến mà khinh chê phá diệt!\n\n8) TIÊU TỘI CHƯỚNG.\n\nLại nữa, nầy Phổ\nQuảng Bồ Tát! Trong đời sau, như có người nam, người nữ nào đau nằm liệt mãi trên giường gối, cầu sống hay muốn chết cũng đều không được. Hoặc đêm nằm chiêm bao thấy Quỷ dữ cho đến kẻ thân thích trong nhà, hoặc thấy đi trên đường nguy hiểm hoặc bị bóng đè, hoặc với Quỷ thần cùng đi.",
+      "line_start": 301,
+      "line_end": 303,
+      "approx_seconds": 66
+    },
+    {
+      "id": "kinh_dia_tang-0107",
+      "sort_order": 107,
+      "label": "Đoạn 107",
+      "body": "Trải qua nhiều tháng, nhiều năm, đến đỗi thành bịnh lao, bịnh bại... Trong giấc ngủ kêu réo thê thảm sầu khổ. Đây đều bị nơi nghiệp đạo luận đối chưa quyết định là khinh hay trọng, nên hoặc là khó chết, hoặc là khó lành.\n\nMắt phàm tục của kẻ nam, người nữ không thể biện rõ việc đó, chỉ phải nên đối trước tượng của chư Phật Bồ Tát, to tiếng mà đọc tụng kinh nầy một biến.",
+      "line_start": 304,
+      "line_end": 305,
+      "approx_seconds": 53
+    },
+    {
+      "id": "kinh_dia_tang-0108",
+      "sort_order": 108,
+      "label": "Đoạn 108",
+      "body": "Hoặc lấy những món vật riêng của người bịnh thường ưa tiếc, như y phục, đồ quý báu, nhà cửa ruộng vườn v.v... đối trước người bịnh cất tiếng lớn mà xướng lên rằng:\nChúng tôi tên đó họ đó, nay vì người bịnh nầy đối trước kinh tượng đem những của vật nầy hoặc cúng dường kinh tượng, hoặc tạo hình tượng của Phật Bồ Tát, hoặc xây dựng chùa tháp, hoặc sắm đèn dầu thắp cúng, hoặc cúng vào của thường trụ.",
+      "line_start": 306,
+      "line_end": 306,
+      "approx_seconds": 57
+    },
+    {
+      "id": "kinh_dia_tang-0109",
+      "sort_order": 109,
+      "label": "Đoạn 109",
+      "body": "Xướng lên như vậy ba lần để cho người bịnh được nghe biết. Giả sử như thần thức của người bịnh đã phân tán đến hơi thở đã dứt, thời hoặc một ngày, hai ngày, ba ngày, bốn ngày cho đến bảy ngày, cứ lớn tiếng xướng bạch như trên và lớn tiếng tụng kinh nầy.\n\nSau khi người bịnh đó mạng chung thời dầu cho từ trước có tội vạ nặng nhẫn đến năm tội Vô gián, cũng được thoát khỏi hẳn, thọ sanh vào đâu cũng thường nhớ biết việc đời trước.",
+      "line_start": 307,
+      "line_end": 308,
+      "approx_seconds": 61
+    },
+    {
+      "id": "kinh_dia_tang-0110",
+      "sort_order": 110,
+      "label": "Đoạn 110",
+      "body": "Huống nữa là người thiện nam, người thiện nữ nào tự mình biên chép kinh nầy, hoặc bảo người biên chép, hoặc tự mình đắp vẽ hình tượng của Bồ Tát, cho đến bảo người khác vẽ đắp, người đó khi thọ quả báo chắc đặng nhiều lợi lớn.",
+      "line_start": 309,
+      "line_end": 309,
+      "approx_seconds": 35
+    },
+    {
+      "id": "kinh_dia_tang-0111",
+      "sort_order": 111,
+      "label": "Đoạn 111",
+      "body": "Nầy Phổ Quảng Bồ Tát! Vì thế nên, nếu ông thấy có người nào đọc tụng kinh nầy, cho đến chỉ trong một niệm ngợi khen kinh nầy, hoặc là có lòng cung kính đối với kinh, thời ông cần phải dùng trăm nghìn phương chước khuyến hóa người đó, phát lòng siêng năng chớ đừng thối thất, thời có thể được trăm nghìn muôn ức công đức không thể nghĩ bàn ở hiện tại và vị lai.\n\n9) SIÊU ĐỘ VONG LINH.",
+      "line_start": 310,
+      "line_end": 311,
+      "approx_seconds": 54
+    },
+    {
+      "id": "kinh_dia_tang-0112",
+      "sort_order": 112,
+      "label": "Lại nữa, nầy Phổ",
+      "body": "Lại nữa, nầy Phổ\nQuảng Bồ Tát! Như những chúng sanh đời sau, hoặc trong giấc ngủ, hoặc trong chiêm bao thấy các hạng Quỷ, Thần nhẫn đến các hình lạ, rồi hoặc buồn bã, hoặc khóc lóc, hoặc rầu rĩ, hoặc than thở, hoặc hãi hùng, hoặc sợ sệt...",
+      "line_start": 312,
+      "line_end": 312,
+      "approx_seconds": 35
+    },
+    {
+      "id": "kinh_dia_tang-0113",
+      "sort_order": 113,
+      "label": "Đoạn 113",
+      "body": "Đó đều là vì hoặc cha mẹ, con em, hoặc chồng vợ, quyến thuộc trong một đời, mười đời, hay trăm đời nghìn đời về thuở quá khứ bị đọa lạc vào ác đạo chưa được ra khỏi, không biết trông mong vào phước lực nơi nào để cứu vớt nỗi khổ não, nên mới về mách bảo với người có tình cốt nhục trong đời trước cầu mong làm phương tiện gì để hầu được thoát khỏi ác đạo.",
+      "line_start": 313,
+      "line_end": 313,
+      "approx_seconds": 50
+    },
+    {
+      "id": "kinh_dia_tang-0114",
+      "sort_order": 114,
+      "label": "Đoạn 114",
+      "body": "Nầy Phổ Quảng! Ông nên dùng sức oai thần, khiến hàng quyến thuộc đó đối trước hình tượng của chư Phật, chư Bồ Tát chí tâm tự đọc kinh nầy, hoặc thỉnh người khác đọc đủ số ba biến hoặc đến bảy biến.\n\nNhư vậy kẻ quyến thuộc đương mắc trong ác đạo kia, khi tiếng tụng kinh đủ số mấy biến đó xong sẽ đặng giải thoát, cho đến trong khi mơ ngủ không còn thấy hiện về nữa.\n\n10) KHỎI NÔ LỆ.",
+      "line_start": 314,
+      "line_end": 316,
+      "approx_seconds": 54
+    },
+    {
+      "id": "kinh_dia_tang-0115",
+      "sort_order": 115,
+      "label": "Lại nữa nầy Phổ",
+      "body": "Lại nữa nầy Phổ\nQuảng! Như đời sau nầy có những hạng người hạ tiện, hoặc tớ trai, hoặc tớ gái nhẫn đến những kẻ không được quyền tự do, rõ biết là do tội nghiệp đời trước gây ra cần phải sám hối đó, thời nên chí tâm chiêm ngưỡng đảnh lễ hình tượng của ngài Địa Tạng Bồ Tát.\n\nRồi trong bảy ngày niệm danh hiệu của Địa Tạng Bồ Tát đủ một muôn biến.\n\nNhững người trên đó sau khi mãn báo thân hạ tiện ở hiện đời trong nghìn muôn đời về sau thường sanh vào bực tôn quý, trọn không bao giờ còn phải sa đọa vào ba đường ác khổ nữa.",
+      "line_start": 317,
+      "line_end": 319,
+      "approx_seconds": 74
+    },
+    {
+      "id": "kinh_dia_tang-0116",
+      "sort_order": 116,
+      "label": "Đoạn 116",
+      "body": "11) SANH CON DỄ NUÔI.\n\nLại vầy nữa, nầy\nPhổ Quảng Bồ Tát! Về trong thuở sau nầy, nơi cõi Diêm Phù Đề, trong hàng Sát Đế Lợi, Bà La Môn, Trưởng Giả, Cư Sĩ, tất cả các hạng người, và những dân tộc dòng họ khác, như có người nào mới sanh đẻ hoặc con trai hoặc con gái, nội trong bảy ngày, sớm vì đứa trẻ mới sanh ra đó mà tụng kinh điển không thể nghĩ bàn nầy, lại vì đứa trẻ mà niệm danh hiệu của ngài Địa Tạng Bồ Tát đủ một muôn biến.",
+      "line_start": 320,
+      "line_end": 321,
+      "approx_seconds": 61
+    },
+    {
+      "id": "kinh_dia_tang-0117",
+      "sort_order": 117,
+      "label": "Đoạn 117",
+      "body": "Được vậy thời đứa trẻ hoặc trai hay là gái mới sanh ra đó, nếu đời trước nó có gây lấy tội vạ chi cũng đặng thoát khỏi cả, nó sẽ an ổn vui vẻ dễ nuôi, lại thêm được sống lâu.\n\nCòn như nó là đứa nương nơi phước lực mà thọ sanh, thời đời nó càng được an vui hơn cùng sống lâu hơn.\n\n12) NGÀY THẬP TRAI TỤNG KINH ĐƯỢC\nPHƯỚC. Lại vầy nữa, nầy Phổ Quảng!",
+      "line_start": 322,
+      "line_end": 324,
+      "approx_seconds": 49
+    },
+    {
+      "id": "kinh_dia_tang-0118",
+      "sort_order": 118,
+      "label": "Đoạn 118",
+      "body": "Trong mỗi tháng những ngày: Mùng một, mùng tám, mười bốn, rằm, mười tám, hăm ba, hăm bốn, hăm tám, hăm chín và ba mươi, mười ngày trên đây là ngày mà các nghiệp tội kết nhóm lại để định là nặng hay nhẹ.\n\nTất cả những cử chỉ động niệm của chúng sanh trong cõi Nam Diêm Phù Đề không có điều gì chẳng phải là tội lỗi, huống nữa là những kẻ buông lung giết hại, trộm cắp, tà dâm, vọng ngữ trăm điều tội lỗi.",
+      "line_start": 325,
+      "line_end": 326,
+      "approx_seconds": 57
+    },
+    {
+      "id": "kinh_dia_tang-0119",
+      "sort_order": 119,
+      "label": "Đoạn 119",
+      "body": "Về đời sau, nếu có chúng sanh nào trong mười ngày trai kể trên đây, mà có thể đối trước hình tượng của chư Phật, Bồ Tát, Hiền, Thánh để đọc tụng kinh nầy một biến, thời chung quanh chỗ người đó ở bốn hướng Đông, Tây, Nam, Bắc, trong khoảng một trăm do tuần không có xảy ra những việc tai nạn.\n\nCòn chính nhà của người đó ở, tất cả mọi người hoặc già hoặc trẻ về hiện tại và vị lai đến trăm nghìn năm xa khỏi hẳn các ác đạo.",
+      "line_start": 327,
+      "line_end": 328,
+      "approx_seconds": 60
+    },
+    {
+      "id": "kinh_dia_tang-0120",
+      "sort_order": 120,
+      "label": "Đoạn 120",
+      "body": "Trong mười ngày trai trên đây nếu có thể mỗi ngày tụng một biến kinh nầy, thời trong đời hiện tại hay làm cho người trong nhà không phải mắc phải bịnh tật bất ngờ, đồ ăn mặc dư dật.\n\nNầy Phổ Quảng! Vì thế nên biết rằng ngài Địa Tạng Bồ Tát có bất khả thuyết trăm nghìn muôn ức những sự oai thần lực lớn nhiều lợi ích cho chúng sanh như thế.",
+      "line_start": 329,
+      "line_end": 330,
+      "approx_seconds": 48
+    },
+    {
+      "id": "kinh_dia_tang-0121",
+      "sort_order": 121,
+      "label": "Đoạn 121",
+      "body": "Chúng sanh trong cõi Diêm Phù Đề nầy có nhơn duyên lớn với ngài Địa Tạng Đại Sĩ. Những chúng sanh đó hoặc được nghe danh hiệu của Địa Tạng Bồ Tát, hoặc được thấy hình tượng của Địa Tạng Bồ Tát, cho đến nghe chừng ba chữ hay năm chữ trong kinh nầy, hoặc một bài kệ hay một câu, thời những người đó hưởng sự an vui lạ thường trong đời hiện tại, trăm nghìn muôn đời về vị lai thường được thác sanh vào nhà tôn quý, thân hình xinh đẹp.\n\n13) DANH HIỆU CỦA KINH.",
+      "line_start": 331,
+      "line_end": 332,
+      "approx_seconds": 65
+    },
+    {
+      "id": "kinh_dia_tang-0122",
+      "sort_order": 122,
+      "label": "Khi nghe đức",
+      "body": "Khi nghe đức\nPhật Như Lai tuyên bày ngợi khen ngài\nĐịa Tạng Đại Sĩ xong, ngài Phổ Quảng Bồ\nTát liền quỳ xuống chắp tay mà bạch cùng đức Phật rằng:\n“Bạch Thế Tôn! Từ lâu con đã rõ biết vị Đại Sĩ nầy có thần lực cùng đại nguyện lực không thể nghĩ bàn như thế rồi, song nay vì muốn những chúng sanh trong đời sau nầy rõ biết các sự lợi ích đó, nên con mới bạch hỏi cùng đức Như Lai.\n\nVâng! Con xin cung kính tin nhận lời\nPhật dạy.",
+      "line_start": 333,
+      "line_end": 334,
+      "approx_seconds": 61
+    },
+    {
+      "id": "kinh_dia_tang-0123",
+      "sort_order": 123,
+      "label": "Đoạn 123",
+      "body": "Bạch đức Thế Tôn! Kinh nầy đặt tên là gì và định cho con lưu bố thế nào?”\nĐức Phật bảo Ngài Phổ Quảng: “Kinh nầy có ba danh hiệu: Một là Địa Tạng Bổn\nNguyện Kinh, cũng gọi là Địa Tạng Bổn\nHạnh Kinh đây là tên thứ hai, cũng gọi là\nĐịa Tạng Bổn Thệ Lực Kinh đây là tên thứ ba.\n\nDo vì ngài Địa Tạng Bồ Tát từ thuở kiếp lâu xa đến nay phát nguyện rộng lớn làm lợi ích cho chúng sanh, cho nên các ông phải đúng theo tâm nguyện mà lưu hành truyền bá kinh nầy”.",
+      "line_start": 335,
+      "line_end": 336,
+      "approx_seconds": 64
+    },
+    {
+      "id": "kinh_dia_tang-0124",
+      "sort_order": 124,
+      "label": "Nghe đức Phật dạy xong, Ngài Phổ",
+      "body": "Nghe đức Phật dạy xong, Ngài Phổ\nQuảng Bồ Tát tin chịu, chắp tay cung kính lễ Phật lui ra.\n\nPHẨM THỨ BẢY\n\nLỢI ÍCH CẢ KẺ CÒN NGƯỜI MẤT\n\n1) KHUYÊN TU THÁNH ĐẠO.\n\nLúc đó ngài\nĐịa Tạng đại Bồ Tát bạch cùng đức Phật rằng: “Bạch đức Thế Tôn! Con xem xét chúng sanh trong cõi Diêm Phù sanh tâm động niệm không chi là chẳng phải tội.",
+      "line_start": 337,
+      "line_end": 341,
+      "approx_seconds": 46
+    },
+    {
+      "id": "kinh_dia_tang-0125",
+      "sort_order": 125,
+      "label": "Đoạn 125",
+      "body": "Nếu gặp những việc về pháp sự lợi lành phần nhiều thối thất tâm tốt ban đầu. Còn hoặc khi gặp duyên sự bạo ác chẳng lành lại lần lần thêm lớn. Những hạng người trên đó như kẻ mang đá nặng đi trong bùn lầy, càng nặng thêm lần, càng khốn đốn thêm lần, chân đạp lún lút sâu.\n\nNhững người đó hoặc gặp hàng thiện tri thức đội giùm đá bớt cho, hoặc là đội giùm hết cả, vì hàng thiện tri thức đó có sức rất khỏe mạnh, lại dìu đỡ người ấy khuyên gắng làm cho người ấy mạnh chân lên.",
+      "line_start": 342,
+      "line_end": 343,
+      "approx_seconds": 67
+    },
+    {
+      "id": "kinh_dia_tang-0126",
+      "sort_order": 126,
+      "label": "Đoạn 126",
+      "body": "Nếu khi ra khỏi bùn lầy đến chỗ đất bằng phẳng rồi, thời cần phải xét nghĩ đến con đường hiểm xấu ấy, đừng có đi vào đó nữa.\n\nBạch đức Thế Tôn! Những chúng sanh quen theo thói ác, bắt đầu từ mảy mún rồi lần đến nhiều vô lượng.\n\nĐến khi những chúng sanh quen theo thói chẳng lành ấy sắp sửa mạng chung, thời cha mẹ cùng thân quyến vì người đó mà tu tạo phước lành để giúp tiền đồ cho người đó.",
+      "line_start": 344,
+      "line_end": 346,
+      "approx_seconds": 56
+    },
+    {
+      "id": "kinh_dia_tang-0127",
+      "sort_order": 127,
+      "label": "Đoạn 127",
+      "body": "Hoặc treo phan lọng và thắp đèn dầu, hoặc chuyển đọc Tôn Kinh, hoặc cúng dường tượng Phật cùng hình tượng của các vị Thánh, cho đến niệm danh hiệu của Phật và Bồ Tát cùng Bích Chi Phật, làm cho một danh một hiệu thấu vào lỗ tai của người sắp mạng chung, hoặc là ở nơi bổn thức nghe biết.\n\nCứ theo nghiệp ác của người đó đã gây tạo, suy tính đến quả báo, thời đáng lẽ người đó phải bị đọa vào ác đạo, song nhờ thân quyến vì người đó mà tu nhơn duyên Thánh đạo, cho nên các điều tội ác của người đó thảy đều tiêu sạch.",
+      "line_start": 347,
+      "line_end": 348,
+      "approx_seconds": 73
+    },
+    {
+      "id": "kinh_dia_tang-0128",
+      "sort_order": 128,
+      "label": "Đoạn 128",
+      "body": "Như sau khi người đã chết, lại có thể trong bốn mươi chín ngày vì người ấy mà tu tạo nhiều phước lành, thời có thể làm cho người chết đó khỏi hẳn chốn ác đạo, được sanh lên cõi Trời hoặc trong loài người hưởng lấy nhiều sự rất vui sướng, mà kẻ thân quyến hiện tại đó cũng được vô lượng điều lợi ích.",
+      "line_start": 349,
+      "line_end": 349,
+      "approx_seconds": 42
+    },
+    {
+      "id": "kinh_dia_tang-0129",
+      "sort_order": 129,
+      "label": "Đoạn 129",
+      "body": "Vì lẽ trên đó nên nay con đối trước đức Phật Thế Tôn cùng với hàng Trời, Rồng, tám bộ chúng, người với phi nhơn v.v... mà có lời khuyên bảo những chúng sanh trong cõi Diêm Phù Đề, ngày lâm chung, kẻ thân thuộc phải cẩn thận chớ có giết hại và chớ gây tạo nghiệp duyên chẳng lành, cũng đừng tế lễ Quỷ, Thần, cầu cúng ma quái.\n\nVì sao thế? Vì việc giết hại cho đến tế lễ đó, không có một mảy mún chi lợi ích cho người chết cả, chỉ có kết thêm tội duyên của người đó làm cho càng thêm sâu nặng hơn thôi.",
+      "line_start": 350,
+      "line_end": 351,
+      "approx_seconds": 71
+    },
+    {
+      "id": "kinh_dia_tang-0130",
+      "sort_order": 130,
+      "label": "Đoạn 130",
+      "body": "Giả sử người chết đó hoặc là đời trước hay đời hiện tại vừa rồi, đã chứng đặng phần Thánh quả, sẽ sanh vào cõi Trời, cõi người, nhưng bị vì lúc lâm chung, hàng thân thuộc gây tạo những nghiệp nhơn không lành, cũng làm cho người chết đó mắc lấy ương lụy phải đối biện, chậm sanh vào chốn lành.\n\nHuống gì là người kia chết, lúc sanh tiền chưa từng làm được chút phước lành, đều theo ác nghiệp của họ đã gây tạo mà tự phải bị sa đọa vào ác đạo.\n\nHàng thân thuộc nỡ nào lại làm cho tội nghiệp của người ấy nặng thêm!",
+      "line_start": 352,
+      "line_end": 354,
+      "approx_seconds": 73
+    },
+    {
+      "id": "kinh_dia_tang-0131",
+      "sort_order": 131,
+      "label": "Đoạn 131",
+      "body": "Cũng ví như, có người từ xứ xa đến, tuyệt lương thực đã ba ngày, đồ vật của người đó mang vác nặng hơn trăm cân, bỗng gặp kẻ lân cận lại gởi một ít đồ vật nữa, vì vậy mà người xứ xa đó càng phải khốn khổ nặng nề thêm.\n\nBạch đức Thế Tôn! Con xem xét những chúng sanh trong cõi Diêm Phù Đề, ở nơi trong giáo pháp của Phật, nếu có thể làm việc phước lành cho đến chừng bằng sợi lông, giọt nước, bằng một hột cát, một mảy bụi nhỏ, thời tất cả chúng sanh đó đều tự mình được lợi ích cả.\n\n2) TRƯỞNG GIẢ BẠCH HỎI.",
+      "line_start": 355,
+      "line_end": 357,
+      "approx_seconds": 72
+    },
+    {
+      "id": "kinh_dia_tang-0132",
+      "sort_order": 132,
+      "label": "Khi ngài Địa",
+      "body": "Khi ngài Địa\nTạng nói lời như thế xong, trong pháp hội có một vị Trưởng Giả tên là Đại Biện.",
+      "line_start": 358,
+      "line_end": 358,
+      "approx_seconds": 35
+    },
+    {
+      "id": "kinh_dia_tang-0133",
+      "sort_order": 133,
+      "label": "Đoạn 133",
+      "body": "Ông Trưởng Giả nầy từ lâu đã chứng quả vô sanh hiện thân Trưởng Giả để hóa độ chúng sanh trong mười phương, ông chắp tay cung kính mà thưa hỏi ngài Địa Tạng Bồ Tát rằng:\n“Thưa Đại Sĩ! Trong cõi Nam Diêm\nPhù Đề có chúng sanh nào sau khi mạng chung, mà hàng quyến thuộc hoặc kẻ lớn người nhỏ, vì người chết đó mà tu các công đức, cho đến thiết trai cúng dường, làm những phước lành, thời người chết đó, có đặng lợi ích lớn cùng đặng giải thoát chăng?”\n3) KẺ CÒN, NGƯỜI MẤT ĐỀU ĐƯỢC LỢI.",
+      "line_start": 359,
+      "line_end": 359,
+      "approx_seconds": 69
+    },
+    {
+      "id": "kinh_dia_tang-0134",
+      "sort_order": 134,
+      "label": "Ngài Địa Tạng Bồ Tát đáp rằng: “Nầy ông",
+      "body": "Ngài Địa Tạng Bồ Tát đáp rằng: “Nầy ông\nTrưởng Giả! Nay tôi vì tất cả chúng sanh trong hiện tại nầy cùng thuở vị lai sau, nương nơi oai thần của đức Phật mà nói lược về việc đó.\n\nNầy ông Trưởng Giả! Những chúng sanh ở hiện tại hay vị lai, lúc sắp mạng chung mà nghe đặng danh hiệu của một đức Phật, danh hiệu của một vị Bồ Tát hay danh hiệu của một vị Bích Chi Phật, thời không luận là có tội cùng không tội đều được giải thoát cả.",
+      "line_start": 360,
+      "line_end": 361,
+      "approx_seconds": 61
+    },
+    {
+      "id": "kinh_dia_tang-0135",
+      "sort_order": 135,
+      "label": "Đoạn 135",
+      "body": "Như có người nam cùng người nữ nào lúc sanh tiền không tu tạo phước lành mà lại gây lấy những tội ác, sau khi người nầy mạng chung, hàng thân quyến kẻ lớn người nhỏ vì người chết mà tu tạo phước lợi làm tất cả việc về Thánh đạo, thời trong bảy phần công đức người chết nhờ đặng một phần, còn sáu phần công đức thuộc về người thân quyến hiện lo tu tạo đó.\n\nBởi vì cớ trên đây, nên những người thiện nam cùng thiện nữ ở hiện tại và vị lai, nghe lời nói vừa rồi đó nên cố gắng mà tu hành thời đặng hưởng trọn phần công đức.",
+      "line_start": 362,
+      "line_end": 363,
+      "approx_seconds": 74
+    },
+    {
+      "id": "kinh_dia_tang-0136",
+      "sort_order": 136,
+      "label": "Đoạn 136",
+      "body": "Con Quỷ dữ Vô thường kia không hẹn mà đến, thần hồn vơ vẩn mịt mờ chưa rõ là tội hay phước, trong bốn mươi chín ngày như ngây như điếc, hoặc ở tại các ty sở để biện luận về nghiệp quả, khi thẩm định xong thời cứ y theo nghiệp mà thọ lấy quả báo.\n\nTrong lúc mà chưa biết chắc ra làm sao đó thời đã nghìn muôn sầu khổ, huống là phải bị đọa vào các ác đạo.\n\nThần hồn người chết đó khi chưa được thọ sanh, ở trong bốn mươi chín ngày, luôn luôn trông ngóng hàng cốt nhục thân quyến tu tạo phước lành để cứu vớt cho.",
+      "line_start": 364,
+      "line_end": 366,
+      "approx_seconds": 72
+    },
+    {
+      "id": "kinh_dia_tang-0137",
+      "sort_order": 137,
+      "label": "Đoạn 137",
+      "body": "Qua khỏi bốn mươi chín ngày thời cứ theo nghiệp mà thọ lấy quả báo.\n\nNgười chết đó, nếu là kẻ có tội thời trải qua trong trăm nghìn năm không có ngày nào được thoát khỏi.\n\nCòn nếu là kẻ phạm năm tội vô gián thời phải đọa vào đại địa ngục chịu mãi những sự đau khổ trong nghìn kiếp muôn kiếp.\n\nLại vầy nữa, nầy ông Trưởng Giả! Sau khi những chúng sanh gây phạm tội nghiệp như thế mạng chung, hàng cốt nhục thân quyến có làm chay để giúp thêm phước lành cho người chết đó.",
+      "line_start": 367,
+      "line_end": 370,
+      "approx_seconds": 67
+    },
+    {
+      "id": "kinh_dia_tang-0138",
+      "sort_order": 138,
+      "label": "Đoạn 138",
+      "body": "Thời khi sắm sửa chưa rồi cùng trong lúc đương làm chớ có đem nước gạo, lá rau v.v... đổ vãi ra nơi đất, cho đến các thứ đồ ăn chưa dưng cúng cho Phật cùng Tăng thời chẳng được ăn trước.\n\nNếu như ăn trái phép và không được tinh sạch kỹ lưỡng, thời người chết đó trọn không được mảy phước nào cả.\n\nNếu có thể kỹ lưỡng giữ gìn tinh sạch đem dưng cúng cho Phật cùng Tăng, thời trong bảy phần công đức người chết hưởng được một phần.",
+      "line_start": 371,
+      "line_end": 373,
+      "approx_seconds": 61
+    },
+    {
+      "id": "kinh_dia_tang-0139",
+      "sort_order": 139,
+      "label": "Đoạn 139",
+      "body": "Nầy ông Trưởng Giả! Vì thế nên những chúng sanh trong cõi Diêm Phù, sau khi cha mẹ hay người thân quyến chết, nếu có thể làm chay cúng dường,\nchí tâm cầu khẩn thời những người như\nthế, kẻ còn lẫn người mất đều đặng lợi ích cả”.\n\nLúc ngài Địa Tạng nói lời nầy, tại cung trời Đao Lợi có số nghìn muôn ức na do tha Quỷ Thần cõi Diêm Phù Đề, đều phát tâm Bồ Đề vô lượng.\n\nÔng Trưởng Giả Đại Biện vui mừng vâng lời dạy, làm lễ mà lui ra.\n\nPHẨM THỨ TÁM\n\nCÁC VUA DIÊM LA KHEN NGỢI",
+      "line_start": 374,
+      "line_end": 378,
+      "approx_seconds": 67
+    },
+    {
+      "id": "kinh_dia_tang-0140",
+      "sort_order": 140,
+      "label": "1) DIÊM LA VƯƠNG CÙNG QUỶ VƯƠNG VÂN",
+      "body": "1) DIÊM LA VƯƠNG CÙNG QUỶ VƯƠNG VÂN\nTẬP. Lúc đó trong dãy núi Thiết Vi có vô lượng vị Quỷ Vương cùng với Vua Diêm La đồng lên cung Trời Đao Lợi đến chỗ của đức Phật.",
+      "line_start": 379,
+      "line_end": 379,
+      "approx_seconds": 35
+    },
+    {
+      "id": "kinh_dia_tang-0141",
+      "sort_order": 141,
+      "label": "Các vị Quỷ Vương đó tên là:",
+      "body": "Các vị Quỷ Vương đó tên là:\nÁc Độc Quỷ Vương,\nĐa Ác Quỷ Vương,\nĐại Tránh Quỷ Vương,\nBạch Hổ Quỷ Vương,\nHuyết Hổ Quỷ Vương,\nXích Hổ Quỷ Vương,\nTán Ương Quỷ Vương,\nPhi Thân Quỷ Vương,\nĐiển Quang Quỷ Vương,\nLang Nha Quỷ Vương,\nĐạm Thú Quỷ Vương,\nPhụ Thạch Quỷ Vương,\nChủ Hao Quỷ Vương,\nChủ Họa Quỷ Vương,\nChủ Phước Quỷ Vương,\nChủ Thực Quỷ Vương,\nChủ Tài Quỷ Vương,\nChủ Súc Quỷ Vương,\nChủ Cầm Quỷ Vương,\nChủ Thú Quỷ Vương,\nChủ Mị Quỷ Vương,\nChủ Sản Quỷ Vương,\nChủ Mạng Quỷ Vương,\nChủ Tật Quỷ Vương,\nChủ Hiểm Quỷ Vương,\nTam Mục Quỷ Vương,\nTứ Mục Quỷ Vương,\nNgũ Mục Quỷ Vương,\nKỳ Lợi Thất Vương,\nĐại Kỳ Lợi Thất Vương,\nKỳ Lợi Xoa Vương,\nĐại Kỳ Lợi Xoa Vương,\nA Na Tra Vương,\nĐại A Na Tra Vương.",
+      "line_start": 380,
+      "line_end": 380,
+      "approx_seconds": 98
+    },
+    {
+      "id": "kinh_dia_tang-0142",
+      "sort_order": 142,
+      "label": "Đoạn 142",
+      "body": "Những vị Đại Quỷ Vương như thế v.v... mỗi vị cùng với trăm nghìn Tiểu Quỷ Vương, cả thảy ở trong cõi Diêm Phù Đề, đều có chức trách, đều có phần chủ trị.\n\nCác vị Quỷ Vương đó cùng với Vua\nDiêm La nương sức oai thần của đức\nPhật, và oai lực của ngài Địa Tạng đại Bồ\nTát, đồng lên đến cung Trời Đao Lợi đứng qua một phía.\n\n2) VUA DIÊM LA BẠCH PHẬT.",
+      "line_start": 381,
+      "line_end": 383,
+      "approx_seconds": 49
+    },
+    {
+      "id": "kinh_dia_tang-0143",
+      "sort_order": 143,
+      "label": "Đoạn 143",
+      "body": "Bấy giờ Vua\nDiêm La quỳ gối chắp tay bạch cùng đức\nPhật rằng:\n“Bạch đức Thế Tôn! Nay chúng con cùng các vị Quỷ Vương nương sức oai thần của đức Phật và oai lực của ngài Địa Tạng Bồ Tát mới được lên đến đại hội nơi cung trời Đao Lợi nầy, mà cũng là vì chúng con đặng phước lành vậy.\n\nNay chúng con có chút việc nghi ngờ, dám bạch hỏi đức Thế Tôn, cúi xin đức Thế Tôn từ bi vì chúng con mà chỉ dạy cho”.\n\nĐức Phật bảo Vua Diêm La rằng:\n“Cho phép ông hỏi, Ta sẽ vì ông mà dạy rõ”.",
+      "line_start": 384,
+      "line_end": 386,
+      "approx_seconds": 68
+    },
+    {
+      "id": "kinh_dia_tang-0144",
+      "sort_order": 144,
+      "label": "Đoạn 144",
+      "body": "Bấy giờ, Vua Diêm La chiêm ngưỡng đảnh lễ đức Thế Tôn và ngó ngoái lại ngài Địa Tạng Bồ Tát, rồi bạch cùng đức Phật rằng:\n“Con xem xét ngài Địa Tạng Bồ Tát ở trong sáu đường dùng trăm nghìn phương chước để cứu độ những chúng sanh mắc phải tội khổ, ngài không từ mệt nhọc.\n\nNgài Địa Tạng Bồ Tát đây có những sự thần thông không thể nghĩ bàn được như thế, nhưng sao hàng chúng sanh vừa đặng thoát khỏi tội báo, không bao lâu lại phải bị đọa vào ác đạo nữa?",
+      "line_start": 387,
+      "line_end": 388,
+      "approx_seconds": 64
+    },
+    {
+      "id": "kinh_dia_tang-0145",
+      "sort_order": 145,
+      "label": "Bạch đức Thế Tôn! Ngài Địa Tạng Bồ",
+      "body": "Bạch đức Thế Tôn! Ngài Địa Tạng Bồ\nTát đã có thần lực chẳng thể nghĩ bàn như thế, nhưng tại vì cớ sao hàng chúng sanh chẳng chịu nương về đường lành để được giải thoát mãi mãi? Cúi xin đức Thế Tôn dạy rõ việc đó cho chúng con”.\n\n3) PHẬT GIẢNG SỞ NHƠN.\n\nĐức Phật bảo\nVua Diêm La rằng: “Chúng sanh trong cõi\nNam Diêm Phù Đề tánh tình cứng cỏi khó dạy khó sửa. Ngài Địa Tạng đại Bồ Tát đây trong trăm nghìn kiếp đã từng cứu vớt những chúng sanh đó làm cho sớm được giải thoát”.",
+      "line_start": 389,
+      "line_end": 391,
+      "approx_seconds": 67
+    },
+    {
+      "id": "kinh_dia_tang-0146",
+      "sort_order": 146,
+      "label": "Đoạn 146",
+      "body": "Những người bị tội báo cho đến bị đọa vào đường ác lớn, ngài Địa Tạng Bồ Tát dùng sức phương tiện nhổ sạch cội gốc nghiệp duyên, mà làm cho chúng sanh đó nhớ biết những công việc ở đời trước.\n\nTại vì chúng sanh trong cõi Diêm\nPhù Đề kết nghiệp dữ, phạm tội nặng, nên vừa ra khỏi ác đạo, rồi trở vào lại, làm nhọc cho ngài Địa Tạng Bồ Tát phải trải qua nhiều số kiếp lo lắng để cứu độ chúng nó.",
+      "line_start": 392,
+      "line_end": 393,
+      "approx_seconds": 56
+    },
+    {
+      "id": "kinh_dia_tang-0147",
+      "sort_order": 147,
+      "label": "Đoạn 147",
+      "body": "Ví như có người quên mất nhà mình, đi lạc vào con đường hiểm, trong con đường hiểm đó có rất nhiều thứ Quỷ Dạ Xoa, cùng hùm sói, sư tử, rắn độc, bò cạp.\n\nNgười quên đường đó ở trong đường hiểm chừng giây lát nữa sẽ bị hại.\n\nCó một vị tri thức hiểu nhiều pháp thuật lạ, có thể trừ sự độc hại đó, cho đến có thể trừ quỷ Dạ Xoa, các loài ác độc v.v...",
+      "line_start": 394,
+      "line_end": 396,
+      "approx_seconds": 49
+    },
+    {
+      "id": "kinh_dia_tang-0148",
+      "sort_order": 148,
+      "label": "Đoạn 148",
+      "body": "chợt gặp người quên lạc kia đương muốn đi thẳng vào con đường hiểm nạn, bèn vội bảo rằng:\n“Ô hay! Nầy ông kia! Có duyên sự gì mà vào con đường hiểm nạn nầy? Ông có pháp thuật lạ gì có thể ngăn trừ các sự độc hại chăng?”\nNgười lạc đường đó, bỗng nghe lời hỏi trên mới rõ là đường hiểm nạn, bèn liền lui trở lại muốn ra khỏi đường hiểm nạn đó.",
+      "line_start": 397,
+      "line_end": 397,
+      "approx_seconds": 48
+    },
+    {
+      "id": "kinh_dia_tang-0149",
+      "sort_order": 149,
+      "label": "Đoạn 149",
+      "body": "Vị Thiện tri thức ấy nắm tay dìu dắt, dẫn người lạc lối đó ra ngoài đường hiểm nạn, khỏi các sự độc hại đến nơi con đường tốt, làm cho được an ổn rồi bảo rằng:\n“Nầy người lạc đường! Từ nay về sau chớ có đi vào con đường hiểm nạn đó nữa, ai mà vào con đường hiểm đó ắt khó ra khỏi đặng, lại còn phải bị tổn tánh mạng”.",
+      "line_start": 398,
+      "line_end": 398,
+      "approx_seconds": 45
+    },
+    {
+      "id": "kinh_dia_tang-0150",
+      "sort_order": 150,
+      "label": "Đoạn 150",
+      "body": "Người lạc đường đó cũng sanh lòng cảm trọng. Lúc từ biệt nhau, vị tri thức lại dặn thêm:\n“Nếu ông có gặp kẻ quen người thân cùng những người đi đường hoặc trai hay gái, thời ông bảo cho họ biết con đường đó có rất nhiều sự độc hại vào đó ắt phải tổn tánh mạng, chớ để cho những người ấy tự vào chỗ chết!”.\n\nVì thế nên ngài Địa Tạng Bồ Tát đủ đức từ bi lớn, cứu vớt chúng sanh mắc tội khổ muốn cho chúng nó sanh lên cõi trời cõi người để hưởng lấy sự vui sướng tốt đẹp.",
+      "line_start": 399,
+      "line_end": 400,
+      "approx_seconds": 66
+    },
+    {
+      "id": "kinh_dia_tang-0151",
+      "sort_order": 151,
+      "label": "Đoạn 151",
+      "body": "Những chúng sanh tội khổ đó rõ biết sự khốn khổ trong con đường ác nghiệp rồi, khi đã được ra khỏi, chẳng còn trở vào nữa.\n\nNhư người quên đường kia lạc vào đường hiểm, gặp vị thiện tri thức dẫn dắt cho ra khỏi không bao giờ còn lạc vào nữa.\n\nGặp gỡ người khác lại bảo chớ vào đường ấy, tự nói rằng mình là quên đường nên đi lạc vào đó, nay đặng thoát khỏi rồi, trọn hẳn không còn trở vào đường đó nữa.",
+      "line_start": 401,
+      "line_end": 403,
+      "approx_seconds": 57
+    },
+    {
+      "id": "kinh_dia_tang-0152",
+      "sort_order": 152,
+      "label": "Đoạn 152",
+      "body": "Nếu còn đi vào đường ấy nữa, thời là còn mê lầm không biết đó là con đường hiểm nạn mà mình đã từng sa lạc rồi, hoặc đến nỗi phải mất mạng.\n\nNhư chúng sanh bị đọa vào chốn ác đạo, ngài Địa Tạng Bồ Tát dùng sức phương tiện cứu vớt cho được thoát khỏi, sanh vào cõi trời, rồi cũng vẫn trở vào ác đạo nữa.\n\nNếu chúng sanh đó kết nghiệp ác quá nặng, thời ở mãi chốn địa ngục không lúc nào được thoát khỏi.\n\n4) QUỶ VƯƠNG BÀY THIỆN NGUYỆN.",
+      "line_start": 404,
+      "line_end": 407,
+      "approx_seconds": 61
+    },
+    {
+      "id": "kinh_dia_tang-0153",
+      "sort_order": 153,
+      "label": "Đoạn 153",
+      "body": "Bấy giờ Ác Độc Quỷ Vương, chắp tay cung kính bạch cùng đức Phật rằng:\n“Bạch đức Thế Tôn! Chúng con là hàng Quỷ Vương số đông vô lượng, ở trong cõi Diêm Phù Đề, hoặc có vị làm lợi ích cho người, hoặc có vị làm tổn hại cho người, mỗi mỗi đều không đồng nhau.\n\nNhưng vì nghiệp báo khiến quyến thuộc chúng con đi qua thế giới, ác nhiều lành ít.",
+      "line_start": 408,
+      "line_end": 409,
+      "approx_seconds": 48
+    },
+    {
+      "id": "kinh_dia_tang-0154",
+      "sort_order": 154,
+      "label": "Đoạn 154",
+      "body": "Đi qua sân nhà người, hoặc thành ấp, xóm làng, trại vườn, buồng nhà, trong đó như có người trai kẻ gái nào tu được chút phước lành bằng mảy lông sợi tóc, cho đến treo một lá phan, một bảo cái, chút hương, chút hoa cúng dường tượng Phật cùng tượng Bồ Tát, hoặc đọc tụng Tôn kinh, đốt hương cúng dường một bài kệ một câu kinh v.v...\n\nHàng Quỷ Vương chúng con cung kính làm lễ người đó như kính lễ các đức Phật thuở quá khứ, đương hiện tại cùng lúc vị lai.",
+      "line_start": 410,
+      "line_end": 411,
+      "approx_seconds": 64
+    },
+    {
+      "id": "kinh_dia_tang-0155",
+      "sort_order": 155,
+      "label": "Đoạn 155",
+      "body": "Chúng con truyền các hàng Tiểu quỷ có oai lực lớn, và kẻ có phần chức trách về cuộc đất đai đó, đều phải hộ trợ giữ gìn, còn chẳng cho việc dữ cùng sự tai nạn bất kỳ, bịnh tật hiểm nghèo thình lình, cho đến những việc không vừa ý đến gần chỗ của các nhà đó, huống là để vào cửa!”\nĐức Phật khen Quỷ Vương rằng:\n“Hay thay! Tốt thay! Các ông cùng với Vua\nDiêm La có thể ủng hộ kẻ thiện nam người thiện nữ như thế! Ta cũng truyền cho các vị trời Phạm Vương, Đế Thích hộ vệ các ông”.\n\n5) CHỦ MẠNG TRÌNH THƯA.",
+      "line_start": 412,
+      "line_end": 413,
+      "approx_seconds": 71
+    },
+    {
+      "id": "kinh_dia_tang-0156",
+      "sort_order": 156,
+      "label": "Đoạn 156",
+      "body": "Khi đức Phật nói lời ấy xong, trong pháp hội có một vị Quỷ Vương tên là Chủ Mạng bạch cùng đức Phật rằng:\n“Bạch đức Thế Tôn! Bổn nghiệp duyên của con là cai quản về tuổi thọ của người trong cõi Diêm Phù Đề, khi sanh khi tử con đều coi biết đó, cứ theo nơi bổn nguyện của con thời có lợi ích rất lớn cho mọi người.\n\nNhưng tại vì chúng sanh không hiểu ý của con nên đến đổi khi sanh khi tử đều không được an ổn. Tại làm sao thế?\n\n6) KHI SANH NỞ NÊN LÀM LÀNH KIÊNG ÁC.",
+      "line_start": 414,
+      "line_end": 416,
+      "approx_seconds": 66
+    },
+    {
+      "id": "kinh_dia_tang-0157",
+      "sort_order": 157,
+      "label": "Đoạn 157",
+      "body": "Người trong cõi Diêm Phù Đề lúc mới sanh, không luận là con trai hay con gái, khi sắp sanh ra chỉ nên làm việc phước lành thêm sự lợi ích cho nhà cửa, thời Thổ Địa vui mừng khôn xiết, ủng hộ cả mẹ lẫn con đều đặng nhiều sự an vui, hàng thân quyến cũng được phước lợi.",
+      "line_start": 417,
+      "line_end": 417,
+      "approx_seconds": 38
+    },
+    {
+      "id": "kinh_dia_tang-0158",
+      "sort_order": 158,
+      "label": "Đoạn 158",
+      "body": "Hoặc khi đã hạ sanh rồi, nên cẩn thận chớ có giết hại sanh vật để lấy những vị tươi ngon cung cấp cho người sản mẫu ăn, cùng nhóm họp cả hàng quyến thuộc lại để uống rượu ăn thịt, ca xang đờn sáo, nếu làm những việc trên đó có thể làm cho người mẹ đứa con chẳng đặng an vui.\n\nVì sao thế? Vì lúc sanh sản nguy hiểm đó có vô số loài quỷ dữ cùng ma quái tinh mị muốn ăn huyết tanh.\n\nNhờ có con sớm đã sai các vị Thần\nLinh xá trạch thổ địa, bảo hộ mẹ con người ấy, làm cho được an vui mà đặng nhiều sự lợi ích.",
+      "line_start": 418,
+      "line_end": 420,
+      "approx_seconds": 72
+    },
+    {
+      "id": "kinh_dia_tang-0159",
+      "sort_order": 159,
+      "label": "Đoạn 159",
+      "body": "Người ấy thấy mình được an ổn, thời đáng lẽ nên làm phước lành để đền đáp công ơn Thổ Địa, mà trái lại giết hại loài sanh vật, hội họp thân quyến, vì lẽ nầy, đã phạm tội lỗi tất phải tự thọ lấy tai vạ, mẹ con đều tổn.\n\n7) LÚC CHẾT NÊN TU PHƯỚC.\n\nLại người trong cõi Diêm Phù Đề đến lúc mạng chung, không luận là người lành hay kẻ dữ, con cũng đều muốn cho họ không bị đọa lạc vào chốn ác đạo. Huống gì là người lúc sanh tiền biết tu tạo cội phước lành giúp thêm oai lực cho con.",
+      "line_start": 421,
+      "line_end": 423,
+      "approx_seconds": 68
+    },
+    {
+      "id": "kinh_dia_tang-0160",
+      "sort_order": 160,
+      "label": "Đoạn 160",
+      "body": "Trong cõi Diêm Phù Đề, những người làm lành đến lúc mạng chung cũng còn có trăm nghìn quỷ thần ác đạo hoặc biến ra hình cha mẹ, nhẫn đến hóa làm người thân quyến dắt dẫn thần hồn người chết làm cho đọa lạc vào chốn ác đạo, huống chi là những kẻ lúc sanh tiền đã sẵn tạo nghiệp ác.\n\nBạch đức Thế Tôn! Những kẻ nam tử nữ nhơn ở cõi Diêm Phù Đề, lúc lâm chung thời thần thức hôn mê không biện được lẽ lành điều dữ, cho đến mắt cùng tai không còn thấy nghe gì hết.",
+      "line_start": 424,
+      "line_end": 425,
+      "approx_seconds": 65
+    },
+    {
+      "id": "kinh_dia_tang-0161",
+      "sort_order": 161,
+      "label": "Đoạn 161",
+      "body": "Hàng thân quyến của người lâm chung đó, nên phải sắm sửa làm sự cúng dường lớn, tụng đọc Tôn kinh, niệm danh hiệu của Phật và Bồ Tát, tu tạo nhơn duyên phúc lành như thế, có thể cho người chết thoát khỏi chốn ác đạo, các thứ ma, quỷ, ác thần thảy đều phải lui tan cả hết.",
+      "line_start": 426,
+      "line_end": 426,
+      "approx_seconds": 38
+    },
+    {
+      "id": "kinh_dia_tang-0162",
+      "sort_order": 162,
+      "label": "Đoạn 162",
+      "body": "Bạch đức Thế Tôn! “Tất cả chúng sanh lúc lâm chung nếu đặng nghe danh hiệu của một đức Phật, danh hiệu của một Bồ Tát, hoặc nghe một câu một bài kệ kinh điển Đại Thừa, con xem xét thấy hạng người ấy, trừ năm tội Vô gián cùng tội sát hại, những nghiệp ác nho nhỏ đáng lẽ phải sa vào chốn ác đạo, liền đặng thoát khỏi cả”.\n\n8) ĐỨC PHẬT CĂN DẶN.\n\nĐức Phật bảo\nChủ Mạng Quỷ Vương rằng: “Ông vì có lòng đại từ nên có thể phát ra lời nguyện lớn ở trong sanh tử cứu hộ chúng sanh như thế.",
+      "line_start": 427,
+      "line_end": 429,
+      "approx_seconds": 68
+    },
+    {
+      "id": "kinh_dia_tang-0163",
+      "sort_order": 163,
+      "label": "Đoạn 163",
+      "body": "Như về trong đời sau nầy, có kẻ nam người nữ nào đến lúc mạng chung, ông chớ quên lãng lời nguyện trên đó, đều nên làm cho giải thoát mãi mãi được an vui”.\n\nChủ Mạng Quỷ Vương bạch cùng đức\nPhật rằng: “Xin đức Thế Tôn chớ lo! Trọn đời của con luôn luôn ủng hộ chúng sanh ở cõi Diêm Phù Đề lúc sanh lúc tử đều làm cho được an vui cả.\n\nChỉ trông mong các chúng sanh trong lúc sanh cùng lúc tử, tin theo lời của con đã nói trên thời đều giải thoát đặng lợi ích lớn”.\n\n9) ĐỨC PHẬT THỌ KÝ CHO CHỦ MẠNG.",
+      "line_start": 430,
+      "line_end": 433,
+      "approx_seconds": 71
+    },
+    {
+      "id": "kinh_dia_tang-0164",
+      "sort_order": 164,
+      "label": "Đoạn 164",
+      "body": "Bấy giờ đức Phật bảo ngài Địa Tạng Bồ Tát rằng: “Vị đại Quỷ Vương cai quản về tuổi thọ của mọi người đây đã từng trải qua trăm nghìn đời làm vị Quỷ Vương, ủng hộ chúng sanh trong lúc sanh cùng khi tử.\n\nĐó là bực Bồ Tát Đại Sĩ vì lòng từ bi phát nguyện hiện thân đại Quỷ, chớ thiệt thời không phải Quỷ.\n\nQuá một trăm bảy mươi kiếp sau, ông đó sẽ được thành Phật hiệu là Vô Tướng Như Lai, kiếp đó tên là An Lạc. Cõi nước tên là Tịnh Trụ, thọ mạng của đức Phật đó đến số kiếp không thể tính đếm được.",
+      "line_start": 434,
+      "line_end": 436,
+      "approx_seconds": 71
+    },
+    {
+      "id": "kinh_dia_tang-0165",
+      "sort_order": 165,
+      "label": "Đoạn 165",
+      "body": "Nầy Địa Tạng Bồ Tát! Những sự của vị đại Quỷ Vương đó không thể nghĩ bàn như thế, hàng Trời cùng người được vị ấy độ thoát cũng đến số không thể hạn lượng”. ❖\n\nPHẨM THỨ CHÍN\n\nXƯNG DANH HIỆU CHƯ PHẬT\n\nLúc đó ngài Địa Tạng Bồ Tát bạch cùng đức Phật rằng: “Bạch đức Thế Tôn!\n\nNay con vì chúng sanh trong đời sau mà phô bày sự lợi ích, làm cho trong vòng sanh tử đặng nhiều lợi ích lớn. Cúi xin đức Thế Tôn cho phép con nói đó”.",
+      "line_start": 437,
+      "line_end": 441,
+      "approx_seconds": 60
+    },
+    {
+      "id": "kinh_dia_tang-0166",
+      "sort_order": 166,
+      "label": "Đoạn 166",
+      "body": "Đức Phật bảo ngài Địa Tạng Bồ Tát rằng: “Nay ông muốn khởi lòng từ bi cứu vớt tất cả chúng sanh mắc phải tội khổ trong sáu đường, mà diễn nói sự chẳng thể nghĩ bàn, bây giờ chính đã phải lúc, vậy ông nên nói ngay đi.\n\nGiả sử ông có thể sớm làm xong\nnguyện đó, Ta dầu có vào Niết Bàn, cũng\nkhông còn phải lo ngại gì đến tất cả chúng sanh ở hiện tại và vị lai nữa”.\n\nNgài Địa Tạng bạch cùng đức Phật rằng: “Bạch đức Thế Tôn! Vô lượng vô số kiếp về thuở quá khứ, có đức Phật ra đời hiệu là Vô Biên Thân Như Lai.",
+      "line_start": 442,
+      "line_end": 444,
+      "approx_seconds": 72
+    },
+    {
+      "id": "kinh_dia_tang-0167",
+      "sort_order": 167,
+      "label": "Đoạn 167",
+      "body": "Như có người nam người nữ nào nghe danh hiệu của đức Phật đây mà tạm thời sanh lòng cung kính, liền đặng siêu việt tội nặng sanh tử trong bốn mươi kiếp, huống là vẽ đắp hình tượng cúng dường tán thán! Người nầy được vô lượng vô biên phước lợi.\n\nLại hằng hà sa kiếp về thuở quá khứ, có đức Phật ra đời hiệu là Bảo Thắng Như Lai.\n\nNhư có người nam người nữ nào được nghe danh hiệu của đức Phật đây, phát tâm quy y với Phật trong khoảng khảy móng tay, người nầy trọn hẳn không còn thối chuyển nơi đạo vô thượng chánh giác.",
+      "line_start": 445,
+      "line_end": 447,
+      "approx_seconds": 74
+    },
+    {
+      "id": "kinh_dia_tang-0168",
+      "sort_order": 168,
+      "label": "Đoạn 168",
+      "body": "Lại về thuở quá khứ, có đức Phật ra đời hiệu là Ba Đầu Ma Thắng Như Lai.\n\nNhư có người nam người nữ nào, nghe đến danh hiệu của đức Phật đây thoát qua lỗ tai, người nầy sẽ được một nghìn lần sanh lên sáu từng trời cõi Dục, huống nữa là chí tâm xưng niệm!\n\nLại bất khả thuyết, bất khả thuyết vô số kiếp về thuở quá khứ, có đức Phật ra đời hiệu là Sư Tử Hống Như Lai.",
+      "line_start": 448,
+      "line_end": 450,
+      "approx_seconds": 52
+    },
+    {
+      "id": "kinh_dia_tang-0169",
+      "sort_order": 169,
+      "label": "Đoạn 169",
+      "body": "Như có người nam người nữ nào nghe đến danh hiệu của đức Phật đây, mà phát tâm quy y chừng trong một niệm, người nầy sẽ đặng gặp vô lượng các đức Phật xoa đảnh thọ ký cho.\n\nLại về thuở quá khứ, có đức Phật ra đời hiệu là Câu Lưu Tôn Như Lai.\n\nNhư có người nam người nữ nào nghe đến danh hiệu của đức Phật đây, chí tâm chiêm ngưỡng lễ bái, hoặc lại tán thán, người nầy nơi pháp hội của một nghìn đức Phật trong Hiền kiếp làm vị đại Phạm Vương, đặng Phật thọ ký đạo vô thượng cho.",
+      "line_start": 451,
+      "line_end": 453,
+      "approx_seconds": 68
+    },
+    {
+      "id": "kinh_dia_tang-0170",
+      "sort_order": 170,
+      "label": "Đoạn 170",
+      "body": "Lại về thuở quá khứ có đức Phật ra đời hiệu là Tỳ Bà Thi Như Lai.\n\nNhư có người nam người nữ nào được nghe danh hiệu của đức Phật đây, thời mãi không còn sa đọa vào chốn ác đạo, thường được sanh vào chốn trời người, hưởng lấy sự vui thù thắng vi diệu.\n\nLại vô lượng vô số Hằng hà sa kiếp về thuở quá khứ có đức Phật ra đời hiệu là Đa Bảo Như Lai.\n\nNhư có người nam người nữ nào nghe đến danh hiệu của đức Phật đây, liền khỏi đọa vào ác đạo, thường ở tại cung trời hưởng sự vui thù thắng vi diệu.",
+      "line_start": 454,
+      "line_end": 457,
+      "approx_seconds": 70
+    },
+    {
+      "id": "kinh_dia_tang-0171",
+      "sort_order": 171,
+      "label": "Đoạn 171",
+      "body": "Lại về thuở quá khứ có đức Phật ra đời hiệu là Bảo Tướng Như Lai.\n\nNhư có người nam người nữ nào nghe đến danh hiệu của đức Phật đây, sanh lòng cung kính, không bao lâu người ấy sẽ đặng quả A La Hán.\n\nLại vô lượng vô số kiếp về thuở quá khứ có đức Phật ra đời hiệu là Ca Sa Tràng Như Lai.\n\nNhư có người nam người nữ nào nghe đến danh hiệu của đức Phật đây, thời người nầy sẽ siêu thoát tội sanh tử trong một trăm đại kiếp.\n\nLại về thuở quá khứ có đức Phật ra đời hiệu là Đại Thông Sơn Vương Như Lai.",
+      "line_start": 458,
+      "line_end": 462,
+      "approx_seconds": 71
+    },
+    {
+      "id": "kinh_dia_tang-0172",
+      "sort_order": 172,
+      "label": "Đoạn 172",
+      "body": "Như có người nam người nữ nào nghe đến danh hiệu của đức Phật đây, thời người nầy đặng gặp Hằng hà chư Phật nói nhiều pháp mầu cho, đều đặng thành đạo Bồ Đề.\n\nLại về thuở quá khứ, có đức Tịnh\nNguyệt Phật,\nĐức Sơn Vương Phật,\nĐức Trí Thắng Phật,\nĐức Tịnh Danh Vương Phật,\nĐức Trí Thành Tựu Phật,\nĐức Vô Thượng Phật,\nĐức Diệu Thinh Phật,\nĐức Mãn Nguyệt Phật,\nĐức Nguyệt Diện Phật.\n\nCó bất khả thuyết đức Phật Thế Tôn như thế.",
+      "line_start": 463,
+      "line_end": 465,
+      "approx_seconds": 60
+    },
+    {
+      "id": "kinh_dia_tang-0173",
+      "sort_order": 173,
+      "label": "Đoạn 173",
+      "body": "Tất cả chúng sanh trong thời hiện tại cùng thuở vị lai: Hoặc là Trời, hoặc là người, hoặc người nam, hoặc người nữ chỉ niệm được danh hiệu của một đức Phật thôi, sẽ được vô lượng công đức, huống nữa là niệm được nhiều danh hiệu.\n\nNhững chúng sanh đó lúc sanh lúc tử đặng nhiều phước lợi, không còn phải đọa vào ác đạo nữa.",
+      "line_start": 466,
+      "line_end": 467,
+      "approx_seconds": 46
+    },
+    {
+      "id": "kinh_dia_tang-0174",
+      "sort_order": 174,
+      "label": "Đoạn 174",
+      "body": "Như có người nào sắp mạng chung, hàng thân quyến trong nhà nhẫn đến một người vì người bịnh sắp chết đó mà niệm lớn tiếng danh hiệu của một đức Phật, thời người chết đó, trừ năm tội lớn vô gián, các nghiệp báo khác đều tiêu sạch cả.\n\nNăm tội lớn vô gián kia dầu rất nặng nề đáng lẽ trải qua ức kiếp hẳn không ra khỏi đặng quả khổ, nhưng bởi lúc lâm chung, nhờ người khác vì đó mà xưng niệm danh hiệu của Phật cho nên những tội nặng đó cũng lần lần tiêu sạch.",
+      "line_start": 468,
+      "line_end": 469,
+      "approx_seconds": 65
+    },
+    {
+      "id": "kinh_dia_tang-0175",
+      "sort_order": 175,
+      "label": "Đoạn 175",
+      "body": "Huống là chúng sanh tự mình xưng danh hiệu của chư Phật, người nầy đặng vô lượng phước lành, trừ diệt vô lượng khổ.\n\nKINH ĐỊA TẠNG BỒ TÁT BỔN\n\nNGUYỆN\n\nQUYỂN TRUNG\n\nHẾT\nBổn hạnh Địa Tạng\nThệ nguyện rộng sâu\nGậy vàng châu sáng độ chúng sanh\nĐịa ngục khổ không ngằn\nTinh tấn kiền thành\nKhỏi mắc khổ trầm luân.\n\nNam mô Thường Trụ Thập Phương Pháp.\n\nNam mô Thường Trụ Thập Phương Pháp.\n\nNam mô Thường Trụ Thập Phương Pháp.\n\nNam mô Địa Tạng Bồ Tát Ma Ha Tát.\n\nNam mô Địa Tạng Bồ Tát Ma Ha Tát.\n\nNam mô Địa Tạng Bồ Tát Ma Ha Tát.",
+      "line_start": 470,
+      "line_end": 480,
+      "approx_seconds": 74
+    },
+    {
+      "id": "kinh_dia_tang-0176",
+      "sort_order": 176,
+      "label": "KINH ĐỊA TẠNG BỒ TÁT BỔN NGUYỆN",
+      "body": "KINH ĐỊA TẠNG BỒ TÁT BỔN NGUYỆN\n\nQUYỂN HẠ\n\nPHẨM THỨ MƯỜI\n\nSO SÁNH NHÂN DUYÊN CÔNG ĐỨC CỦA\n\nSỰ BỐ THÍ\n\nLúc đó ngài Địa Tạng Bồ Tát Ma Ha\nTát nương oai thần của đức Phật, từ chỗ ngồi đứng dậy, quỳ gối chắp tay bạch cùng đức Phật rằng:\n“Bạch đức Thế Tôn! Con xem xét chúng sanh trong nghiệp đạo so sánh về sự bố thí có nhẹ có nặng. Có người hưởng phước trong một đời, có người hưởng phước trong mười đời, hoặc đến hưởng phước lợi lớn trong trăm đời, nghìn đời.\n\nNhững sự ấy tại làm sao thế? Cúi xin đức Thế Tôn dạy cho”.",
+      "line_start": 481,
+      "line_end": 487,
+      "approx_seconds": 73
+    },
+    {
+      "id": "kinh_dia_tang-0177",
+      "sort_order": 177,
+      "label": "Đoạn 177",
+      "body": "Bấy giờ đức Phật bảo ngài Địa Tạng\nBồ Tát rằng: “Nay ta ở trong toàn thể chúng hội nơi cung trời Đao Lợi nầy, giảng về sự so sánh công đức khinh trọng của việc bố thí ở Diêm Phù Đề. Ông phải lóng nghe, Ta sẽ vì ông mà nói!”\nNgài Địa Tạng Bồ Tát bạch cùng đức\nPhật rằng: “Chính con nghi ngờ về việc ấy. Con xin ưa muốn nghe”.\n\nĐức Phật bảo ngài Địa Tạng Bồ Tát rằng: “Trong cõi Nam Diêm Phù Đề có các vị Quốc Vương, hàng Tể Phụ quan chức lớn, hàng đại Trưởng giả, hàng đại Sát Đế Lợi, hàng đại Bà La Môn v.v...",
+      "line_start": 488,
+      "line_end": 489,
+      "approx_seconds": 72
+    },
+    {
+      "id": "kinh_dia_tang-0178",
+      "sort_order": 178,
+      "label": "Đoạn 178",
+      "body": "Nếu gặp kẻ hết sức nghèo túng, nhẫn đến kẻ tật nguyền câm ngọng, kẻ điếc ngây mù quáng, gặp những hạng người thân thể không được vẹn toàn như thế.\n\nLúc các vị Quốc Vương đó v.v... muốn bố thí, nếu có thể đủ tâm từ bi lớn, lại có lòng vui vẻ tự hạ mình, tự tay mình đem của ra bố thí cho tất cả những kẻ đó, hoặc bảo người khác đem cho, lại dùng lời ôn hòa dịu dàng an ủi.\n\nCác vị Quốc Vương, Đại Thần đó v.v...\n\nđặng phước lợi bằng phước lợi công đức cúng dường cho một trăm Hằng hà sa chư Phật vậy.",
+      "line_start": 490,
+      "line_end": 493,
+      "approx_seconds": 71
+    },
+    {
+      "id": "kinh_dia_tang-0179",
+      "sort_order": 179,
+      "label": "Tại làm sao? Chính bởi vị Quốc",
+      "body": "Tại làm sao? Chính bởi vị Quốc\nVương đó v.v... phát tâm đại từ bi đối với kẻ rất mực nghèo cùng và với những người tàn tật kia, cho nên phước lành được hưởng quả báo như thế nầy, trong trăm nghìn đời thường được đầy đủ những đồ thất bảo, huống là những thứ để thọ dùng như y phục đồ uống ăn v.v...\n\nLại vầy nữa, nầy Địa Tạng Bồ Tát!",
+      "line_start": 494,
+      "line_end": 495,
+      "approx_seconds": 47
+    },
+    {
+      "id": "kinh_dia_tang-0180",
+      "sort_order": 180,
+      "label": "Đoạn 180",
+      "body": "Trong đời sau, như có vị Quốc Vương cho đến hàng Bà La Môn v.v... gặp chùa tháp thờ Phật, hoặc hình tượng Phật, cho đến hình tượng Bồ Tát, Thanh Văn hay Bích Chi Phật, đích thân tự sửa sang, cúng dường bố thí.\n\nVị Quốc Vương đó, sẽ đặng trong ba kiếp làm vị Trời Đế Thích hưởng sự vui sướng tốt lạ.\n\nNếu có thể đem phước lành bố thí đó mà hồi hướng cho tất cả chúng sanh trong pháp giới, thời vị Quốc Vương đó, trong mười kiếp thường được làm vị trời Đại Phạm Thiên Vương.",
+      "line_start": 496,
+      "line_end": 498,
+      "approx_seconds": 67
+    },
+    {
+      "id": "kinh_dia_tang-0181",
+      "sort_order": 181,
+      "label": "Lại thế nầy nữa, nầy Địa Tạng Bồ",
+      "body": "Lại thế nầy nữa, nầy Địa Tạng Bồ\nTát! Trong đời sau, nếu có vị Quốc Vương cho đến hàng Bà La Môn v.v... gặp chùa tháp của đức Phật thuở trước, hoặc là kinh điển hay hình tượng bị hư sụp rách rã, liền có thể phát tâm tu bổ lại.\n\nVị Quốc Vương đó, hoặc tự mình đích thân lo sửa sang, hoặc khuyến hóa người khác cho đến khuyến hóa trăm nghìn người khác cùng chung bố thí cúng dường để kết duyên lành.",
+      "line_start": 499,
+      "line_end": 500,
+      "approx_seconds": 56
+    },
+    {
+      "id": "kinh_dia_tang-0182",
+      "sort_order": 182,
+      "label": "Đoạn 182",
+      "body": "Vị Quốc Vương đó, trong trăm nghìn đời thường làm vua Chuyển Luân, còn những người khác chung cùng làm việc bố thí đó, trong trăm nghìn đời thường làm vua nước nhỏ.\n\nNếu lại ở trước chùa tháp có thể phát tâm đem công đức cúng dường bố thí đó mà hồi hướng về đạo vô thượng chánh giác, được như vậy thời vị Quốc Vương đó cho đến tất cả mọi người đều sẽ thành Phật cả, bởi quả báo ấy rộng lớn vô lượng vô biên.\n\nLại vầy nữa, nầy Địa Tạng Bồ Tát!",
+      "line_start": 501,
+      "line_end": 503,
+      "approx_seconds": 63
+    },
+    {
+      "id": "kinh_dia_tang-0183",
+      "sort_order": 183,
+      "label": "Đoạn 183",
+      "body": "Trong đời sau, như có vị Quốc Vương hay hàng Bà La Môn, gặp những người già yếu, tật bịnh và kẻ phụ nữ sanh đẻ, nếu trong khoảng chừng một niệm sanh lòng từ lớn đem thuốc men, cơm nước, giường chiếu bố thí, làm cho những kẻ ấy được an vui.\n\nPhước đức đó rất không thể nghĩ bàn đến được, trong một trăm kiếp thường làm Vua trời Tịnh Cư, trong hai trăm kiếp thường làm Vua sáu từng Trời cõi Dục, không bao giờ còn đọa vào ác đạo, cho đến trong trăm nghìn đời, lỗ tai không hề nghe đến tiếng khổ, rốt ráo sẽ thành Phật đạo.",
+      "line_start": 504,
+      "line_end": 505,
+      "approx_seconds": 74
+    },
+    {
+      "id": "kinh_dia_tang-0184",
+      "sort_order": 184,
+      "label": "Lại vầy nữa, nầy Địa Tạng Bồ Tát!",
+      "body": "Lại vầy nữa, nầy Địa Tạng Bồ Tát!\n\nTrong đời sau như có vị Quốc Vương và\nBà La Môn, có thể làm những việc bố thí như thế sẽ đặng vô lượng phước lành.\n\nNếu lại có thể đem phước đức đó hồi hướng đạo Bồ Đề, thời không luận là nhiều hay ít, rốt ráo sẽ thành Phật cả, huống gì là những quả Trời Phạm Vương, Trời Đế Thích, Vua Chuyển Luân.\n\nNầy Địa Tạng Bồ Tát, vì thế nên khuyến hóa tất cả chúng sanh đều phải học theo như thế.\n\nLại vầy nữa, nầy Địa Tạng Bồ Tát!",
+      "line_start": 506,
+      "line_end": 510,
+      "approx_seconds": 65
+    },
+    {
+      "id": "kinh_dia_tang-0185",
+      "sort_order": 185,
+      "label": "Đoạn 185",
+      "body": "Trong đời sau, như có thiện nam kẻ thiện nữ nào ở trong Phật Pháp mà gieo trồng chút ít cội phước lành chừng bằng cái lông, sợi tóc, hột cát, mảy bụi, phước lợi của những người đó sẽ hưởng thọ không thể ví dụ thế nào cho được.\n\nLại vầy nữa, nầy Địa Tạng Bồ Tát!",
+      "line_start": 511,
+      "line_end": 512,
+      "approx_seconds": 37
+    },
+    {
+      "id": "kinh_dia_tang-0186",
+      "sort_order": 186,
+      "label": "Đoạn 186",
+      "body": "Trong đời sau, như có kẻ thiện nam cùng người thiện nữ nào gặp hình tượng Phật, hình tượng Bồ Tát, hình tượng Bích Chi Phật, hình tượng vua Chuyển Luân mà bố thí cúng dường, thời đặng vô lượng phước lành, thường sanh ở cõi người, cõi trời hưởng sự vui thù thắng vi diệu.\n\nNhư có thể đem công đức hồi hướng cho cả pháp giới chúng sanh, thời phước lợi của người ấy không thể ví dụ thế nào cho được.\n\nLại vầy nữa, nầy Địa Tạng Bồ Tát!",
+      "line_start": 513,
+      "line_end": 515,
+      "approx_seconds": 61
+    },
+    {
+      "id": "kinh_dia_tang-0187",
+      "sort_order": 187,
+      "label": "Đoạn 187",
+      "body": "Trong đời sau, như kẻ thiện nam người thiện nữ nào gặp kinh điển Đại Thừa hoặc nghe thấy một bài kệ, một câu kinh, rồi phát tâm ân cần trân trọng cung kính ngợi khen, bố thí cúng dường, người ấy được quả báo lớn vô lượng vô biên.\n\nNếu có thể đem phước đức hồi hướng cho khắp pháp giới chúng sanh thời phước lợi nầy không thể ví dụ thế nào cho được.\n\nLại vầy nữa, nầy Địa Tạng Bồ Tát!",
+      "line_start": 516,
+      "line_end": 518,
+      "approx_seconds": 54
+    },
+    {
+      "id": "kinh_dia_tang-0188",
+      "sort_order": 188,
+      "label": "Đoạn 188",
+      "body": "Trong đời sau, như có kẻ thiện nam người thiện nữ nào gặp chùa tháp và kinh điển Đại Thừa, nếu là kinh tháp mới thời bố thí cúng dường, chiêm ngưỡng lễ lạy ngợi khen chắp tay cung kính.\n\nNếu gặp kinh tháp cũ, hoặc hư rách thời sửa sang tu bổ, hoặc riêng mình phát tâm làm, hoặc khuyến người khác cùng đồng phát tâm.\n\nNhững người đồng phát tâm đây, trong ba mươi đời thường làm vua các nước nhỏ. Còn vị đàn việt chánh đó thường làm vua Chuyển Luân, lại dùng pháp lành mà giáo hóa vua các nước nhỏ.",
+      "line_start": 519,
+      "line_end": 521,
+      "approx_seconds": 70
+    },
+    {
+      "id": "kinh_dia_tang-0189",
+      "sort_order": 189,
+      "label": "Đoạn 189",
+      "body": "Lại vầy nữa Địa Tạng Bồ Tát! Trong đời sau, như có người thiện nam kẻ thiện nữ nào ở nơi cội phước lành đã gieo trồng trong Phật Pháp, hoặc là bố thí cúng dường, hoặc là tu bổ chùa tháp, hoặc sửa sang kinh điển, cho đến chừng bằng một sợi lông, một mảy bụi, một hột cát, một giọt nước.\n\nNhững sự lành như thế không luận nhiều ít, chỉ có thể đem hồi hướng cho khắp pháp giới chúng sanh, thời công đức của người đó trong trăm nghìn đời thường hưởng thọ sự vui thượng diệu.",
+      "line_start": 522,
+      "line_end": 523,
+      "approx_seconds": 67
+    },
+    {
+      "id": "kinh_dia_tang-0190",
+      "sort_order": 190,
+      "label": "Đoạn 190",
+      "body": "Còn như chỉ hồi hướng cho thân quyến trong nhà hoặc tự mình được lợi ích thôi, như thế thời sẽ hưởng quả vui trong ba đời, cứ làm một phần sự lành, thời được hưởng báo tốt một muôn lần trội hơn.\n\nNầy Địa Tạng Bồ Tát! Những nhơn duyên công đức về sự bố thí như thế đó.\n\nPHẨM THỨ MƯỜI MỘT\n\nĐỊA THẦN HỘ PHÁP\n\nLúc đó vị Kiên Lao Địa Thần bạch cùng đức Phật rằng: “Bạch đức Thế Tôn!",
+      "line_start": 524,
+      "line_end": 528,
+      "approx_seconds": 53
+    },
+    {
+      "id": "kinh_dia_tang-0191",
+      "sort_order": 191,
+      "label": "Đoạn 191",
+      "body": "Từ trước đến nay, con từng chiêm ngưỡng đảnh lễ vô lượng vị đại Bồ Tát, đều là những bực trí huệ thần thông lớn không thể nghĩ bàn độ khắp mọi loài chúng sanh.\n\nNgài Địa Tạng Bồ Tát đây so với các vị Bồ Tát, chỗ thệ nguyện rất là sâu rộng.\n\nBạch đức Thế Tôn! Ngài Địa Tạng Bồ\nTát đây có nhơn duyên lớn với chúng sanh trong Diêm Phù Đề.\n\nNhư ngài Văn Thù, ngài Phổ Hiền, ngài Quan Âm, ngài Di Lặc cũng hóa hiện trăm nghìn thân hình để độ chúng sanh trong sáu đường, nhưng chỗ phát nguyện của các ngài còn có lúc hoàn mãn.",
+      "line_start": 529,
+      "line_end": 532,
+      "approx_seconds": 74
+    },
+    {
+      "id": "kinh_dia_tang-0192",
+      "sort_order": 192,
+      "label": "Ngài Địa Tạng Bồ Tát đây phát thệ",
+      "body": "Ngài Địa Tạng Bồ Tát đây phát thệ\nnguyện giáo hóa tất cả chúng sanh trong\nsáu đường trải đến kiếp số như số cát trong trăm nghìn ức sông Hằng.\n\nBạch đức Thế Tôn! Con xem xét chúng sanh ở hiện tại nay và về vị lai sau, nơi chỗ sạch sẽ ở phương Nam trong cuộc đất của mình ở, dùng đất đá tre gỗ mà dựng cất cái khám cái thất.\n\nTrong đó có thể họa vẽ, cho đến dùng vàng, bạc, đồng, sắt đúc nắn hình tượng Địa Tạng Bồ Tát, đốt hương cúng dường, chiêm lễ ngợi khen, thời chỗ người đó ở được mười điều lợi ích.",
+      "line_start": 533,
+      "line_end": 535,
+      "approx_seconds": 72
+    },
+    {
+      "id": "kinh_dia_tang-0193",
+      "sort_order": 193,
+      "label": "Những gì là mười điều?",
+      "body": "Những gì là mười điều?\n\n- Một là đất cát tốt mầu,\n- Hai là nhà cửa an ổn mãi mãi,\n- Ba là người đã chết được sanh lên cõi trời, - Bốn là những người hiện còn hưởng sự lợi ích, - Năm là cầu chi cũng toại ý cả, - Sáu là không có tai họa về nước và lửa, - Bảy là trừ sạch việc hư hao, - Tám là dứt hẳn ác mộng, - Chín là khi ra lúc vào có thần theo hộ vệ, - Mười là thường gặp bực Thánh nhơn.",
+      "line_start": 536,
+      "line_end": 537,
+      "approx_seconds": 55
+    },
+    {
+      "id": "kinh_dia_tang-0194",
+      "sort_order": 194,
+      "label": "Đoạn 194",
+      "body": "Bạch đức Thế Tôn! Chúng sanh trong đời sau cùng hiện tại nay, nếu ở nơi phần đất của mình cư trụ mà có thể làm ra sự cúng dường ngài Địa Tạng như thế, thời được sự lợi ích như vậy”.\n\nVị Kiên Lao Địa Thần lại bạch với đức Phật rằng:\n“Bạch đức Thế Tôn! Trong đời sau nầy, như có người thiện nam kẻ thiện nữ nào ở trong chỗ của mình cư trụ mà có kinh điển nầy cùng hình tượng của đức Địa Tạng Bồ Tát, người đó lại có thể đọc tụng kinh điển nầy và cúng dường hình tượng của Bồ Tát.",
+      "line_start": 538,
+      "line_end": 539,
+      "approx_seconds": 68
+    },
+    {
+      "id": "kinh_dia_tang-0195",
+      "sort_order": 195,
+      "label": "Đoạn 195",
+      "body": "Thời con dùng thần lực của con thường hộ vệ người đó, cho đến tất cả sự tai họa như nước, lửa, trộm, cướp, nạn lớn, nạn nhỏ v.v... thảy đều tiêu sạch”.\n\nĐức Phật bảo Kiên Lao Địa Thần rằng: “Thần lực rộng lớn của ông, các thần khác ít ai bằng.\n\nVì cớ sao? Vì đất đai trong cõi Diêm\nPhù Đề đều nhờ ông hộ trợ, cho đến cỏ cây, cát đá, lúa mè, tre lau, gạo thóc, của báu, tất cả những thứ từ đất mà có ra đều nhờ nơi sức thần của ông cả.",
+      "line_start": 540,
+      "line_end": 542,
+      "approx_seconds": 62
+    },
+    {
+      "id": "kinh_dia_tang-0196",
+      "sort_order": 196,
+      "label": "Đoạn 196",
+      "body": "Nay ông lại tuyên bày những sự lợi ích của ngài Địa Tạng Bồ Tát, thời công đức và thần thông của ông lại càng thêm trăm nghìn lần trội hơn lúc thường.\n\nNầy Địa Thần! Trong đời sau, như có kẻ thiện nam người thiện nữ nào cúng dường Địa Tạng Bồ Tát cùng đọc tụng kinh điển nầy, chỉ có thể tu hành theo một việc mà trong kinh Địa Tạng Bồ Tát Bổn Nguyện đã dạy.\n\nThời ông nên dùng thần lực của ông mà ủng hộ người đó, chớ để tất cả sự tai hại cùng sự không vừa ý đến nghe nơi tai, huống nữa là để cho phải chịu.",
+      "line_start": 543,
+      "line_end": 545,
+      "approx_seconds": 72
+    },
+    {
+      "id": "kinh_dia_tang-0197",
+      "sort_order": 197,
+      "label": "Đoạn 197",
+      "body": "Chẳng phải chỉ riêng mình ông hộ trì người đó, cũng có hàng quyến thuộc của Phạm Vương, Đế Thích, quyến thuộc của chư Thiên ủng hộ người đó.\n\nTại sao lại đặng các vị Hiền Thánh ủng hộ như thế?\n\nĐều do vì những người ấy chiêm lễ hình tượng của Địa Tạng Bồ Tát và đọc tụng kinh Bổn Nguyện nầy, tự nhiên được rốt ráo xa lìa biển khổ, chứng đạo Niết Bàn an vui, vì thế nên đặng ủng hộ một cách lớn lao như thế”.\n\nPHẨM THỨ MƯỜI HAI\n\nTHẤY NGHE ĐƯỢC LỢI ÍCH\n\n1) ĐỨC PHẬT PHÓNG QUANG TUYÊN CÁO.",
+      "line_start": 546,
+      "line_end": 551,
+      "approx_seconds": 69
+    },
+    {
+      "id": "kinh_dia_tang-0198",
+      "sort_order": 198,
+      "label": "Đoạn 198",
+      "body": "Lúc đó, từ trên đảnh môn đức Thế Tôn phóng ra cả trăm nghìn muôn ức tia sáng lớn. Như là:\nTia sáng sắc trắng,\nTia sáng sắc trắng lớn,\nTia sáng lành tốt,\nTia sáng lành tốt lớn,\nTia sáng ngọc,\nTia sáng ngọc lớn,\nTia sáng sắc tía,\nTia sáng sắc tía lớn,\nTia sáng sắc xanh,\nTia sáng sắc xanh lớn,\nTia sáng sắc biếc,\nTia sáng sắc biếc lớn,\nTia sáng sắc hồng,\nTia sáng sắc hồng lớn,\nTia sáng màu lục,\nTia sáng màu lục lớn,\nTia sáng màu vàng y,\nTia sáng màu vàng y lớn,\nTia sáng tướng mây lành,\nTia sáng tướng mây lành lớn,\nTia sáng tướng nghìn vòng tròn,\nTia sáng tướng nghìn vòng tròn lớn,\nTia sáng vòng tròn báu,\nTia sáng vòng tròn báu lớn,\nTia sáng vừng mặt trời,\nTia sáng vừng mặt trời lớn,\nTia sáng vừng mặt trăng,\nTia sáng vừng mặt trăng lớn,\nTia sáng tướng cung điện,\nTia sáng tướng cung điện lớn,\nTia sáng tướng mây biển,\nTia sáng tướng mây biển lớn.",
+      "line_start": 552,
+      "line_end": 552,
+      "approx_seconds": 121
+    },
+    {
+      "id": "kinh_dia_tang-0199",
+      "sort_order": 199,
+      "label": "Đoạn 199",
+      "body": "Từ trên đảnh môn phóng ra những luồng tia sáng như thế xong, lại nói ra những tiếng rất vi diệu mà bảo đại chúng rằng:\n“Nầy tám bộ chúng Trời, Rồng, người cùng phi nhơn v.v... Lóng nghe hôm nay ta ở tại cung trời Đao Lợi tuyên bày ngợi khen những sự lợi ích trong hàng trời người, những sự không thể nghĩ bàn, những sự về nhơn hạnh lên bực Thánh, những sự chứng quả Thập Địa, những sự rốt ráo không lui sụt nơi đạo Vô thượng Chánh Đẳng Chánh Giác... của ngài Địa Tạng Bồ Tát”.\n\n2) QUÁN THẾ ÂM CẦU THỈNH.",
+      "line_start": 553,
+      "line_end": 554,
+      "approx_seconds": 71
+    },
+    {
+      "id": "kinh_dia_tang-0200",
+      "sort_order": 200,
+      "label": "Đoạn 200",
+      "body": "Lúc đức\nPhật nói lời trên đó vừa dứt tiếng, trong\nPháp hội có một vị đại Bồ Tát hiệu là\nQuán Thế Âm từ chỗ ngồi đứng dậy, quỳ gối chắp tay mà bạch cùng đức Phật rằng:\n“Bạch đức Thế Tôn! Ngài Địa Tạng đại Bồ Tát đầy đủ đức từ bi lớn, ngài thương xót chúng sanh mắc tội khổ, ở trong muôn nghìn ức thế giới, ngài hóa hiện ra nghìn muôn ức thân bao nhiêu công đức và sức oai thần chẳng thể nghĩ bàn của ngài, con đã từng nghe đức Thế Tôn cùng vô lượng chư Phật trong mười phương, khác miệng đồng lời ngợi khen ngài Địa Tạng Bồ Tát.",
+      "line_start": 555,
+      "line_end": 555,
+      "approx_seconds": 75
+    },
+    {
+      "id": "kinh_dia_tang-0201",
+      "sort_order": 201,
+      "label": "Đoạn 201",
+      "body": "Dầu cho các đức Phật trong thuở quá khứ, thuở hiện tại và thuở vị lai nói công đức của ngài Địa Tạng Bồ Tát vẫn chẳng thể nói hết.\n\nVừa rồi lại được đức Thế Tôn bảo khắp trong đại chúng rằng đức Phật muốn tuyên nói các sự lợi ích của ngài Địa Tạng Bồ Tát.\n\nCúi mong đức Thế Tôn vì tất cả chúng sanh ở hiện tại và vị lai mà tuyên nói những sự chẳng thể nghĩ bàn của ngài Địa Tạng Bồ Tát, làm cho tám bộ chúng Trời, Rồng v.v... chiêm ngưỡng lễ lạy ngài Địa Tạng Bồ Tát để đặng phước lành”.\n\n3) ĐỨC PHẬT TÁN THÁN VÀ HỨA KHẢ.",
+      "line_start": 556,
+      "line_end": 559,
+      "approx_seconds": 74
+    },
+    {
+      "id": "kinh_dia_tang-0202",
+      "sort_order": 202,
+      "label": "Đức",
+      "body": "Đức\nPhật bảo ngài Quán Thế Âm Bồ Tát: “Ông có nhơn duyên rất lớn với chúng sanh trong cõi Ta Bà. Những hàng Trời, Rồng, hoặc nam tử nữ nhơn, hoặc Thần, hoặc Quỷ, cho đến chúng sanh mắc phải tội khổ trong sáu đường nếu kẻ nào nghe danh hiệu của ông, thấy hình tượng của ông, hay mến tưởng đến ông cùng khen ngợi ông.",
+      "line_start": 560,
+      "line_end": 560,
+      "approx_seconds": 45
+    },
+    {
+      "id": "kinh_dia_tang-0203",
+      "sort_order": 203,
+      "label": "Đoạn 203",
+      "body": "Thời những chúng sanh ấy đều ở nơi đạo vô thượng chánh giác quyết chẳng còn thối chuyển, thường được sanh vào cõi người, cõi Trời hưởng đủ sự vui vi diệu, khi nhơn quả sắp thành thục liền được Phật thọ ký cho.\n\nNay ông sẵn lòng từ bi lớn thương xót các loài chúng sanh và tám bộ chúng Trời, Rồng, v.v... mà muốn nghe Ta nói những sự lợi ích chẳng thể nghĩ bàn của ngài Địa Tạng Bồ Tát.\n\nÔng nên lóng nghe cho kỹ, nay ta sẽ nói đó!”\nNgài Quán Thế Âm Bồ Tát bạch rằng:\n“Vâng! Bạch đức Thế Tôn! Con xin ưa muốn nghe”.",
+      "line_start": 561,
+      "line_end": 563,
+      "approx_seconds": 73
+    },
+    {
+      "id": "kinh_dia_tang-0204",
+      "sort_order": 204,
+      "label": "Đoạn 204",
+      "body": "4) THẤY NGHE THÊM PHƯỚC TRỜI.\n\nĐức\nPhật bảo ngài Quán Thế Âm Bồ Tát:\n“Trong các thế giới về thuở hiện tại nay và vị lai sau, có vị trời nào, hưởng phước trời đã mãn, năm tướng suy hao hiện ra nơi thân, hoặc có kẻ phải đọa lạc nơi chốn ác đạo.\n\nCác vị trời đó, hoặc nam hoặc nữ đương lúc tướng suy hao hiện, hoặc thấy hình tượng của ngài Địa Tạng Bồ Tát, hoặc nghe tên ngài Địa Tạng Bồ Tát, rồi một lần chiêm ngưỡng một lần đảnh lễ.",
+      "line_start": 564,
+      "line_end": 566,
+      "approx_seconds": 61
+    },
+    {
+      "id": "kinh_dia_tang-0205",
+      "sort_order": 205,
+      "label": "Đoạn 205",
+      "body": "Thời các vị trời đó càng thêm lớn phước trời, hưởng sự vui sướng rất nhiều không bao giờ còn phải bị đọa lạc vào ba ác đạo nữa.\n\nHuống chi là những người thấy hình tượng Bồ Tát, nghe danh hiệu Bồ Tát rồi đem các thứ hương hoa, đồ y phục, đồ uống ăn, vật báu, chuỗi ngọc... mà bố thí cúng dường, thời người nầy đặng vô lượng vô biên công đức phước lợi.\n\n5) NGƯỜI BỊNH ĐƯỢC LỢI.",
+      "line_start": 567,
+      "line_end": 569,
+      "approx_seconds": 53
+    },
+    {
+      "id": "kinh_dia_tang-0206",
+      "sort_order": 206,
+      "label": "Đoạn 206",
+      "body": "Lại vầy nữa, nầy Quán Thế Âm! Trong các thế giới về thuở hiện tại nay và vị lai sau, những hàng chúng sanh trong sáu đường, như có kẻ sắp mạng chung mà đặng nghe một tiếng danh hiệu của ngài Địa Tạng Bồ Tát thoát qua lỗ tai, thời kẻ mạng chung đó không còn bị đọa vào chốn khổ ba ác đạo.\n\nHuống chi là lúc sắp mạng chung, cha mẹ cùng hàng thân quyến đem của cải, nhà cửa, vật báu, y phục v.v... của người sắp mạng chung đó mà làm của chi phí để tô đắp hay họa vẽ hình tượng của ngài Địa Tạng Bồ Tát.",
+      "line_start": 570,
+      "line_end": 571,
+      "approx_seconds": 71
+    },
+    {
+      "id": "kinh_dia_tang-0207",
+      "sort_order": 207,
+      "label": "Đoạn 207",
+      "body": "Rồi làm cho người bịnh lúc chưa chết, hoặc mắt thấy tai nghe biết rằng hàng thân quyến đem nhà cửa vật báu v.v... vì mình mà tô vẽ hình tượng của ngài Địa Tạng Bồ Tát.\n\nNgười bịnh đó nếu có nghiệp báo phải mang lấy bịnh nặng, thời nhờ công đức nầy liền được lành mạnh, tuổi thọ thêm lâu.",
+      "line_start": 572,
+      "line_end": 573,
+      "approx_seconds": 41
+    },
+    {
+      "id": "kinh_dia_tang-0208",
+      "sort_order": 208,
+      "label": "Đoạn 208",
+      "body": "Còn nếu người bịnh đó có nghiệp báo số mạng đã hết, lại có đủ tất cả tội chướng nghiệp chướng, đáng lẽ phải bị đọa vào chốn ác đạo, song vì nhờ công đức nầy nên sau khi mạng chung, liền được sanh vào cõi trời, cõi người hưởng quả vui thù thắng vi diệu, tất cả tội chướng thảy đều tiêu sạch.\n\n6) TIÊN VONG ĐƯỢC PHƯỚC.",
+      "line_start": 574,
+      "line_end": 575,
+      "approx_seconds": 45
+    },
+    {
+      "id": "kinh_dia_tang-0209",
+      "sort_order": 209,
+      "label": "Đoạn 209",
+      "body": "Lại vầy nữa, nầy Quán Thế Âm Bồ Tát! Về đời sau, nếu có kẻ nam tử, người nữ nhơn nào, hoặc lúc còn bú mớm, hoặc lúc lên ba tuổi, hoặc lúc lên năm tuổi, mười tuổi trở xuống mà chết mất cha mẹ cho đến chết mất anh em chị em.\n\nĐến khi người đó khôn lớn nhớ tưởng đến cha mẹ cùng hàng thân quyến không rõ đọa lạc vào chốn nào, hay sanh về thế giới nào, hoặc sanh lên cõi trời nào?",
+      "line_start": 576,
+      "line_end": 577,
+      "approx_seconds": 53
+    },
+    {
+      "id": "kinh_dia_tang-0210",
+      "sort_order": 210,
+      "label": "Đoạn 210",
+      "body": "Người đó như có thể tô vẽ hình tượng của ngài Địa Tạng Bồ Tát, nhẫn đến nghe danh hiệu của ngài rồi một lần chiêm ngưỡng một lần đảnh lễ, từ một ngày cho đến bảy ngày đừng thối thất tâm ban đầu, nghe danh hiệu thấy hình tượng chiêm lễ cúng dường.",
+      "line_start": 578,
+      "line_end": 578,
+      "approx_seconds": 35
+    },
+    {
+      "id": "kinh_dia_tang-0211",
+      "sort_order": 211,
+      "label": "Đoạn 211",
+      "body": "Thời quyến thuộc đã sớm khuất của người đó nếu do ác nghiệp mà bị đọa vào ác đạo tính ra phải chịu đến số kiếp, nay nhờ công đức tô vẽ hình tượng của ngài Địa Tạng Bồ Tát và chiêm lễ cúng dường của con cái, hay của anh em chị em, nên liền đặng giải thoát, được sanh lên cõi trời cõi người hưởng quả vui thù thắng vi diệu.",
+      "line_start": 579,
+      "line_end": 579,
+      "approx_seconds": 45
+    },
+    {
+      "id": "kinh_dia_tang-0212",
+      "sort_order": 212,
+      "label": "Đoạn 212",
+      "body": "Còn như quyến thuộc đã sớm khuất của người đó có phước lành, đã được sanh lên cõi trời cõi người hưởng thọ quả vui thù thắng vi diệu rồi, thời nhờ công đức nầy càng thêm lớn nghiệp nhơn về bực Thánh, hưởng vô lượng quả vui.\n\nNhư người đó lại có thể trong hai mươi mốt ngày, chuyên lòng chiêm lễ hình tượng của ngài Địa Tạng Bồ Tát và niệm lấy danh hiệu của ngài đủ số một muôn biến, sẽ đặng Địa Tạng Bồ Tát hiện vô biên thân, mách cho người đó rõ nơi cõi của hàng thân quyến sớm khuất kia đã sanh về.",
+      "line_start": 580,
+      "line_end": 581,
+      "approx_seconds": 71
+    },
+    {
+      "id": "kinh_dia_tang-0213",
+      "sort_order": 213,
+      "label": "Hoặc trong giấc mộng, Địa Tạng Bồ",
+      "body": "Hoặc trong giấc mộng, Địa Tạng Bồ\nTát hiện sức thần thông lớn, tự dắt người đó đến các thế giới thấy hàng quyến thuộc.\n\nNếu người đó lại có thể trong mỗi ngày niệm danh hiệu của Bồ Tát một nghìn biến luôn đến một nghìn ngày.\n\nThời người đó sẽ được Bồ Tát sai các vị Quỷ Thần ở tại chỗ đó hộ vệ trọn đời, hiện đời đồ ăn món mặc dư dật, không có các thứ bịnh khổ, cho đến các sự tai vạ còn không hề vào đến cửa, huống nữa là đến nơi thân.\n\nRốt ráo rồi người đó được ngài Địa\nTạng Bồ Tát xoa đảnh thọ ký cho.",
+      "line_start": 582,
+      "line_end": 585,
+      "approx_seconds": 72
+    },
+    {
+      "id": "kinh_dia_tang-0214",
+      "sort_order": 214,
+      "label": "Đoạn 214",
+      "body": "7) NGUYỆN LỚN SỚM THÀNH.\n\nLại vầy nữa, nầy Quán Thế Âm Bồ Tát! Về đời sau, như có kẻ thiện nam người thiện nữ nào muốn phát lòng từ rộng lớn để cứu độ tất cả chúng sanh, muốn tu đạo vô thượng chánh giác, muốn thoát khỏi tam giới.\n\nNhững người đó thấy hình tượng và nghe danh hiệu của ngài Địa Tạng Bồ Tát, rồi chí tâm quy y hoặc đem hương hoa, y phục, vật báu, đồ ăn uống v.v... để cúng dường chiêm ngưỡng đảnh lễ thời chỗ\nnguyện cầu của kẻ thiện nam cùng thiện\nnữ đó mau được thành tựu không bao giờ bị chướng ngại.",
+      "line_start": 586,
+      "line_end": 588,
+      "approx_seconds": 73
+    },
+    {
+      "id": "kinh_dia_tang-0215",
+      "sort_order": 215,
+      "label": "Lại vầy nữa, nầy Quán Thế Âm Bồ",
+      "body": "Lại vầy nữa, nầy Quán Thế Âm Bồ\nTát! Trong đời sau, như có kẻ thiện nam, người thiện nữ nào, muốn cầu trăm nghìn muôn ức điều nguyện, trăm nghìn muôn ức sự về hiện tại cùng vị lai, thời chỉ nên quy y chiêm ngưỡng đảnh lễ, cúng dường, ngợi khen hình tượng của ngài Địa Tạng Bồ Tát.\n\nĐược như thế thời nguyện những chi và cầu những chi thảy đều thành tựu cả.\n\nLại cầu mong Địa Tạng Bồ Tát, vận đức từ bi rộng lớn ủng hộ mãi cho; người đó trong giấc chiêm bao liền đặng ngài Địa Tạng Bồ Tát xoa đảnh thọ ký.\n\n8) ĐƯỢC TRÍ HUỆ.",
+      "line_start": 589,
+      "line_end": 592,
+      "approx_seconds": 74
+    },
+    {
+      "id": "kinh_dia_tang-0216",
+      "sort_order": 216,
+      "label": "Lại vầy nữa, nầy",
+      "body": "Lại vầy nữa, nầy\nQuán Thế Âm Bồ Tát! Trong đời sau, như có người thiện nam, kẻ thiện nữ nào sanh lòng rất trân trọng đối với kinh điển Đại Thừa, phát tâm bất tư nghị muốn đọc muốn tụng kinh điển ấy.\n\nDầu gặp đặng bực minh sư truyền dạy cho những người đó học tập, nhưng đọc rồi quên rồi, trải đến cả tháng cả năm vẫn không đọc tụng được.\n\nNhững kẻ thiện nam thiện nữ đó vì có nghiệp chướng đời trước chưa trừ sạch, cho nên ở nơi kinh điển Đại Thừa không có công năng đọc tụng.",
+      "line_start": 593,
+      "line_end": 595,
+      "approx_seconds": 68
+    },
+    {
+      "id": "kinh_dia_tang-0217",
+      "sort_order": 217,
+      "label": "Đoạn 217",
+      "body": "Những hạng người nầy khi nghe danh hiệu của ngài Địa Tạng Bồ Tát cùng thấy hình tượng của ngài Địa Tạng Bồ Tát, đem hết bổn tâm cung kính bày tỏ với Bồ Tát, rồi dùng hương hoa, y phục, đồ ăn, tất cả đồ ngọa cụ v.v... cúng dường hình tượng Bồ Tát.\n\nDùng một chén nước trong để trước tượng Bồ Tát một ngày một đêm, sau đó cung kính chắp tay thỉnh để uống, xây mặt về hướng Nam.",
+      "line_start": 596,
+      "line_end": 597,
+      "approx_seconds": 53
+    },
+    {
+      "id": "kinh_dia_tang-0218",
+      "sort_order": 218,
+      "label": "Đoạn 218",
+      "body": "Khi nước vào miệng phải chí tâm trịnh trọng, uống nước xong, phải cữ ngũ tân, rượu, thịt, tà dâm, vọng ngữ và các việc giết hại trong bảy ngày hoặc hai mươi mốt ngày.\n\nNgười thiện nam cùng thiện nữ đó trong giấc chiêm bao thấy Địa Tạng Bồ Tát hiện thân vô biên rưới nước trên đảnh của người đó.\n\nSau khi thức dậy, người đó liền đặng thông minh, một phen nghe đến những kinh điển Đại Thừa ấy liền sẽ nhớ mãi, không bao giờ còn quên một câu kệ nữa.\n\n9) TAI NẠN TIÊU TRỪ.",
+      "line_start": 598,
+      "line_end": 601,
+      "approx_seconds": 66
+    },
+    {
+      "id": "kinh_dia_tang-0219",
+      "sort_order": 219,
+      "label": "Lại vầy nữa, nầy",
+      "body": "Lại vầy nữa, nầy\nQuán Thế Âm Bồ Tát! Về trong đời sau, như có những người nào ăn mặc không đủ, cầu chi cũng không toại nguyện, hoặc thân nhiều tật bịnh, hoặc nhiều sự hung suy, nhà cửa không yên ổn, quyến thuộc chia lìa, hoặc các sự tai vạ cứ đến khuấy nhiễu nơi thân luôn, trong giấc mộng thường phải kinh sợ.",
+      "line_start": 602,
+      "line_end": 602,
+      "approx_seconds": 44
+    },
+    {
+      "id": "kinh_dia_tang-0220",
+      "sort_order": 220,
+      "label": "Đoạn 220",
+      "body": "Những người như thế đó, khi nghe danh hiệu của ngài Địa Tạng Bồ Tát, thấy hình tượng của Địa Tạng Bồ Tát nên chí tâm cung kính niệm đủ một muôn biến, thời những sự không toại ý trên đó sẽ tiêu sạch lần lần, liền đặng an vui, đồ ăn mặc dư dật, cho đến trong giấc mộng thảy đều an ổn vui vẻ.\n\n10) KHỎI HIỂM NGUY.",
+      "line_start": 603,
+      "line_end": 604,
+      "approx_seconds": 44
+    },
+    {
+      "id": "kinh_dia_tang-0221",
+      "sort_order": 221,
+      "label": "Lại vầy nữa, nầy",
+      "body": "Lại vầy nữa, nầy\nQuán Thế Âm Bồ Tát! Về đời sau, nếu có người thiện nam thiện nữ nào, hoặc nhơn sự làm ăn, hoặc nhơn sự công chuyện tư, hoặc nhơn sự sanh cùng tử, hoặc nhơn việc gấp mà phải vào trong rừng núi, hay là qua sông vượt biển hoặc gặp nước lụt lớn, hoặc đi ngang đường hiểm trở.",
+      "line_start": 605,
+      "line_end": 605,
+      "approx_seconds": 41
+    },
+    {
+      "id": "kinh_dia_tang-0222",
+      "sort_order": 222,
+      "label": "Đoạn 222",
+      "body": "Người ấy trước khi đi nên niệm danh hiệu của ngài Địa Tạng Bồ Tát một muôn biến, được thế thời đi qua nơi nào chốn nào cũng có các vị Quỷ Thần hộ vệ, lúc đi đứng, khi nằm ngồi, đều được an ổn vui vẻ luôn, cho đến dầu gặp loài hùm sói sư tử... nhưng tất cả thứ độc hại đều không thể phạm đến người đó được.",
+      "line_start": 606,
+      "line_end": 606,
+      "approx_seconds": 43
+    },
+    {
+      "id": "kinh_dia_tang-0223",
+      "sort_order": 223,
+      "label": "Đức Phật bảo ngài Quán Thế Âm Bồ",
+      "body": "Đức Phật bảo ngài Quán Thế Âm Bồ\nTát: “Ngài Địa Tạng Bồ Tát có nhơn duyên rất lớn với cõi Diêm Phù Đề. Nếu nói về những sự mà các hàng chúng sanh thấy hình nghe tên của ngài Địa Tạng Bồ Tát được lợi ích, thời dầu nói đến trong trăm nghìn kiếp cũng không hết được.\n\nNầy Quán Thế Âm Bồ Tát! Vì thế Ông nên dùng thần lực mà lưu truyền kinh nầy làm cho chúng sanh trong cõi Ta Bà đây mãi đến trăm nghìn kiếp được hưởng những sự an vui luôn”.",
+      "line_start": 607,
+      "line_end": 608,
+      "approx_seconds": 62
+    },
+    {
+      "id": "kinh_dia_tang-0224",
+      "sort_order": 224,
+      "label": "Đoạn 224",
+      "body": "Bấy giờ đức Thế Tôn liền nói kệ rằng:\nTa xem Địa Tạng sức oai thần,\nKiếp số Hằng sa khó tỏ trần,\nThấy nghe, một niệm chiêm ngưỡng lễ,\nTrời, người lợi ích sự không ngằn.\n\nHoặc Rồng, hoặc Thần cùng nam, nữ,\nBáo tận sẽ sa vào đường dữ,\nChí tâm quy mạng Đại Sĩ thân,\nTuổi thọ thêm nhiều trừ tội dữ.\n\nTrẻ thơ chết mất mẹ cùng cha,\nHuynh đệ chị em kẻ ruột rà,\nLớn khôn nghĩ đến đều không biết,\nNẻo dữ đường lành ở đâu là?",
+      "line_start": 609,
+      "line_end": 611,
+      "approx_seconds": 59
+    },
+    {
+      "id": "kinh_dia_tang-0225",
+      "sort_order": 225,
+      "label": "Hoặc vẽ, hoặc tô Đại Sĩ hình,",
+      "body": "Hoặc vẽ, hoặc tô Đại Sĩ hình,\nCảm thương chiêm lễ biệt chẳng đành,\nHăm mốt ngày luôn niệm danh hiệu,\nBồ Tát hiện thân đến bên mình:\nChỉ rành quyến thuộc ở nơi nào,\nDầu sa ác thú cũng ra mau,\nNếu được không lui lòng kính ngưỡng,\nThánh ký, Bồ Tát vuốt đầu trao.\n\nBồ Đề vô thượng muốn tu hành,\nMong ra ba cõi khỏi tử sinh,\nNgười nầy đã phát lòng bi lớn,\nTrước nên chiêm lễ Đại Sĩ hình.",
+      "line_start": 612,
+      "line_end": 613,
+      "approx_seconds": 54
+    },
+    {
+      "id": "kinh_dia_tang-0226",
+      "sort_order": 226,
+      "label": "Nghe tên quy y đấng trọn lành,",
+      "body": "Nghe tên quy y đấng trọn lành,\nCúng dường cung kính phát lòng thành,\nNghiệp chướng chẳng hề ngăn chướng đặng,\nBao nhiêu mong ước sớm viên thành.\n\nCó kẻ phát tâm tụng kinh sách,\nMuốn độ chúng sanh khỏi tai ách,\nDầu lập nguyện lớn chẳng nghĩ bàn,\nĐọc rồi quên rồi luôn sót mất.",
+      "line_start": 614,
+      "line_end": 615,
+      "approx_seconds": 39
+    },
+    {
+      "id": "kinh_dia_tang-0227",
+      "sort_order": 227,
+      "label": "Người nầy nghiệp chướng nó làm mê,",
+      "body": "Người nầy nghiệp chướng nó làm mê,\nHọc Đại Thừa kinh khó mọi bề,\nY phục, uống ăn, các ngọa cụ,\nCúng dường Địa Tạng với hương hoa,\nDùng chén nước trong bày trước tượng,\nCách một ngày đêm bưng lấy uống,\nSanh lòng ân trọng cữ ngũ tân,\nRượu thịt tà dâm cùng dối luống,\nTrong hăm mốt ngày chớ sát sanh,\nChuyên lòng tưởng niệm Thượng\nNhơn danh,\nChiêm bao thấy rõ Tôn dung hiện,\nThức rồi liền đặng trí khôn lanh.",
+      "line_start": 616,
+      "line_end": 616,
+      "approx_seconds": 57
+    },
+    {
+      "id": "kinh_dia_tang-0228",
+      "sort_order": 228,
+      "label": "Đại Thừa kinh giáo nghe qua tai,",
+      "body": "Đại Thừa kinh giáo nghe qua tai,\nNghìn vạn đời sau nhớ chẳng sai,\nChính nhờ Đại Sĩ oai thần lớn,\nThầm giúp người kia có huệ tài.\n\nChúng sanh nghèo khổ lại ốm đau,\nCửa nhà họa hoạn, người lìa nhau,\nNgủ mê mộng mị không an giấc,\nCầu muốn hỏng hư chẳng được nào!\n\nDốc lòng chiêm lễ Địa Tạng Ngài,\nBao nhiêu việc ác thảy tiêu ngay,\nNhẫn đến chiêm bao đều an cả,\nQuỷ Thần phò hộ của dư xài.",
+      "line_start": 617,
+      "line_end": 619,
+      "approx_seconds": 55
+    },
+    {
+      "id": "kinh_dia_tang-0229",
+      "sort_order": 229,
+      "label": "Muốn qua sông biển, đến núi rừng,",
+      "body": "Muốn qua sông biển, đến núi rừng,\nCầm thú độc nguy, giặc đón đường,\nÁc thần, ác Quỷ, mưa gió dữ,\nNhiều nỗi gian nan khốn không lường,\nSắp sửa ra đi đối trước tượng,\nCúng dường kính lễ cùng chiêm ngưỡng,\nNúi rừng biển cả có vào trong,\nÁc tai tiêu sạch thường an sướng.\n\nQuán Âm lóng nghe ta nói rõ,\nĐịa Tạng vô lượng oai thần đó,\nTrăm nghìn muôn kiếp thuật chẳng rồi,\nRộng tuyên Đại Sĩ đầy sức nọ!",
+      "line_start": 620,
+      "line_end": 621,
+      "approx_seconds": 56
+    },
+    {
+      "id": "kinh_dia_tang-0230",
+      "sort_order": 230,
+      "label": "Như người nghe đến Địa Tạng danh,",
+      "body": "Như người nghe đến Địa Tạng danh,\nThấy hình chiêm lễ hết lòng thành,\nHương hoa, ăn uống, dưng y phục,\nTrăm nghìn báo đẹp hưởng điều lành.\n\nNếu hay đem công hồi pháp giới,\nRốt ráo thành Phật, sanh tử khỏi.\n\nQuán Âm nên biết gắng tuyên bày,\nTruyền khắp Hằng sa nhiều nước cõi!\n\nPHẨM THỨ MƯỜI BA\n\nDẶN DÒ CỨU ĐỘ NHƠN THIÊN\n\n1) ĐỨC PHẬT GIAO PHÓ.",
+      "line_start": 622,
+      "line_end": 627,
+      "approx_seconds": 48
+    },
+    {
+      "id": "kinh_dia_tang-0231",
+      "sort_order": 231,
+      "label": "Đoạn 231",
+      "body": "Lúc đó đức Thế\nTôn giơ cánh tay sắc vàng xoa đảnh ngài\nĐịa Tạng đại Bồ Tát mà bảo rằng:\n“Địa Tạng! Địa Tạng! Thần lực của ông không thể nghĩ bàn, đức từ bi của ông không thể nghĩ bàn, trí huệ của ông không thể nghỉ bàn, biện tài của ông không thể nghĩ bàn.\n\nDầu cho các đức Phật ở mười phương khen ngợi tuyên nói những sự chẳng thể nghĩ bàn của ông trăm nghìn muôn kiếp cũng chẳng hết đặng.",
+      "line_start": 628,
+      "line_end": 629,
+      "approx_seconds": 55
+    },
+    {
+      "id": "kinh_dia_tang-0232",
+      "sort_order": 232,
+      "label": "Đoạn 232",
+      "body": "Nầy Địa Tạng! Địa Tạng! Ông nên nhớ hôm nay ta ở trong cung trời Đao Lợi, nơi pháp hội lớn có trăm nghìn muôn ức bất khả thuyết, bất khả thuyết tất cả các đức Phật, các vị Bồ Tát, các hàng Trời, Rồng, tám bộ chúng đây, một lần nữa đem các hàng chúng sanh, những kẻ ở trong nhà lửa chưa ra khỏi ba cõi, mà giao phó cho ông.",
+      "line_start": 630,
+      "line_end": 630,
+      "approx_seconds": 46
+    },
+    {
+      "id": "kinh_dia_tang-0233",
+      "sort_order": 233,
+      "label": "Đoạn 233",
+      "body": "Ông chớ để các chúng sanh đó phải bị đọa vào ác đạo dầu là chừng một ngày, một đêm, huống chi lại để cho chúng nó phải bị đọa lạc vào địa ngục ngũ vô gián cùng địa ngục A Tỳ, mãi đến nghìn muôn ức kiếp không lúc nào ra khỏi ư.\n\nNầy Địa Tạng! Tâm tánh của chúng sanh cõi Diêm Phù Đề không định, phần đông đều quen theo thói ác, thoảng hoặc có người phát tâm lành, nhưng rồi không bao lâu liền thối thất, còn như duyên ác lại luôn luôn tăng trưởng.",
+      "line_start": 631,
+      "line_end": 632,
+      "approx_seconds": 63
+    },
+    {
+      "id": "kinh_dia_tang-0234",
+      "sort_order": 234,
+      "label": "Đoạn 234",
+      "body": "Cũng vì lẽ đó, nên ta phải chia thân nầy ra trăm nghìn ức để hóa độ, thuận theo căn tánh của chúng nó hầu làm cho chúng nó được giải thoát.\n\nNầy Địa Tạng! Hôm nay ta ân cần đem chúng Trời, Người giao phó cho ông.\n\nTrong đời sau, như có hàng Trời,\nNgười cùng thiện nam thiện nữ nào trồng chút ít căn lành ở trong Phật Pháp, chừng bằng sợi lông, mảy trần, hột cát, giọt nước, thời ông nên dùng đạo lực của ông ủng hộ người đó, làm cho người đó tu tập lần lần đạo hạnh vô thượng, chớ để họ thối thất.",
+      "line_start": 633,
+      "line_end": 635,
+      "approx_seconds": 71
+    },
+    {
+      "id": "kinh_dia_tang-0235",
+      "sort_order": 235,
+      "label": "Lại vầy nữa, nầy Địa Tạng Bồ Tát!",
+      "body": "Lại vầy nữa, nầy Địa Tạng Bồ Tát!\n\nTrong đời sau, hoặc có Trời hay người nào phải theo nghiệp mà thọ báo bị đọa vào chốn ác đạo, đến khi bị đọa vào ác đạo vừa bước đến cửa ngục, những chúng sanh đó nếu có thể niệm đặng danh hiệu của đức Phật, hay danh hiệu của một vị Bồ Tát, cùng một câu một kệ kinh điển Đại Thừa.\n\nÔng nên dùng thần lực của ông tìm phương chước cứu vớt các chúng sanh đó, ông nên hiện thân ra trước kẻ đó, phá tan địa ngục làm cho họ được sanh lên cõi trời hưởng những sự vui vi diệu thù thắng”.",
+      "line_start": 636,
+      "line_end": 638,
+      "approx_seconds": 73
+    },
+    {
+      "id": "kinh_dia_tang-0236",
+      "sort_order": 236,
+      "label": "Đoạn 236",
+      "body": "Bấy giờ đức Thế Tôn liền nói kệ rằng:\nĐời nay đời sau chúng Thiên, Nhơn,\nNay ta ân cần dặn bảo ông,\nDùng đại thần thông quyền độ họ,\nĐừng cho ác đạo đọa vào trong.\n\n2) BỒ TÁT TUÂN CHỈ.\n\nBấy giờ ngài Địa\nTạng đại Bồ Tát quỳ gối chắp tay bạch cùng đức Phật rằng:\n“Bạch đức Thế Tôn! Cúi xin đức Thế\nTôn chớ lo.",
+      "line_start": 639,
+      "line_end": 641,
+      "approx_seconds": 43
+    },
+    {
+      "id": "kinh_dia_tang-0237",
+      "sort_order": 237,
+      "label": "Đoạn 237",
+      "body": "Trong đời sau, nếu có người thiện nam cùng kẻ thiện nữ nào, đối với trong Phật pháp có một niệm cung kính, con cũng dùng trăm nghìn phương tiện độ thoát người đó, làm cho mau đặng giải thoát trong đường sanh tử, huống nữa là nghe các việc lành rồi luôn luôn tu hành, tự nhiên ở nơi đạo vô thượng không bao giờ còn thối chuyển”.\n\n3) HƯ KHÔNG TẠNG BẠCH HỎI.",
+      "line_start": 642,
+      "line_end": 643,
+      "approx_seconds": 50
+    },
+    {
+      "id": "kinh_dia_tang-0238",
+      "sort_order": 238,
+      "label": "Đoạn 238",
+      "body": "Lúc ngài\nĐịa Tạng Bồ Tát bạch lời nói trên đó vừa xong, trong pháp hội có một vị Bồ Tát tên là Hư Không Tạng bạch cùng đức Phật rằng:\n“Bạch đức Thế Tôn! Từ khi con đến cung trời Đao Lợi nầy nghe đức Như Lai ngợi khen oai thần thế lực không thể nghĩ bàn của ngài Địa Tạng Bồ Tát.",
+      "line_start": 644,
+      "line_end": 644,
+      "approx_seconds": 39
+    },
+    {
+      "id": "kinh_dia_tang-0239",
+      "sort_order": 239,
+      "label": "Đoạn 239",
+      "body": "Trong đời sau, hoặc có người thiện nam cùng thiện nữ nào, cho đến tất cả hàng Trời, Rồng v.v... nghe kinh điển nầy và nghe danh tự của Địa Tạng Bồ Tát cùng với chiêm lễ hình tượng Địa Tạng Bồ Tát, thời những kẻ ấy được bao nhiêu điều phước lợi?\n\nCúi mong đức Thế Tôn vì tất cả hàng chúng sanh ở hiện tại và vị lai mà nói lược việc ấy cho”.\n\n4) HAI MƯƠI TÁM ĐIỀU LỢI.\n\nĐức Phật bảo ngài Hư Không Tạng Bồ Tát: “Lóng nghe!\n\nLóng nghe cho kỹ! Ta sẽ vì ông mà nói rõ việc ấy cho.",
+      "line_start": 645,
+      "line_end": 649,
+      "approx_seconds": 67
+    },
+    {
+      "id": "kinh_dia_tang-0240",
+      "sort_order": 240,
+      "label": "Đoạn 240",
+      "body": "Trong đời sau, người thiện nam cùng thiện nữ nào thấy hình tượng của ngài Địa Tạng Bồ Tát và nghe kinh nầy, cho đến đọc tụng, dùng hương hoa, đồ ăn món uống, y phục, vật báu mà bố thí cúng dường ngợi khen chiêm lễ thời kẻ ấy được hai mươi tám điều lợi ích như sau đây:\n1. Các hàng Trời, Rồng thường hộ niệm.\n\n2. Quả lành càng ngày càng thêm lớn.\n\n3. Chứa nhóm nhơn vô thượng của\nThánh.\n\n4. Mãi không còn thối thất đạo Bồ\nĐề.\n\n5. Đồ mặc món ăn dồi dào đầy đủ.\n\n6. Những bịnh tật không đến nơi thân.",
+      "line_start": 650,
+      "line_end": 655,
+      "approx_seconds": 71
+    },
+    {
+      "id": "kinh_dia_tang-0241",
+      "sort_order": 241,
+      "label": "Đoạn 241",
+      "body": "7. Khỏi những tai nạn về lửa và nước.\n\n8. Không có bị hại vì trộm cướp.\n\n9. Người khác thấy đến sanh lòng cung kính.\n\n10. Các hàng Quỷ Thần theo hộ trì.\n\n11. Đời sau thân gái sẽ chuyển thành thân trai.\n\n12. Đời sau sẽ làm con gái các hàng\nVương Giả, Đại Thần.\n\n13. Thân tướng xinh đẹp.\n\n14. Phần nhiều được sanh về cõi trời.\n\n15. Hoặc làm bực vua chúa.\n\n16. Có trí sáng biết rõ việc trong những đời trước.\n\n17. Có mong cầu chi cũng đều được toại ý.\n\n18. Quyến thuộc an vui.\n\n19. Các tai vạ bất ngờ đều trừ sạch.",
+      "line_start": 656,
+      "line_end": 668,
+      "approx_seconds": 73
+    },
+    {
+      "id": "kinh_dia_tang-0242",
+      "sort_order": 242,
+      "label": "Đoạn 242",
+      "body": "20. Các nghiệp về ác đạo đều trừ hẳn.\n\n21. Đi đến đâu cũng đều không bị sự trở ngại.\n\n22. Đêm nằm chiêm bao an ổn vui vẻ.\n\n23. Những người thân tộc đã chết nếu có tội thời được khỏi khổ.\n\n24. Nếu về đời trước có phước thời được thọ sanh về cõi vui sướng.\n\n25. Các bực Thánh ngợi khen.\n\n26. Căn tánh lanh lợi thông minh.\n\n27. Giàu lòng từ mẫn.\n\n28. Rốt ráo thành Phật.\n\n5) BẢY ĐIỀU LỢI.",
+      "line_start": 669,
+      "line_end": 678,
+      "approx_seconds": 55
+    },
+    {
+      "id": "kinh_dia_tang-0243",
+      "sort_order": 243,
+      "label": "Lại vầy nữa, nầy Hư",
+      "body": "Lại vầy nữa, nầy Hư\nKhông Tạng Bồ Tát! Như hàng Trời, Rồng,\nQuỷ, Thần ở hiện tại và vị lai nghe danh hiệu của ngài Địa Tạng Bồ Tát, đảnh lễ hình tượng của ngài Địa Tạng Bồ Tát, hoặc nghe các sự về bổn nguyện tu hành của ngài Địa Tạng Bồ Tát mà ngợi khen chiêm lễ, thời sẽ đặng bảy điều lợi ích:\n1. Mau chứng bực Thánh.\n\n2. Nghiệp ác tiêu diệt.\n\n3. Chư Phật đến ủng hộ.\n\n4. Không thối thất Bồ Đề.\n\n5. Bổn lực được tăng trưởng.\n\n6. Việc đời trước đều rõ biết.\n\n7. Rốt ráo thành Phật.\n\n6) ĐẠI HỘI TÁN THÁN.",
+      "line_start": 679,
+      "line_end": 686,
+      "approx_seconds": 71
+    },
+    {
+      "id": "kinh_dia_tang-0244",
+      "sort_order": 244,
+      "label": "Đoạn 244",
+      "body": "Bấy giờ, bất khả thuyết tất cả các đức Phật và đại Bồ Tát cùng tám bộ chúng Trời, Rồng... ở mười phương đến dự Pháp hội đó, nghe đức Thích Ca Mâu Ni Phật ngợi khen tuyên bày sức oai thần lớn chẳng thể nghĩ bàn của ngài Địa Tạng Bồ Tát, đều khen là việc chưa từng có.\n\nLúc đó trời Đao Lợi rưới vô lượng hương hoa, thiên y, chuỗi ngọc để cúng dường đức Thích Ca Mâu Ni Phật và Địa Tạng Bồ Tát xong rồi, tất cả đại chúng trong pháp hội đều lại chiêm lễ chắp tay mà lui ra.\n\nKINH ĐỊA TẠNG BỒ TÁT BỔN\n\nNGUYỆN\n\nQUYỂN HẠ",
+      "line_start": 687,
+      "line_end": 691,
+      "approx_seconds": 73
+    },
+    {
+      "id": "kinh_dia_tang-0245",
+      "sort_order": 245,
+      "label": "HẾT",
+      "body": "HẾT\nBổn Thệ Địa Tạng\nSo nhân trong kinh\nTàn tật, câm ngọng do tiền sinh\nĐời nay tụng Đại Thừa\nPhước lợi vô cùng\nQuyết sen báu vãng sanh.\n\nNam mô Thường Trụ Thập Phương Tăng.\n\nNam mô Thường Trụ Thập Phương Tăng.\n\nNam mô Thường Trụ Thập Phương Tăng.\n\nNam mô Đại Nguyện Địa Tạng Vương Bồ\nTát Ma Ha Tát.\nTát Ma Ha Tát.\nTát Ma Ha Tát.\nĐao Lợi, Thế Tôn nói pháp mầu\nĐịa Tạng công hạnh rất rộng sâu\nThánh giáo mãi truyền sau chẳng ngớt\nKhắp lợi Trời, người khỏi khổ sầu.",
+      "line_start": 692,
+      "line_end": 696,
+      "approx_seconds": 66
+    },
+    {
+      "id": "kinh_dia_tang-0246",
+      "sort_order": 246,
+      "label": "Trời, A tu la, Dạ xoa thảy",
+      "body": "Trời, A tu la, Dạ xoa thảy\nĐến nghe pháp đó nên chí tâm\nỦng hộ Phật pháp khiến thường còn\nMỗi vị siêng tu lời Phật dạy\nBao nhiêu người nghe đến chốn nầy\nHoặc trên đất liền hoặc hư không\nThường đối người đời sanh từ tâm\nNgày đêm tự mình nương pháp ở\nNguyện các thế giới thường an ổn\nPhước trí vô biên lợi quần sinh\nBao nhiêu tội nghiệp thảy đều trừ\nXa lìa các khổ về viên tịch\nHằng dùng giới hương xoa vóc sáng\nThường gìn định phục để giúp thân\nHoa mầu Bồ Đề khắp trang nghiêm\nTùy theo chỗ ở thường an lạc.",
+      "line_start": 697,
+      "line_end": 697,
+      "approx_seconds": 72
+    },
+    {
+      "id": "kinh_dia_tang-0247",
+      "sort_order": 247,
+      "label": "Nam mô Tồi Tà Phụ Chính Hộ Pháp Chư",
+      "body": "Nam mô Tồi Tà Phụ Chính Hộ Pháp Chư\nTôn Bồ Tát Ma Ha Tát.\nTôn Bồ Tát Ma Ha Tát.\nTôn Bồ Tát Ma Ha Tát.\n\nMA HA BÁT NHÃ BA LA MẬT ĐA\n\nTÂM KINH\n\nQuán Tự Tại Bồ Tát hành thâm Bát\nNhã Ba La Mật Đa thời, chiếu kiến ngũ uẩn giai không độ nhất thiết khổ ách.\n\nXá Lợi Tử! Sắc bất dị không, không bất dị sắc, sắc tức thị không, không tức thị sắc, thọ, tưởng, hành, thức diệc phục như thị.",
+      "line_start": 698,
+      "line_end": 702,
+      "approx_seconds": 53
+    },
+    {
+      "id": "kinh_dia_tang-0248",
+      "sort_order": 248,
+      "label": "Đoạn 248",
+      "body": "Xá Lợi Tử! Thị chư pháp không tướng, bất sanh, bất diệt, bất cấu, bất tịnh, bất tăng, bất giảm. Thị cố không trung vô sắc, vô thọ, tưởng, hành, thức, vô nhãn, nhĩ, tỷ, thiệt, thân, ý, vô sắc, thinh, hương, vị, xúc, pháp, vô nhãn giới, nãi chí vô ý thức giới, vô vô minh diệc vô vô minh tận, nãi chí vô lão tử diệc, vô lão tử tận, vô khổ, tập, diệt, đạo, vô trí diệc vô đắc. Dĩ vô sở đắc cố, Bồ đề tát đỏa y Bát Nhã Ba La Mật Đa cố, tâm vô quái ngại, vô quái ngại cố, vô hữu khủng bố, viễn ly điên đảo mộng tưởng cứu cánh Niết Bàn. Tam thế chư Phật y Bát Nhã Ba La Mật Đa cố, đắc a nậu đa la tam miệu tam bồ đề. Cố tri Bát Nhã Ba La Mật Đa, thị đại thần chú, thị đại minh chú, thị vô thượng chú, thị vô đẳng đẳng chú, năng trừ nhất thiết khổ, chơn thật bất hư.",
+      "line_start": 703,
+      "line_end": 703,
+      "approx_seconds": 108
+    },
+    {
+      "id": "kinh_dia_tang-0249",
+      "sort_order": 249,
+      "label": "Đoạn 249",
+      "body": "Cố thuyết Bát Nhã Ba La Mật Đa chú.\n\nTức thuyết chú viết:\n“Yết đế yết đế, ba la yết đế, ba la tăng yết đế, bồ đề tát bà ha.”\n“Yết đế yết đế, ba la yết đế, ba la tăng yết đế, bồ đề tát bà ha.”\n“Yết đế yết đế, ba la yết đế, ba la tăng yết đế, bồ đề tát bà ha.”\n\nVÃNG SANH QUYẾT ĐỊNH CHƠN\n\nNGÔN",
+      "line_start": 704,
+      "line_end": 707,
+      "approx_seconds": 41
+    },
+    {
+      "id": "kinh_dia_tang-0250",
+      "sort_order": 250,
+      "label": "Nam mô a di đa bà dạ, đa tha già đa",
+      "body": "Nam mô a di đa bà dạ, đa tha già đa\ndạ, đa địa dạ tha. A di rị đô bà tỳ, a di rị đa tất đam bà tỳ, a di rị đa tỳ ca lan đế, a di rị đa tỳ ca lan đa, dà di nị dà dà na, chỉ đa ca lệ ta bà ha.\ndạ, đa địa dạ tha. A di rị đô bà tỳ, a di rị đa tất đam bà tỳ, a di rị đa tỳ ca lan đế, a di rị đa tỳ ca lan đa, dà di nị dà dà na, chỉ đa ca lệ ta bà ha.\ndạ, đa địa dạ tha. A di rị đô bà tỳ, a di rị đa tất đam bà tỳ, a di rị đa tỳ ca lan đế, a di rị đa tỳ ca lan đa, dà di nị dà dà na, chỉ đa ca lệ ta bà ha.\n\nTÁN PHẬT",
+      "line_start": 708,
+      "line_end": 709,
+      "approx_seconds": 72
+    },
+    {
+      "id": "kinh_dia_tang-0251",
+      "sort_order": 251,
+      "label": "A Di Đà Phật thân kim sắc,",
+      "body": "A Di Đà Phật thân kim sắc,\nTướng hảo quang minh vô đẳng luân,\nBạch hào uyển chuyển ngũ tu di,\nCám mục trừng thanh tứ đại hải,\nQuang trung hóa Phật vô số ức,\nHóa Bồ Tát chúng diệc vô biên,\nTứ thập bát nguyện độ chúng sanh,\nCửu phẩm hàm linh đăng bỉ ngạn.\n\nNam mô Tây Phương Cực Lạc Thế Giới,\nĐại Từ Đại Bi, A Di Đà Phật.\n\nNam mô A Di Đà Phật.\n\nNam mô A Di Đà Phật.\n\nNam mô A Di Đà Phật.\n\nNam mô A Di Đà Phật.\n\nNam mô A Di Đà Phật.\n\nNam mô A Di Đà Phật.\n\nNam mô A Di Đà Phật.\n\nNam mô A Di Đà Phật.\n\nNam mô A Di Đà Phật.\n\nNam mô A Di Đà Phật.",
+      "line_start": 710,
+      "line_end": 721,
+      "approx_seconds": 77
+    },
+    {
+      "id": "kinh_dia_tang-0252",
+      "sort_order": 252,
+      "label": "Đoạn 252",
+      "body": "Nam mô A Di Đà Phật.\n\nNam mô A Di Đà Phật.\n\nNam mô A Di Đà Phật.\n\nNam mô A Di Đà Phật.\n\nNam mô A Di Đà Phật.\n\nNam mô A Di Đà Phật.\n\nNam mô A Di Đà Phật.\n\nNam mô A Di Đà Phật.\n\nNam mô A Di Đà Phật.\n\nNam mô A Di Đà Phật.\n\nNam mô A Di Đà Phật.\n\nNam mô Đại Bi Quán Thế Âm Bồ Tát.\n\nNam mô Đại Bi Quán Thế Âm Bồ Tát.\n\nNam mô Đại Bi Quán Thế Âm Bồ Tát.\n\nNam mô Đại Thế Chí Bồ Tát.\n\nNam mô Đại Thế Chí Bồ Tát.\n\nNam mô Đại Thế Chí Bồ Tát.\n\nNam mô Địa Tạng Vương Bồ Tát.\n\nNam mô Địa Tạng Vương Bồ Tát.\n\nNam mô Địa Tạng Vương Bồ Tát.",
+      "line_start": 722,
+      "line_end": 741,
+      "approx_seconds": 74
+    },
+    {
+      "id": "kinh_dia_tang-0253",
+      "sort_order": 253,
+      "label": "Nam mô Thanh Tịnh Đại Hải Chúng Bồ",
+      "body": "Nam mô Thanh Tịnh Đại Hải Chúng Bồ\nTát.\nTát.\nTát.\n\nSÁM THẬP PHƯƠNG",
+      "line_start": 742,
+      "line_end": 743,
+      "approx_seconds": 35
+    },
+    {
+      "id": "kinh_dia_tang-0254",
+      "sort_order": 254,
+      "label": "Thập phương tam thế Phật",
+      "body": "Thập phương tam thế Phật\nA Di Đà đệ nhất\nCửu phẩm độ chúng sanh\nOai đức vô cùng cực\nNgã kim đại quy y\nSám hối tam nghiệp tội\nPhàm hữu chư phước thiện\nChí tâm dụng hồi hướng\nNguyện đồng niệm Phật nhơn\nCảm ứng tùy thời hiện\nLâm chung tây phương cảnh\nPhân minh tại mục tiền\nKiến văn giai tinh tấn\nĐồng sanh Cực Lạc quốc\nKiến Phật liễu sanh tử\nNhư Phật độ nhất thiết\nVô biên phiền não đoạn\nVô lượng pháp môn tu\nThệ nguyện độ chúng sanh\nTổng giai thành Phật đạo\nHư không hữu tận\nNgã nguyện vô cùng\nTình dữ vô tình\nĐồng viên chủng trí.",
+      "line_start": 744,
+      "line_end": 744,
+      "approx_seconds": 75
+    },
+    {
+      "id": "kinh_dia_tang-0255",
+      "sort_order": 255,
+      "label": "Nhất giả lễ kính chư Phật",
+      "body": "Nhất giả lễ kính chư Phật\nNhị giả xưng tán Như Lai\nTam giả quảng tu cúng dường\nTứ giả sám hối nghiệp chướng\nNgũ giả tùy hỷ công đức\nLục giả thỉnh chuyển pháp luân\nThất giả thỉnh Phật trụ thế\nBát giả thường tùy Phật học\nCửu giả hằng thuận chúng sanh\nThập giả phổ giai hồi hướng.\n\nPHÚNG KINH\n\nPhúng kinh công đức thù thắng hạnh,\nVô biên thắng phước giai hồi hướng,\nPhổ nguyện pháp giới chư chúng sanh,\nTốc vãng vô lượng quang Phật sát.",
+      "line_start": 745,
+      "line_end": 747,
+      "approx_seconds": 61
+    },
+    {
+      "id": "kinh_dia_tang-0256",
+      "sort_order": 256,
+      "label": "Nguyện tiêu tam chướng trừ phiền não,",
+      "body": "Nguyện tiêu tam chướng trừ phiền não,\nNguyện đắc trí huệ chơn minh liễu,\nPhổ nguyện tội chướng tất tiêu trừ,\nThế thế thường hành Bồ tát đạo.\n\nNguyện sanh Tây Phương Tịnh Độ trung,\nCửu phẩm Liên hoa vi phụ mẫu,\nHoa khai kiến Phật ngộ vô sanh,\nBất thối Bồ tát vi bạn lữ.\n\nNguyện dĩ thử công đức,\nPhổ cập ư nhứt thiết,\nNgã đẳng dữ chúng sanh,\nGiai cộng thành Phật đạo.\n\nPHỤC NGUYỆN",
+      "line_start": 748,
+      "line_end": 751,
+      "approx_seconds": 54
+    },
+    {
+      "id": "kinh_dia_tang-0257",
+      "sort_order": 257,
+      "label": "Đoạn 257",
+      "body": "A Di Đà Phật thường lai hộ trì, linh ngã thiện căn, hiện tiền tăng tấn, bất thất tịnh nhơn. Lâm mạng chung thời, thân tâm chánh niệm, thị thính phân minh, diện phụng Di Đà, dữ chư thánh chúng, thủ chấp kim đài, lai nghinh tiếp ngã, nhất sát na khoảnh, sinh tại Phật tiền, cụ Bồ Tát đạo, quảng độ chúng sanh, đồng thành chủng trí.",
+      "line_start": 752,
+      "line_end": 752,
+      "approx_seconds": 47
+    },
+    {
+      "id": "kinh_dia_tang-0258",
+      "sort_order": 258,
+      "label": "Nam mô Tây phương Cực Lạc thế giới đại",
+      "body": "Nam mô Tây phương Cực Lạc thế giới đại\ntừ đại bi A Di Đà Phật.\nNam mô Tây phương Cực Lạc thế giới Đại\nBi Quán Thế Âm Bồ Tát, Đại Thế Chí Bồ\nTát, Thanh Tịnh Đại Hải chúng Bồ Tát.\nNam mô Tây phương Cực Lạc thế giới\nLiên Trì Hải Hội Phật, Bồ Tát, nhất thiết hiền thánh chúng, chư Thượng Thiện nhân.\n\nTAM QUY Y\n\nTự quy y Phật, đương nguyện chúng\nsanh, thể giai đại đạo, phát vô thượng tâm.\n\nTự quy y Pháp, đương nguyện chúng\nsanh, thâm nhập kinh tạng, trí huệ như hải.",
+      "line_start": 753,
+      "line_end": 756,
+      "approx_seconds": 66
+    },
+    {
+      "id": "kinh_dia_tang-0259",
+      "sort_order": 259,
+      "label": "Tự quy y Tăng, đương nguyện chúng",
+      "body": "Tự quy y Tăng, đương nguyện chúng\nsanh, thống lý đại chúng, nhất thiết vô ngại.\n\nHỒI HƯỚNG\n\nNguyện đem công đức nầy,\nHướng về khắp tất cả,\nĐệ tử và chúng sanh,\nĐều trọn thành phật đạo.\n\nNAM MÔ HỘ PHÁP TẠNG BỒ TÁT",
+      "line_start": 757,
+      "line_end": 760,
+      "approx_seconds": 35
+    }
+  ]
 }
