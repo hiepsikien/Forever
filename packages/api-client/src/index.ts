@@ -409,7 +409,7 @@ export interface IdentityProfileRevision {
   profile_reviewed?: boolean;
 }
 
-/** Classic storytelling shelf (Kiều / Lục Vân Tiên) for a remembered person. */
+/** Classic storytelling shelf (Kiều / Lục Vân Tiên / Phạm Công Cúc Hoa, …) for a remembered person. */
 export interface StoryWorkSummary {
   id: string;
   slug: string;

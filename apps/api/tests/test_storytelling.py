@@ -65,6 +65,7 @@ def test_storytelling_listen_needs_voice_or_cache(client: TestClient):
     assert {
         "kieu",
         "luc_van_tien",
+        "pham_cong_cuc_hoa",
         "luu_binh_duong_le",
         "chieu_quan_cong_ho",
         "kinh_a_di_da",
