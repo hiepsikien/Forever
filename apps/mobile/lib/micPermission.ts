@@ -23,6 +23,8 @@ import { Linking } from "react-native";
 let granted = false;
 let dialogShown = false;
 let requesting = false;
+/** Android has been told to stop asking — possibly in an earlier app run. */
+let blocked = false;
 
 /** True while a system dialog may be stealing focus. */
 export function isRequestingRecordingPermission(): boolean {
@@ -31,7 +33,7 @@ export function isRequestingRecordingPermission(): boolean {
 
 /** Denied and we cannot ask again this run — only Settings can fix it. */
 export function micPermissionNeedsSettings(): boolean {
-  return !granted && dialogShown;
+  return !granted && (dialogShown || blocked);
 }
 
 export function openMicSettings(): void {
@@ -46,8 +48,10 @@ export async function ensureRecordingPermission(): Promise<boolean> {
     const current = await getRecordingPermissionsAsync();
     if (current.granted) {
       granted = true;
+      blocked = false;
       return true;
     }
+    if (!current.canAskAgain) blocked = true;
     if (dialogShown || !current.canAskAgain) return false;
     dialogShown = true;
     const asked = await requestRecordingPermissionsAsync();

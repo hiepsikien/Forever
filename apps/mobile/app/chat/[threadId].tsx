@@ -392,6 +392,13 @@ export default function ChatScreen() {
   const [sending, setSending] = useState(false);
   const [recording, setRecording] = useState(false);
   const [keyboardUp, setKeyboardUp] = useState(false);
+  /**
+   * Android draws edge to edge since SDK 53, so the window no longer shrinks
+   * for the keyboard and `KeyboardAvoidingView` has nothing to work with — the
+   * keyboard simply covered the composer. Lift the screen by the height the
+   * system reports instead.
+   */
+  const [keyboardInset, setKeyboardInset] = useState(0);
   const [playingId, setPlayingId] = useState<string | null>(null);
   const [spaceId, setSpaceId] = useState<string | null>(null);
   const [threadMeta, setThreadMeta] = useState<ThreadSummary | null>(null);
@@ -411,6 +418,13 @@ export default function ChatScreen() {
    */
   const stickToBottomRef = useRef(true);
   const lastContentHeightRef = useRef(0);
+  /**
+   * Until this moment, keep pinning the list to the newest message. Cells are
+   * measured over several frames, so a single scrollToEnd on load lands
+   * wherever the list happened to be — she opened the room high up and had to
+   * drag a long way down to reach today.
+   */
+  const settleUntilRef = useRef(0);
   /** Finger or fling in progress — never call scrollToEnd over that. */
   const scrollingRef = useRef(false);
   const sendingRef = useRef(false);
@@ -462,6 +476,8 @@ export default function ChatScreen() {
 
   const onScrollBeginDrag = useCallback(() => {
     scrollingRef.current = true;
+    // Her finger outranks the opening scroll.
+    settleUntilRef.current = 0;
     // The first pixels of a swipe used to still count as "at the bottom",
     // so onContentSizeChange yanked the list back to the newest message.
     stickToBottomRef.current = false;
@@ -557,6 +573,7 @@ export default function ChatScreen() {
       setThreadMeta(thread);
       setSpaceId(thread.space_id);
       listSeqRef.current += 1;
+      settleUntilRef.current = Date.now() + 1500;
       applyMessages(res.messages);
     } finally {
       setLoading(false);
@@ -666,12 +683,16 @@ export default function ChatScreen() {
     const shown = Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow";
     const hidden = Platform.OS === "ios" ? "keyboardWillHide" : "keyboardDidHide";
     const subs = [
-      Keyboard.addListener(shown, () => {
+      Keyboard.addListener(shown, (e) => {
         setKeyboardUp(true);
+        setKeyboardInset(e.endCoordinates?.height ?? 0);
         // Opening the keyboard means she is writing, not reading back.
         jumpToLatest();
       }),
-      Keyboard.addListener(hidden, () => setKeyboardUp(false)),
+      Keyboard.addListener(hidden, () => {
+        setKeyboardUp(false);
+        setKeyboardInset(0);
+      }),
     ];
     return () => subs.forEach((sub) => sub.remove());
   }, [jumpToLatest]);
@@ -1035,6 +1056,8 @@ export default function ChatScreen() {
     if (index < 0) return;
     focusedOnceRef.current = true;
     stickToBottomRef.current = false;
+    // Arriving from the library at one message beats opening at today.
+    settleUntilRef.current = 0;
     const t = setTimeout(() => {
       listRef.current?.scrollToIndex({
         index,
@@ -1052,6 +1075,12 @@ export default function ChatScreen() {
   const onContentSizeChange = useCallback((_w: number, h: number) => {
     const grew = h > lastContentHeightRef.current + 1;
     lastContentHeightRef.current = h;
+    // Opening the room: follow every remeasure to the bottom, even the ones
+    // that arrive while the list settles.
+    if (Date.now() < settleUntilRef.current && !focusedOnceRef.current) {
+      listRef.current?.scrollToEnd({ animated: false });
+      return;
+    }
     // Remeasure noise from cell recycle used to call scrollToEnd and fight her
     // finger. Only follow when content actually grew, she is at the bottom,
     // and she is not currently scrolling.
@@ -1080,8 +1109,11 @@ export default function ChatScreen() {
 
   return (
     <KeyboardAvoidingView
-      style={styles.root}
-      behavior={Platform.OS === "ios" ? "padding" : "height"}
+      style={[
+        styles.root,
+        Platform.OS === "android" ? { paddingBottom: keyboardInset } : null,
+      ]}
+      behavior={Platform.OS === "ios" ? "padding" : undefined}
       keyboardVerticalOffset={Platform.OS === "ios" ? headerHeight : 0}
     >
       <FlatList
@@ -1099,6 +1131,11 @@ export default function ChatScreen() {
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode="interactive"
         onContentSizeChange={onContentSizeChange}
+        onLayout={() => {
+          if (Date.now() < settleUntilRef.current && !focusedOnceRef.current) {
+            listRef.current?.scrollToEnd({ animated: false });
+          }
+        }}
         // Variable-height bubbles + a tiny window recycles cells and the
         // list jumps because estimated heights are wrong. Cap is 100
         // messages; keep a wide window so recycle almost never happens
