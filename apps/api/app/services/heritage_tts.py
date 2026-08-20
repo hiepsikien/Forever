@@ -12,6 +12,8 @@ import logging
 import re
 import time
 from dataclasses import dataclass
+from pathlib import Path
+from tempfile import TemporaryDirectory
 from typing import Any
 
 from sqlalchemy.orm import Session
@@ -20,9 +22,14 @@ from ..config import Settings, get_settings
 from ..models import SpaceSettings, VoiceProfile
 from . import voice_providers as vp
 from .ai_usage import UsageContext, record_usage
+from .audio_combine import AudioCombineError, concat_to_mp3
 from .storage import save_bytes
 
 logger = logging.getLogger(__name__)
+
+# Bump when synthesis options change so cached StoryRecording / poem audio that
+# was cut short (raw MP3 concatenation, pause tags on long verse) is rebuilt.
+POEM_TTS_REV = "v2-ffmpeg-concat"
 
 
 @dataclass
@@ -305,7 +312,7 @@ def chunk_tts_text(text: str, limit: int) -> list[str]:
             chunks.append(buf.strip())
         buf = ""
 
-    def append_piece(piece: str) -> None:
+    def append_piece(piece: str, *, joiner: str = "\n\n") -> None:
         nonlocal buf
         piece = piece.strip()
         if not piece:
@@ -322,7 +329,7 @@ def chunk_tts_text(text: str, limit: int) -> list[str]:
                 chunks.append(piece[start:end].strip())
                 start = end
             return
-        candidate = f"{buf}\n\n{piece}".strip() if buf else piece
+        candidate = f"{buf}{joiner}{piece}".strip() if buf else piece
         if len(candidate) <= limit:
             buf = candidate
         else:
@@ -336,10 +343,41 @@ def chunk_tts_text(text: str, limit: int) -> list[str]:
         if len(stanza) <= limit:
             append_piece(stanza)
             continue
+        # Verse lines stay single-spaced — blank lines between every lục/bát
+        # made some voices stop after the first few couplets.
         for line in stanza.split("\n"):
-            append_piece(line)
+            append_piece(line, joiner="\n")
     flush()
     return [c for c in chunks if c]
+
+
+def _merge_mp3_parts(parts: list[bytes]) -> bytes:
+    """Join provider MP3 takes into one playable file.
+
+    Raw byte concatenation leaves a second MPEG header mid-stream; many Android
+    players stop at that boundary — which is how a Kiều passage ended after the
+    first TTS piece («Phong tình cổ lục…») while the rest of the text stayed on
+    screen.
+    """
+    usable = [p for p in parts if p]
+    if not usable:
+        return b""
+    if len(usable) == 1:
+        return usable[0]
+    try:
+        with TemporaryDirectory(prefix="forever-poem-tts-") as tmp:
+            root = Path(tmp)
+            paths: list[Path] = []
+            for index, blob in enumerate(usable):
+                path = root / f"part-{index:02d}.mp3"
+                path.write_bytes(blob)
+                paths.append(path)
+            out = root / "joined.mp3"
+            concat_to_mp3(paths, out)
+            return out.read_bytes()
+    except AudioCombineError:
+        logger.exception("poem TTS ffmpeg concat failed; falling back to first part")
+        return usable[0]
 
 
 def _voice_tts_knobs(
@@ -413,11 +451,16 @@ def synthesize_poem_audio(
     text: str,
     settings: Settings | None = None,
     max_chars: int | None = None,
+    lengthen_pauses: bool | None = None,
+    chunk_chars: int | None = None,
 ) -> bytes:
     """Render a poem (possibly in chunks). Raises PoemReciteError on failure.
 
     Pass ``max_chars=0`` to skip the hard cap (story/sutra chat recite — still
-    split into ``heritage_poem_tts_chunk_chars`` pieces so playback is complete).
+    split into pieces so playback is complete). Story recite should pass a
+    modest ``chunk_chars`` (~280 ≈ 4 lục bát couplets) and ``lengthen_pauses=
+    False``: one long take was stopping after the first few couplets, and pause
+    tags made some voices cut the rest.
     """
     settings = settings or get_settings()
     body = (text or "").strip()
@@ -431,7 +474,17 @@ def synthesize_poem_audio(
             f"Bài thơ dài hơn {max_chars} ký tự — tách khổ hoặc rút gọn trước khi đọc.",
         )
     knobs = _voice_tts_knobs(db, voice, settings)
-    chunk_limit = max(120, int(settings.heritage_poem_tts_chunk_chars or 900))
+    chunk_limit = max(
+        120,
+        int(
+            chunk_chars
+            if chunk_chars is not None
+            else (settings.heritage_poem_tts_chunk_chars or 900)
+        ),
+    )
+    pause_flag = (
+        knobs["lengthen_pauses"] if lengthen_pauses is None else lengthen_pauses
+    )
     pieces = chunk_tts_text(body, chunk_limit)
     audio_parts: list[bytes] = []
     started = time.monotonic()
@@ -449,7 +502,7 @@ def synthesize_poem_audio(
                 style=knobs["style"],
                 speed=knobs["speed"],
                 use_speaker_boost=knobs["use_speaker_boost"],
-                lengthen_pauses=knobs["lengthen_pauses"],
+                lengthen_pauses=pause_flag,
                 emotion=knobs["emotion"]
                 if knobs["emotion"] and knobs["emotion"] != "auto"
                 else None,
@@ -468,7 +521,9 @@ def synthesize_poem_audio(
         logger.exception("poem TTS failed")
         raise PoemReciteError(502, "Không đọc được bài thơ lúc này.") from exc
 
-    audio = b"".join(audio_parts)
+    audio = _merge_mp3_parts(audio_parts)
+    if not audio:
+        raise PoemReciteError(502, "TTS không trả về âm thanh.")
     latency_ms = int((time.monotonic() - started) * 1000)
     record_usage(
         service=knobs["provider"],
@@ -481,6 +536,7 @@ def synthesize_poem_audio(
         meta={
             "voice_id": knobs["provider_voice_id"],
             "chunks": len(pieces),
+            "tts_rev": POEM_TTS_REV,
         },
     )
     return audio

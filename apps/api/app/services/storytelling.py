@@ -609,7 +609,7 @@ def ensure_story_tts_recording(
     """
     from ..config import get_settings
     from .heritage import voice_for_identity
-    from .heritage_tts import PoemReciteError, synthesize_poem_audio
+    from .heritage_tts import POEM_TTS_REV, PoemReciteError, synthesize_poem_audio
     from .poem_recite import recite_fingerprint, voice_can_recite
     from .storage import absolute_media_path, delete_media_artifacts, save_bytes
 
@@ -623,7 +623,9 @@ def ensure_story_tts_recording(
             "Chưa có Voice DNA sẵn để đọc. Steward hoàn thiện Giọng từ ký ức trước.",
         )
     assert voice is not None
-    fingerprint = recite_fingerprint(voice, text)
+    # Rev in the fingerprint so a cut-short take cached under the old join
+    # is not reused after we switched to ffmpeg concat + shorter pieces.
+    fingerprint = recite_fingerprint(voice, f"{POEM_TTS_REV}|{text}")
 
     existing = ready_recording_for_chunk(
         db, identity_id=identity.id, chunk_id=chunk.id
@@ -634,14 +636,17 @@ def ensure_story_tts_recording(
             return existing
 
     try:
-        # Chat «đọc kinh/truyện» must not abort mid-passage on the poem char cap;
-        # chunk_tts_text still splits for the provider.
+        # ~4 lục bát couplets per take: long single takes were ending after the
+        # opening couplets («Phong tình cổ lục…») while the rest of the passage
+        # stayed on screen. Pause tags off — they made some voices stop early.
         audio = synthesize_poem_audio(
             db,
             voice=voice,
             text=text,
             settings=get_settings(),
             max_chars=0,
+            lengthen_pauses=False,
+            chunk_chars=280,
         )
     except PoemReciteError as exc:
         raise StoryTtsError(exc.status_code, exc.detail) from exc

@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 from ..config import get_settings
 from ..models import IdentityProfile, MemoryItem, VoiceProfile
 from .heritage import HERITAGE_TAG_PREFIX, POEM_KIND, tag_tokens, voice_for_identity
-from .heritage_tts import PoemReciteError, parse_tts_prefs, synthesize_poem_audio
+from .heritage_tts import POEM_TTS_REV, PoemReciteError, parse_tts_prefs, synthesize_poem_audio
 from .memory_scope import visible_to
 from .storage import absolute_media_path, delete_media_artifacts, save_bytes
 
@@ -127,11 +127,18 @@ def get_or_create_recite_audio(
     if not voice_can_recite(voice):
         raise PoemReciteError(409, "Chưa có giọng để đọc thơ.")
     assert voice is not None
-    fingerprint = recite_fingerprint(voice, text)
+    fingerprint = recite_fingerprint(voice, f"{POEM_TTS_REV}|{text}")
     cached = cached_recite_bytes(item, fingerprint)
     if cached:
         return cached
-    audio = synthesize_poem_audio(db, voice=voice, text=text, settings=get_settings())
+    audio = synthesize_poem_audio(
+        db,
+        voice=voice,
+        text=text,
+        settings=get_settings(),
+        lengthen_pauses=False,
+        chunk_chars=280,
+    )
     relative = save_bytes(item.space_id, audio, ext=".mp3")
     old = getattr(item, "recite_media_path", None) or ""
     if old and old != relative:

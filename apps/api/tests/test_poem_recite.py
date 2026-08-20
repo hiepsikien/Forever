@@ -24,6 +24,34 @@ def test_chunk_tts_text_splits_stanzas():
     assert chunks[1] == b
 
 
+def test_chunk_tts_text_verse_lines_stay_single_spaced():
+    """Blank lines between every lục/bát made some voices stop mid-passage."""
+    lines = [
+        "Trăm năm trong cõi người ta,",
+        "Chữ tài chữ mệnh khéo là ghét nhau.",
+        "Trải qua một cuộc bể dâu,",
+        "Những điều trông thấy mà đau đớn lòng.",
+        "Lạ gì bỉ sắc tư phong,",
+        "Trời xanh quen thói má hồng đánh ghen.",
+        "Cảo thơm lần giở trước đèn,",
+        "Phong tình cổ lục còn truyền sử xanh.",
+        "Rằng năm Gia Tĩnh triều Minh,",
+        "Bốn phương phẳng lặng, hai kinh vững vàng.",
+    ]
+    pieces = chunk_tts_text("\n".join(lines), 280)
+    assert len(pieces) >= 2
+    assert pieces[0].endswith("Phong tình cổ lục còn truyền sử xanh.")
+    assert "\n\n" not in pieces[0]
+    assert pieces[1].startswith("Rằng năm Gia Tĩnh")
+
+
+def test_merge_mp3_parts_single_passthrough():
+    from app.services.heritage_tts import _merge_mp3_parts
+
+    assert _merge_mp3_parts([b"ID3fake"]) == b"ID3fake"
+    assert _merge_mp3_parts([]) == b""
+
+
 def _mark_voice_ready(identity_id: str) -> None:
     db = SessionLocal()
     try:
