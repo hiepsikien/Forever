@@ -2,10 +2,1685 @@
   "slug": "pham_cong_cuc_hoa",
   "title": "Phạm Công – Cúc Hoa",
   "author": "Dương Minh Đức Thị (truyện thơ Nôm)",
-  "source_note": "Chưa có bản quốc ngữ sạch trong kho PD (Wikisource). Steward dán chữ từ sách gia đình qua Nhập chữ (~4.610 câu lục bát).",
-  "line_count": 0,
-  "chunk_count": 0,
-  "chunks": [],
+  "source_note": "Bản quốc ngữ gia đình — làm sạch để đọc (bỏ số dòng, tiêu đề chương, quảng cáo). Dương Minh Đức Thị (truyện thơ Nôm).",
   "category": "classic",
-  "sort_order": 25
+  "sort_order": 25,
+  "line_count": 3708,
+  "chunk_count": 186,
+  "chunks": [
+    {
+      "id": "pham_cong_cuc_hoa-0001",
+      "sort_order": 1,
+      "label": "Đoạn 1 (câu 1–20)",
+      "body": "Trời cao thăm thẳm chín tầng\nTuy cao muôn trượng mà gần tấc gang\nXét soi thiện ác đôi đàng\nTrắng đen chẳng lẫn rõ ràng gương trong\nNgẫm xem thiên địa chí công\nDở hay cũng bởi tự lòng mà ra\nXưa nay những kẻ thảo hòa\nTrước thì lam lũ sau đà thành nhân:\nCó người ở phủ Quỳnh Vân\nTuổi cao sống cảnh cơ hàn không con\nVợ chồng hái củi trên non\nĐem về đi bán héo hon tháng ngày\nLão bà lòng thảo dạ ngay\nMình đà cơ cực mà hay giúp người\nThành tâm cúng lễ khắp nơi\nĐêm ngày cầu khấn phật trời đoái thương\nMột hôm đang hội đúc chuông\nCó bao nhiêu cúng chẳng lường đói no\nVề nhà chân mới bước vô\nChồng liền hỏi vợ nhỏ to mấy lời:",
+      "line_start": 1,
+      "line_end": 20,
+      "approx_seconds": 75
+    },
+    {
+      "id": "pham_cong_cuc_hoa-0002",
+      "sort_order": 2,
+      "label": "Đoạn 2 (câu 21–40)",
+      "body": "“Tiền còn nhiều ít mình ơi\nXin mình nói lại cho tôi hay cùng”\nBấy giờ vợ mới bảo chồng:\n“Củi bán được bốn mươi đồng chưa tiêu\nChùa quê sãi rách vách xiêu\nThiếp trông thấy cảnh tiêu điều mà thương\nVậy nên cúng cả đúc chuông\nẤy điều làm phúc mọi đường chớ lo”\nChồng nghe thấu hiểu nguyên do\nThấy lòng vui vẻ bằng cho bạc vàng\nBuổi chiều chuông đánh kêu vang\nMuốn dưa đơm cúng khói nhang ngọt ngào\nChuông ngân thấu đến thiên tào\nĐộng tai thượng đế xôn xao buổi chầu\nNgọc hoàng khe khẽ gật đầu\nPhán truyền: “Chư tướng hãy mau tâu bày\nAi cúng dưới đó hôm nay\nTiếng chuông lên mãi tận đây vẫn rền\nBách thần tinh tú quần tiên\nĐâu người cầu khấn chùa chiền nói ra”",
+      "line_start": 21,
+      "line_end": 40,
+      "approx_seconds": 75
+    },
+    {
+      "id": "pham_cong_cuc_hoa-0003",
+      "sort_order": 3,
+      "label": "Đoạn 3 (câu 41–60)",
+      "body": "Kim tinh Thái Bạch tâu qua:\n“Dưới trần gian có một nhà họ Dương\nVợ chồng cơ khổ trăm đường\nHái rau kiếm củi lễ thường chẳng quên\nXét trong cung số dân hèn\nĐã lo đói rách lại phiền không con\nPhép trời chuyển động càn khôn\nXin người đổi số cho tròn mới hay”\nNgọc hoàng phán: “Sự đã vầy\nKhanh nào giải được tâu bày xem sao”\nHai bên Bắc đẩu Nam tào\nTâu: “Xin việc ấy cứ giao mụ bà\nChúng thần thay số người ta\nCon nhờ bà mụ thuận hòa đôi tay”\n“Các khanh hãy nói ta hay\nTrong cung con trẻ hôm nay có còn”\nChín mươi bà mụ tâu luôn:\n“Lúc này trai gái chẳng còn một ai”\nNgọc hoàng chép miệng thở dài:\n“Gái trai chẳng có liệu bày gì đây",
+      "line_start": 41,
+      "line_end": 60,
+      "approx_seconds": 75
+    },
+    {
+      "id": "pham_cong_cuc_hoa-0004",
+      "sort_order": 4,
+      "label": "Đoạn 4 (câu 61–80)",
+      "body": "Âu là sẵn thái tử nay\nCho làm con của nhà này tiếc chi”\nLệnh truyền thái tử tức thì\nRời nơi cung cấm ra đi phen này\nVào nhà Dương thị đầu thai\nLàm người nối dõi đêm ngày thần hôn\nThái tử sụp lạy nỉ non:\n“Cha ơi có xót cho con chăng là\nThiếu gì vọng tộc thế gia\nMà cho con trẻ vào nhà hàn môn\nHái rau kiếm củi sườn non\nXin cha nghĩ lại cho con ở cùng”\nNgọc hoàng phán bảo ung dung:\n“Nó đói khổ thật nhưng lòng có nhân\nVậy nay con giáng xuống trần\nLàm con nhà ấy có phần còn hay”\nThái tử trong dạ đắng cay\nNước mắt chan chứa tâu ngay đan trì:\n“Cha cho xuống cõi trần kia\nMấy năm cha lại gọi về chính ngôi?”",
+      "line_start": 61,
+      "line_end": 80,
+      "approx_seconds": 75
+    },
+    {
+      "id": "pham_cong_cuc_hoa-0005",
+      "sort_order": 5,
+      "label": "Đoạn 5 (câu 81–100)",
+      "body": "Ngọc hoàng phán định một lời:\n“Cha cho con xuống hai mươi năm về”\nThái tử quỳ xuống chỉnh tề:\n“Hai mươi năm về thì cũng như không\nTuổi nào trả nghĩa đền công\nBáo ơn cúc dục yên xong mọi bề”\nNgọc hoàng nước mắt dầm dề:\n“Đúng sáu mươi tuổi lại về với ta”\nThái tử lạy mẹ lạy cha\nRời nơi thượng giới dặm xa cõi trần.\nCanh ba giờ tý rõ ràng\nDương thị mộng thấy rồng vàng bám lưng\nTrong mình sáng tỏ như gương\nĐến khi thức giấc tỏ tường trước sau\nVợ chồng ghi tạc ơn sâu\nCàng chăm làm lụng càng giàu từ bi.\nKhai hoa nay đã đến kỳ\nMột trai thanh tú dung nghi khác vời\nVợ chồng chăm chút không ngơi\nĐến ngày đầy tháng lễ trời tạ công",
+      "line_start": 81,
+      "line_end": 100,
+      "approx_seconds": 75
+    },
+    {
+      "id": "pham_cong_cuc_hoa-0006",
+      "sort_order": 6,
+      "label": "Đoạn 6 (câu 101–120)",
+      "body": "Lều tranh nến sáng nhang xông\nBàn thờ chỉ có tôm đồng tép rang\nVợ chồng nước mắt hai hàng\nVái dâng lễ mọn Ngọc hoàng chứng tri\nLòng thành thấu đến đan trì\nMười hai bà mụ tức thì đến nơi\nNhác trông thấy cỗ nực cười:\n“Thế mà hương khói cứ trời bay lên”\nChứng xong quay gót thượng thiên\nNgọc hoàng phán hỏi: “Băng miền bao xa\nVợ chồng họ Phạm tuổi già\nCỗ bàn nó cúng mụ bà những chi?”\nMười hai bà mụ tâu quỳ:\n“Nhà nó tân khổ trọn bề thủy chung\nĐem ra tinh những tôm đồng\nVới lại rau muống bày cùng tép rang\nThành tâm sống cảnh cơ hàn\nƯớc gì lại được thiên nhan đoái hoài”\nNgọc hoàng nước mắt chảy dài:\n“Dương gian cực khổ đọa đày thân con.",
+      "line_start": 101,
+      "line_end": 120,
+      "approx_seconds": 75
+    },
+    {
+      "id": "pham_cong_cuc_hoa-0007",
+      "sort_order": 7,
+      "label": "Đoạn 7 (câu 121–140)",
+      "body": "Nghĩa càng day dứt hao mòn\nXót tình phuj tử héo hon lòng già”.\nTuổi chàng nay đã lên ba\nMẹ cha mới đặt tên là phạm Công\nVợ thường than thở với chồng:\n“Gian nan gặp bước cực lòng bấy nay\nSinh con cơ khổ làm vầy\nĐể cho đói khát đêm ngay xót xa”\nPhạm Công tuổi mới mười ba\nCha mẹ thì già yếu đuối ai nuôi\nTưởng xem cơ sự ngậm ngùi\nPhải đi ở mướn mà nuôi cả nhà.\nPhạm Công vừa chẵn mười ba\nTuổi thơ sớm chịu phôi pha ưu phiền\nMột năm ở có năm tiền\nLấy cơm nhà chủ giấu liền vào trong\nĐem về cha mẹ đỡ lòng\nCòn mình chỉ có tôm đồng nước ao\nMẹ cha trong dạ bào hao\nSố phải đói khổ biết bao giờ rồi",
+      "line_start": 121,
+      "line_end": 140,
+      "approx_seconds": 75
+    },
+    {
+      "id": "pham_cong_cuc_hoa-0008",
+      "sort_order": 8,
+      "label": "Đoạn 8 (câu 141–160)",
+      "body": "Càng đi khấn phật cầu trời\nTu nhân tích đức trọn đời cùng nhau.\nNgười ta chịu khổ mãi đâu\nBa rồng xuống rước ông chầu thiên cung\nLão ông than thở cực lòng:\n“Bà ơi ráng để con không thua người”\nNói thôi thân thể rụng rời\nBa hồn bảy vía xa chơi non bồng\nDương thị đau đớn khôn cùng\nKêu trời vạch đất giọt hồng nhỏ sa\nPhạm Công tuổi mới mười ba\nLấy gì tang chế cho cha phen này\nLão ông chết đã ba ngày\nMời thầy địa lý nhưng thầy không nghe:\n“Cha mày hái củi xưa kia\nAi hòng trông cậy mà đi theo mày”\nLại đến mời sãi đàng này\nSãi cũng chê khó chẳng ai đến cùng\nPhạm Công nước mắt ròng ròng\nKhấn trời phù hộ rủ lòng thương cha",
+      "line_start": 141,
+      "line_end": 160,
+      "approx_seconds": 75
+    },
+    {
+      "id": "pham_cong_cuc_hoa-0009",
+      "sort_order": 9,
+      "label": "Đoạn 9 (câu 161–180)",
+      "body": "Vừa làm phù thủy trừ tà\nLàm thầy tìm đất cùng là ma chay\nĐem cha táng ở gốc cây\nVái lạy trời đất tỏ bày thiết tha.\nPhạm Công thưa với mẹ già:\n“Con đi kiếm củi phương xa phen này\nCố làm lấy một tuần chay\nCho cha siêu độ lên mây chầu trời\nDù phải kiếm củi suốt đời\nCon đây cũng chẳng sợ ai chê cười”\nMẹ rằng: “Đừng thế con ơi\nKiếm củi thì lại suốt đời cháo rau”\nPhạm Công nước mắt tuôn sầu:\n“Làm trai là phải dãi dầu xông pha\nChứ ai sinh đẻ con ra\nBây giờ lụy đến mẹ già hổ ngươi\nNuôi con ngần ấy năm trời\nMẹ cha phải chịu một đời long đong\nCông cha nghĩa mẹ ghi lòng\nLàm sao trả đặng ơn cùng tổ tiên”",
+      "line_start": 161,
+      "line_end": 180,
+      "approx_seconds": 75
+    },
+    {
+      "id": "pham_cong_cuc_hoa-0010",
+      "sort_order": 10,
+      "label": "Đoạn 10 (câu 181–200)",
+      "body": "Cơm nắm chỉ có mấy viên\nLưng đeo bầu nước tìm miền làm ăn\nĐói lòng áo rách che thân\nĐưa tay dắt mẹ dời chân lên đường.\nBốn ngày rong ruổi dặm trường\nGiữa trưa nắng gắt định dừng gốc đa\nMẹ con gặp một cụ già\nPhơ phơ đầu bạc nước da đồi mồi\nPhạm Công trông thấy ngùi ngùi:\n“Xin ông thư thả ta ngồi nghỉ ngơi”\nNghe thôi ông cụ mừng vui:\n“Ba ngày chịu đói không người đoái thương\nMay thay có bậu qua đường\nHãy xin bớt miệng sẻ nhường cho ta”\nPhạm Công nghe nói xót xa\nSẵn lưng cơm nắm mở ra tức thì\nMiệng cười: “Ông hãy ăn đi\nGiữa trưa ông có việc gì ra đây”\nCụ già thong thả giãi bày:\n“Hiếm hoi sinh được mụn trai đầu lòng",
+      "line_start": 181,
+      "line_end": 200,
+      "approx_seconds": 75
+    },
+    {
+      "id": "pham_cong_cuc_hoa-0011",
+      "sort_order": 11,
+      "label": "Đoạn 11 (câu 201–220)",
+      "body": "Thỏa niềm rày ước mai mong\nTìm thầy cho học, theo vòng nghĩa nhân\nTheo thầy vừa được ba xuân\nVề nhà cưới vợ thành thân vuông tròn\nGia tài phá sạch chẳng còn\nHôm mai khốn đốn vì con vung tiền\nNhững tin con thảo dâu hiền\nAi ngờ hết của chúng liền đuổi đi\nDâu con sỉ nhục ê chề\nCực lòng lão phải tính bề tha phương”\nPhạm Công nước mắt rưng rưng:\n“Công cha nghĩa mẹ như rừng như non\nThấy người con tưởng thân con\nChuỵên người thảm thiết héo hon lòng này\nThôi còn ba nắm cơm đây\nXin ông cầm lấy đường dài dùng qua\nVí dù con có lỡ ra\nCon xin nơi khác mẹ già cũng no”\nCụ già nghe nói nhỏ to:\n“Ơn chàng tốt bụng mà cho như vầy",
+      "line_start": 201,
+      "line_end": 220,
+      "approx_seconds": 75
+    },
+    {
+      "id": "pham_cong_cuc_hoa-0012",
+      "sort_order": 12,
+      "label": "Đoạn 12 (câu 221–240)",
+      "body": "Lòng chàng nhân hậu khôn tày\nCho nên lão lấy cơm này một viên”\nDứt lời cơm vẫn còn nguyên\nLão ông thôi đã biến liền vời xa\nChẳng ngờ là Phật Di Đà\nThoắt về tâu với vua cha Ngọc hoàng\nCùng quan văn võ hai hàng:\n“Chẳng ai ân nghĩa bằng chàng Phạm Công”\nTiếng đồn đã đến cửu trùng\nLại còn vang tới thủy cung động đình.\nNgọc hoàng muốn thấu sự tình\nTruyền đòi tiên nữ đăng trình viễn phương\nTiên nữ vâng lệnh lên đường\nXuống xem lòng dạ cõi dương thế nào\nPhất phơ lơi lả yếm đào\nMắt trần ai biết người nào tiên cung\nBấy giờ vừa gặp Phạm Công\nĐương tay dắt mẹ đi rong đường làng\nTiên nữ bèn đón lấy chàng:\n“Xin ai chớ có vội vàng đi ngay",
+      "line_start": 221,
+      "line_end": 240,
+      "approx_seconds": 75
+    },
+    {
+      "id": "pham_cong_cuc_hoa-0013",
+      "sort_order": 13,
+      "label": "Đoạn 13 (câu 241–260)",
+      "body": "Em là người ở phương tây\nMẹ cha ép uổng em nay lấy chồng\nChỉ vì tạo hóa bất công\nBắt em phải chịu cực lòng nơi đây\nNghe chàng hiếu nghĩa xưa nay\nDặm trường ròng rã bốn ngày không ngơi\nNhân duyên đành bởi sự trời\nNên nay lại gặp có nơi tương phùng”\nPhạm Công nghe nói hãi hùng\nTay liền dắt mẹ băng chừng nẻo xa:\n“Vợ chồng việc ấy xin tha\nTôi đâu quên chuyện cụ già hôm xưa”\nTiên nữ lời đã lọc lừa\nVe chàng chẳng được về thua tức thì\nNgọc hoàng phán hỏi vân vi:\n“Phạm Công nó nói điều gì với ngươi?”\nTiên nữ quỳ xuống đáp lời:\n“Cõi trần khó kiếm được người thứ hai\nHạ tiên theo nói cả ngày\nĐem lời ngon ngọt xoắn dây tơ hồng",
+      "line_start": 241,
+      "line_end": 260,
+      "approx_seconds": 75
+    },
+    {
+      "id": "pham_cong_cuc_hoa-0014",
+      "sort_order": 14,
+      "label": "Đoạn 14 (câu 261–280)",
+      "body": "Nhưng chàng hiếu thảo lạ lùng\nChẳng tưởng trai gái vợ chồng chút chi\nCứ khăng khăng dắt mẹ đi\nDương gian dễ có ai bì Phạm Công”\nNgọc hoàng nghe cũng mừng lòng\nPhán rằng: “Bậy ấy anh hùng không sai\nThế gian những kẻ anh tài\nXưa nay chưa thấy ai người chê tiên\nKhá khen hiếu nghĩa vẹn tuyền\nRành rành phò mã trạng nguyên sau này”.\nTrường thầy Quỷ Cốc gần đây\nMôn sinh thụ giáo xưa rày rất đông\nMẹ con nghe nói nức lòng\nLần theo độc đạo núi sông cách vời\nTới nơi trong dạ bồi hồi\nĐói nghèo thầy có nhận lời cho chăng\nMuốn hỏi chẳng dám hé răng\nThoắt thôi thầy đã ra sân gọi vào\nMẹ con khép nép thưa chào\nLạy trình sư phụ thấp cao mấy lời:",
+      "line_start": 261,
+      "line_end": 280,
+      "approx_seconds": 75
+    },
+    {
+      "id": "pham_cong_cuc_hoa-0015",
+      "sort_order": 15,
+      "label": "Đoạn 15 (câu 281–300)",
+      "body": "“Nghe đồn thầy dạy hơn người\nXin đem cháu đến nương nơi mưa nhuần\nMẹ con gặp bước gian truân\nXin thầy thương đến cho phần bảo ban”\nGiọng thầy lạnh nhạt nhặt khoan:\n“Ta thờ đạo thánh đem thân làm thầy\nDặm nghìn bay đã đến đây\nNếu ta không dạy xót mày về không\nÂu là ta cũng rộng lòng\nCho vào ngồi đó cố công học hành\nTrưởng tràng! Cho nó chiếu manh\nChớ cho chiếu lành mà phí chiếu ta”\nPhạm Công nghe nói xót xa\nTrưởng tràng lại lấy mực ra bắt mài\nChàng mài không được như ai\nTrưởng tràng quát ngắn quát dài một phen\nPhạm Công cay đắng phận hèn\nCúi đầu nhịn nhục lệ liền tuôn rơi\nRằng: “Anh không biết sự đời\nChớ nên phỉ báng thân tôi làm gì",
+      "line_start": 281,
+      "line_end": 300,
+      "approx_seconds": 75
+    },
+    {
+      "id": "pham_cong_cuc_hoa-0016",
+      "sort_order": 16,
+      "label": "Đoạn 16 (câu 301–320)",
+      "body": "Lộc trời uống rượu trong ly\nMỗi người một chén mất đi đằng nào\nGiàu nghèo như thể chiêm bao\nSự nay đã vậy việc sau khó lường\nThấy người khốn khó cùng đường\nChẳng thương thì cũng xin đừng nặng tay”\nTrưởng tràng mặt đỏ tía tai:\n“Đừng ai cho nó học bài làm chi\nLấy màn che kín đèn đi\nThế là nó phải chịu bề ngồi không\nĐêm thầy dạo bước tràng trung\nThoạt trông mắt đã rưng rưng bùi ngùi\nPhạm Công cầm sách dựa ngồi\nChờ cho chớp giật mấy hồi sáng ra\nCoi theo mà học thiết tha.\nNhận ra cậu bé mẹ già mồ côi\nÂn cần thầy bảo mấy lời:\n“Con cứ vào đó mà ngồi học đi\nThầy cho cơm áo no nê\nCon chăm học tập lấy nghề ấm thân”",
+      "line_start": 301,
+      "line_end": 320,
+      "approx_seconds": 75
+    },
+    {
+      "id": "pham_cong_cuc_hoa-0017",
+      "sort_order": 17,
+      "label": "Đoạn 17 (câu 321–340)",
+      "body": "Vừa cười vừa nói lần lần:\n“Tài này phò mã tất gần chẳng xa”\nTrưởng tràng cười khẩy ba hoa:\n“Làm nên phò mã chúng ta vào chầu\nNó mà có số sang giàu\nChúng ta làm đứa lính hầu cũng xong”\nPhạm Công bước vào nhà trong\nĐốt đèn lên học nặng lòng tri ân\nNgày ngày cơm nước thầy ban\nThịt thà nhường mẹ mình toàn rau dưa.\nHai mươi bốn hiếu đời xưa\nChuyện ngàn năm trước bây giờ còn đây\nVới người hiếu nghĩa thảo ngay\nTrời kia cũng muốn cho hài nhân duyên\nCúc Hoa tính nết dịu hiền\nCon quan tri phủ giá nên ngọc ngà\nNgời ngời độ tuổi mười ba\nMi cong mắt sáng làn da mịn hồng\nKinh sử thuộc hết làm lòng\nThầy cho thay mặt dạy trong học đường",
+      "line_start": 321,
+      "line_end": 340,
+      "approx_seconds": 75
+    },
+    {
+      "id": "pham_cong_cuc_hoa-0018",
+      "sort_order": 18,
+      "label": "Đoạn 18 (câu 341–360)",
+      "body": "Thấy chàng hiếu nghĩa thì thương\nCúc Hoa cảm kích lòng thường chạnh đau\nChâu trần tính chuyện dài lâu\nNỗi lòng dám tỏ gót đầu hôm mai\nBa đông đèn sách dùi mài\nAi nào biết được lòng ai chăng là\nLâu ngày nhớ mẹ nhớ cha\nNàng xin thầy được thăm nhà một phen\nBAo nhiêu sách vở bút nghiên\nNàng đà gói ghém dành riêng cho chàng\nRa về trong dạ ngổn ngang\nXót xa duyên số nhỡ nhàng một khi\nNhớ chàng luống những sầu bi\nTrong mình mang mối tình si nặng nề\nDật dờ tỉnh tỉnh mê mê\nNhác đường học tập trễ nghề cửi canh\nTướng công những rõ sự tình\nNgắm nhìn thì thấy ra hình ủ ê:\n“Sao con đi học mới về\nVì đâu nên nỗi mình ve gầy mòn",
+      "line_start": 341,
+      "line_end": 360,
+      "approx_seconds": 75
+    },
+    {
+      "id": "pham_cong_cuc_hoa-0019",
+      "sort_order": 19,
+      "label": "Đoạn 19 (câu 361–380)",
+      "body": "Trước đây má phấn môi son\nBảnh bao nét ngọc vuông tròn mặt hoa\nSau ngày đi học phương xa\nNghìn vàng thân ấy bỗng ra thế này”\nÔng bà ngẫm nghĩ thương thay:\n“Ai đày đọa trẻ cho cay đắng già\nCon ta như thể bông hoa\nPhải khi tròn bóng phơi ra mặt trời\nChuyện này chẳng phải chuyện chơi”\nCho người đi khắp mọi nơi mời về\nMời thầy chiếu kính tứ bề\nBảy già ba trẻ vị chi mười người\nLễ dâng khấn phật cầu trời\nĐỡ đâu chẳng thấy gầy thời hơn xưa\nÔng bà hôm sớm thẫn thờ\nChữa hoài không đặng bỏ lơ sao đành:\n“Chiếu kính việc đã không thành\nÂu là đi bói cho rành biết sao”.\nVợ chồng bàn định thấpcao\nPhu nhân sang chợ tìm vào bói xem",
+      "line_start": 361,
+      "line_end": 380,
+      "approx_seconds": 75
+    },
+    {
+      "id": "pham_cong_cuc_hoa-0020",
+      "sort_order": 20,
+      "label": "Đoạn 20 (câu 381–400)",
+      "body": "Năm quan tiền lễ đặt lên\nNhờ thầy xem quẻ bình yên thế nào\nTrước là gọi hạn gọi sao\nSau xem phúc đức xem vào thê nhi”\nThầy gieo quẻ xuống một khi\nChắp tay cung kính thầm thì khấn ngay\nThoắt thôi thầy đã giải bày:\n“Cứ trong bản mệnh quẻ này bình yên”\nPhu nhân đủng đỉnh nói thêm:\n“Nữ nhi trẻ nó ngày đêm trong phòng\nTừ ngày đến học tràng trung\nBỗng dưng mang bệnh hình dung âu sầu”\nLầm rầm thầy khấn trước sau\nCầm tiền gieo xuống gật đầu nói ngay:\n“Cứ xem trong tuổi tuất này\nBệnh sao cơn tỉnh cơn say lạ kỳ\nChẳng phải nội ngoại cô dì\nVong chú vong bác vong gì cũng không\nChẳng tà ma cũng chẳng vong\nQuẻ này là quẻ phải lòng ai đây",
+      "line_start": 381,
+      "line_end": 400,
+      "approx_seconds": 75
+    },
+    {
+      "id": "pham_cong_cuc_hoa-0021",
+      "sort_order": 21,
+      "label": "Đoạn 21 (câu 401–420)",
+      "body": "Cho nên ngọa bệnh làm vầy\nKhông tin bà hỏi tuổi này mà coi”\nPhu nhân vội vã đáp lời:\n“Con tôi nào phải là người nết hư”\nNói rồi từ tạ bốc sư\nNhanh chân thẳng trở dặm dư về nhà.\nPhu nhân hỏi nhỏ Cúc Hoa:\n“Nay con có phải trăng hoa ai cùng?”\nNàng rằng: “Đâu có lạ lùng\nCon măng sữa đã phải lòng người ta\nNăm nay con mới mười ba\nNào con có dám trăng hoa vật vờ.”\n“Nghe lời bói toán bâng quơ\nMẹ còn mang tấm lòng ngờ bấy nay\nCó gì con cứ tỏ bày\nĐừng để cha mẹ đêm ngày xót xa\nMấy nơi vọng tộc thế gia\nLâu nay săn đón mẹ cha chuyện này.”\nNàng rằng: “Có một chàng trai\nĐồng môn gần gụi suốt hai năm liền",
+      "line_start": 401,
+      "line_end": 420,
+      "approx_seconds": 75
+    },
+    {
+      "id": "pham_cong_cuc_hoa-0022",
+      "sort_order": 22,
+      "label": "Đoạn 22 (câu 421–440)",
+      "body": "Phận hèn nhưng chí không hèn\nHọc theo ánh chớp thay đèn, nết na\nBữa ăn dâng kính mẹ già\nMình thì cơm muối cơm cà vài lưng\nNgười hiếu nghĩa nghĩ mà thương\nLâu dần lại thấy vấn vương trong lòng\nXa rồi nhớ nhớ mong mong\nChập chờn mơ tưởng tơ hồng cùng ai.”\nÔng bà nghe kể một hai\nRưng rưng nước mắt thở dài giây lâu:\n“Sao con chẳng nói từ đầu\nĐể phải cúng bái lao đao bấy chầy\nĐã ra duyên sự làm vầy\nCũng bằng chim phượng đỗ cây ngô đồng\nLòng con nhất quyết tơ hồng\nMẹ cha cũng phải chiều lòng chứ sao\nChẳng tham gác tía lầu cao\nThì ta gọi đến mà trao xích thằng.”\nCúc Hoa nghe nói vui mừng\nCúi đầu lạy tạ cảm lòng mẹ cha",
+      "line_start": 421,
+      "line_end": 440,
+      "approx_seconds": 75
+    },
+    {
+      "id": "pham_cong_cuc_hoa-0023",
+      "sort_order": 23,
+      "label": "Đoạn 23 (câu 441–460)",
+      "body": "Thoắt thôi trở gót phòng hoa\nGọi con hoàn lại dặn qua mấy lời:\n“Bay lên trường học tức thời\nThấy người áo rách hãy mời về ngay\nNhững người áo đỏ hây hây\nChớ nên rước họ tới đây làm gì”\nLiễu hoàn vâng lệnh ra đi\nQuá trưa đã tới gần kề tràng môn\nToàn người áo đỏ đông ngòm\nÁo rách chẳng có đứng chồn cả chân\nTrở đi trở lại tần ngần\nThấy người dắt mẹ bước lần bờ sông\nLiễu hoàn nhẹ nhõm trong lòng:\n“Chàng kia có phải Phạm Công chăng là?”\nPhạm Công liền bảo mẹ già:\n“Cớ sao lại có đàn bà gọi chi”\nChàng bèn nói lại một khi:\n“Nhà cô nào đó hỏi gì đến tôi”\nLiễu hoàn lễ phép đáp lời:\n“Nữ tỳ đâu dám bắt Người gọi cô",
+      "line_start": 441,
+      "line_end": 460,
+      "approx_seconds": 75
+    },
+    {
+      "id": "pham_cong_cuc_hoa-0024",
+      "sort_order": 24,
+      "label": "Đoạn 24 (câu 461–480)",
+      "body": "Chuyện gì không biết nhỏ to\nMà quan tri phủ dạy vô đòi chàng”\nPhạm Công trong dạ bàng hoàng:\n“Người đòi hay dở cô tường hay không”\nHoàn rằng: “Phép nước chí công\nCan chi quan phải bàn cùng với tôi”\nPhạm Công nét mặt kém tươi:\n“Nếu quan tri phủ sai thời có nha\nCớ sao lại bảo đàn bà\nTôi nay tiến thoái thật là khó thay”\nLiễu hoàn ngon ngọt giãi bày:\n“Nếu sao tôi sẽ chịu thay cho chàng”\nPhạm Công chưa hết ngỡ ngàng:\n“Quan mà gọi tới ắt thường khảo tra”\nCuối cùng đành dắt mẹ già\nBước vào lạy tạ gần xa tứ bề\nĐồng môn hạng nhất hạng nhì:\n“Anh em ở lại tôi đi phen này”\nLên thềm quỳ lạy trình thầy:\n“Ngẫm tình sư đệ con nay tủi thầm”",
+      "line_start": 461,
+      "line_end": 480,
+      "approx_seconds": 75
+    },
+    {
+      "id": "pham_cong_cuc_hoa-0025",
+      "sort_order": 25,
+      "label": "Đoạn 25 (câu 481–500)",
+      "body": "Đồng môn họp lại bàn ngầm:\n“Ví dù quan phủ giam cầm Phạm Công\nChúng ta phải thật đồng lòng\nGóp tiền sang chạy mở gông cho chàng”\nCười vui thầy nói rõ ràng:\n“Nó đi hẳn được vẻ vang phen này”\nChàng theo cô gái đi ngay\nTay gầy dắt mẹ một giây không rời\nTrập trùng đồi núi dặm khơi\nChiều tối tới đặng gần nơi công đường\nChòi canh rải rác khắp vùng\nBốn bề vời vợi bịt bùng tường cao\nLiều mình chàng mới bước vào\nCửa quan tri phủ người nào chẳng ghê\nTướng công quay mặt ra hè\nHỏi: “Chàng nho sĩ mới về tới đây\nChiếu hoa sắp sẵn lầu tây\nMẹ con nho sĩ vào đây thư ngồi\nCơm canh đã chín cả rồi\nĂn xong rồi sẽ có lời gửi trao”",
+      "line_start": 481,
+      "line_end": 500,
+      "approx_seconds": 75
+    },
+    {
+      "id": "pham_cong_cuc_hoa-0026",
+      "sort_order": 26,
+      "label": "Đoạn 26 (câu 501–520)",
+      "body": "Nàng nhìn qua bức trướng đào\nLòng càng ưa nét thanh cao bội phần\nThấy chàng có dáng băn khoăn\nTướng công cười mỉm lại gần ung dung:\n“Cúc Hoa một dạ thủy chung\nCòn chi nghi ngại nói ông nghe chừng”\nPhạm Công quỳ xuống rưng rưng:\n“Cả nhà cơ cực cùng đường bấy nay\nThân con như thể ăn mày\nCó đâu chữ nghĩa sánh tày người ta”\nTướng công nói rõ gần xa:\n“Quý lòng ham học thôi mà sá chi\nCon ta ham nết nhân nghì\nCho nên mới gọi chàng về tới đây\nTừ khi thụ giáo trường thầy\nBốn trăm đồng học đông tây anh tài\nNó chẳng nhòm ngó đến ai\nThấy chàng nnho sĩ lòng hoài nhớ thương\nVề nhà phiền muộn trăm đường\nThuốc thang chẳng bớt võ vàng dung nhan",
+      "line_start": 501,
+      "line_end": 520,
+      "approx_seconds": 75
+    },
+    {
+      "id": "pham_cong_cuc_hoa-0027",
+      "sort_order": 27,
+      "label": "Đoạn 27 (câu 521–540)",
+      "body": "Nay chàng muốn kết phượng loan\nXuyến vàng ba cặp mới hoàn nhân duyên”\nPhạm Công nghe nói lòng phiền\nĐất bằng phút chốc nổi liền phong ba\nCáo đâu dám sánh liên hoa\nCú nào dám đọ tiên nga mỹ miều\nNghĩ mình chút phận hẩm hiu\nBạc vàng chẳng có tính chiều nào xong\nCúc Hoa ngồi ở nhà trong\nNghe cha nói vậy mà lòng ngổn ngang\nThấy Người thách bạc thách vàng\nDặn hoàn ra bảo kẻo chàng sợ e:\n“Đừng bó tay chớ bỏ về\nKhó khăn em liệu mọi bề êm xuôi\nCanh ba thanh vắng không người\nBấy giờ em sẽ có lời thưa qua.”\nCăn cơ vốn tính đàn bà\nTay hòm chìa khó cửa nhà điền trang\nBao nhiêu hòm bạc hòm vàng\nMẹ cha giao cả cho nàng lâu nay",
+      "line_start": 521,
+      "line_end": 540,
+      "approx_seconds": 75
+    },
+    {
+      "id": "pham_cong_cuc_hoa-0028",
+      "sort_order": 28,
+      "label": "Đoạn 28 (câu 541–560)",
+      "body": "Trống lầu vừa điểm canh hai\nCúc Hoa bèn lẻn ra ngoài đứng trông\nThấy người ngủ hết tây đông\nBảo chàng vào đấy liệu chừng một phen:\n“Xin chàng chớ ngại chớ phiền\nNửa ngày thu vén đã yên cả rồi\nNhờ chàng chuyển đỡ mà thôi”\nPhạm Công nghe nói bồi hồi không yên\nCúc Hoa thấy thế bèn khuyên:\n“Chấp kinh thì phải tòng quyền mới qua\nXưa nay lắm bậc tài hoa\nMà đành chịu để đàn bà chê quê”\nPhạm Công lòng vẫn rụt rè\nNghe nàng cũng quyết một bề cho xong\nCúc Hoa liền mở cửa phòng\nCho xem vàng bạc bên trong sẵn sàng\nTrấn an nàng rỉ tai chàng:\n“Của riêng em đó vô vàn thiếu chi\nMai kia có xảy chuyện gì\nMặc em lo liệu chàng thì yên tâm”",
+      "line_start": 541,
+      "line_end": 560,
+      "approx_seconds": 75
+    },
+    {
+      "id": "pham_cong_cuc_hoa-0029",
+      "sort_order": 29,
+      "label": "Đoạn 29 (câu 561–580)",
+      "body": "Canh tư rồi lại canh năm\nHai người chuyên được bốn trăm quan tiền\nĐến khi gà gáy liền liền\nBạc vàng lấy đủ đã yên một niềm\nNàng lo đóng cửa thật êm\nChàng thì nhón gót bậc thềm bước sang\nNgoài kia tiền xếp ngổn ngang\nXuyến vòng đủ hết bạc vàng thiếu đâu\nCanh năm trống điểm trên lầu\nChân trời ửng đỏ một màu phía xa\nPhạm Công quỳ lạy ông bà\nĐái đồng long cổn xô sa xuyến vàng\nXiêm y ba bộ rỡ ràng\nPhạm Công khi ấy vẻ vang ai bì\nTướng công phán hỏi tức thì:\n“Của đâu nói rõ mọi bề ông hay”\nPhạm Công lúng túng thưa bày:\n“Con vừa đi mượn trường thầy nơi xa”\nTướng Công bấm độn xem qua:\n“Quẻ này là quẻ của ta thực rồi",
+      "line_start": 561,
+      "line_end": 580,
+      "approx_seconds": 75
+    },
+    {
+      "id": "pham_cong_cuc_hoa-0030",
+      "sort_order": 30,
+      "label": "Đoạn 30 (câu 581–600)",
+      "body": "Tý sửu dần mão ngọ mùi\nTrong nhà có trộm chẳng nguời đâu xa\nTrường thầy sao những của ta”\nBèn gọi đầy tớ: “Bay ra bắt vào”\nPhạm Công luống cuống sợ sao\nNghe lời nàng phải tù lao phen này\nCúc Hoa nhìn thấy thương thay\nLạy cha lạy mẹ giãi bày vân vi:\n“Ví dù có xảy chuyện gì\nTội con con chịu can chi đến chàng\nNhà ta lỉnh kỉnh bạc vàng\nChàng thì đói rách bỏ làng ra đi\nTơ hồng nguyệt lão đã xe\nDuyên trời đã định phu thê trọn đời\nThỏa lòng ước nguyện lứa đôi\nCon đâu trộm cắp để rồi cho ai\nKim ngân quý vật một hai\nLà cha mẹ để cho ngày cưới con”\nLạy cha lạy mẹ nỉ non:\n“Chuyện này âu cũng tại con nhiều bề",
+      "line_start": 581,
+      "line_end": 600,
+      "approx_seconds": 75
+    },
+    {
+      "id": "pham_cong_cuc_hoa-0031",
+      "sort_order": 31,
+      "label": "Đoạn 31 (câu 601–620)",
+      "body": "Nếu cha chẳng có thương vì\nTội con con chịu chàng thì xin tha”\nÔng bà ôm lấy Cúc Hoa:\n“Tơ duyên trời định con ta chắc rồi\nBuổi đầu ướm hỏi thử chơi\nXem chàng nho sĩ ra người thế nao”.\nBa ngày rộn rã vui sao\nLễ mừng ăn hỏi kẻ vào người ra\nCầu xin tiên tổ gần xa\nĐộ trì hai kẻ thuận hòa trước sau\nCầu xin Bắc đẩu Nam tào\nChứng cho đôi lứa bên nhau trọn đời\nBà tri phủ lại ngỏ lời\nMuốn ông xem tuổi cho đôi vợ chồng\nTướng công mới bảo Phạm Công:\n“Tuôi gì có nhớ nói cùng cha hay”\nPhạm Công tính đốt ngón tay:\n“Tuổi con mười tám thực nay tuổi dần”\nTướng công nét mặt trầm ngâm:\n“Con ta tuổi tuất có phần hợp đây",
+      "line_start": 601,
+      "line_end": 620,
+      "approx_seconds": 75
+    },
+    {
+      "id": "pham_cong_cuc_hoa-0032",
+      "sort_order": 32,
+      "label": "Đoạn 32 (câu 621–640)",
+      "body": "Tuất dần sum họp hôm mai\nTrăm năm chữ thọ sánh vai chữ tình”\nNói vầy nhưng bụng đinh ninh:\n“Cứ xem hai tuổi thực tình khắc nhau\nSống chung chẳng mấy dài lâu\nMẹ già cũng sắp về chầu tổ tiên\nCơ trời nghĩ thật linh thiêng\nTa đành giữ miệng cho yên cửa nhà”.\nQuả nhiên chỉ mấy ngày qua\nXem ra sức khỏe Dương bà sút mau\nPhạm Công trí quẫn lòng đau\nCưới xin tính chuyện hoãn vào dịp sau\nLão bà nghe nói thều thào:\n“Vì con mẹ chẳng khi nào tiếc chi\nCác con hãy lấy nhau đi\nMẹ tám mươi tuổi lo gì thác oan\nMay nay gặp chốn quyền môn\nĐược dâu phú quý cho con nương nhờ\nTình duyên chớ để hững hờ\nHay chi cái cảnh đợi chờ phượng loan”",
+      "line_start": 621,
+      "line_end": 640,
+      "approx_seconds": 75
+    },
+    {
+      "id": "pham_cong_cuc_hoa-0033",
+      "sort_order": 33,
+      "label": "Đoạn 33 (câu 641–660)",
+      "body": "Cúc Hoa cũng thấy bàng hoàng:\n“Tâm thành thì được trời ban phúc mà\nXin chàng gác chuyện nguyệt hoa\nTrăm năm kết tóc duyên ta vội gì”\nPhạm Công một dạ kiên trì\nMười hôm ròng rã không hề gió trăng\nĐêm ngày cầu khấn quỷ thần\nNhưng không ngăn đuợc người thân lìa đời\nPhạm Công vật vã kêu trời:\n“Mẹ con chưa đựoc thảnh thơi ngày nào\nTrời ơi trời ở trên cao\nLiệu trời có thấu nỗi đau bời bời\nMẹ con đói khổ một đời\nCon nay mát mặt thì Người xa con”\nCúc Hoa hiếu nghĩa sắt son\nTóc mây chấm đất cắt còn ngang vai.\nSực nghe tin dữ đến nơi\nÔng bà tri phủ kịp thời tới ngay\nXuất tiền sắm sửa lễ bày\nMinh tinh nỉ tía gỗ dày áo quan",
+      "line_start": 641,
+      "line_end": 660,
+      "approx_seconds": 75
+    },
+    {
+      "id": "pham_cong_cuc_hoa-0034",
+      "sort_order": 34,
+      "label": "Đoạn 34 (câu 661–680)",
+      "body": "Linh xa sơn đỏ thếp vàng\nNhiễu điều phủ lấy hai hàng gấm bao\nCâu đối thêu lụa hồng đào\nTám mươi cờ xí giương cao rõ ràng\nXung quanh đèn đuốc sáng choang\nGiữa thì sãi vãi hai hàng tụng kinh\nPhạm Công ra trước minh tinh\nTướng công mới nói sự tình vân vi:\n“Đó đây cách trở nhiều bề\nHãy rước linh cữu đưa về cố hương\nVui gì cái cảnh tha phương\nXa nơi chòm xóm thân thương sum vầy”\nĐoàn người rong ruổi dặm dài\nRước đưa linh cữu mười ngày tới nơi.\nChàng cho xem đất hẳn hoi\nMồ xây khoáng đạt gần nơi chùa làng\nCúc Hoa mới hỏi chồng rằng:\n“Thi hài thân phụ xưa chàng chôn đâu\nMuốn cho con cháu dồi dào\nHài cốt cha mẹ táng vào một nơi”",
+      "line_start": 661,
+      "line_end": 680,
+      "approx_seconds": 75
+    },
+    {
+      "id": "pham_cong_cuc_hoa-0035",
+      "sort_order": 35,
+      "label": "Đoạn 35 (câu 681–700)",
+      "body": "Phạm Công mừng rỡ đáp lời:\n“Thi hài dạo ấy anh vùi gốc cây\nNàng đã bảo vậy thì nay\nTa đem di táng về đây gần kề\nCó lục liễu có thanh hòe\nThêm phần cao ráo thêm bề phong quang\nTrong quan ngoài quách vững vàng\nHoa văn đắp nổi trông càng thanh tao”.\nPhạm Công ruột xót như bào\nKhông ngơi cầu khấn trời cao đất dày\nSuốt trong ba tháng mười ngày\nĐèn nhang cúng lễ tỏ bày thành tâm\nMong hồn cha mẹ cõi âm\nĐặng bề siêu thoát đặng phần thảnh thơi\nChàng bèn chọn tháng chọn nơi\nDựng đàn tươm tất kịp thời làm chay\nThỉnh kinh niệm phật đêm ngày\nHoa thơm đàn tế nhang bay mộ phần\nNỗi đau rồi cũng vợi dần\nBa mươi sáu tháng tới tuần mãn tang.",
+      "line_start": 681,
+      "line_end": 700,
+      "approx_seconds": 75
+    },
+    {
+      "id": "pham_cong_cuc_hoa-0036",
+      "sort_order": 36,
+      "label": "Đoạn 36 (câu 701–720)",
+      "body": "Nhà còn mỗi chiếc xuyến vàng\nMẹ cho ngày cưới giữ giàng phòng xa\nCúc Hoa đã phải mang ra\nBán đi báo hiếu cho cha mẹ chồng\nNàng bèn nói với Phạm Công:\n“Thiếp xin giải tỏ thủy chung như vầy\nViệc nhà mặc thiếp ra tay\nXin chàng cứ học cho hay muôn phần\nKhen chàng hiếu trọng tình thâm\nBa năm tang chế toàn nằm giường không\nChịu chàng lòng dạ kiên trung\nChỉ lo vô hậu ngại ngùng mai sau\nVợ chồng tình nghĩa dài lâu\nTrăm năm gắn bó trước sau thuận hòa”.\nTình chồng nghĩa vợ mặn mà\nChưa đầy ba tháng nàng đà mang thai\nPhạm Công tính chuyện đường dài\nBèn cầm tay vợ một hai tỏ bày:\n“Lo cho phụ mẫu vơi đầy\nBạc tiền hết sạch bấy chầy còn chi",
+      "line_start": 701,
+      "line_end": 720,
+      "approx_seconds": 75
+    },
+    {
+      "id": "pham_cong_cuc_hoa-0037",
+      "sort_order": 37,
+      "label": "Đoạn 37 (câu 721–740)",
+      "body": "Khai hoa nở nhụy tới kỳ\nLấy gì cho mẹ lấy gì cho con”\nCúc Hoa nghe nói nỉ non:\n“Cầu trời cho đặng vuông tròn sẽ hay”\nChợt nghe chiếu chỉ định ngày\nKhoa thi vua mở ở ngay kinh kỳ\nSinh đồ nô nức ra đi\nCông danh vẫy gọi quản gì đường xa\nPhạm Công lo lúc khai hoa\nVắng chàng mình vợ ở nhà ai nuôi\nCúc Hoa thủ thỉ: “Chàng ơi\nCó đi mới có tin vui báo về\nThai sinh trời đất định kỳ\nỞ nhà mặc thiếp cứ đi theo người”.\nThấy nàng đã nói hết lời\nPhạm Công quyết chí sắp dời chân đi\nNàng rằng: “Còn tấm lụa kia\nÂu là thiếp cắt xiêm y cho chàng”\nPhạm Công nghe nói càng thương\nRằng: “Anh đã có áo trường mặc đây",
+      "line_start": 721,
+      "line_end": 740,
+      "approx_seconds": 75
+    },
+    {
+      "id": "pham_cong_cuc_hoa-0038",
+      "sort_order": 38,
+      "label": "Đoạn 38 (câu 741–760)",
+      "body": "Lụa con em giữ mà may\nAnh thêm yên dạ những ngày quan san”\nCúc Hoa nước mắt chứa chan:\n“Xin chàng ăn mặc cho sang bằng người\nNgười ta gấm vóc cả đời\nLượt là năm tháng đủ mùi ăn chơi\nChàng thì áo xống tả tơi\nKhông bằng chúng bạn hổ ngươi lắm mà\nCó chiếc áo cưới lụa sa\nLâu nay thiếp giữ mượt mà trong rương\nÂu là ta khấn âm dương\nVề ai nấy mặc chứ đừng duỗi ra”.\nTiền gieo ba lượt cả ba\nĐất trời không nói áo là về ai\nCúc Hoa bèn cắt làm hai\nPhạm Công lấy nửa cho hài đôi bên:\n“Anh còn có sáu đồng tiền\nRa đi để lại cho em ba đồng”\nBùi ngùi nước mắt ròng ròng\nGiờ lâu mới bước thẳng giong lên đường.",
+      "line_start": 741,
+      "line_end": 760,
+      "approx_seconds": 75
+    },
+    {
+      "id": "pham_cong_cuc_hoa-0039",
+      "sort_order": 39,
+      "label": "Đoạn 39 (câu 761–780)",
+      "body": "Sinh đồ nom thấy khinh thường\nĐem lòng rẻ rúng xem phường trẻ trâu:\n“Thằng này mày định đi đâu\nLiệu mày có muốn gánh hầu đây thuê”.\nChàng rằng: “Chớ có nói mê\nMỗ đây thư thái tội gì hầu bay”\nSinh đồ vào quán đông tây\nĂn ngon ngủ ấm dặm dài lai kinh\nPhạm Công tối đến nằm đình\nSinh đồ ca cẩm: “Chúng mình nhục lây”\nPhạm Công bèn đáp lại ngay:\n“Bọn bay đâu được ở tày mỗ đây\nRồng vờn lân múa hạc bay\nCó hồ xanh nước có cây chọc trời\nTrần ai ai biết anh tài\nThì đem cảnh sắc mà mời tướng khanh”.\nPhạm Công đang giữa lộ trình\nBấm tay nhớ đến ngày lành giỗ cha\nKhi đi dặn vợ ở nhà:\n“Lưng cơm dĩa muối em hòa kính dâng”",
+      "line_start": 761,
+      "line_end": 780,
+      "approx_seconds": 75
+    },
+    {
+      "id": "pham_cong_cuc_hoa-0040",
+      "sort_order": 40,
+      "label": "Đoạn 40 (câu 781–800)",
+      "body": "Một mình đất khách bâng khuâng\nCông ơn dưỡng dục lòng hằng khôn quên\nTương rau cơm thính mọn hèn\nGiữa đường lặng lẽ cơm đèn cúng cha\nTâm thành động đến cõi xa\nViệc chi cứ phải khấn ra thành lời.\nPhạm Công đi tiếp một hơi\nHai mươi ngày lẻ tới nơi kinh kỳ\nBảy nghìn sĩ tử vào thi\nRớt dần gần hết liệu bề hồi hương\nPhạm Công văn tứ khác thường\nĐứng đầu đỗ trạng phố phường nức tên\nNgụy vương truyền gọi vào liền\nSắc ban áo mũ trạng nguyên sáng ngời\nCuối cùng vua mới ngỏ lời:\n“Trẫm thiếu thái tử nối ngôi trị vì\nTrời cho được một nữ nhi\nMày ngài mắt phượng dung nghi ai tày\nMới mười ba tuổi năm nay\nTrẫm gả cho trạng sum vầy thất gia”",
+      "line_start": 781,
+      "line_end": 800,
+      "approx_seconds": 75
+    },
+    {
+      "id": "pham_cong_cuc_hoa-0041",
+      "sort_order": 41,
+      "label": "Đoạn 41 (câu 801–820)",
+      "body": "Nói rồi dẫn trạng đi ra\nSang vườn thượng uyển trăm hoa ngạt ngào\nMuôn hồng ngàn tía lao xao\nCành xanh gió động vẫy chào trạng nguyên\nCông chúa vâng lệnh vua truyền\nPhấn son trang điểm bước lên thềm ngà\nCung thiềm hé bóng Hằng Nga\nBá quan nhìn thấy mặt hoa rỡ ràng\nCông chúa đứng trước đền vàng\nTay bưng chén ngọc mời chàng trạng nguyên\nNàng rằng: “Trời định nhân duyên\nĐôi ta kết hợp phỉ nguyền thừa long”\nTay vua đỡ lấy chén hồng\nTrao cho quan trọng tỏ lòng ái nhi\nPhạm Công cầm lấy tức thì\nTưởng đâu chàng sẽ cạn ly vui mừng\nAi dè chàng hắt sau lưng\nCông chúa nom thấy mặt bừng tía tai\nSắc kia há thẹn với tài\nHai hàng văn võ ai ai lắc đầu",
+      "line_start": 801,
+      "line_end": 820,
+      "approx_seconds": 75
+    },
+    {
+      "id": "pham_cong_cuc_hoa-0042",
+      "sort_order": 42,
+      "label": "Đoạn 42 (câu 821–840)",
+      "body": "Công chúa ren rén vào chầu\nSự tình tâu hết trước sau không hòa\nLệnh truyền tân trạng vào tòa\nHỏi: “Sao khinh rẻ con ta dường này\nCớ gì rượu đã vào tay\nĐỡ lấy rồi lại tính bài hắt đi\nHay là không xứng hiền thê\nCon ta chẳng đáng trạng thì nói qua”\nPhạm Công quỳ tấu thực thà:\n“Vợ thần thai nghén ở nhà sắp sinh\nChưa tường no đói dữ lành\nVui gì mà lại thị thành ăn chơi”\nCông chúa nằng nặc một lời\nTâu xin giam trạng tức thời không tha\nTriều đình thương hại tâu qua\nXin vua tha giết bắt ra đi đày\nPhạm Công thảng thốt đắng cay\nƯớc gì bay được về ngay quê nhà:\n“Thấu chăng em hỡi Cúc Hoa\nThân anh tù tội nơi xa lạc loài",
+      "line_start": 821,
+      "line_end": 840,
+      "approx_seconds": 75
+    },
+    {
+      "id": "pham_cong_cuc_hoa-0043",
+      "sort_order": 43,
+      "label": "Đoạn 43 (câu 841–860)",
+      "body": "Tưởng đi múa bút khoe tài\nVợ chồng qua được những ngày cháo rau\nNghĩ đời tốt đẹp ngờ đâu\nPhải cơn ác mộng khi nào thoát đây\nEm còn trẻ dại thơ ngây\nLại đang thai nghén đợi ngày khai hoa\nĐau lòng chưa hỡi Cúc Hoa\nPhạm Công xưa đó nay là phạm nhân\nLòng anh thương xót muôn phần\nMà chỉ biết khấn trời gần trời xa\nCầu xin hồn phách mẹ cha\nĐộ trì em bước được qua nhịp cầu”\nThoắt thôi vua phán bãi chầu\nPhạm Công từ giã công hầu dời chân\nĐi kèm có đám quân quan\nGiải người tù tội bước lần nẻo xa.\nDặm nghìn tới xứ Ô qua\nPhạm Công giờ đã rời xa kinh kỳ\nHung Nô đang mở khoa thi\nKén tài phò mã tính bề truyền ngôi",
+      "line_start": 841,
+      "line_end": 860,
+      "approx_seconds": 75
+    },
+    {
+      "id": "pham_cong_cuc_hoa-0044",
+      "sort_order": 44,
+      "label": "Đoạn 44 (câu 861–880)",
+      "body": "Bảng treo khắp hết mọi n o ưi\nBốn phương sĩ tử ngươi người về thi:\n“Ai mà đỗ trạng đan trì\nNgôi vàng trẫm sẽ nhường vì ngay cho”\nBốn nghìn năm chục sinh đồ\nNgổn ngang lều chỏng thành đô đông ngòm.\nNgứa tay không chịu đứng dòm\nVì cơ hàn vẫn còn ôm mộng vàng\nĐang tù tội muốn vẻ vang\nHay vì gì nữa hỡi chàng Phạm Công\nChỉ thấy chàng lại ung dung\nPhun châu nhả ngọc tranh hùng một phen\nVà chàng lại đỗ trạng nguyên\nĐỗ xong mới kịp nghĩ nên giấu tài\nBiết mình vồ ngắn buông dài\nBíêt mình đã chuốc lấy tai họa rồi\nHung Nô hoan hỉ truyền mời\nRước quan trạng tới tươi cười ban khen\nBá quan ca ngợi trạng nguyên\nRồng bay bút pháp, vô biên văn tài",
+      "line_start": 861,
+      "line_end": 880,
+      "approx_seconds": 75
+    },
+    {
+      "id": "pham_cong_cuc_hoa-0045",
+      "sort_order": 45,
+      "label": "Đoạn 45 (câu 881–900)",
+      "body": "Phạm Công rạng rỡ cân đai\nThoắt quên tai họa tháng ngày trải qua\nĐang vui vua phán lời ra:\n“Trẫm có công chúa tài hoa khác vời\nDung nhan cá lặn nhạn rơi\nTrẫm gả cho trạng trọn đời bên nhau”\nPhạm Công sụp lạy: “Muôn tâu\nChuyện nhà thần đã trước sau vẹn tròn\nMột vợ cùng với hai con”\nCông chúa bước hỏi dồn thấp cao:\n“Vợ chàng bé lớn con đâu\nChàng bao nhiêu tuổi buổi đầu tam khôi\nHỏi chàng có muốn sánh đôi\nHay là chẳng muốn ngỏ lời cho minh”\n“Cúi xin lượng cả thấu tình\nTao khang đã có thần đành xin thôi”\nHung Nô cơn giận bời bời\nTruyền giam quan trạng vì lời nói ngoa\nGông cùm treo kẹp chẳng tha\nXem còn chờ được vợ nhà nữa không",
+      "line_start": 881,
+      "line_end": 900,
+      "approx_seconds": 75
+    },
+    {
+      "id": "pham_cong_cuc_hoa-0046",
+      "sort_order": 46,
+      "label": "Đoạn 46 (câu 901–920)",
+      "body": "Hung Nô tức tối gạn gùng:\n“Nào ngươi có chịu làm chồng con ta?”\nTrạng rằng: “Tâu lạy quốc gia\nCông chúa xếp hạng tiên nga đền rồng\nNgôi cao tột bậc triều trung\nDân hèn không xứng được cùng sánh đôi\nHỡi ôi công chúa hỡi ôi\nAi làm nên nỗi hại tôi thế này”\nHung Nô tím cả mặt mày\nMắng rằng: “Ta chịu thằng này khó xong”\nLôi đình một trận cuồng phong\nTruyền quân trị tội Phạm Công chớ chầy\nQuân vâng hiệu lệnh chặt tay\nKhoét hai con mắt rứt mày xẻo tai\nĐục cả hai hàm răng nhai\nPhạm Công đau đớn rên hoài không nguôi.\nChàng bèn nhẩm sớ thành lời\nTay cụt chắp lại vái trời gần xa\nDu thần hôm ấy đi qua\nThấy tình cảnh ấy biết là có oan",
+      "line_start": 901,
+      "line_end": 920,
+      "approx_seconds": 75
+    },
+    {
+      "id": "pham_cong_cuc_hoa-0047",
+      "sort_order": 47,
+      "label": "Đoạn 47 (câu 921–940)",
+      "body": "Liền về tâu đấng Ngọc hoàng\nKíp truyền chư vị sửa sang vào tòa\nTrước đòi đức Phật Di Đà\nSau đòi đến cả Phật bà Đức ông\nCác vị đều tới hội đồng\nĐòi cả La hán lo công chuyện này\nNgười cưỡi hạc kẻ rẽ mây\nThảy đều có mặt ở ngay bệ rồng\nPháp quan đọc sớ Phạm Công\nĐặng cho chư vị hội đồng xác minh\nNgọc hoàng nghe sớ giật mình\nGớm thay tội ác sinh linh cõi trần\nLiền sai hỏa tốc chư quân\nLệnh cho tra xét xử phân việc này\nPhật bà nghìn mắt nghìn tay\nPhật tổ cũng phải tính bài ra đi\nQuan Âm bay đến tức thì\nNgọc hoàng chủ tọa đan trì hỏi tra\nBa onhiêu sự ác khui ra\nTội hình chồng chất chẳng tha được nào",
+      "line_start": 921,
+      "line_end": 940,
+      "approx_seconds": 75
+    },
+    {
+      "id": "pham_cong_cuc_hoa-0048",
+      "sort_order": 48,
+      "label": "Đoạn 48 (câu 941–960)",
+      "body": "Lệnh truyền binh mã thiên tào\nẦm ầm kéo xuống tiến vào thành đô\nThế quân như nước vỡ bờ\nVua Hung Nô sợ cơ đồ tan hoàng\nChỉnh tề áo mũ vội vàng\nCúi đầu nghe lệnh pháp quan thiên đình:\n“Trị dân lý phải trên tình\nPhép đâu có phép khổ hình chặt tay”\nBá quan khi ấy giãi bày:\n“Lệnh vua ban xuống đó đây thi hành\nVua xuống trạng lấy con mình\nTrạng lại chẳng chịu thực tình khó khoan”\nPháp quan mới hỏi rõ ràng:\n“Hàm răng có đục hay chàng cáo oan”\nHung Nô sợ quá nói tràn:\n“Vì hiềm việc khác cáo gian việc này”\nPháp quan mới bảo rằng: “Nay\nĐòi Thổ công đến bắt khai cho cùng\nPháp quan cứ phép chẳng dung\nThổ công cầm bút viết cung đàng hoàng",
+      "line_start": 941,
+      "line_end": 960,
+      "approx_seconds": 75
+    },
+    {
+      "id": "pham_cong_cuc_hoa-0049",
+      "sort_order": 49,
+      "label": "Đoạn 49 (câu 961–980)",
+      "body": "Ngày giờ ghi chép rõ ràng\nNhục hình tàn hại thân chàng Phạm Công\nÉp lấy công chúa không xong\nChỉ vì bẽ mặt mà mong hại người\nLúc này chứng cớ đủ rồi\nPháp quan dõng dạc mấy lời sau đây:\n“Việc vua làm thật quá tay\nKiếm vàng ấn ngọc nộp ngay đem về”\nHung Nô nghe nói mẩn mê\nMặt rồng thất sắc nằn nì thấp cao\nPháp quan về lại thiên tào\nKhấu đầu dâng ấn nộp trao sân rồng\nNgọc hoàng dạy: “Đem vào trong!\nTay răng tai mắt Phạm Công thế nào”\nHỏi rồi bèn phán trước lầu:\n“Lấy bình tiên được mau mau băng miền\nChữa cho thân thể trạng nguyên\nĐể chàng trọn vẹn bình yên lại nhà\nChân tay mình mẩy thịt da\nMặt mày tai mắt lại là như xưa”",
+      "line_start": 961,
+      "line_end": 980,
+      "approx_seconds": 75
+    },
+    {
+      "id": "pham_cong_cuc_hoa-0050",
+      "sort_order": 50,
+      "label": "Đoạn 50 (câu 981–1000)",
+      "body": "Phạm Công thoát nạn sững sờ\nƠn nhờ trời phật ơn nhờ mẹ cha\nDặm xa rảo bước về nhà\nBồn chồn không biết Cúc Hoa thế nào\nNghìn trùng cách trở xiết bao\nThương nhau sông rộng núi cao quản gì\nMiễn là gặp đặng thê nhi\nThở than ôm ấp vỗ về hàn huyên.\nPhạm Công suy nghĩ triền miền\nBước dồn hai tháng tới miền Đăng Châu\nLòng chàng xiết nỗi thảm sầu\nThủy chung mắc tội tài cao cơ hàn\nNghĩ trời cũng thật đa đoan\nVẽ toàn danh lợi cho toàn éo le\nNiềm riêng chẳng dám giãi giề\nGặp khoa thì lại tính bề tiến thân\nSinh đồ cười nói râm ran\nKinh kỳ cờ quạt hân hoan mời chào\nPhạm Công nghĩ: “Mất gì đâu\nQua đây nhân tiện ta vào thi chơi",
+      "line_start": 981,
+      "line_end": 1000,
+      "approx_seconds": 75
+    },
+    {
+      "id": "pham_cong_cuc_hoa-0051",
+      "sort_order": 51,
+      "label": "Đoạn 51 (câu 1001–1020)",
+      "body": "Làm trai sinh ở trên đời\nÁo xiêm cũng phải quyện lời núi sông”\nSinh đồ kéo đến rất đông\nTràng môn ghé mắt, Phạm Công ngó vào\nQuân quan mới hỏi: “Người nào”\nRằng: “Người ngoại quốc cũng vào thi đây”\nBút thần rồng múa phượng bay\nNhanh tay dệt gấm miệt mài thêu hoa\nSĩ lâm ai dám sánh qua\nBá quan khanh tướng cho là tài cao\nPhạm Công được xếp đỗ đầu\nTrạng nguyện ngôi ấy công hầu cầm tay\nVua truyền rước trạng vào ngay\nPhán đem mũ mãng cân đai cho chàng\nBệ rồng bèn phán rõ ràng:\n“Trẫm có công chúa vẻ vang mọi điều\nDa ngà mắt phượng mỹ miều\nNhân duyên chưa định sớm chiều nơi nao\nNay trẫm thấy trạng anh hào\nNên lòng trẫm muốn kết giao đời đời",
+      "line_start": 1001,
+      "line_end": 1020,
+      "approx_seconds": 75
+    },
+    {
+      "id": "pham_cong_cuc_hoa-0052",
+      "sort_order": 52,
+      "label": "Đoạn 52 (câu 1021–1040)",
+      "body": "Ví dù y được như lời\nTrẫm sẽ cho trạng nối ngôi cửu trùng”\nPhạm Công nước mắt ròng ròng:\n“Phu thê thần vẫn thủy chung một lời”\nTrịnh vương cơn giận sục sôi\nChỉ truyền khanh tứong các nơi về châu:\n“Chiểu theo phép nước trước sau\nBắt trạng nguyên bỏ vạc dầu không tha”\nĐược tin công chúa bước ra\nKhấu đầu tâu với vua cha cửu trùng:\n“Con nay hổ phận má hồng\nTrạng nguyên đã có đèo bòng trước kia\nMong cho thi đỗ mà về\nVõng điều đón rước vinh quy lại nhà\nCon là công chúa kiêu sa\nThiếu gì đăng đối mà ta ép người\nXin cha lượng cả khoan thai\nTha cho quan trạng về nơi gia đình”\nTrịnh vương lời lẽ phân minh\nPhán rằng: “Công chúa tiễn hành chàng xa",
+      "line_start": 1021,
+      "line_end": 1040,
+      "approx_seconds": 75
+    },
+    {
+      "id": "pham_cong_cuc_hoa-0053",
+      "sort_order": 53,
+      "label": "Đoạn 53 (câu 1041–1060)",
+      "body": "Trẫm phong chức trọng khôi khoa\nNgay sau ta mất thay ta trị vì\nPhong làm phò mã đan trì\nCho quyền tiết chế tước thì quận công\nMuốn bao thủy bộ mặc lòng\nBóng cờ rợp đất tiếng cồng vang non”\nTrạng nguyên bái biệt triều môn\nThong dong người ngựa bước dồn nẻo quê.\nThấy chồng sao mãi chẳng về\nCúc Hoa trong dạ có bề hồ nghi:\n“Kinh thành người đẹp thiếu chi\nHay là chàng đã quên đi những ngày\nCon thì non nớt trong thai\nChồng thì xa vắng cậy ai bây giờ\nChờ khi sinh nở sớm trưa\nTránh sao cho khỏi gió mưa thất thường”\nCòn đang than thở nhớ thương\nPhạm Công đâu đã viễn phương trở về\nCúc Hoa chuyển dạ canh khuya\nBụng đau quằn quại tức thì khai hoa",
+      "line_start": 1041,
+      "line_end": 1060,
+      "approx_seconds": 75
+    },
+    {
+      "id": "pham_cong_cuc_hoa-0054",
+      "sort_order": 54,
+      "label": "Đoạn 54 (câu 1061–1080)",
+      "body": "Phạm Công chân bước vào nhà\nHai tay ôm lấy Cúc Hoa khóc ròng:\n“Em ôi có thấu tình không\nXa nhau ngần ấy mà lòng đắng cay\nBây giờ anh đã về đây\nMong sao bù lại những ngày khổ đau”\nLân bàng kẻ trước người sau\nĐem cho thịt cá dọn lau cửa nhà\nTình làng nghĩa xóm chan hòa\nLại mừng quan trạng phương xa mới về\nGia đình nay đặng đề huề\nSinh con xinh đẹp tràn trề lộc quan\nCúc Hoa mê mẩn tâm thần\nThuốc thang ba bữa tỉnh dần nói ra:\n“Chàng ôi có thấu chăng là\nBấy lâu vò võ quê nhà nhớ thương\nLo chàng lại bén tơ vương\nCó the quên lụa, có vàng quên thau”\nPhạm Công lòng những quặn đau\nNguồn cơn kể lể rầu rầu vân vi:",
+      "line_start": 1061,
+      "line_end": 1080,
+      "approx_seconds": 75
+    },
+    {
+      "id": "pham_cong_cuc_hoa-0055",
+      "sort_order": 55,
+      "label": "Đoạn 55 (câu 1081–1100)",
+      "body": "“Sân rồng anh đến tâu quỳ\nVua thấy đỗ trạng tức thì gả con\nBiết anh một dạ sắt son\nVậy mà họ còn ra sức ép duyên\nHung Nô thì nổi cơn điên\nXẻo tai khoét mắt chặt liền hai tay\nThấu tình lời sớ tâu bày\nTrời ban cho một bình đầy thuốc tiên\nThân anh lại được hoàn nguyên\nNhờ trời lại được băng miền về đây\nThủy chung lòng vẫn một hai\nLại thương em phải mang thai nặng nề\nLòng nào tưởng sự nguyệt huê\nMà em lo lắng nọ kia thêm phiền”\nCúc Hoa quỳ xuống thưa liền:\n“Một đời gặp đấng chồng hiền yên thân\nChàng mà ăn ở có nhân\nTrên đầu nhật nguyệt quỷ thần chứng tri”\nNói thôi ngồi tựa màn the\nThấy con tướng mạo có bề thanh cao",
+      "line_start": 1081,
+      "line_end": 1100,
+      "approx_seconds": 75
+    },
+    {
+      "id": "pham_cong_cuc_hoa-0056",
+      "sort_order": 56,
+      "label": "Đoạn 56 (câu 1101–1120)",
+      "body": "Vợ chồng nhìn ngắm vui sao\nĐặt tên Tiến Lực mai sau dõi dòng\nMớm nuôi lòng những mừng lòng\nCoi hơn ngọc quý vàng ròng trời trao.\nLầu son gác tía ra vào\nLọng tàn rực rỡ quân hầu râm ran\nVinh hoa bõ lúc gian truân\nChữ tình thêm đậm thêm xuân từng ngày\nBa năm mai trúc vui vầy\nCúc Hoa đã lại đến ngày có thai\nTrời cho đủ tháng đủ ngày\nSinh được nữ tử gọi rày Nghi Xuân\nNét hoa tươi tắn vô ngần\nNửa phần giống ngoại nửa phần giống cha\nNghi Xuân vừa mới lên ba\nCòn như Tiến Lực tuổi đà lên năm\nCúc Hoa trong dạ mừng thầm\nVợ chồng đã được bảy năm sum vầy\nCục đời vinh hiển là đây\nDù che ngựa cưỡi tớ thầy phởn phơ",
+      "line_start": 1101,
+      "line_end": 1120,
+      "approx_seconds": 75
+    },
+    {
+      "id": "pham_cong_cuc_hoa-0057",
+      "sort_order": 57,
+      "label": "Đoạn 57 (câu 1121–1140)",
+      "body": "Một đêm trời đẹp tháng tư\nHiên lầu chồng vợ nằm chờ trăng lên\nHai con yên ngủ kề bên\nThiu thiu nàng thấy ứng liền chiêm bao\nTự nhiên có tấm lụa đào\nBay ngang qua mặt giạt vào tận tay\nSáng choang như thể ban ngày\nNửa đêm giờ tý đúng ngay đêm rằm\nCúc Hoa trở dậy toan cầm\nHai tay với lấy bay ầm lên mây\nCúc Hoa mất vía buông tay\nTỉnh ra than khóc giải bày khúc nhôi:\n“Hỡi chàng phò mã thư ngồi\nXin chàng giải hộ thiếp tôi mộng này”\nPhạm Công thảng thốt nói ngay:\n“Lụa là tinh lạc nguy thay điềm rồi\nSố em sắp phải về trời\nVợ chồng sẽ phải cách vời âm dương”\nNghĩ cơn gia biến khôn lường\nNhìn con nàng thấy xót thương muôn vàn",
+      "line_start": 1121,
+      "line_end": 1140,
+      "approx_seconds": 75
+    },
+    {
+      "id": "pham_cong_cuc_hoa-0058",
+      "sort_order": 58,
+      "label": "Đoạn 58 (câu 1141–1160)",
+      "body": "Phạm Công trong dạ bàng hoàng\nTruyền quân mười đứa sắp hàng hai bên\nChung quanh gươm mác cắm liền\nĐêm ngày nghiêm ngặt giữ gìn Cúc Hoa\nThan rằng: “Tình nghĩa đôi ta\nTrời xanh tác hợp trăng già xe duyên\nAnh hùng sánh với thuyền quyên\nVinh hoa phú quý bách niên duyên hài\nAi ngờ lưới bỗng xa chài\nAi ngờ trúc héo cho mai hao mòn\nBỡn đùa ông tạo trẻ con\nBiển khơi bỗng hóa ra cồn dâu xanh\nLoan xa phận ấy đã đành\nTuyền đài ai rửa khối tình cho tan”\nCúc Hoa châu lệ chứa chan\nMở rương lấy lụa ra bàn toan khâu\nHai bóng đen bỗng bước vào\nGiục nàng phải kíp đi mau không chầy\nPhép quan chẳng có riêng tây\nDẫu cho gia sự làm vầy cũng khoan",
+      "line_start": 1141,
+      "line_end": 1160,
+      "approx_seconds": 75
+    },
+    {
+      "id": "pham_cong_cuc_hoa-0059",
+      "sort_order": 59,
+      "label": "Đoạn 59 (câu 1161–1180)",
+      "body": "Đầy nhà chớp giật sấm ran\nCúc Hoa kinh sợ phân trần vân vi:\n“Chẳng may gặp phải cơn nguy\nXin người thư thả cho thì đội ơn\nĐang khi gang tấc sống còn\nThương chồng vạn bội xót con muôn phần\nAi hay thiên địa xoay vần\nĐang bình yên bỗng ầm ầm phong ba\nKhéo trêu ngươi hỡi trăng già\nTơ duyên đức đoạn ai mà nối cho\nThương con mất mẹ bơ vơ\nThương chồng đơn chiếc ai lo đỡ đần”\nNói thôi lệ thấm đầy khăn\nPhạm Công rên rỉ khôn ngăn giọt hồng\nHai người đứng đợi sốt lòng\nGiục rằng: “Việc định phép không được chầy”\nCúc Hoa phách lạc hồn bay\nVan rằng: “Xin hãy chờ giây phúc nào”\nHai người tức giận càu nhàu\nThúc nàng kíp liệu cho mau về chầu",
+      "line_start": 1161,
+      "line_end": 1180,
+      "approx_seconds": 75
+    },
+    {
+      "id": "pham_cong_cuc_hoa-0060",
+      "sort_order": 60,
+      "label": "Đoạn 60 (câu 1181–1200)",
+      "body": "Câu liêm gươm mộc kề đầu\nNàng còn ngồi gắng tay hầu bồng con\nPhạm Công khóc lặng từng cơn\nXót con côi cút, cô đơn phận mình.\nBởi đâu ra sự bất bình\nBất ngờ có giặc bắc kinh lăng loàn\nĐem quân vào đến Ngọc Quan\nTrịnh vương lo sợ đã toan lánh mình\nHọp bàn văn võ triều đình\nCử binh dẹp tới Ngụy thành mới xong\nBá quan tâu với cửu trùng:\n“Chúng thần ai dám địch cùng Sầm Hưng\nQuan trạng là bậc tôi trung\nSong toàn văn võ lẫy lừng xưa nay\nSẽ vì xã tắc ra tay”\nVua sai sứ giả về ngay phủ Quỳnh\nĐòi trạng nguyên đến đế kinh\nSắc phong nguyên soái liễu chinh giặc ngoài\nSứ giả vâng lệnh kíp đòi\nSự tình nói hết đầu đuôi tỏ tường",
+      "line_start": 1181,
+      "line_end": 1200,
+      "approx_seconds": 75
+    },
+    {
+      "id": "pham_cong_cuc_hoa-0061",
+      "sort_order": 61,
+      "label": "Đoạn 61 (câu 1201–1220)",
+      "body": "Phạm Công lòng nặng đau thương\nVợ đi con dại chiến trường làm sao:\n“Ngươi về tâu với trong trào\nXin sai các tướng lược thao gồm tài”\nSứ giả bèn trở về ngay\nKhấu đầu tâu lại sự này vân vi:\n“Vợ trạng vừa mới mất đi\nVậy nên trạng bảo sứ về tâu vua\nChiến chinh chẳng sợ được thua\nChỉ vì vợ mất con thơ buồn rầu”\nVua rằng: “Những kẻ công hầu\nChữ trung phải giữ làm đầu mới nên\nThế giặc như nước triều lên\nThế nào cũng phải trạng nguyên mới rồi”\nCác quan tâu rộng một lời:\n“Trạng nguyên là bậc tài trời dị nhân\nGiặc nay đã kéo đến gần\nHọa trong gang tấc, ba quân trông vào”\nSứ giả truyền tiếp lệnh sau\nPhạm Công nghe nói ruột đau như chà",
+      "line_start": 1201,
+      "line_end": 1220,
+      "approx_seconds": 75
+    },
+    {
+      "id": "pham_cong_cuc_hoa-0062",
+      "sort_order": 62,
+      "label": "Đoạn 62 (câu 1221–1240)",
+      "body": "Hai tay ôm xác Cúc Hoa\nHai con khóc lóc theo cha không rời\nSẻ đàn tan nghé thương ôi\nAnh lên năm tuổi, em thời lên ba\nPhạm Công thương xót Cúc Hoa\nĐem thi hài đến chương tòa đế kinh\nTrịnh vương đang ngự long đình\nNhác thấy rùng mình ớn lạnh thấu xương\nThan rằng: “Quái gở lạ thường\nThây ai đem đến triều đường thế sao\nĐang khi giặc mới tiến vào\nTrạng đem ma đến xui nào xui hơn”\nPhạm Công tâu rõ nguồn cơn:\n“Người có đoái đến lòng thần hay chăng\nBởi vì thần sợ vô bằng\nKhông cho vợ đến ngờ rằng nói sai\nRồi Người lại bảo vô loài\nNgại đi đánh giặc dối bài vợ đau”\nTrịnh vương phán giọng rầu rầu:\n“Người như quốc trạng kể đầu trung lương",
+      "line_start": 1221,
+      "line_end": 1240,
+      "approx_seconds": 75
+    },
+    {
+      "id": "pham_cong_cuc_hoa-0063",
+      "sort_order": 63,
+      "label": "Đoạn 63 (câu 1241–1260)",
+      "body": "Bây giờ trạng cứ lên đường\nỞ nhà trẫm dựng đàn tràng làm chay”\nPhạm Công ruột héo bầy chầy\nVội vàng quỳ xuống lòng đầy hàm ân:\n“Bệ rồng đã cậy đến thần\nThì dù có phải liều thân quản gì”\nTrịnh vương nhẹ giọng vỗ về:\n“Trẫm khuyên trạng gắng mà đi phen này\nVợ trạng lánh gót cung mây\nNay cho phép giữ thi hài kề bên\nChồng đâu vợ đó cho liền\nTrước sau trọn vẹn lời nguyền cùng nhau\nNắm xương giữ để về sau\nKẻo e lưu lạc dãi dầu cỏ hoa”.\nPhạm Công vâng lệnh bước ra\nVai mang thi thể Cúc Hoa lên đường\nĐem quân năm vạn rõ ràng\nCờ mao trống trận ầm vang cõi ngoài\nHai con thì cõng hai vai\nNgựa hồng giáp trụ ra ngay trận tiền",
+      "line_start": 1241,
+      "line_end": 1260,
+      "approx_seconds": 75
+    },
+    {
+      "id": "pham_cong_cuc_hoa-0064",
+      "sort_order": 64,
+      "label": "Đoạn 64 (câu 1261–1280)",
+      "body": "Quân Ngụy đóng chặt như nêm\nCó hai danh tướng càng thêm nức lòng\nSầm Hưng Quách Quốc đột xông\nLớn tiếng quát hỏi Phạm Công tên gì:\n“Xưng danh cho biết ngay đi\nHễ còn giấu ẩn thân mi tan tành”\nTrạng rằng: “Mỗ ở Trịnh thành\nCũng chưa bày hết tinh danh cửa nhà\nChẳng may vợ mỗ mới qua\nTriều đình cử mỗ phải ra trận này\nVai mang thi thể vợ đây\nHai con bé dại thơ ngây biết gì\nVâng theo hoàng chiếu ra đi\nQuốc gia lâm nạn quản chi gia đình\nCan qua mỗ quyết liều mình\nMong sao trọn vẹn nghĩa tình hiếu trung”\nMắt trông ai chẳng đau lòng\nVai mang xác vợ tay bồng con thơ\nTướng Ngụy nước mắt như mưa\nNghĩa chàng tiết nghĩa có thừa không sai",
+      "line_start": 1261,
+      "line_end": 1280,
+      "approx_seconds": 75
+    },
+    {
+      "id": "pham_cong_cuc_hoa-0065",
+      "sort_order": 65,
+      "label": "Đoạn 65 (câu 1281–1300)",
+      "body": "Cả hai quăng giáo thở dài\nAi ganh chi kẻ ôm hài cõng con\nSầm Hưng thấu hiểu nguồn cơn\nLại gần tính chuyện vuông tròn thủy chung:\n“Tôi xin giúp trạng nên công\nChém cho thủ cấp đưa ông giảng huề\nGiống tôi đầu khác đem về\nLỗi thì tôi chịu danh thì phần ông\nNgười đâu tiết nghĩa lạ lùng\nTrận tiền tử địa con bồng xót xa”\nSầm Hưng Quách Quốc lệnh ra\nTruyền quân nước Ngụy mã xa quay về.\nNgụy vương mới hỏi sự kỳ:\n“Làm sao trận mạc trở về quá mau\nHay là thua bọn Trịnh châu\nĐể cho đến nỗi quân đầu tướng tan”\nChư tướng quỳ tấu rõ ràng:\n“Chúng thần mạn phép thiên nhan nghị hòa\nQuân kia đánh chác thật thà\nĐại binh đóng chặt hằng hà hai bên",
+      "line_start": 1281,
+      "line_end": 1300,
+      "approx_seconds": 75
+    },
+    {
+      "id": "pham_cong_cuc_hoa-0066",
+      "sort_order": 66,
+      "label": "Đoạn 66 (câu 1301–1320)",
+      "body": "Có một danh tướng trung hiền\nNgôi cao chức trọng ở miền Trịnh châu\nVốn là nguyên soái tại trào\nVăn chương tuyệt bút lược thao gồm tài\nChẳng may vợ tướng lìa đời\nVai mang xác vợ tay thời bồng con\nThương người ăn ở có nhân\nNên hòa tướng ấy đem quân trở về”\nNgụy vương cũng thấy nể vì:\n“Trung trinh dạ ấy khó bề chuyển lay\nĐược như tướng ấy nơi đây\nCó bao nhiêu vị các ngài kể ra”.\nPhạm Công người ngựa dặm xa\nNgày đêm mải miết băng qua về trào\nBá quan văn võ vào chầu\nThấy trạng về tới nộp đầu Sầm Hưng\nVừa nhìn thấy mắt thấy răng\nLắm người khiếp hãi ngã lăn ra nhà\nTrịnh vương hả dạ cười khà\nNói lời phán định trước tòa thong dong:",
+      "line_start": 1301,
+      "line_end": 1320,
+      "approx_seconds": 75
+    },
+    {
+      "id": "pham_cong_cuc_hoa-0067",
+      "sort_order": 67,
+      "label": "Đoạn 67 (câu 1321–1340)",
+      "body": "“Khen thay phò mã Phạm Công\nSức thần bảo vệ núi sông thành trì”\nBá quan ai cũng nể vì\nTrận tiền chém được tức thì Sầm Hưng\nThở phào nhẹ nhõm lòng mừng\nNgụy vương mất tướng hết đường xấu chơi\nPhạm Công tâu thực một lời:\n“Tài thần thô thiển nhờ trời giúp công\nVậy nên chưa kịp giao phong\nNó chém đầu khác lộn sòng sang cho”\nBá quan nghe nói trầm trồ\nTrịnh vương xúc động gật gù ngợi khen\nVua xem thế giặc đã yên\nCho thi hài vợ trạng nguyên an phần\nSắc truyền thủy bộ chư quân\nThuyền ba mươi chiếc lần lần lướt qua\nCả triều văn võ cùng ra\nChỉnh tề tang phục đưa ma vợ chàng\nUy nghi súng lớn hai hàng\nLệnh nghiêm cả nước để tang tức thì",
+      "line_start": 1321,
+      "line_end": 1340,
+      "approx_seconds": 75
+    },
+    {
+      "id": "pham_cong_cuc_hoa-0068",
+      "sort_order": 68,
+      "label": "Đoạn 68 (câu 1341–1360)",
+      "body": "Từ kẻ chợ đến thôn quê\nThảy đều khăn áo ai bi tỏ bày\nTrạng nguyên công đức ai tày\nQuân quan đưa đón cờ bay rợp trời\nPhạm Công trong dạ bồi hồi\nXót hai con chịu một đời mồ côi\nVợ hiền mai táng xong xuôi\nChàng bèn dời gót quay lui về nhà.\nBây giờ kể đoạn Cúc Hoa\nCùng hai người xuống đến tòa âm cung\nVua cha nước mắt rưng rưng\nBa mươi năm ấy ngàn trùng cách xa\nMừng công chúa trở lại nhà\nTruyền cho cung nữ đàn ca tưng bừng\nKhắp nơi thảm tía trướng hồng\nHoa tươi hương đậm đèn lồng lung linh\nCúc Hoa đầu cúi lặng thinh\nLòng còn mang nặng nghĩa tình trần gian\nThương con côi cút ngỡ ngàng\nThương chồng sớm phải gian nan ưu phiền",
+      "line_start": 1341,
+      "line_end": 1360,
+      "approx_seconds": 75
+    },
+    {
+      "id": "pham_cong_cuc_hoa-0069",
+      "sort_order": 69,
+      "label": "Đoạn 69 (câu 1361–1380)",
+      "body": "Nửa đường đứt mối tơ duyên\nNghĩa mai nợ trúc báo đền chưa xong\nHồn tuy đã xuống âm cung\nhãy còn day dứt nhớ nhung cõi đời\nNỗi nàng sầu thảm khôn vơi\nNỗi chàng lửa dập sóng vùi khôn an.\nNhững mong siêu thoát phần nàng\nPhạm Công cho dựng đàn tràng làm chay\nLiền trong ba tháng mười ngày\nTụng kinh niệm phật nhang bay ngút trời\nMột đêm trăng sáng tỏ ngời\nCúc Hoa hiện đến vào nơi cô phòng\nĐang khi đèn đuốc sáng choang\nCha con ông trạng nằm trong trướng đào\nLời nàng năn nỉ thấp cao:\n“Chàng ơi con hỡi làm sao bây giờ\nSao chàng vẫn cứ đợi chờ\nTề gia nội trợ chàng nhờ vào ai\nSao không kiếm bạn trúc mai\nTrước nuôi con nhỏ sau hài nhân duyên",
+      "line_start": 1361,
+      "line_end": 1380,
+      "approx_seconds": 75
+    },
+    {
+      "id": "pham_cong_cuc_hoa-0070",
+      "sort_order": 70,
+      "label": "Đoạn 70 (câu 1381–1400)",
+      "body": "Thiếp về kiếp ấy đã yên\nÂm dương đôi ngả hàn huyên khôn vầy\nKhuyên chàng cưới vợ liền tay\nĐừng ham phú quý chưa cay trăm đường\nRồi ra nó chẳng kính nhường\nCon chồng dì ghẻ thói thường lạ chi”\nCúc hoa căn dặn chi li\nGót sen thoắt đã quay về âm cung\nPhạm Công chợt tỉnh giấc nồng\nNgủ mê mà vẫn mơ mòng hôm mai\nChập chờn cơn tỉnh cơn say\nThân này đâu nhẽ có ngày gặp tiên\nNgỡ là chưa hết trần duyên\nNên nàng sống lại cho tuyền nghĩa xưa\nĐêm ngày thương nhớ nhẩn ngơ\nChàng bèn tính chuyện thẩn thơ tìm tòi\nQuẩn quanh khắp bốn phương trời\nTrần hoàn đâu lại có người cửu nguyên\nVợ chồng tình nghĩa khó quên\nĐêm khuya nàng mới hiện lên khuyên chàng:",
+      "line_start": 1381,
+      "line_end": 1400,
+      "approx_seconds": 75
+    },
+    {
+      "id": "pham_cong_cuc_hoa-0071",
+      "sort_order": 71,
+      "label": "Đoạn 71 (câu 1401–1420)",
+      "body": "“Tơ duyên đã trót nhỡ nhàng\nTrăm năm ai dám phụ phàng với ai\nChẳng qua số phận an bài\nXin đừng nghĩ đến những ngày phân ly\nSớm tìm nơi khác bù trì\nCửa nhà êm ấm em đi yên lòng\nTrước là con có người trông\nSau duyên loan phượng lại hồng như xưa\nLòng em mong mỏi sớm trưa\nMấy lời thành thật xin thưa cùng chàng”.\nPhạm Công mộng thấy rõ ràng\nCàng nghe nàng nói lòng càng thêm đau\nSáng ra Tiến Lực rầu rầu\nTrình cha soi xét trước sau mấy lời:\n“Mẹ con về lại đêm rồi\nGiục tìm mẹ khác chăm nuôi đỡ đần\nMẹ con tuy đã lìa trần\nLòng còn xót trẻ chịu phần đơn côi\nXin cha nghĩ lại đôi hồi\nTìm người thay mẹ trông coi cửa nhà”",
+      "line_start": 1401,
+      "line_end": 1420,
+      "approx_seconds": 75
+    },
+    {
+      "id": "pham_cong_cuc_hoa-0072",
+      "sort_order": 72,
+      "label": "Đoạn 72 (câu 1421–1440)",
+      "body": "Phạm Công bèn nói dàn hòa:\n“Các con thong thả cho cha đợi ngày”\nHương hoa ngũ quả đem bày\nKhấn rằng: “Chẳng dám đơn sai nghĩa tình\nCúc Hoa em hỡi có linh\nLời em dặn thể lòng anh não nùng\nAnh thề có ánh trăng trong\nDốc lòng ở vậy cho xong một đời\nNếu anh chẳng có nghe lời\nHóa ra phụ bạc với người cửu nguyên\nMuốn cho chung thủy vẹn tuyền\nÂm dương xin quẻ xem nên thế nào”\nPhạm Công gieo xuống ba hào\nBa lần đều được dồi dào cả ba\nĐêm khuya nàng lại hiện ra\nBảo cho chàng biết kẻo mà còn nghi:\n“Có người dòng dõi lễ thi\nTên là Tào Thị dung nghi dịu dàng\nKhen thay giá đáng ngàn vàng\nGặp cơn gia biến nhỡ nhàng bao phen",
+      "line_start": 1421,
+      "line_end": 1440,
+      "approx_seconds": 75
+    },
+    {
+      "id": "pham_cong_cuc_hoa-0073",
+      "sort_order": 73,
+      "label": "Đoạn 73 (câu 1441–1460)",
+      "body": "Hái rau ngoài nội nghèo hèn\nXin chàng ra đón kết duyên châu trần”\nPhạm Công suy tính xa gần\nLời nàng đã vậy mộng thần dám sai\nBấy giờ mới quyết một bài\nRước nàng Tào Thị cho ai vui lòng\nTưởng đâu trạng có đèo bòng\nẤm êm chăn gối thong dong mọi bề\nĐâu ngờ chểnh mảng sớm khuya\nThu qua đông lại không hề trăng hoa.\nMột hôm chín bệ truyền ra\nCho đòi quan trạng về qua kinh thành\nNày đây sắc dụ rành rành:\n“Cao Bằng nhậm chức trấn thành biên khu\nSao cho có cương có nhu\nBốn phương yên ổn ấm no thì về”\nPhạm Công tâu trước đan trì:\n“Thần đi đánh giặc mới về chưa bao\nBây giờ lại phải xông vào\nCao Bằng hiểm trở vùng cao xa vời”",
+      "line_start": 1441,
+      "line_end": 1460,
+      "approx_seconds": 75
+    },
+    {
+      "id": "pham_cong_cuc_hoa-0074",
+      "sort_order": 74,
+      "label": "Đoạn 74 (câu 1461–1480)",
+      "body": "Trịnh vương mới phán một lời:\n“Quốc gia lâm sự cậy người trung lương\nNay sai ra trấn biên cương\nDân yên rồi hãy hồi hương lo gì\nMai sau trẫm có nhường vì\nBấy giờ trạng phải hết nghì trị dân”\nPhạm Công trong dạ tần ngần\nKhấu đầu từ tạ dời chân ra về\nĐôi hàng châu lụy não nề\nGọi hai con đến vỗ về bảo ban:\n“Vua sai cha trấn ải quan\nMồ mẹ con khó chu toàn khi xa\nNên hai con phải theo cha\nTa đem hài cốt Cúc Hoa theo cùng\nChồng đâu vợ đó mới xong\nVẹn tuyền chung thủy, thỏa lòng nhau xưa”\nBấy giờ Tiến Lực ngây thơ\nĐứng ngay dưới án trình thưa mọi đàng:\n“Xin cha đừng nghĩ ngổn ngang\nChôn đâu để đó vững vàng mới yên",
+      "line_start": 1461,
+      "line_end": 1480,
+      "approx_seconds": 75
+    },
+    {
+      "id": "pham_cong_cuc_hoa-0075",
+      "sort_order": 75,
+      "label": "Đoạn 75 (câu 1481–1500)",
+      "body": "E khi cất xuống đào lên\nMột phen bộc lộ một phen thảm sầu”\nPhạm Công nghe nói gật đầu\nChứa chan giọt ngọc dàu dàu lòng son\nTào Thị ngồi khóc nỉ non:\n“Thiếp xin nuôi đỡ hai con cho chàng\nDù khi thiếp có phụ phàng\nTrên đầu nhật nguyệt hai vầng xét soi”\nChàng bèn nói lại một lời:\n“Con ta không thể để người khác trông\nDì ghẻ mà nuôi con chồng\nẮt là có bữa kiến ong đọa đày”\nTào Thị mới đáp như vầy:\n“Tôi xin hết nghĩa giãi bày cùng ông\nCon vợ cũng như con chồng\nTôi đâu lại ở ra lòng nước mây\nMai kia trấn thủ về đây\nCon đà ăn học giỏi hay đủ mười”\nPhạm Công nghe nói mỉm cười:\n“Nếu không lập thệ ai người ta tin”",
+      "line_start": 1481,
+      "line_end": 1500,
+      "approx_seconds": 75
+    },
+    {
+      "id": "pham_cong_cuc_hoa-0076",
+      "sort_order": 76,
+      "label": "Đoạn 76 (câu 1501–1520)",
+      "body": "“Vái cùng Hậu thổ Hoàng thiên\nTừ nay ai kẻ ác hiền chứng tri\nThiếp tôi nếu có điều gì\nDưới thì Thập điện trên kia Ngọc hoàng”\nNói thôi vái lạy tam quang\nCùng là tam giáo thành hoàng yêu ma\nÔm con chàng chực khóc òa:\n“Hai con hãy ở lại nhà cha đi”\nPhạm Công dời gót ủ ê\nLực Xuân khóc lóc nằn nì theo cha\nChàng bèn ra mộ Cúc Hoa\nHai hàng lệ nhỏ thiết tha khấn rằng:\n“Vua sai anh nhậm Cao Bằng\nNúi non trùng điệp rừng giăng khắp miền\nHồn em nếu có linh thiêng\nThì về coi sóc điền viên cửa nhà\nTào Thị hoặc có sai ngoa\nEm vả vào miệng điêu toa cho chừa”\nNói thôi ra lệnh phất cờ\nBa quân phấn chấn reo hò ra đi",
+      "line_start": 1501,
+      "line_end": 1520,
+      "approx_seconds": 75
+    },
+    {
+      "id": "pham_cong_cuc_hoa-0077",
+      "sort_order": 77,
+      "label": "Đoạn 77 (câu 1521–1540)",
+      "body": "Đường dài lắm dốc nhiều khe\nTay vin mỏm đá đầu kê lưng trời\nĐội mưa nắng đổ mồ hôi\nSau hơn một tháng tới nơi thị thành\nChuông voi nhạc ngựa tập tành\nNhịp nhàng trống trận rập rình quân canh\nPhạm Công buồn nhớ gia đình\nGượng vui cũng phải ra hình uy nghiêm\nDàn binh đóng trại đã yên\nTứ dân cảm kích trạng nguyên hiền tài\nMan di lần lượt hôm mai\nThần phục quan trạng ân dày đức cao.\nXa nhà trạng có hay nào\nHai con phó thác họ Tào trông coi\nGặp bà dì ghẻ lạ đời\nĂn ở chẳng phải ra người thủy chung\nChồng đi chưa được hai đông\nTào Thị cư xử ra lòng ghét ghen\nĐọa đày con trẻ triền miên\nTrăm bề cay đắng ưu phiền thảm thương",
+      "line_start": 1521,
+      "line_end": 1540,
+      "approx_seconds": 75
+    },
+    {
+      "id": "pham_cong_cuc_hoa-0078",
+      "sort_order": 78,
+      "label": "Đoạn 78 (câu 1541–1560)",
+      "body": "Bắt đi kiếm củi trên rừng\nBắt cả hai đứa bỏ trường chăn trâu\nNgày ngày mưa nắng dãi dầu\nNghi Xuân tức tối lầu bầu bao đêm:\n“Nếu dì còn ức hiếp thêm\nAnh em mình cũng chẳng thèm ở đây”\nLực rằng: “Nói vậy không hay\nĐừng tính chuyện bỏ nơi này mà đi\nKhuyên em em hãy nhớ ghi\nPhận con mình phải thờ dì thờ cha\nNếu không là lỗi ở ta\nNhững điều anh nói thực thà phải nghe\nBỏ nhà cực khổ trăm bề\nNay đây mai đó ê chề xót xa”.\nNày đoạn Tào Thị ở nhà\nTưởng đâu con nít dễ mà biết chi\nKể từ trạng bước chân đi\nPhòng không Tào Thị lắm khi la đà\nTrạng nguyên trấn thủ phương xa\nÔng không ăn chả nhưng bà ăn nem",
+      "line_start": 1541,
+      "line_end": 1560,
+      "approx_seconds": 75
+    },
+    {
+      "id": "pham_cong_cuc_hoa-0079",
+      "sort_order": 79,
+      "label": "Đoạn 79 (câu 1561–1580)",
+      "body": "Gặp chàng trai trẻ bắt quen\nHai người đắm đuối ở liền bên nhau\nPhải khi Tiến Lực đi đâu\nNghi Xuân ngó thấy trước sau hỏi dì:\n“Cha tôi chinh chiến chưa về\nThế ai nói chuyện rầm rì đêm qua”\nTào Thị nhân đấy được đà:\n“Ai xui mày đặt chuyện ra lạ lùng\nBa đây là gái có chồng\nSao mày lại dám nói không cho bà\nĐêm hôm khóa chặt cửa nhà\nBà biết mặt dọc hay là mặt ngang\nHổ mang lại giống hổ mang\nĐúng là con ruột của nàng Cúc Hoa”\nNghi Xuân tức quá khóc òa:\n“Dì đâu biết mặt Cúc Hoa thế nào\nMẹ tôi vụng dại hay sao\nMà dì nhiếc móc ra vào không ngơi\nDuyên may vả lại gặp thời\nCho nên dì mới được ngồi cùng cha",
+      "line_start": 1561,
+      "line_end": 1580,
+      "approx_seconds": 75
+    },
+    {
+      "id": "pham_cong_cuc_hoa-0080",
+      "sort_order": 80,
+      "label": "Đoạn 80 (câu 1581–1600)",
+      "body": "Mẹ tôi thác đã ra ma\nSao dì nỡ nhiếc Cúc Hoa hỡi dì\nCho dù dì lớn hơn đi\nLớn mình lớn mẩy hơn chi ai mà\nTôi bé cũng thể con nhà\nDì thì lớn thật nhưng là thứ dân”\nTiến Lực về đến đầu sân\nGóp lời: “Gì chớ ác tâm ác hành”\nTào Thị hét: “Lũ trẻ ranh\nChúng bay gán ghép tội tình cho tao\nNuôi ong tay áo mãi sao\nKhôn hồn liệu kiếm đường nào xéo đi”\nNghi Xuân nổi giận tức thì:\n“Lấy gươm ta chém chết dì đi thôi”\nTào Thị rên xiết: “Hỡi ôi\nTrời có chứng giám cho tôi chăng là”\nTiến Lực liền kéo em ra:\n“Những lời anh dặn em đà quên sao\nỞ ăn ngày tháng ra vào\nPhải lo gìn giữ cọp nào thương dê",
+      "line_start": 1581,
+      "line_end": 1600,
+      "approx_seconds": 75
+    },
+    {
+      "id": "pham_cong_cuc_hoa-0081",
+      "sort_order": 81,
+      "label": "Đoạn 81 (câu 1601–1620)",
+      "body": "Nên chi phải đợi cha về\nBấy giờ hãy dở chuyện gì có cha\nKhông nghe nên lỗi phép nhà\nĐể họ có cớ đuổi ta ra đường”.\nÁo quần tơi tả thảm thương\nAnh em len lỏi phố phường xin ăn\nĐêm về tìm chỗ trú chân\nBình minh sực giấc ruột gan cồn cào\nĐang nắng gắt chợt mưa rào\nƯớt như chuột lụt đẫm vào lại khô\nQuanh vùng ai cũng gọi cho\nAnh em nhờ vậy được no đôi phần\nTào Thị tìm cách cấm ngăn:\n“Ai cho Tiến Lực Nghi Xuân ăn mày\nDân thì ta chém đầu ngay\nQuân không tuân lệnh từ rày cắt lương”\nBà con bụng vẫn xót thương\nNhưng ai cũng khiếp giáo gươm lệnh bà\nKhông dám cho trẻ vào nhà\nĐàn ông răng nghiến, đàn bà rưng rưng",
+      "line_start": 1601,
+      "line_end": 1620,
+      "approx_seconds": 75
+    },
+    {
+      "id": "pham_cong_cuc_hoa-0082",
+      "sort_order": 82,
+      "label": "Đoạn 82 (câu 1621–1640)",
+      "body": "Nghi Xuân Tiến Lực cùng đường\nXin đình xin chợ quanh vùng long đong.\nTào Thị hãm hại cho chồng\nPhép vua luật nước đều không sá gì\nVênh vênh váo váo ai bì\nKhi ra giáo dựng khi về gươm đeo\nQuân quan đồng báo vào triều\nDân tình quanh đấy cũng đều chê bai:\n“Vợ ông phò mã ghê thay\nCứ như vương tướng suốt ngày ngựa voi\nKiệu tàn võng lọng rong chơi\nHai bên quân kéo rợp trời nghênh ngang”\nLời tâu thấu đến ngai vàng\nTrịnh vương bèn phán rõ ràng như sau:\n“Vợ trạng đã mất từ lâu\nLấy đâu võng lọng lấy đâu lệnh bà”\nQuân quan rằng chuyện thực thà\nTrạng mới cưới vợ về nhà lần sau\nPhải người nham hiểm cơ cầu\nHai con quan trạng dắt nhau ăn mày",
+      "line_start": 1621,
+      "line_end": 1640,
+      "approx_seconds": 75
+    },
+    {
+      "id": "pham_cong_cuc_hoa-0083",
+      "sort_order": 83,
+      "label": "Đoạn 83 (câu 1641–1660)",
+      "body": "Vua nghe bèn thét mắng ngay:\n“Can chi việc ấy chúng bay rầy rà\nChuyện này đợi trạng về nhà\nTùy nghi xử phán dàn hòa sẽ hay\nBây chừ ta chẳng nghe bay\nMất lòng phò mã bấy này phù trì”\nQuan tâu chẳng đặng mà đi:\n“Thôi ta đành chịu một bề cho xong\nViệc đà tâu đến ngai rồng\nĐâu ẫn hoàn đó trong lòng ức ghê”.\nAnh em Tiến Lực ra đi\nChẳng còn ở lại làm chi chốn này\nDẫn em vượt chặng đường dài\nMười ngày sau đã về ngay quê nhà\nNhận ra mộ mẹ từ xa\nTiến Lực chạy tới khóc òa: “Mẹ ơi\nSao mẹ sớm bỏ về trời\nĐể chúng con phải thành người xin ăn”\nĐêm về lạnh lẽo tối tăm\nAnh em co quắp ổ nằm cỏ lau",
+      "line_start": 1641,
+      "line_end": 1660,
+      "approx_seconds": 75
+    },
+    {
+      "id": "pham_cong_cuc_hoa-0084",
+      "sort_order": 84,
+      "label": "Đoạn 84 (câu 1661–1680)",
+      "body": "Em chìm trong giấc ngủ sâu\nAnh thức một mạch sang đầu canh hai\nCúc Hoa nước mắt chảy dài\nÂm dương đôi ngả tháng ngày vời xa\nBấy giờ mới mở mộ ra\nNhìn hai con dại xót xa ngậm ngùi\nLại gần nàng lặng yên ngồi\nNửa đêm tới sáng không rời hai con:\n“Mẹ xa gần bốn năm tròn\nNhà mình vẫn đó sao còn đi dâu”\nNghe tiếng mẹ ruột như bào\nNghi Xuân Tiến Lực ôm nhau khóc òa:\n“Từ ngày mẹ bỏ đi xa\nCha em dì ghẻ về nhà đến nay\nTưởng là thay mẹ ai hay\nDì dắt bỏ học dì đày chăn trâu\nCho nên chẳng được ở lâu”\nCúc Hoa nghe nói lòng đau như dần\nÔm con sờ nắn tay chân\nThấy toàn xương xẩu than thân trách trời:",
+      "line_start": 1661,
+      "line_end": 1680,
+      "approx_seconds": 75
+    },
+    {
+      "id": "pham_cong_cuc_hoa-0085",
+      "sort_order": 85,
+      "label": "Đoạn 85 (câu 1681–1700)",
+      "body": "“Mẹ đi suốt mấy năm rồi\nNhững mong con được mấy hồi cả khôn”\nCòn đang than thở nỉ non\nXóm xa gà đã ồn ồn gáy lên\n“Hai con ở lại cho yên\nMẹ về âm phủ cõi tiên đấy mà”\nNghi Xuân ôm mẹ xót xa:\n“Sao mẹ lại bỏ con mà đi đâu”\nCúc Hoa nhìn trước ngó sau:\n“Hai người theo mẹ đã vào đến đây”\nHai người vội vã khoát tay:\n“Con thơ nói vậy đi ngay sao đành\nVua cha chắc cũng thể tình\nNàng cứ nán lại một mình thong dong”\nCúc Hoa nước mắt ròng ròng\nNghe gà gáy giục mà lòng tái tê\nLấy khăn phủ mặt xưa kia\nViết thư để lại vân vi trách chồng\nXem qua nàng thấy đau lòng\nCột vào dải áo con phòng khi rơi:",
+      "line_start": 1681,
+      "line_end": 1700,
+      "approx_seconds": 75
+    },
+    {
+      "id": "pham_cong_cuc_hoa-0086",
+      "sort_order": 86,
+      "label": "Đoạn 86 (câu 1701–1720)",
+      "body": "“Thư đây mẹ đã buộc rồi\nHai con ở lại mẹ thời phải đi”\nBộ hành qua lại rầm rì\nÔm con nàng vẫn chưa về âm cung\nMọi người thấy sự lạ lùng:\n“Đàn bà nào ở nơi cùng hoang đây”\nCúc Hoa đáp lại như vầy:\n“Thương con thơ dại lòng này héo hon\nRa đi chúng khóc nỉ non\nNgồi lại bắt chấy cho con cả ngày”\nGhé tai nàng nói con hay:\n“Ở đây thổ lộ người đầy trước sau\nHai con quay mặt trở vào\nBên đầu còn chấy khuất nào thấy chi”\nCon nghe quay mặt tức thì\nCúc Hoa nàng đã biến đi đàng nào\nThấy tay vắng ngắt trên đầu\nNgó ra chẳng thấy mẹ đâu nữa mà\nLực rằng: “Mẹ thực hồn ma\nCó đâu ở đặng cùng ta chốn này”",
+      "line_start": 1701,
+      "line_end": 1720,
+      "approx_seconds": 75
+    },
+    {
+      "id": "pham_cong_cuc_hoa-0087",
+      "sort_order": 87,
+      "label": "Đoạn 87 (câu 1721–1740)",
+      "body": "Anh em nước mắt tuôn đầy\nChơ vơ bên mộ đắng cay muôn vàn.\nĐường xa hiểm trở bội phần\nAnh em đói lả lê chân ngày ngày\n“Kìa dinh quan lớn cao vầy\nÂu là ta nghỉ chốn này xem qua”\nQuân canh thét mắng dầm dà:\n“Dinh quan tri phủ vốn là nơi đây\nBởi đâu hành khất qua ngày\nĐi đâu thảm thiết lòng này ấu nhi”\nBước vào đến cửa liền quỳ:\n“Xin Người thí bỏ kể chi ít nhiều”\nTướng công nét mặt đăm chiêu\nĐặt sách xuống án trông theo tức thì:\n“Con ai thơ dại thế kia\nMà cha mẹ bỏ cho đi ăn mày\nCác con vào cả trong đây\nHai đứa quỳ mỏi thế này mãi thôi\nMình trần ướt đẫm mồ hôi”\nCảm thương tuổi nhỏ không người trông nom",
+      "line_start": 1721,
+      "line_end": 1740,
+      "approx_seconds": 75
+    },
+    {
+      "id": "pham_cong_cuc_hoa-0088",
+      "sort_order": 88,
+      "label": "Đoạn 88 (câu 1741–1760)",
+      "body": "Nhìn hai đứa trẻ gầy còm\nTự nhiên thấy chúng như con cháu nhà\nTướng công nghĩ ngợi gần xa\nCon ai mà giống Cúc Hoa làm vầy\nNó giống bàn chân bàn tay\nGiống cả mũi miệng lông mày hằm răng\nĐiệu đi dáng đứng đàng hoàng\nSao mà nó giống y chàng Phạm Công\nLại gần rộn rực trong lòng:\n“Con ai cốt cách khi không ăn mày”\nPhu nhân nén tiếng thở dài\nLắc đầu xẳng giọng nói ngay một hồi:\n“Rể ta đô đốc cao ngôi\nCó đâu con nó cuộc đời lang thang\nTướng công suy ngẫm lằng nhằng\nTrông gà hóa cuốc, nhìn thằng thành ong\nCho trẻ bát gạo là xong\nGọi là có chút tỏ lòng xót xa”\nCon hầu lấy gạo đem ra:\n“Này đây đấu gạo quan bà cho bay”",
+      "line_start": 1741,
+      "line_end": 1760,
+      "approx_seconds": 75
+    },
+    {
+      "id": "pham_cong_cuc_hoa-0089",
+      "sort_order": 89,
+      "label": "Đoạn 89 (câu 1761–1780)",
+      "body": "Tiến Lực lễ phép giãi bày:\n“Chúng con bé dại thơ ngây vụng về\nChẳng phải là chúng con chê\nNhưng không biết nấu cách gì mà ăn\nNếu nhà còn có dư phần\nCho cơm nhiều ít dịu cơn đói này”\nBát cơm nóng hổi trong tay\nAnh bèn quay mặt đưa ngay em cầm\nEm cầm thôi lại tần ngần:\n“Em còn chịu được anh ăn cho rồi”\nTiến Lực mới bảo: “Em ơi\nCứ ăn đi đã anh thời kiếm sau”\nThấy hai đứa trẻ nhường nhau\nPhu nhân bèn bảo con hầu cho thêm\nĂn xong sụp lạy trước thềm\nTiến Lực đi trước dẫn em ra đường\nTướng công từ bấy cảm thương\nXót xa hai trẻ dặm trường xin ăn\nAnh em cứ thế lê chân\nLeo đồi lội suối muôn phần thảm thê",
+      "line_start": 1761,
+      "line_end": 1780,
+      "approx_seconds": 75
+    },
+    {
+      "id": "pham_cong_cuc_hoa-0090",
+      "sort_order": 90,
+      "label": "Đoạn 90 (câu 1781–1800)",
+      "body": "Chim kêu vượn hót tứ bề\nBốn ngày ròng rã cùng về Phú Xuân\nAnh em vào chợ nghỉ chân\nPhố phường trông thấy ân cần hỏi han\nThương thay hai trẻ bần hàn\nKhông cha không mẹ lang thang tháng ngày\nAnh em bàn định từ nay\nCùng nhau ở lại chốn này đợi cha\nAi trông thấy cũng xót xa\nKẻ cho người cấp dần dà thành quen\nMỗi ngày xin đặng vài tiền\nĐủ ngày hai bữa ngóng tin cha về.\nBiên thùy trấn nhậm một bề\nPhạm Công nay đã vỗ về trung quân\nMột hôm ngồi ở trung quân\nTự nhiên cảm thấy băn khoăn trong lòng\nBấm tay đã được ba đông\nHoa đào xòe nụ vọng phong khoe màu\nTrạng cho mang sớ về trào\nVua cho trở lại Đăng Châu tức thì",
+      "line_start": 1781,
+      "line_end": 1800,
+      "approx_seconds": 75
+    },
+    {
+      "id": "pham_cong_cuc_hoa-0091",
+      "sort_order": 91,
+      "label": "Đoạn 91 (câu 1801–1820)",
+      "body": "Vội vàng thu xếp ra đi\nXa gần các xứ kéo về rất đông\nKhắp miền trên bộ dưới sông\nĐón đưa bái vọng tỏ lòng tri ân\nTruyền cho nhổ trại rút quân\nNgười người hớn hở hoa xuân cắm đầy\nBấy lâu cách biệt buồn thay\nNay mai sắp được sum vầy vợ con\nBõ khi xa vắng héo hon\nBuồn thiu giữa cảnh núi non xa nhà\nPhố phường kéo đến hằng hà\nĐua nhau cá thịt rượu trà tiễn đưa\nQuân quan lẫm liệt không vừa\nMà nay vui nhộn cười đùa không ngơi\nPhú Xuân vừa mới tới nơi\nLệnh ra nghỉ lại rong chơi một ngày\nCho quân ăn uống vui vầy\nChơi bời hát xướng bỏ ngày quan san\nPhố phường nô nức chen chân\nĐi xem quan trạng Cao Bằng hồi hương.",
+      "line_start": 1801,
+      "line_end": 1820,
+      "approx_seconds": 75
+    },
+    {
+      "id": "pham_cong_cuc_hoa-0092",
+      "sort_order": 92,
+      "label": "Đoạn 92 (câu 1821–1840)",
+      "body": "Nghi Xuân Tiến Lực chưa tường\nMấy nhà tốt bụng chỉ đường bảo ban:\n“Hiện đang có đám quân quan\nHãy đến xin họ mà ăn tháng ngày”\nNghe người bảo vội đi ngay\nDắt Nghi Xuân tới ăn mày tướng công\nTheo chân nhà bếp vào cùng\nNhiều mâm thịt cá nhiều chung rượu đầy\nTiến Lực cung kính thưa ngay:\n“Dám xin câu bếp thương hai trẻ nghèo\nCòn cơm dư dật ít nhiều\nXin cho một bát hẩm hiu đỡ lòng”\nHai người nghe nói liền trông\nTự nhiên ứa lệ trong lòng xót xa:\n“Thấy chúng mà nhớ người nhà\nCon bà phò mã Cúc Hoa thêm rầu”\nBảo rằng: “Nào lẹ lên nào\nTướng công nhân đức cứ vào đừng lo\nXin xong bay lại trở vô\nLấy cơm ta sẽ thêm cho đừng phiền”",
+      "line_start": 1821,
+      "line_end": 1840,
+      "approx_seconds": 75
+    },
+    {
+      "id": "pham_cong_cuc_hoa-0093",
+      "sort_order": 93,
+      "label": "Đoạn 93 (câu 1841–1860)",
+      "body": "Tiến Lực nhắm hướng nhà trên\nTay dắm em dại bước lên thềm quỳ\nBàn quan mâm cỗ đầy phè\nCao lương mỹ vị tứ bề thơm ngon\nTrạng nguyên chưa biết thiệt hơn\nThoạt trông lệ đã ứa luôn lưng tròng\nTự nhiên rạo rực trong lòng\nSẻ cơm rồi bảo hầu phòng cho ngay\nTiến Lực đỡ lấy trên tay\nBưng ra chỗ vắng khoan thai lệ nhòa:\n“Mẹ ơi mẹ hỡi Cúc Hoa\nCó thiêng về hưởng cơm hòa hai con”\nAnh em khấn khứa nỉ non\nHai hàng nước mắt trào tuôn bồi hồi\nTrạng nguyên cho lính tới nơi\nKêu hai đứa trẻ vào chơi đỡ buồn\nAnh em nghe nói theo luôn:\n“Trình quan lớn gọi chúng con việc gì?”\nTrạng nguyên bèn hỏi tỉ tê:\n“Có còn cha mẹ quán quê nơi nào”",
+      "line_start": 1841,
+      "line_end": 1860,
+      "approx_seconds": 75
+    },
+    {
+      "id": "pham_cong_cuc_hoa-0094",
+      "sort_order": 94,
+      "label": "Đoạn 94 (câu 1861–1880)",
+      "body": "Tiến Lực nhìn xuống nghẹn ngào:\n“Mẹ cha con ở làng Hào, Quỳnh Vân\nNói ra xấu hổ muôn phần”\nTrạng nguyên nghe nói tần ngần hồ nghi:\n“Sự đâu có sự lạ kỳ\nTrẻ cùng ta ở một quê một làng”\nLựa lời trạng nói khẽ khàng:\n“Vì đâu mà phải nhỡ nhàng tới đây\nNói ông tiền gạo cho ngay\nChẳng cần giấu giếm chuyện này làm chi”\nTiến Lực nhìn trạng não nề:\n“Cha con cũng chẳng kém gì ông đâu\nVốn là sang cả công hầu\nOai danh lừng lẫy đâu đâu biết tài\nMẹ con bất hạnh chầu trời\nCha đi viễn trấn ở nơi Cao Bằng”\nTrạng nguyên lại hỏi nữa rằng:\n“Cha quyền tước ấy tên hằng gọi sao?”\nLực thưa: “Chẳng giấu ông nào\nTrạng nguyên ba nước đỗ đầu Phạm Công",
+      "line_start": 1861,
+      "line_end": 1880,
+      "approx_seconds": 75
+    },
+    {
+      "id": "pham_cong_cuc_hoa-0095",
+      "sort_order": 95,
+      "label": "Đoạn 95 (câu 1881–1900)",
+      "body": "Một mình năm chức vua phong\nTrong tay năm vạn binh hùng phương xa\nMẹ con tên gọi Cúc Hoa\nCon quan tri phủ cửa nhà giàu sang\nHẩm hiu thân phận nhỡ nhàng\nPhôi pha sớm đã suối vàng thảm thay\nCha đi bước nữa không may\nGặp phải Tào Thị người nay chẳng lành\nVắng chồng làm chuyện gian manh\nCon chồng đày đọa ác hành đuổi đi\nChúng con có bức thư ni\nXin trình quan lớn người thì xem qua”\nNhìn khăn phủ mặt Cúc Hoa\nĐọc dòng chữ viết lệ nhòa từng nơi\nChàng ôm con khóc nghẹn lời\nMừng mừng tủi tủi đầy vơi bấy chầy\nTruyền đem quần áo cho thay\nTheo đoàn người ngựa về ngay phủ đường.\nQuân quan rong ruổi dặm trường\nMười ngày tới đặng quê hương ông bà",
+      "line_start": 1881,
+      "line_end": 1900,
+      "approx_seconds": 75
+    },
+    {
+      "id": "pham_cong_cuc_hoa-0096",
+      "sort_order": 96,
+      "label": "Đoạn 96 (câu 1901–1920)",
+      "body": "Phạm Công xuống ngựa từ xa\nHai con theo sát gót cha bước vào\nTướng công thấy lạ lùng sao\nNhác trông hai đứa hôm nao ăn mày:\n“Bữa kia chúng đã đến đây\nThoạt nhìn ta nhận ra ngay cháu nhà\nĐâu rồi mẹ chúng Cúc Hoa\nLàm sao mà để con ra thế này?”\nPhạm Công sụp lạy cầm tay:\n“Cha đừng hỏi nữa con đây đau lòng\nVợ con sớm xuống âm cung\nĐể hai con dại đèo bòng bấy nay\nBởi con viễn trấn lâu ngày\nCho nên mới có sự này dở dang”\nÔng bà tri phủ bàng hoàng\nÔm choàng lấy cháu thở than một hồi:\n“Cúc Hoa phận bạc con ơi\nĐi đâu chẳng nói một lời cùng ta\nChẳng thương cha mẹ tuổi già\nLấy ai nương tựa gần xa sau này",
+      "line_start": 1901,
+      "line_end": 1920,
+      "approx_seconds": 75
+    },
+    {
+      "id": "pham_cong_cuc_hoa-0097",
+      "sort_order": 97,
+      "label": "Đoạn 97 (câu 1921–1940)",
+      "body": "Giận khi trẻ mới tới đây\nTa đã n hìn thấy giống tày Cúc Hoa\nNgán thay cho cái mụ già\nCháu đến chẳng được của bà nửa câu”\nPhạm Công nghe nói tuôn châu\nNghẹn lời giải tỏ gót đầu gần xa:\n“Hai cháu ở với ông bà\nCoi như có bóng Cúc Hoa sớm chiều\nĐể con phụng mệnh về triều\nSau ghé thăm cảnh đìu hiu cửa nhà\nTừ đường làm lễ trình qua\nRồi ra xem mộ Cúc Hoa thế nào\nCòn chuyện Tào Thị bấy lâu\nCũng cần gạn hỏi trước sau tỏ tường”.\nPhạm Công kíp phải lên đường\nLạy cha lạy mẹ yên cương sẵn sàng\nNgựa quen đường cũ chạy hăng\nMấy ngày quân đã tới gần kinh đô\nChờ ngày nộp sớ tâu vua.\nChồng về Tào Thị sợ lo trăm bề",
+      "line_start": 1921,
+      "line_end": 1940,
+      "approx_seconds": 75
+    },
+    {
+      "id": "pham_cong_cuc_hoa-0098",
+      "sort_order": 98,
+      "label": "Đoạn 98 (câu 1941–1960)",
+      "body": "Ngày sinh nở đã gần kề\nMặt thì trát phấn bụng thì nịt khăn\nTóc tai sợi dọc sợi ngang\nVội vàng ra rước gặp đoàn ngựa xe\nPhạm Công trở gót ra về\nQuân quan đưa đón bạn bè đến đông\nChàng mời tất cả vào trong\nYết diên thết đãi thỏa lòng khải ca\nXong xuôi mới hỏi việc nhà\nTào Thị kể lể gần xa mấy lời:\n“Chàng đi thiếp chịu lẻ loi\nNgày thời tơ tưởng đêm thời khát khao\nKhác nào hạn đời mưa rào\nCho nên vóc liễu xanh xao võ vàng”\nPhạm Công dò hỏi khẽ khàng:\n“Bao nhiêu phấn sáp sao nàng không thoa\nCớ sao đầu tóc lòa xòa\nPhải chăng quên mất mình là vợ quan?”\nNàng rằng: “Bồ liễu tân toan\nChồng đi trấn nhậm quan san chưa về",
+      "line_start": 1941,
+      "line_end": 1960,
+      "approx_seconds": 75
+    },
+    {
+      "id": "pham_cong_cuc_hoa-0099",
+      "sort_order": 99,
+      "label": "Đoạn 99 (câu 1961–1980)",
+      "body": "Vui gì tô điểm mặt huê\nKhi chồng mưa nắng dãi dề sao đang\nBấy lâu bỏ phấn xa nhang\nĂn chay cầu khấn cho chàng về nay”.\nPhạm Công bèn hỏi lại ngay:\n“Nghi Xuân Tiến Lực ngày rày ở đâu?”\nNàng rằng: “Nghe nói thêm rầu\nBa mẹ con vẫn chung nhau một giường\nAi ngờ chúng nó ương ương\nTung chăn đạp gối cãi thừong quá đa\nThiếp cho đi học phương xa\nNhưng chúng lại bỏ về nhà chăn trâu\nĐàn bà dạy được con đâu\nNói thời mang tiếng cơ cầu chẳng hay\nÁo cũ thiếp lại cho may\nThôi thì là lượt liền tay ấy mà\nMình thiếp lo liệu việc nhà\nNghi Xuân tắm rửa ngày ba bốn lần\nNâng niu quý báu muôn phần\nBữa thường dỗ mãi mới ăn cho rồi",
+      "line_start": 1961,
+      "line_end": 1980,
+      "approx_seconds": 75
+    },
+    {
+      "id": "pham_cong_cuc_hoa-0100",
+      "sort_order": 100,
+      "label": "Đoạn 100 (câu 1981–2000)",
+      "body": "Thiếp giận lỡ nói một lời\nKhông ngờ hai đứa băng vời ra đi\nCho tìm khắp hết chợ quê\nThuê người yết bảng gọi về bây nay”\nPhamj Công cau mặt thở dài:\n“Chúng đi đã được bao ngày nhớ không?”\nTào Thị xỉ mũi khóc ròng:\n“Mới đi sáu bữa trong lòng chẳng yêu\nThương con thiếp nặng ưu phiền\nLo dò chưa thấy lo tìm chưa ra”.\nPhạm Công nghe nói cười khà:\n“Ơn nàng ăn thực ở thà chẳng chơi”.\nLả lơi vừa nói vừa cười\nHỏi: “Sao nàng lại một người hóa hai?”\nNàng rằng: “Chớ có mỉa mai\nHay chàng nghi thiếp có ai ở nhà?”\nĐáp liền: “Chồng ở nơi xa\nCanh khuya hồn lẻn về nhà nằm bên.”\nQuân hầu phục dịch ngày đêm\nVào trình quan trạng nỗi niềm bấy lâu",
+      "line_start": 1981,
+      "line_end": 2000,
+      "approx_seconds": 75
+    },
+    {
+      "id": "pham_cong_cuc_hoa-0101",
+      "sort_order": 101,
+      "label": "Đoạn 101 (câu 2001–2020)",
+      "body": "Kẻ người người gửi xôn xao\nThiết tha sau trước thấp cao đầy nhà:\n“Từ ông trọng nhậm phương xa\nChẳng ai đáo để như bà thương ôi\nThấy ông quyền cả cao ngôi\nBà cũng sắm sửa ngựa voi đi về\nĐày cô với cậu ê chề\nCô phải chăng ngỗng cậu thì chăn trâu”\nTrạng rằng: “Ta rõ trước sau\nThôi đừng nói nửa thêm đau lòng vàng\nĐó là ta ướm thử nàng\nCon ta hai đứa lang thang ăn mày”\nTào Thị quỳ xuống chắp tay:\n“Rộng dung làm phúc tội này xin tha\nKhi ông trấn thủ phương xa\nNghi Xuân mắng mỏ tôi đà quá thôi”.\nTrạng đi thăm mộ vợ coi\nMồ hoang cây dại từng nơi lòa xòa\nTay dang ôm mộ Cúc Hoa\nKhóc rằng: “Em hỡi anh đã về đây",
+      "line_start": 2001,
+      "line_end": 2020,
+      "approx_seconds": 75
+    },
+    {
+      "id": "pham_cong_cuc_hoa-0102",
+      "sort_order": 102,
+      "label": "Đoạn 102 (câu 2021–2040)",
+      "body": "Bởi anh xa vắng lâu ngày\nNơi đây lạnh lẽo chẳng ai ngó ngàng\nMộ phần không một nén nhang\nHai con nhỏ phải lang thang không nhà\nNhưng thôi những đứa sai ngoa\nĐã có thiên địa mấy tòa xét soi”\nTrở về không nói một lời\nXót xa thương vợ bồi hồi nhớ con\nChong đèn vò võ tấc son\nMiệt mài làm sớ thức tròn năm canh\nGặp Tào Thị lúc bình minh\nBảo rằng: “Thu xếp về nhanh quê nàng\nChia đôi của cải bạc vàng\nMặc lòng chọn lấy mà mang đi cùng”\nTào Thị nghe nói thẹn thùng:\n“Ơn Người tha giết lại dung cho về\nTài vật chẳng dám một ly\nGái hư chồng bỏ ai vì nữa đâu\nTưởng điều ân ái thêm sầu\nDại khờ thai nghén dãi dầu cỏ hoa",
+      "line_start": 2021,
+      "line_end": 2040,
+      "approx_seconds": 75
+    },
+    {
+      "id": "pham_cong_cuc_hoa-0103",
+      "sort_order": 103,
+      "label": "Đoạn 103 (câu 2041–2060)",
+      "body": "Chẳng cần hầu hạ vào ra\nLạy chàng xin trở về nhà từ nay”.\nDường như trời ở đâu đây\nNàng đi vừa tới gần cây đa làng\nChớp lòe sét đánh tan hoang\nThân trơ chết cứng giữa đàng ai hay\nThiên lôi trở lại tầng mây\nHổ lang bèn đến chốn này tha đi\nPhạm Công trong dạ não nề\nĐem quân về tới kinh kỳ Đăng Châu\nChàng bèn dâng sớ quì tâu:\n“Chúng thần viễn trấn bấy lâu đã về\nBiên cương yên ổn mọi bề\nTHị thành phát đạt thôn quê được mùa”\nBá quan văn võ bấy giờ\nĐều khen quan trạng giúp cho vuông tròn\nThấy trạng nét mặt héo hon\nTrịnh vương phán hỏi nguồn cơn một lời:\n“Ngỡ là về lại thì vui\nSao trạng ngồi lặng ngùi ngùi vậy thay",
+      "line_start": 2041,
+      "line_end": 2060,
+      "approx_seconds": 75
+    },
+    {
+      "id": "pham_cong_cuc_hoa-0104",
+      "sort_order": 104,
+      "label": "Đoạn 104 (câu 2061–2080)",
+      "body": "Quyền cao chức trọng dường này\nSao không mừng cảnh vui vầy cùng ta”\nPhạm Công quỳ xuống thiết tha:\n“Thần muốn nộp chức về nhà mà thôi\nVì chưng gia sự rối bời\nVợ đà mất sớm con thời thơ ngây”\nVua rằng: “Hãy nói ta hay\nVì đâu bối rối mặt mày kém tươi\nBa năm viễn trấn tái hồi\nVề chưa ấm chỗ đã đòi thôi quan\nTưởng là chầu chực ngai vàng\nVua tôi gần gụi ta càng thong dong”\nPhạm Công tâu trước bệ rồng:\n“Đội ơn thánh thượng đoái lòng cỏ cây\nCon thơ vợ thác bấy chầy\nÂm cung thần muốn xuống ngay tìm nàng”\nTriều đình văn võ đáp rằng:\n“Người trần ai dám mơ màng âm ty”\nTrịnh vương khuyên nhủ một khi:\n“Dương gian xuống đấy làm chi lạ lùng”",
+      "line_start": 2061,
+      "line_end": 2080,
+      "approx_seconds": 75
+    },
+    {
+      "id": "pham_cong_cuc_hoa-0105",
+      "sort_order": 105,
+      "label": "Đoạn 105 (câu 2081–2100)",
+      "body": "Cầm tay giải tỏ ung dung:\n“Chẳng hay trạng có muốn cùng với ta\nĐảm đương gánh nặng sơn hà\nMọi nhà an ổn mọi nhà ấm no\nVua tôi mọi việc chung lo\nTrạng là người của trời cho nước mình\nTrạng người chính đại quang minh\nTrạng người trung hậu nghĩa tình trước sau\nDương gian chẳng có vợ sao\nHiện nay công chúa giá cao trong đền\nBước vào độ tuổi thành niên\nÂu là ta gả cho nên vợ chồng”\nPhạm Công quỳ trứoc bệ rồng:\n“Dẫu tiên hạ giới mặc lòng tưởng chi\nLòng thần muốn xuống âm ty\nMay ra gặp vợ cùng về lo toan”\nBiết không đổi được ý chàng\nVua trách sao đã vội vàng ra đi:\n“Lân bang gây chuyện nọ kia\nHoặc khi xảy đến điều gì cậy ai",
+      "line_start": 2081,
+      "line_end": 2100,
+      "approx_seconds": 75
+    },
+    {
+      "id": "pham_cong_cuc_hoa-0106",
+      "sort_order": 106,
+      "label": "Đoạn 106 (câu 2101–2120)",
+      "body": "Trẫm thì chưa có con trai\nTHiếu người kế cị hôm mai trị vì\nNỡ nào trạng bỏ mà đi\nVua tôi biết thuở nào về vui chung\nCầm tay ứa lệ đôi dòng:\n“Bỗng dưng cách trở nghìn trùng xót xa”\nPhạm Công từ tạ trở ra\nVề Quỳnh Vân để ông bà hay tin\nĐầu đuôi kể hết sự mình\nNỗi niềm thương vợ quyết tình tìm đi:\n“Ở nhà hai cháu ấu nhi\nVui cùng cha mẹ bù trì sớm hôm\nÔng bà nghe nói hoảng hồn\nXót thương chàng quá đau buồn liều thân:\n“Vợ con sớm phải lìa trần\nGiờ con lại định băng ngàn tìm đi”\nTrạng rằng: “Sống thác quản chi\nCó tìm thấy vợ mọi bề ới an”\nLại quay nhìn hỏi hai con:\n“Theo cha có muốn gặp hồn Mẹ Hoa”",
+      "line_start": 2101,
+      "line_end": 2120,
+      "approx_seconds": 75
+    },
+    {
+      "id": "pham_cong_cuc_hoa-0107",
+      "sort_order": 107,
+      "label": "Đoạn 107 (câu 2121–2140)",
+      "body": "Ông bà tri phủ phân qua:\n“Con đi cháu phải ở nhà mới xong”\nChia tay trở lại triều trung\nLập đàn chiếu kính âm cung đi tìm\nTrịnh vương cám cảnh thương tình\nQuyết bề theo trạng Diêm thành xem sao\nTriều đình nghe tỏ âm hao\nHai bên văn võ cùng vào gián can:\n“Người là hoàng đế dương gian\nUy linh bốn bể giàu sang chín trùng\nSơn hà nhân vật cậy trông\nNỡ nào bỏ chốn bệ rồng đi nay”\nVua rằng: “Ta ở lại đây\nAi người canh thiếp đêm ngày cho ta”\nChiếu ban tới tấp gần xa\nTìm ngừoi chiếu kính tới tòa âm ty\nCanh chừng quan trạng thiếp đi\nViệc xong quan tước tức thì vua ban\nDân tình sôi nổi tính toan\nNgười bàn kế nọ kẻ bàn kế kia:",
+      "line_start": 2121,
+      "line_end": 2140,
+      "approx_seconds": 75
+    },
+    {
+      "id": "pham_cong_cuc_hoa-0108",
+      "sort_order": 108,
+      "label": "Đoạn 108 (câu 2141–2160)",
+      "body": "“Ngồi canh người xuống âm ty\nHọa nhiều phúc ít, nhỡ thì nguy lây”\nChiếu ban đã được ba ngày\nChẳng ai dám nhận việc này mà mong\nBấy giờ công chúa trong cung\nThương tình quan trạng nên lòng xót xa\nKhẽ khàng nàng mới bước ra\nKhấu đầu làm lễ vua cha tức thì:\n“Con xin cầm kính trạng đi\nGọi là ân nghĩa để ghi sau này”\nVua rằng: “Quái gở lắm thay\nBa ngày ban chiếu chẳng ai vào chầu\nSao con mua lấy lo âu\nĐào tơ liễu yếu vả sau còn chồng”\nNàng rằng: “Thương kẻ anh hùng\nTrung trinh nghĩa ấy thực lòng bề tôi”\nVua rằng: “Chẳng phải chuyện chơi\nSau này khi trạng về rồi tính sao\nPhari nên nghĩ trước nghĩ sau\nKẻo khi phí uổng công lao đợi chờ”",
+      "line_start": 2141,
+      "line_end": 2160,
+      "approx_seconds": 75
+    },
+    {
+      "id": "pham_cong_cuc_hoa-0109",
+      "sort_order": 109,
+      "label": "Đoạn 109 (câu 2161–2180)",
+      "body": "Nàng rằng: “Bệ hạ đừng lo\nBao giờ đến đó trời cho kinh quyền”\nThấy con khảng khái một niềm\nHẳn rằng duyên nợ xui nên thế này\nThương con xót trạng cả hai\nThôi đành chấp nhận rủi may cơ trời\nVua bèn bảo trạng mấy lời:\n“Âm dương cách biệt con người khó phân\nThương trạng nặng nghĩa châu trần\nNên cho công chúa ngồi cầm kính theo\nThăm xong kíp phải về triều\nKẻo ta trông đợi nhìêu điều ưu tư”\nPhạm Công lạy tạ ơn vua\nCậy nhờ pháp thuật pháp sư nhiệm mầu\nCông chúa nét ngọc rầu rầu:\n“Chàng ơi hãy ráng đi mau mà về”\nTrống chuông rầm rĩ tứ bề\nTrận đồ sắp đặt chỉnh tề phân minh\nThầy sai thiên tướng thiên binh\nĐánh trạng nguyên hết sức mình không xong",
+      "line_start": 2161,
+      "line_end": 2180,
+      "approx_seconds": 75
+    },
+    {
+      "id": "pham_cong_cuc_hoa-0110",
+      "sort_order": 110,
+      "label": "Đoạn 110 (câu 2181–2200)",
+      "body": "Hai ngày cúng khắp tây đông\nĐồng không thiếp được, phách không lìa hồn\nUy danh trạng thực như đồn\nLung lay chẳng chuyển vái van chẳng rời\nAi ai cũng nói một lời:\n“Cúng thêm vàng lễ kịp thời mới xong”\nCông chúa nghe bảo rằng: “Không\nXưa nay lễ bái tự lòng mà ra\nPhạm Công quốc trạng tài ba\nPhải sai các tướng thật là uy linh”\nPháp sư nghe rõ sự tình\nCầu đến chư vị nổi danh oai hùng\nKíp xin thái tử thủy cung\nÁp vào mà đánh Phamj Công cho rồi\nHồi lâu vẫn thấy trạng ngồi\nThì ra các vị nhà trời sợ ông\nCho nên chẳng chuyển được đồng\nPháp sư là kẻ rối lòng trước tiên\nTrời sai Đại Thánh Tề Thiên\nXuống ngay để đánh ngã liền Phạm Công",
+      "line_start": 2181,
+      "line_end": 2200,
+      "approx_seconds": 75
+    },
+    {
+      "id": "pham_cong_cuc_hoa-0111",
+      "sort_order": 111,
+      "label": "Đoạn 111 (câu 2201–2220)",
+      "body": "Tề Thiên hăng hái thẳng xông\nĐánh ngã ngựa hồng cùng trạng một khi.\nPhạm Công chưa kịp nghĩ suy\nNgựa hồng đã tới biên thùy Long vương\nNghe tù kêu khóc bốn phương\nRầm rập quỷ sứ đầy đường ghê sao\nChàng bèn tế ngựa xông vào\nQuân canh mấy đứa thét gào răng nhe:\n“Nơi đây là ngục An Tỳ\nCó tội mà chết dẫn về giam ngay\nViệc chi ông đến chốn này?”\nLựa lời trạng mới giải bày trước sau:\n“Ta là tể tướng Trịnh châu\nXuống đây tìm vợ bấy lâu cách vời\nXin cho mở ngục ra coi\nCúc Hoa mệnh phụ có nơi cửa người”.\nGiám ngục lễ phép rước mời\nDẫn đường quan trạng tới nơi xem liền\nThấy người trong ngục thảm phiền\nGầy gò nhơ nhuốc gông xiềng kêu la",
+      "line_start": 2201,
+      "line_end": 2220,
+      "approx_seconds": 75
+    },
+    {
+      "id": "pham_cong_cuc_hoa-0112",
+      "sort_order": 112,
+      "label": "Đoạn 112 (câu 2221–2240)",
+      "body": "Mấy nơi kinh khiếp vào ra\nTưởng rằng đây có Cúc Hoa thêm sầu\nChung quanh lửa nấu vạc dầu\nTìm nàng chẳng thấy biết đâu chốn nào\nPhạm Công mới hỏi trước sau:\n“Điện này tùy thuộc vị nào Long vương\nMuốn ra mắt hỏi tỏ tường\nLàm ơn xin hãy vẽ đường cho ta”\nQuỷ bèn chỉ trỏ gần xa\nPhạm Công bước tới tòa nhà bên kia\nChàng Cả ra đón tức thì:\n“Phò Mã chắc có việc gì xuống đây”\nPhạm Công từ tốn giãi bày:\n“Vợ tôi sớm xuống cõi này Diêm la\nTên nàng là ả Cúc Hoa\nCó đang giam cấm trong tòa hay không\nXin Người thứ lỗi đột xông\nBảo cho tôi rõ vâng mòng trước sau”\nChàng Cả tra sổ lắc đầu:\n“Cúc Hoa hồn ấy không vào nơi đây”",
+      "line_start": 2221,
+      "line_end": 2240,
+      "approx_seconds": 75
+    },
+    {
+      "id": "pham_cong_cuc_hoa-0113",
+      "sort_order": 113,
+      "label": "Đoạn 113 (câu 2241–2260)",
+      "body": "Phạm Công nghe nói thở dài:\n“Thảo nào tìm mãi tìm hoài không ra”\nLại đi xem xét gần xa\nThấy người bị tội rên la kêu gào\nBốn bề lửa cuốn rào rào\nTứ chi trói chặt ném vào ghê thay\nCháy chân thôi lại cháy tay\nXương da máu thịt từ rày thành tro\nThấy người bị tội thêm lo\nMịt mùng tìm vợ hỏi dò không ra\nPhạm Công bước tới lân la:\n“Tù này khi sống tội đà phạm chưa”\nQuỷ sứ cứ thực trình thưa:\n“Tù này nói thiếu nói thừa bấy lâu\nĐặt điều vu khống hiểm sâu\nĐến lúc chết xuống dẫn vào giam đây”\nPhạm Công nhìn sang phía tây\nHỏi có bao cửa nơi đây cần tìm\nChàng Cả hắng giọng đáp liền:\n“Cửa này là cửa đầu tiên thôi mà",
+      "line_start": 2241,
+      "line_end": 2260,
+      "approx_seconds": 75
+    },
+    {
+      "id": "pham_cong_cuc_hoa-0114",
+      "sort_order": 114,
+      "label": "Đoạn 114 (câu 2261–2280)",
+      "body": "Còn cửa Chàng Hai Chàng Ba\nChàng Tư gần đó xa là Chàng Năm”\nMịt mùng hun hút cõi âm\nPhạm Công ớn lạnh khấn thầm Cúc Hoa\nChàng bèn bái tạ trở ra\nNgựa hồng nước kiệu tà tà chạy đi.\nTrịnh vương hỏi kính tức thì:\n“Lộ trình của trạng hướng về phương nao”\nCông chúa vội vã quỳ tâu:\n“Chàng Cả tiếp trạng trên lầu Long vương\nĐây không thấy Cúc Hoa nương\nTrạng lại lên đường tìm kiếm các nơi”.\nPhạm Công đến cửa thứ hai\nNgục tối từng dãy rụng rời mắt trông\nĐội chậu máu ngồi bàn chông\nVạc dầu sùng sục lửa hồng liếm quanh\nPhạm Công ngỡ có vợ mình\nVội vàng bước tới trần tình trước sau\nQuỷ sứ quát mắng phủ đầu:\n“Chàng nào táo tợn cửa lầu đột xông",
+      "line_start": 2261,
+      "line_end": 2280,
+      "approx_seconds": 75
+    },
+    {
+      "id": "pham_cong_cuc_hoa-0115",
+      "sort_order": 115,
+      "label": "Đoạn 115 (câu 2281–2300)",
+      "body": "Cửa này là cửa Long cung\nBọn tù nặng tội giam cùng nơi đây”\nPhạm Công nghe nói vào ngay\nThử tìm nàng ở chốn này may ra\nHay đâu thấy những mụ già\nLưng buộc vào cột kêu la nhộn nhàng\nPhạm Công bèn hỏi khẽ khàng:\n“Cõi dương chúng phạm rõ ràng tội chi”\nGiám ngục phải trái phân bì:\n“Bọn này trần thế chắc gì đã hay\nMua nhiều bán ít xưa nay\nLúc mua đong đầy lúc bán đong vơi\nBởi tham nên đã hại người\nTội mình mình chịu kêu thời kêu ai\nThóc lép đong vơi cho vay\nKhi đòi thóc chắc đong đầy mới thôi\nTính ra vốn một lãi mười\nLàm cho dương thế lắm người lao đao”\nChăm chăm nhìn trước ngó sau\nTìm hoài mà có thấy nào Cúc Hoa",
+      "line_start": 2281,
+      "line_end": 2300,
+      "approx_seconds": 75
+    },
+    {
+      "id": "pham_cong_cuc_hoa-0116",
+      "sort_order": 116,
+      "label": "Đoạn 116 (câu 2301–2320)",
+      "body": "Phạm Công châu lệ chan hòa\nChàng Hai đủng đỉnh bước ra khỏi lầu\nLại gần hỏi nhỏ một câu:\n“Hẳn quan phò mã người đâu cõi trần”\nTrạng rằng: “Vợ phải thác oan\nBỏ hai con dại dương gian bấy chầy\nCho nên thương nhớ lâu ngày\nTừ miền xa đến nơi đây tìm tòi”\nChàng Hai sốt sắng tươi cười:\n“Vợ quan phò mã sinh thời tên chi”\nHỏi rồi chú ý lắng nghe\nLát sau dẫn trạng cùng đi vào tòa\nLần lần lật sổ ra tra:\n“Buồn thay vợ trạng không qua chốn này\nNếu như giam cấm nơi đây\nThì trẫm cho phép về ngay với chồng”\nPhamj Công bái biệt não lòng\nThẫn thờ lên ngựa sang vùng Chàng Ba.\nTrịnh vương sốt ruột lân la:\n“Xuân Dung con hỡi trạng đà đến đâu”",
+      "line_start": 2301,
+      "line_end": 2320,
+      "approx_seconds": 75
+    },
+    {
+      "id": "pham_cong_cuc_hoa-0117",
+      "sort_order": 117,
+      "label": "Đoạn 117 (câu 2321–2340)",
+      "body": "Tức thì công chúa quỳ tâu:\n“Trạng nguyên còn ở dưới lầu Chàng Hai\nTìm nàng chẳng thấy tăm hơi\nLệ châu chan chứa mấy hồi sầu bi\nTạ từ trạng sắp ra đi\nChàng Ba chưa rõ hướng về nơi nao”\nChàng Hai chỉ dẫn thấp cao:\n“Đường đi khủng khiếp dẫn vào Chàng Ba\nBao nhiêu cạm bẫy giăng ra\nDám xin tính hết gần xa mọi đường\nHiểm nguy hẳn trạng khó lường\nCầu mỏng như giấy bắc sang Ngân hà\nDưới sông toàn những mãng xà\nThấy người cất cổ bằng ba con sào\nĐùng đùng sấm thét mưa gào\nQuan trạng khó nỗi đi sao vẹn tuyền”\nPhạm Công nghe đáp lại liền:\n“Dù cho rắn rết hàng nghìn quản chi\nĐến đây mà lại quay về\nLàm sao giữ được trọn bề thủy chung”",
+      "line_start": 2321,
+      "line_end": 2340,
+      "approx_seconds": 75
+    },
+    {
+      "id": "pham_cong_cuc_hoa-0118",
+      "sort_order": 118,
+      "label": "Đoạn 118 (câu 2341–2360)",
+      "body": "Chàng Hai mới nói: “Mặc lòng\nỞ đây quán xá thì không có rồi\nLòng thương quan trạng lắm thôi\nMuốn ban cho yến ăn rồi sẽ đi\nNhưng ăn là khó nỗi về\nChẳng biết cho trạng vật gì đặng yên\nBiếu trạng một quả đào tiên\nCủa bà Vương mẫu ban truyền xuống cho\nĂn vào mấy tháng vẫn no\nNgười đuợc cứng cáp không lo trở trời”\nPhạm Công ăn một nửa quả thôi\nMột nửa cho ngựa xong rồi ra đi\nĂn xong khỏe mạnh tức thì\nNgựa hồng nó mới từ bi trong lòng\nPhạm Công bèn hỏi ngựa hồng:\n“Đường xa ngàn trùng đi tiếp hay lui?”\nNgựa hồng lẩm bẩm ngùi ngùi:\n“Đến đây mà lại chịu lùi sao đang”\nNgười nghe cũng thấy vững vàng\nNhảy lên mình ngựa tìm đường đi qua",
+      "line_start": 2341,
+      "line_end": 2360,
+      "approx_seconds": 75
+    },
+    {
+      "id": "pham_cong_cuc_hoa-0119",
+      "sort_order": 119,
+      "label": "Đoạn 119 (câu 2361–2380)",
+      "body": "Mênh mang một dải Ngân hà\nMắt vừa nom thấy lòng đà ghê ghê\nMặt cầu khấp khểnh lè tè\nChân cầu rắn rết đầy phè bâu đen\nNgựa hồng chỉ biết đứng yên\nRun run gõ móng liền liền hí vang\nCầu dài ván ghép mỏng tang\nBước lên sao đặng mà sang sông này\nPhạm Công xuống ngựa tháo hài\nChắp tay quỳ xuống vái dài gần xa\nKhấn trời lại khấn Cúc Hoa\nCho chàng mọc cánh bay qua cầu vồng\nBởi chàng hiếu hạnh thủy chung\nMãng xà lặn xuống mà không làm gì\nBấy giờ trạng mới ra đi\nNgựa hồng cẩn trọng liệu bề bước qua\nThan rằng: “Em hỡi Cúc Hoa\nEm đi đâu mất cho ta cực tình”\nKhấn cầu thiên địa quang minh\nVái trình Hà bá vái trình Thổ công",
+      "line_start": 2361,
+      "line_end": 2380,
+      "approx_seconds": 75
+    },
+    {
+      "id": "pham_cong_cuc_hoa-0120",
+      "sort_order": 120,
+      "label": "Đoạn 120 (câu 2381–2400)",
+      "body": "Khỏi cầu trạng mới mừng lòng\nTưởng mãng xà nuốt giữa sông Ngân hà.\nBấy giờ đến cửa Chàng Ba\nTường vàng mái bạc mấy tòa chan chan\nPhạm Công trong dạ bàng hoàng\nThấy bao thảm cảnh kêu van tứ bề\nNgựa hồng sợ chẳng dám đi\nNhà thì lửa cháy đất thì chuyển rung\nTiếng rên tiếng hú không ngừng\nPhạm Công nghe thấy cảm thương lệ nhòa\nTù đông nghĩ có Cúc Hoa\nLiều mình đi tới may mà gặp chăng\nQuỷ sứ sát khí đằng đằng:\n“Người nào dám đến nói năng gạn gùng”\nPhạm Công vội cởi tấc lòng:\n“Vì thương nhớ vợ nên chồng phải đi\nGian nan vất vả quản chi\nTheo chân nàng xuống âm ty tìm về”\nNgắt lời, giám ngục tỉ tê:\n“Vợ chàng trần giới tên gì bảo ta”",
+      "line_start": 2381,
+      "line_end": 2400,
+      "approx_seconds": 75
+    },
+    {
+      "id": "pham_cong_cuc_hoa-0121",
+      "sort_order": 121,
+      "label": "Đoạn 121 (câu 2401–2420)",
+      "body": "Phạm Công lễ phép trình qua:\n“Người đời vẫn gọi Cúc Hoa tên nàng”\nGiám ngục bước một khẽ khàng\nDẫn chàng tới trước ngai vàng quỳ tâu:\n“Trạng nguyên phò mã Đăng Châu\nTừ xa lặn lội đến chầu thiên nhan\nVợ trạng đã phải thác oan\nNay trạng rời chốn trần gian đi tìm\nQua hai cửa vẫn im lìm\nCúi xin bệ hạ kiếm thêm khu mình”\nTìm hoài chẳng thấy bóng hình\nVua khuyên ngưng tạm lộ trình nghỉ ngơi\nPhạm Công buồn bã buông lời:\n“Vợ tìm chẳng thấy ngồi chơi làm gì”\nBụng chàng nhớ lại một khi\nHôm qua tìm vợ đường đi xa gần\nNhìn thấy những kẻ thanh tân\nGông cùm kìm kẹp kêu van ầm nhà\nChàng bèn lựa lúc hỏi qua:\n“Tội kia dương thế xưa đà sao đây”",
+      "line_start": 2401,
+      "line_end": 2420,
+      "approx_seconds": 75
+    },
+    {
+      "id": "pham_cong_cuc_hoa-0122",
+      "sort_order": 122,
+      "label": "Đoạn 122 (câu 2421–2440)",
+      "body": "Giám ngục rầu rĩ thưa bày:\n“Tại nơi trần giới theo trai bỏ chồng”\nPhạm Công nghe nói mủi lòng:\n“Đam mê cho lắm đèo bòng khổ thân”\nThấy cảnh hành tội ngoài sân\nChẻ đầu cưa đoạn róc dần thịt xương\nHóa ra là bọn cướp đường\nChết xuống phải tội ngục trường Diêm la\nĐàng kia có một đàn gà\nMỏ dài cựa sắc lấy đà xông vô\nMổ lia lịa một bọn tù\nTứ chi gông chặt đầu u mặt bầm\nCõi trần tham lại còn thâm\nThấy trứng gà ấp liền cầm hết đi\nCho nên thác xuống âm ty\nBắt cho gà mổ thân thi đêm ngày\nChàng nhìn thấy ở phía tây\nCó một bọn nữa ngồi nhai bên hồ\nTay vừa vốc nước lên tu\nMiệng vừa nhổ xuống hu hu kêu trời",
+      "line_start": 2421,
+      "line_end": 2440,
+      "approx_seconds": 75
+    },
+    {
+      "id": "pham_cong_cuc_hoa-0123",
+      "sort_order": 123,
+      "label": "Đoạn 123 (câu 2441–2460)",
+      "body": "Hỏi ra mới biết là người\nCõi trời ăn uống tứ thời đổ tung\nLàm ra hạt thóc nhọc lòng\nChúng lại tống táng xuống hồ xuống sông\nChết rồi vẫn phải tù đồ\nBắt nhai những thứ cơ hồ vứt đi\nMới hay rằng chốn âm ty\nCông bằng khôn tả chẳng gì bỏ qua\nTìm hoài chẳng thấy Cúc Hoa\nPhạm Công châu lệ chan hòa thương thay\nChàng Ba mới bảo như vầy:\n“Ba ngày trạng hãy ở đây dần dà\nCửa này không có Cúc Hoa\nThì trạng phải xuống tới tòa đàng kia”.\nTrịnh vương phán hỏi vân vi:\n“Xuân Dung con hỡi trạng đi phương nào\nNgồi đồng ba tháng gian lao\nCó còn thấy trạng ra vào bảo cha”\nXuân Dung chậm rãi tâu qua:\n“Trạng nguyên hiện được Chàng Ba rước mời",
+      "line_start": 2441,
+      "line_end": 2460,
+      "approx_seconds": 75
+    },
+    {
+      "id": "pham_cong_cuc_hoa-0124",
+      "sort_order": 124,
+      "label": "Đoạn 124 (câu 2461–2480)",
+      "body": "Trên tòa cơm nước chưa thôi\nĂn xong trạng xuống lâu đài Chàng Tư\nLúc này cửa ấy lờ mờ\nNhìn mà chưa thấy chàng vô xứ nào”.\nPhạm Công trong dạ nôn nao\nCầm cương thúc ngựa phóng ào tên đưa\nThoắt vào đến cửa Chàng Tư\nNgựa dừng lại thở đợi chờ bên trong\nNgạt ngào những vị hương xông\nTrong thành chẳng có một gông tù nào\nNơi nơi xanh liễu thắm đào\nBốn bề dân sự làm sao mặc lòng\nPhạm Công mới hỏi ngựa hồng:\n“Hãy xem tù ngục có không, bạn hiền”\n“Cửa này như thể cõi tiên”\nNgựa cất tiếng hí vang miền thành đô\nNóng lòng gặp được Chàng Tư\nPhạm Công xuống ngựa bước vô tâu trình\nGiãi bày sau trước phân minh\nXin tìm vợ thác trọn tình keo sơn",
+      "line_start": 2461,
+      "line_end": 2480,
+      "approx_seconds": 75
+    },
+    {
+      "id": "pham_cong_cuc_hoa-0125",
+      "sort_order": 125,
+      "label": "Đoạn 125 (câu 2481–2500)",
+      "body": "Chàng Tư lời lẽ ân cần:\n“Sao mà quan trạng thâm ân dường này\nLàm quan chức tước tước cao vầy\nThiếu gì nữ sắc trần ai mời chào”\nChàng Tư lại nói thấp cao:\n“Hễ trạng nhìn thấy ngục nào kiếm ngay\nLòng ta chẳng tiếc mảy may\nXin trạng chớ có nơi đây nghi ngờ”\nNgựa hồng cạnh chủ bấy giờ\nCũng giương đôi mắt thăm dò đăm đăm\nĐàn bà kể tới mấy trăm\nLăn đùng ra chết hằng năm vô vàn\nBởi vì sống ở dương gian\nCanh khuya tắm lạnh cảm hàn như chơi\nNắng trưa không nón đầu phơi\nChết uổng rồi lại kêu trời rằng oan\nChàng Tư mới nói nhặt khoan:\n“Cho gọi mỹ nữ a hoàn ra đây\nĐặng cho quan trạng xem ngay\nCúc Hoa vợ trạng chốn này có chăng",
+      "line_start": 2481,
+      "line_end": 2500,
+      "approx_seconds": 75
+    },
+    {
+      "id": "pham_cong_cuc_hoa-0126",
+      "sort_order": 126,
+      "label": "Đoạn 126 (câu 2501–2520)",
+      "body": "Kẻo ta chẳng thực cùng chàng\nTùy chàng nhận lấy mặt nàng Cúc Hoa\nNào nào công chúa bước ra\nĐể chàng nhận diện cho ta yên lòng”\nTìm hết đằng tây đằng đông\nChẳng nơi nào thấy bóng hônfg Cúc Hoa\nCuối cùng vua mới nói ra:\n“Có khi phải xuống dưới tòa Chàng Năm”\nPhạm Công trong dạ chăm chăm\nDù phải tìm khắp cõi âm cũng tìm.\nTrịnh vương lòng chẳng được yên\nPhán hỏi công chúa trạng nguyên nơi nào\nNàng liền mạch lạc quỳ tâu:\n“Trạng nguyên còn ở duới lầu Chàng Tư\nChốn này không có bóng tù\nThấy đàn bà tắm nô đùa ven sông\nChàng Tư giúp trạng hết lòng\nVẫn chưa có đặng vân mòng Cúc Hoa\nĐường về Chàng Năm khá xa\nLúc này chưa rõ trạng ra hướng nào”.",
+      "line_start": 2501,
+      "line_end": 2520,
+      "approx_seconds": 75
+    },
+    {
+      "id": "pham_cong_cuc_hoa-0127",
+      "sort_order": 127,
+      "label": "Đoạn 127 (câu 2521–2540)",
+      "body": "Phạm Công bước khỏi lầu cao\nBuồn lòng chẳng biết lối nào tìm đi\nChàng Tư nhỏ nhẹ vân vi:\n“Từ đây đến đấy đường nguy hiểm mà\nBao nhiêu rồng lửa mãng xà\nQuấn quanh lúc nhúc nghĩ đà ghê sao\nTứ bề chớp giật gió gào\nLiệu chàng còn biết lối nào mà đi”\nPhạm Công đáp lại tức thì:\n“Đến đây mà lại quay về sao nên\nTử sinh số mệnh tại thiên\nGian nan đến mấy cũng xin cam lòng”\nBấy giờ mới bảo ngựa hồng:\n“Nếu không đi đặng liều chừng về thôi”\nNgựa hồng chững chạc đáp lời:\n“Tìm bà tôi chẳng đôi hồi vấn vương”\nNhanh chân người ngựa lên đường\nĐi đựơc một lúc thì vương mãng xà\nVừa nhìn thấy trạng đi qua\nNó liền băng tới đầu đà cất cao",
+      "line_start": 2521,
+      "line_end": 2540,
+      "approx_seconds": 75
+    },
+    {
+      "id": "pham_cong_cuc_hoa-0128",
+      "sort_order": 128,
+      "label": "Đoạn 128 (câu 2541–2560)",
+      "body": "Rồng lửa hìen thảo làm sao\nNé mình nhường lối khác nào người thân\nMãng xà thấy thế phân vân\nCúi đầu chép miệng âm thầm bò đi\nNgựa hồng qua được một khi\nVội tung bốn vó liệu bề rời xa.\nThêm một tháng nữa trôi qua\nBấy giờ mới tới được tòa Chàng Năm\nBốn bề lửa cháy ầm ầm\nHai bên cấm cửa binh âm áp vào\nGió to ngọn lửa càng cao\nPhạm Công cưỡi ngựa thẳng vào bản doanh\nQuân canh sau cửa hoành hành\nGươm trần chúng tuốt chung quanh sáng lòa:\n“Chém đầu đi quách không tha\nTên nào chẳng biết vào tòa Chàng Năm”\nPhạm Công quát lại rầm rầm:\n“Hãy nói với hắn ta cần gặp ngay\nTA là người ở trên mây\nNgọc hoàng dạy xuống nơi đây khám tù",
+      "line_start": 2541,
+      "line_end": 2560,
+      "approx_seconds": 75
+    },
+    {
+      "id": "pham_cong_cuc_hoa-0129",
+      "sort_order": 129,
+      "label": "Đoạn 129 (câu 2561–2580)",
+      "body": "Lệnh trời đâu phải chuyện đùa\nChúng mày lếu láo chẳng vừa ý ta”\nQuân canh thôi quát thôi la\nVội vàng quay gót vào tòa Chàng Năm\nChàng Năm nổi nóng lầm bầm:\n“Thói người trần giới cõi âm xem thường\nOai nghiêm nhất chốn công đường\nDù là sứ giả Ngọc hoàng đến đây\nDù là người ở trên mây\nTrói mà đánh tuốt nơi này không tha\nMột mình một ngựa xông pha\nThằng nào dám đến mà tra chốn này”\nPhạm Công bước xuống chắp tay\nTrông chàng lễ độ mà đầy quyền uy\nChàng Năm thấy vậy tức thì\nTrải hai hàng chiếu lễ nghi chào mời\nNgỡ là thiên sứ trên trời\nBá quan văn võ đồng thời bước ra\nPhạm Công quỳ xuống khoan hòa:\n“Tôi người trần giới rất xa chốn này",
+      "line_start": 2561,
+      "line_end": 2580,
+      "approx_seconds": 75
+    },
+    {
+      "id": "pham_cong_cuc_hoa-0130",
+      "sort_order": 130,
+      "label": "Đoạn 130 (câu 2581–2600)",
+      "body": "Cúc Hoa là vợ xưa nay\nMới ba mươi tuổi chẳng may lìa đời\nĐể hai con dại mồ côi\nNhớ thương tôi xuống tìm tòi âm cung\nNghĩ rằng có ở ngục trong\nNên đà mạn phép đột xông kiếm nàng”\nTriều đình ai cũng ngỡ ngàng\nChàng Năm nước mắt hai hàng thương thay:\n“Thế mà trạng chẳng bảo ngay\nLại nói thiên sứ xuống đây khám tù”\nPHạm Công thú thật cùng vua:\n“Không dùng chước ấy khó vô nơi này”\nVua cười truyền ở cửa ngay\nCho chàng xem hết đặng hay chân tình\nTù đông phải đến hàng nghìn\nChẳng ai giống mặt giống hình mà mong\nPhạm Công cùng với ngựa hồng\nTìm nàng chẳng thấy rầu lòng bước ra\nOang oang tiếng quát gần xa\nGiám ngục từng đám khảo tra trong ngoài",
+      "line_start": 2581,
+      "line_end": 2600,
+      "approx_seconds": 75
+    },
+    {
+      "id": "pham_cong_cuc_hoa-0131",
+      "sort_order": 131,
+      "label": "Đoạn 131 (câu 2601–2620)",
+      "body": "Thấy đoàn con gái hoang t hai\nMặc đồ nhơ uế rạc rài héo hon\nNhác trông thân thể gầy mòn\nNước nôi không có nuôi con cực lòng\nCả đoàn bị cấm xuống sông\nMẹ con ghẻ lở tắm trong vũng bùn\nPhạm Công nhìn thấy hãi hùng\nBước vào tâu với bệ rồng phân minh:\n“Hoang thai là chuyện tội tình\nchứ đâu có phải tội hình xưa nay\nĐời mẹ lầm lỗi đã vầy\nHay gì cái vịec đọa đày đời con\nTrời sinh có nước có n on\nPhải năng tắm rửa mới luôn an hòa”\nChàng Năm gật gật nghe ra\nTruyền tha tất cả đàn bà hoang thai\nPhạm Công tìm mãi tìm hoài\nCúc Hoa chẳng thấy lệ dài chứa chan\nThấy đoàn phù thủy kêu van\nBinh âm khảo đả nhộn nhàng như ong",
+      "line_start": 2601,
+      "line_end": 2620,
+      "approx_seconds": 75
+    },
+    {
+      "id": "pham_cong_cuc_hoa-0132",
+      "sort_order": 132,
+      "label": "Đoạn 132 (câu 2621–2640)",
+      "body": "Chuông treo trống buộc đầu gông\nPhạm Công bèn hỏi cõi dương tội gì\nChàng Năm mặt vẫn lầm lì:\n“Bọn thầy phù thủy chuyên bề gian ngoan\nKhua chuông gõ trống rộn ràng\nLại còn thét mắng Long vương đêm ngày\nAi người biết được bọn này\nĐảo điên mà định làm thầy thế gian”\nPhạm Công bộc bạch nguồn cơn:\n“Làm thầy chẳng lẽ lại nhờn với ma\nKhông cho thét mắng kêu la\nLàm sao đuổi quỷ xua tà cho an\nNói xằng vâng lệnh Ngọc hoàng\nSai tà làm bệnh tìm đường kiếm ăn\nChúng đà dại dột muôn phần\nCúi xin lượng cả gia ân khoan hồng”\nChàng Năm cũng thấy mủi lòng\nCả đoàn phù thủy cuối cùng được tha\nPhạm Công nhìn kỹ nhận ra\nSư mô một bọn trong tòa lô nhô",
+      "line_start": 2621,
+      "line_end": 2640,
+      "approx_seconds": 75
+    },
+    {
+      "id": "pham_cong_cuc_hoa-0133",
+      "sort_order": 133,
+      "label": "Đoạn 133 (câu 2641–2660)",
+      "body": "Cạo đầu dối thế mơ hồ\nCũng đang giam chấp tù đồ kêu rên\nTiếng rằng tụ tập đạo thiền\nMắt lo nhìn gái mồm quen thịt thà\nChúng đi quyên góp người ta\nNói rằng tô tượng cùng là đúc chuông\nTiền nong của khách thập phương\nĐem về nuôi béo một phường gian ngoan\nCõi dương tội đã rõ ràng\nCho nên thác xuống vẫn đang lao tù\nPhạm Công rằng: “Thật hư vô\nLòng tà niệm phật sớm trưa ích gì”\nNgó quanh trong dạ sầu bi:\n“Cúc Hoa không biết giạt về nơi đâu?”\nMột mình ra tới phía sau\nThấy lũ thầy bói lao nhao khóc ròng\nChậu thau lật úp bên gông\nMột tay cầm quẻ người trông la đà\nMột tay rờ túi xuýt xoa\nTrước là kiếm lễ sau là độ thân",
+      "line_start": 2641,
+      "line_end": 2660,
+      "approx_seconds": 75
+    },
+    {
+      "id": "pham_cong_cuc_hoa-0134",
+      "sort_order": 134,
+      "label": "Đoạn 134 (câu 2661–2680)",
+      "body": "Cả đời đi kiếm miếng ăn\nNgờ đâu thác xuống mang thân tội đày\nPhạm Công bước lẹ vào đây\nLựa lời chàng mới tâu ngay thực thà:\n“Bởi chưng trời đất dựng ra\nQuyền đâu đến quẻ bói khoa ở đời\nThế gian vạn kẻ có tài\nLỗi thầy bói chỉ ở lời thốt ra\nDở hay tiền định thôi mà\nVí dù không nói cũng ra làm vầy”\nChàng Năm mới bảo từ nay\nThầy bói khỏi phải tội đày lao lung.\nĐã hơn bốn tháng vua dương\nĐêm ngày cầu khấn trời thương trạng cùng\nMiệng hỏi nước mắt rưng rưng:\n“Lộ trình của trạng theo phương hướng nào?”\nXuân Dung công chúa liền tâu:\n“Trạng nguyên còn ở dưới lầu Chàng Năm\nNgười đâu đại lượng từ tâm\nPhù thủy thầy bói trong tầm Diêm la",
+      "line_start": 2661,
+      "line_end": 2680,
+      "approx_seconds": 75
+    },
+    {
+      "id": "pham_cong_cuc_hoa-0135",
+      "sort_order": 135,
+      "label": "Đoạn 135 (câu 2681–2700)",
+      "body": "Chàng xin cho họ được tha\nKính tối chưa thấy trạng ra phương nào.”\nTrịnh vương nước mắt tuôn trào\nNgồi kính bốn tháng trạng sao chưa về\nTHương nàng công chúa nhiều bề\nThức ròng bốn tháng người thì xanh xao.\nPhạm Công nhìn trước ngó sau\nLạ lùng bèn hỏi một câu như vầy:\n“Lương y sao chẳng thấy đây\nCùng là thầy dịch chốn này cũng không”\nChàng Năm mới nói thực lòng:\n“Lương y thầy dịch về cùng người ngay\nHọ có làm hại chi ai\nMà bắt bớ họ về đày Diêm la”\nMột mình quan trạng trở ra\nGặp đoàn bán mắm kêu la bên hồ\nÂm ty chịu cảnh tù đồ\nHai tay chặt cục nhuốc nhơ một đời\nBuôn mắm muốn đựơc nhiều lời\nBao nhiêu nước cốt ngon thời chắt ra",
+      "line_start": 2681,
+      "line_end": 2700,
+      "approx_seconds": 75
+    },
+    {
+      "id": "pham_cong_cuc_hoa-0136",
+      "sort_order": 136,
+      "label": "Đoạn 136 (câu 2701–2720)",
+      "body": "Chỉ bán có thứ nước pha\nLãi ăn cho lắm oan gia nỗi gì\nTiền là tiền thật lấy về\nMắm thì mắm giả dung chi kẻ tà\nPhạm Công qua đó trở ra\nThấy đoàn thầy mã ở tòa cửa đông\nTội hình giáng xuống chẳng dung\nThân kia phải đánh búa đồng tan xương\nPhạm Công mới hỏi tỏ tường:\n“Người ở trần giới đã vương tội gì”\nGiám ngụcd dáp lại tức thì:\n“Làm nghề thợ mã cũng nghề gian ngoan\nĐồ mã chẳng có ruột gan\nLấy tiền nói dối dương gian đã dày”\nVợ chàng không có nơi đây\nPhạm Công bèn hỏi liệu bài quay ra\n“Khu trẫm không có Cúc Hoa\nMời trạng xuống cửa vua cha bên này\nĐất người thoáng đãng phía tây\nĐất người không có một ngày cùm gông”.",
+      "line_start": 2701,
+      "line_end": 2720,
+      "approx_seconds": 75
+    },
+    {
+      "id": "pham_cong_cuc_hoa-0137",
+      "sort_order": 137,
+      "label": "Đoạn 137 (câu 2721–2740)",
+      "body": "Phạm Công lên ngựa ruổi rong\nVòng vèo mấy khúc tới vùng vua cha\nTứ bề đào mận nở hoa\nSuối trong nước lặng chan hòa ánh dương\nBấy lâu ảm đạm một phương\nĐến đây động phủ Long vương chói lòa\nDập dìu đàn hát xướng ca\nBá quan văn võ bước ra mời chào\nLong vương phán hỏi một câu:\n“Chẳng hay quan trạng dãi dầu việc chi?”\nPhạm Công quỳ xuống đan trì\nKhấu đầu làm lễ tức thì trình qua:\n“Vợ tôi tên gọi Cúc Hoa\nMới ba mươi tuổi xưa đà xuống đây\nĐi tìm hơn bốn tháng nay\nVẫn chưa gặp được lòng này xót xa”\nLong vương nghe nói cười xòa:\n“Hãy ăn yến đã Cúc Hoa thấy liền”\nBá quan văn võ cùng khuyên:\n“Rồi trạng sẽ gặp vợ hiền ngay thôi”",
+      "line_start": 2721,
+      "line_end": 2740,
+      "approx_seconds": 75
+    },
+    {
+      "id": "pham_cong_cuc_hoa-0138",
+      "sort_order": 138,
+      "label": "Đoạn 138 (câu 2741–2760)",
+      "body": "Phạm Công bèn ngỏ một lời:\n“Vợ tìm không thấy ngồi chơi làm gì”.\nTrịnh vương hết đứng lại đi\nPhán hỏi công chúa: “Trạng về phương nao”\nXuân Dung sức lực tiêu hao\nBốn tháng thức trắng ngồi chầu ăn chay\nNàng vẫn tỉnh táo tâu ngay:\n“Trạng nguyên mới đến cửa này Long vương\nCòn nghe tiếng nói tỏ tường\nCả triều náo nức chào mừng trạng nguyên”\nCông chúa lại nói tiếp liền:\n“Tòa vàng lặng lẽ sao nhìn vắng tanh”\nVua hỏi: “Trạng có về nhanh”\nNàng bèn quỳ tấu phân minh nhẹ nhàng:\n“Long vương yến tiệc mời chàng\nẮt là biết đặng đâu nàng Cúc Hoa”.\nTrạng rằng: “Dạ thật an hòa\nNếu gặp lại vợ tại nhà quân vương”\nLong vương đáp giọng vui mừng:\n“Ra ngươi vẫn nhớ quá chừng Cúc Hoa",
+      "line_start": 2741,
+      "line_end": 2760,
+      "approx_seconds": 75
+    },
+    {
+      "id": "pham_cong_cuc_hoa-0139",
+      "sort_order": 139,
+      "label": "Đoạn 139 (câu 2761–2780)",
+      "body": "Trẫm có công chúa trong tòa\nMới mười tám tuổi tiên sa non bồng\nNgồi thì đua nở hoa hồng\nĐứng thì ngào ngạt hương xông hoa nhài\nĐi thì én liệng bướm bay\nHình dung nhan sắc cũng tày Cúc Hoa\nGả cho trạng để giao hòa\nNhường vì ngôi báu vua cha dưới này”\nPhạm Công lễ phép giãi bày:\n“Dù là tiên nữ mặt mày như hoa\nDù là bắc đẩu sao sa\nTôi cũng chẳng thiết huống là con vua\nThủy chung giữ đạo ngàn xưa”\nLong vương nhìn trạng, từ từ vuốt râu:\n“Vợ trạng tuyệt sắc hay sao\nTrạng nói mặc trạng ai nào tin qua\nCon ta mắt phượng da ngà\nChảy dài suối tóc mượt mà lưng ong”\nPhạm Công quỳ trước bệ rồng:\n“Tìm chưa thấy vợ trong lòng xót xa",
+      "line_start": 2761,
+      "line_end": 2780,
+      "approx_seconds": 75
+    },
+    {
+      "id": "pham_cong_cuc_hoa-0140",
+      "sort_order": 140,
+      "label": "Đoạn 140 (câu 2781–2800)",
+      "body": "Nếu như tính chuyện nguyệt hoa\nThiếu gì người đẹp ngọc ngà dương gian”\nLong vương mới phán rõ ràng:\n“Gả nàng công chúa thêm nàng Cúc Hoa”\nPhạm Công đáp lại khoan hòa:\n“Xin Người đừng nói nguyệt hoa thêm rầu”\nLong vương bèn phán ậm ào:\n“Số chàng còn phải dãi dầu quan san\nBa năm rong ruổi gian nan\nMới mong gặp đựoc vợ chàng Cúc Hoa”\nPhán rồi vua trở vào tòa\nPhạm Công nước mắt chan hòa ra đi.\nThủy cung công chúa sầu bi\nNói cùng quan trạng tỉ tê mấy lời:\n“Cha thiếp nói dối chàng thôi\nCúc Hoa đã ở gần rồi chàng ơi\nMười ngày chàng sẽ tới nơi\nBõ công lặn lội không ngơi bấy chầy\nThiếp đưa chàng quá một ngày\nTới Diêm quan phủ thấy ngay thôi mà",
+      "line_start": 2781,
+      "line_end": 2800,
+      "approx_seconds": 75
+    },
+    {
+      "id": "pham_cong_cuc_hoa-0141",
+      "sort_order": 141,
+      "label": "Đoạn 141 (câu 2801–2820)",
+      "body": "Việc thời phải có mẹ cha\nĐưa chàng chẳng tiện đường xa thương chàng\nPhạm Công nhỏ nhẹ bảo nàng:\n“Có chăng trở lại đền vàng hẵng hay”\nCông chúa bèn đáp lời ngay:\n“Dù không trở lại nơi đây mặc lòng\nRồi ra chàng nhớ hay không\nRiêng thiếp thì vẫn vô cùng xót thương\nChàng ơi đến đó nhiều đường\nMột khi lạc bước không phương đôi hồi\nNhiều tinh quỷ lắm chàng ơi\nE khi nó đón chàng thôi giữa đường\nLàm sao tránh chuỵên bất thường\nÂu là viết sắc cho chàng đi qua\nNửa chừng có gặp yêu ma\nCùng là tinh thủy thảy đà phải thôi”\nNhững đang ngần ngại bồi hồi\nNàng đà phát sắc xong xuôi mọi bề\nPhạm Công lĩnh sắc tức thì\nNhìn nàng mà lệ phân kỳ rưng rưng.",
+      "line_start": 2801,
+      "line_end": 2820,
+      "approx_seconds": 75
+    },
+    {
+      "id": "pham_cong_cuc_hoa-0142",
+      "sort_order": 142,
+      "label": "Đoạn 142 (câu 2821–2840)",
+      "body": "Đưa trạng thêm mấy độ đường\nXốn xang ước được dặm trường cùng ai\nCông chúa lặng lẽ thở dài:\n“Gối rêu nằm đất từ nay thương chàng\nChiếu đà trải dọc trải ngang\nXót thay quan trạng tàn vàng bỏ không”\nPhạm Công vuốt má ngựa hồng\nCả hai hớn hở trong lòng ra đi\nĐường xa trở ngại sá gì\nChẳng may lạc bước khó bề trở tay.\nPhạm Công chưa kịp nghĩ suy\nNgựa hồng đã tới biên thùy Long vương\nNghe tù kêu khóc bốn phương\nRầm rập quỷ sứ đầy đường ghê sao\nChàng bèn tế ngựa xông vào\nQuân canh mấy đứa thét gào răng nhe:\n“Nơi đây là ngục An Tỳ\nCó tội mà chết dẫn về giam ngay\nViệc chi ông đến chốn này?”\nLựa lời trạng mới giải bày trước sau:",
+      "line_start": 2821,
+      "line_end": 2840,
+      "approx_seconds": 75
+    },
+    {
+      "id": "pham_cong_cuc_hoa-0143",
+      "sort_order": 143,
+      "label": "Đoạn 143 (câu 2841–2860)",
+      "body": "“Ta là tể tướng Trịnh châu\nXuống đây tìm vợ bấy lâu cách vời\nXin cho mở ngục ra coi\nCúc Hoa mệnh phụ có nơi cửa người”.\nGiám ngục lễ phép rước mời\nDẫn đường quan trạng tới nơi xem liền\nThấy người trong ngục thảm phiền\nGầy gò nhơ nhuốc gông xiềng kêu la\nMấy nơi kinh khiếp vào ra\nTưởng rằng đây có Cúc Hoa thêm sầu\nChung quanh lửa nấu vạc dầu\nTìm nàng chẳng thấy biết đâu chốn nào\nPhạm Công mới hỏi trước sau:\n“Điện này tùy thuộc vị nào Long vương\nMuốn ra mắt hỏi tỏ tường\nLàm ơn xin hãy vẽ đường cho ta”\nQuỷ bèn chỉ trỏ gần xa\nPhạm Công bước tới tòa nhà bên kia\nChàng Cả ra đón tức thì:\n“Phò Mã chắc có việc gì xuống đây”",
+      "line_start": 2841,
+      "line_end": 2860,
+      "approx_seconds": 75
+    },
+    {
+      "id": "pham_cong_cuc_hoa-0144",
+      "sort_order": 144,
+      "label": "Đoạn 144 (câu 2861–2880)",
+      "body": "Phạm Công từ tốn giãi bày:\n“Vợ tôi sớm xuống cõi này Diêm la\nTên nàng là ả Cúc Hoa\nCó đang giam cấm trong tòa hay không\nXin Người thứ lỗi đột xông\nBảo cho tôi rõ vâng mòng trước sau”\nChàng Cả tra sổ lắc đầu:\n“Cúc Hoa hồn ấy không vào nơi đây”\nPhạm Công nghe nói thở dài:\n“Thảo nào tìm mãi tìm hoài không ra”\nLại đi xem xét gần xa\nThấy người bị tội rên la kêu gào\nBốn bề lửa cuốn rào rào\nTứ chi trói chặt ném vào ghê thay\nCháy chân thôi lại cháy tay\nXương da máu thịt từ rày thành tro\nThấy người bị tội thêm lo\nMịt mùng tìm vợ hỏi dò không ra\nPhạm Công bước tới lân la:\n“Tù này khi sống tội đà phạm chưa”",
+      "line_start": 2861,
+      "line_end": 2880,
+      "approx_seconds": 75
+    },
+    {
+      "id": "pham_cong_cuc_hoa-0145",
+      "sort_order": 145,
+      "label": "Đoạn 145 (câu 2881–2900)",
+      "body": "Quỷ sứ cứ thực trình thưa:\n“Tù này nói thiếu nói thừa bấy lâu\nĐặt điều vu khống hiểm sâu\nĐến lúc chết xuống dẫn vào giam đây”\nPhạm Công nhìn sang phía tây\nHỏi có bao cửa nơi đây cần tìm\nChàng Cả hắng giọng đáp liền:\n“Cửa này là cửa đầu tiên thôi mà\nCòn cửa Chàng Hai Chàng Ba\nChàng Tư gần đó xa là Chàng Năm”\nMịt mùng hun hút cõi âm\nPhạm Công ớn lạnh khấn thầm Cúc Hoa\nChàng bèn bái tạ trở ra\nNgựa hồng nước kiệu tà tà chạy đi.\nTrịnh vương hỏi kính tức thì:\n“Lộ trình của trạng hướng về phương nao”\nCông chúa vội vã quỳ tâu:\n“Chàng Cả tiếp trạng trên lầu Long vương\nĐây không thấy Cúc Hoa nương\nTrạng lại lên đường tìm kiếm các nơi”.",
+      "line_start": 2881,
+      "line_end": 2900,
+      "approx_seconds": 75
+    },
+    {
+      "id": "pham_cong_cuc_hoa-0146",
+      "sort_order": 146,
+      "label": "Đoạn 146 (câu 2901–2920)",
+      "body": "Phạm Công đến cửa thứ hai\nNgục tối từng dãy rụng rời mắt trông\nĐội chậu máu ngồi bàn chông\nVạc dầu sùng sục lửa hồng liếm quanh\nPhạm Công ngỡ có vợ mình\nVội vàng bước tới trần tình trước sau\nQuỷ sứ quát mắng phủ đầu:\n“Chàng nào táo tợn cửa lầu đột xông\nCửa này là cửa Long cung\nBọn tù nặng tội giam cùng nơi đây”\nPhạm Công nghe nói vào ngay\nThử tìm nàng ở chốn này may ra\nHay đâu thấy những mụ già\nLưng buộc vào cột kêu la nhộn nhàng\nPhạm Công bèn hỏi khẽ khàng:\n“Cõi dương chúng phạm rõ ràng tội chi”\nGiám ngục phải trái phân bì:\n“Bọn này trần thế chắc gì đã hay\nMua nhiều bán ít xưa nay\nLúc mua đong đầy lúc bán đong vơi",
+      "line_start": 2901,
+      "line_end": 2920,
+      "approx_seconds": 75
+    },
+    {
+      "id": "pham_cong_cuc_hoa-0147",
+      "sort_order": 147,
+      "label": "Đoạn 147 (câu 2921–2940)",
+      "body": "Bởi tham nên đã hại người\nTội mình mình chịu kêu thời kêu ai\nThóc lép đong vơi cho vay\nKhi đòi thóc chắc đong đầy mới thôi\nTính ra vốn một lãi mười\nLàm cho dương thế lắm người lao đao”\nChăm chăm nhìn trước ngó sau\nTìm hoài mà có thấy nào Cúc Hoa\nPhạm Công châu lệ chan hòa\nChàng Hai đủng đỉnh bước ra khỏi lầu\nLại gần hỏi nhỏ một câu:\n“Hẳn quan phò mã người đâu cõi trần”\nTrạng rằng: “Vợ phải thác oan\nBỏ hai con dại dương gian bấy chầy\nCho nên thương nhớ lâu ngày\nTừ miền xa đến nơi đây tìm tòi”\nChàng Hai sốt sắng tươi cười:\n“Vợ quan phò mã sinh thời tên chi”\nHỏi rồi chú ý lắng nghe\nLát sau dẫn trạng cùng đi vào tòa",
+      "line_start": 2921,
+      "line_end": 2940,
+      "approx_seconds": 75
+    },
+    {
+      "id": "pham_cong_cuc_hoa-0148",
+      "sort_order": 148,
+      "label": "Đoạn 148 (câu 2941–2960)",
+      "body": "Lần lần lật sổ ra tra:\n“Buồn thay vợ trạng không qua chốn này\nNếu như giam cấm nơi đây\nThì trẫm cho phép về ngay với chồng”\nPhamj Công bái biệt não lòng\nThẫn thờ lên ngựa sang vùng Chàng Ba.\nTrịnh vương sốt ruột lân la:\n“Xuân Dung con hỡi trạng đà đến đâu”\nTức thì công chúa quỳ tâu:\n“Trạng nguyên còn ở dưới lầu Chàng Hai\nTìm nàng chẳng thấy tăm hơi\nLệ châu chan chứa mấy hồi sầu bi\nTạ từ trạng sắp ra đi\nChàng Ba chưa rõ hướng về nơi nao”\nChàng Hai chỉ dẫn thấp cao:\n“Đường đi khủng khiếp dẫn vào Chàng Ba\nBao nhiêu cạm bẫy giăng ra\nDám xin tính hết gần xa mọi đường\nHiểm nguy hẳn trạng khó lường\nCầu mỏng như giấy bắc sang Ngân hà",
+      "line_start": 2941,
+      "line_end": 2960,
+      "approx_seconds": 75
+    },
+    {
+      "id": "pham_cong_cuc_hoa-0149",
+      "sort_order": 149,
+      "label": "Đoạn 149 (câu 2961–2980)",
+      "body": "Dưới sông toàn những mãng xà\nThấy người cất cổ bằng ba con sào\nĐùng đùng sấm thét mưa gào\nQuan trạng khó nỗi đi sao vẹn tuyền”\nPhạm Công nghe đáp lại liền:\n“Dù cho rắn rết hàng nghìn quản chi\nĐến đây mà lại quay về\nLàm sao giữ được trọn bề thủy chung”\nChàng Hai mới nói: “Mặc lòng\nỞ đây quán xá thì không có rồi\nLòng thương quan trạng lắm thôi\nMuốn ban cho yến ăn rồi sẽ đi\nNhưng ăn là khó nỗi về\nChẳng biết cho trạng vật gì đặng yên\nBiếu trạng một quả đào tiên\nCủa bà Vương mẫu ban truyền xuống cho\nĂn vào mấy tháng vẫn no\nNgười đuợc cứng cáp không lo trở trời”\nPhạm Công ăn một nửa quả thôi\nMột nửa cho ngựa xong rồi ra đi",
+      "line_start": 2961,
+      "line_end": 2980,
+      "approx_seconds": 75
+    },
+    {
+      "id": "pham_cong_cuc_hoa-0150",
+      "sort_order": 150,
+      "label": "Đoạn 150 (câu 2981–3000)",
+      "body": "Ăn xong khỏe mạnh tức thì\nNgựa hồng nó mới từ bi trong lòng\nPhạm Công bèn hỏi ngựa hồng:\n“Đường xa ngàn trùng đi tiếp hay lui?”\nNgựa hồng lẩm bẩm ngùi ngùi:\n“Đến đây mà lại chịu lùi sao đang”\nNgười nghe cũng thấy vững vàng\nNhảy lên mình ngựa tìm đường đi qua\nMênh mang một dải Ngân hà\nMắt vừa nom thấy lòng đà ghê ghê\nMặt cầu khấp khểnh lè tè\nChân cầu rắn rết đầy phè bâu đen\nNgựa hồng chỉ biết đứng yên\nRun run gõ móng liền liền hí vang\nCầu dài ván ghép mỏng tang\nBước lên sao đặng mà sang sông này\nPhạm Công xuống ngựa tháo hài\nChắp tay quỳ xuống vái dài gần xa\nKhấn trời lại khấn Cúc Hoa\nCho chàng mọc cánh bay qua cầu vồng",
+      "line_start": 2981,
+      "line_end": 3000,
+      "approx_seconds": 75
+    },
+    {
+      "id": "pham_cong_cuc_hoa-0151",
+      "sort_order": 151,
+      "label": "Đoạn 151 (câu 3001–3020)",
+      "body": "Bởi chàng hiếu hạnh thủy chung\nMãng xà lặn xuống mà không làm gì\nBấy giờ trạng mới ra đi\nNgựa hồng cẩn trọng liệu bề bước qua\nThan rằng: “Em hỡi Cúc Hoa\nEm đi đâu mất cho ta cực tình”\nKhấn cầu thiên địa quang minh\nVái trình Hà bá vái trình Thổ công\nKhỏi cầu trạng mới mừng lòng\nTưởng mãng xà nuốt giữa sông Ngân hà.\nBấy giờ đến cửa Chàng Ba\nTường vàng mái bạc mấy tòa chan chan\nPhạm Công trong dạ bàng hoàng\nThấy bao thảm cảnh kêu van tứ bề\nNgựa hồng sợ chẳng dám đi\nNhà thì lửa cháy đất thì chuyển rung\nTiếng rên tiếng hú không ngừng\nPhạm Công nghe thấy cảm thương lệ nhòa\nTù đông nghĩ có Cúc Hoa\nLiều mình đi tới may mà gặp chăng",
+      "line_start": 3001,
+      "line_end": 3020,
+      "approx_seconds": 75
+    },
+    {
+      "id": "pham_cong_cuc_hoa-0152",
+      "sort_order": 152,
+      "label": "Đoạn 152 (câu 3021–3040)",
+      "body": "Quỷ sứ sát khí đằng đằng:\n“Người nào dám đến nói năng gạn gùng”\nPhạm Công vội cởi tấc lòng:\n“Vì thương nhớ vợ nên chồng phải đi\nGian nan vất vả quản chi\nTheo chân nàng xuống âm ty tìm về”\nNgắt lời, giám ngục tỉ tê:\n“Vợ chàng trần giới tên gì bảo ta”\nPhạm Công lễ phép trình qua:\n“Người đời vẫn gọi Cúc Hoa tên nàng”\nGiám ngục bước một khẽ khàng\nDẫn chàng tới trước ngai vàng quỳ tâu:\n“Trạng nguyên phò mã Đăng Châu\nTừ xa lặn lội đến chầu thiên nhan\nVợ trạng đã phải thác oan\nNay trạng rời chốn trần gian đi tìm\nQua hai cửa vẫn im lìm\nCúi xin bệ hạ kiếm thêm khu mình”\nTìm hoài chẳng thấy bóng hình\nVua khuyên ngưng tạm lộ trình nghỉ ngơi",
+      "line_start": 3021,
+      "line_end": 3040,
+      "approx_seconds": 75
+    },
+    {
+      "id": "pham_cong_cuc_hoa-0153",
+      "sort_order": 153,
+      "label": "Đoạn 153 (câu 3041–3060)",
+      "body": "Phạm Công buồn bã buông lời:\n“Vợ tìm chẳng thấy ngồi chơi làm gì”\nBụng chàng nhớ lại một khi\nHôm qua tìm vợ đường đi xa gần\nNhìn thấy những kẻ thanh tân\nGông cùm kìm kẹp kêu van ầm nhà\nChàng bèn lựa lúc hỏi qua:\n“Tội kia dương thế xưa đà sao đây”\nGiám ngục rầu rĩ thưa bày:\n“Tại nơi trần giới theo trai bỏ chồng”\nPhạm Công nghe nói mủi lòng:\n“Đam mê cho lắm đèo bòng khổ thân”\nThấy cảnh hành tội ngoài sân\nChẻ đầu cưa đoạn róc dần thịt xương\nHóa ra là bọn cướp đường\nChết xuống phải tội ngục trường Diêm la\nĐàng kia có một đàn gà\nMỏ dài cựa sắc lấy đà xông vô\nMổ lia lịa một bọn tù\nTứ chi gông chặt đầu u mặt bầm",
+      "line_start": 3041,
+      "line_end": 3060,
+      "approx_seconds": 75
+    },
+    {
+      "id": "pham_cong_cuc_hoa-0154",
+      "sort_order": 154,
+      "label": "Đoạn 154 (câu 3061–3080)",
+      "body": "Cõi trần tham lại còn thâm\nThấy trứng gà ấp liền cầm hết đi\nCho nên thác xuống âm ty\nBắt cho gà mổ thân thi đêm ngày\nChàng nhìn thấy ở phía tây\nCó một bọn nữa ngồi nhai bên hồ\nTay vừa vốc nước lên tu\nMiệng vừa nhổ xuống hu hu kêu trời\nHỏi ra mới biết là người\nCõi trời ăn uống tứ thời đổ tung\nLàm ra hạt thóc nhọc lòng\nChúng lại tống táng xuống hồ xuống sông\nChết rồi vẫn phải tù đồ\nBắt nhai những thứ cơ hồ vứt đi\nMới hay rằng chốn âm ty\nCông bằng khôn tả chẳng gì bỏ qua\nTìm hoài chẳng thấy Cúc Hoa\nPhạm Công châu lệ chan hòa thương thay\nChàng Ba mới bảo như vầy:\n“Ba ngày trạng hãy ở đây dần dà",
+      "line_start": 3061,
+      "line_end": 3080,
+      "approx_seconds": 75
+    },
+    {
+      "id": "pham_cong_cuc_hoa-0155",
+      "sort_order": 155,
+      "label": "Đoạn 155 (câu 3081–3100)",
+      "body": "Cửa này không có Cúc Hoa\nThì trạng phải xuống tới tòa đàng kia”.\nTrịnh vương phán hỏi vân vi:\n“Xuân Dung con hỡi trạng đi phương nào\nNgồi đồng ba tháng gian lao\nCó còn thấy trạng ra vào bảo cha”\nXuân Dung chậm rãi tâu qua:\n“Trạng nguyên hiện được Chàng Ba rước mời\nTrên tòa cơm nước chưa thôi\nĂn xong trạng xuống lâu đài Chàng Tư\nLúc này cửa ấy lờ mờ\nNhìn mà chưa thấy chàng vô xứ nào”.\nPhạm Công trong dạ nôn nao\nCầm cương thúc ngựa phóng ào tên đưa\nThoắt vào đến cửa Chàng Tư\nNgựa dừng lại thở đợi chờ bên trong\nNgạt ngào những vị hương xông\nTrong thành chẳng có một gông tù nào\nNơi nơi xanh liễu thắm đào\nBốn bề dân sự làm sao mặc lòng",
+      "line_start": 3081,
+      "line_end": 3100,
+      "approx_seconds": 75
+    },
+    {
+      "id": "pham_cong_cuc_hoa-0156",
+      "sort_order": 156,
+      "label": "Đoạn 156 (câu 3101–3120)",
+      "body": "Phạm Công mới hỏi ngựa hồng:\n“Hãy xem tù ngục có không, bạn hiền”\n“Cửa này như thể cõi tiên”\nNgựa cất tiếng hí vang miền thành đô\nNóng lòng gặp được Chàng Tư\nPhạm Công xuống ngựa bước vô tâu trình\nGiãi bày sau trước phân minh\nXin tìm vợ thác trọn tình keo sơn\nChàng Tư lời lẽ ân cần:\n“Sao mà quan trạng thâm ân dường này\nLàm quan chức tước tước cao vầy\nThiếu gì nữ sắc trần ai mời chào”\nChàng Tư lại nói thấp cao:\n“Hễ trạng nhìn thấy ngục nào kiếm ngay\nLòng ta chẳng tiếc mảy may\nXin trạng chớ có nơi đây nghi ngờ”\nNgựa hồng cạnh chủ bấy giờ\nCũng giương đôi mắt thăm dò đăm đăm\nĐàn bà kể tới mấy trăm\nLăn đùng ra chết hằng năm vô vàn",
+      "line_start": 3101,
+      "line_end": 3120,
+      "approx_seconds": 75
+    },
+    {
+      "id": "pham_cong_cuc_hoa-0157",
+      "sort_order": 157,
+      "label": "Đoạn 157 (câu 3121–3140)",
+      "body": "Bởi vì sống ở dương gian\nCanh khuya tắm lạnh cảm hàn như chơi\nNắng trưa không nón đầu phơi\nChết uổng rồi lại kêu trời rằng oan\nChàng Tư mới nói nhặt khoan:\n“Cho gọi mỹ nữ a hoàn ra đây\nĐặng cho quan trạng xem ngay\nCúc Hoa vợ trạng chốn này có chăng\nKẻo ta chẳng thực cùng chàng\nTùy chàng nhận lấy mặt nàng Cúc Hoa\nNào nào công chúa bước ra\nĐể chàng nhận diện cho ta yên lòng”\nTìm hết đằng tây đằng đông\nChẳng nơi nào thấy bóng hônfg Cúc Hoa\nCuối cùng vua mới nói ra:\n“Có khi phải xuống dưới tòa Chàng Năm”\nPhạm Công trong dạ chăm chăm\nDù phải tìm khắp cõi âm cũng tìm.\nTrịnh vương lòng chẳng được yên\nPhán hỏi công chúa trạng nguyên nơi nào",
+      "line_start": 3121,
+      "line_end": 3140,
+      "approx_seconds": 75
+    },
+    {
+      "id": "pham_cong_cuc_hoa-0158",
+      "sort_order": 158,
+      "label": "Đoạn 158 (câu 3141–3160)",
+      "body": "Nàng liền mạch lạc quỳ tâu:\n“Trạng nguyên còn ở duới lầu Chàng Tư\nChốn này không có bóng tù\nThấy đàn bà tắm nô đùa ven sông\nChàng Tư giúp trạng hết lòng\nVẫn chưa có đặng vân mòng Cúc Hoa\nĐường về Chàng Năm khá xa\nLúc này chưa rõ trạng ra hướng nào”.\nPhạm Công bước khỏi lầu cao\nBuồn lòng chẳng biết lối nào tìm đi\nChàng Tư nhỏ nhẹ vân vi:\n“Từ đây đến đấy đường nguy hiểm mà\nBao nhiêu rồng lửa mãng xà\nQuấn quanh lúc nhúc nghĩ đà ghê sao\nTứ bề chớp giật gió gào\nLiệu chàng còn biết lối nào mà đi”\nPhạm Công đáp lại tức thì:\n“Đến đây mà lại quay về sao nên\nTử sinh số mệnh tại thiên\nGian nan đến mấy cũng xin cam lòng”",
+      "line_start": 3141,
+      "line_end": 3160,
+      "approx_seconds": 75
+    },
+    {
+      "id": "pham_cong_cuc_hoa-0159",
+      "sort_order": 159,
+      "label": "Đoạn 159 (câu 3161–3180)",
+      "body": "Bấy giờ mới bảo ngựa hồng:\n“Nếu không đi đặng liều chừng về thôi”\nNgựa hồng chững chạc đáp lời:\n“Tìm bà tôi chẳng đôi hồi vấn vương”\nNhanh chân người ngựa lên đường\nĐi đựơc một lúc thì vương mãng xà\nVừa nhìn thấy trạng đi qua\nNó liền băng tới đầu đà cất cao\nRồng lửa hìen thảo làm sao\nNé mình nhường lối khác nào người thân\nMãng xà thấy thế phân vân\nCúi đầu chép miệng âm thầm bò đi\nNgựa hồng qua được một khi\nVội tung bốn vó liệu bề rời xa.\nThêm một tháng nữa trôi qua\nBấy giờ mới tới được tòa Chàng Năm\nBốn bề lửa cháy ầm ầm\nHai bên cấm cửa binh âm áp vào\nGió to ngọn lửa càng cao\nPhạm Công cưỡi ngựa thẳng vào bản doanh",
+      "line_start": 3161,
+      "line_end": 3180,
+      "approx_seconds": 75
+    },
+    {
+      "id": "pham_cong_cuc_hoa-0160",
+      "sort_order": 160,
+      "label": "Đoạn 160 (câu 3181–3200)",
+      "body": "Quân canh sau cửa hoành hành\nGươm trần chúng tuốt chung quanh sáng lòa:\n“Chém đầu đi quách không tha\nTên nào chẳng biết vào tòa Chàng Năm”\nPhạm Công quát lại rầm rầm:\n“Hãy nói với hắn ta cần gặp ngay\nTA là người ở trên mây\nNgọc hoàng dạy xuống nơi đây khám tù\nLệnh trời đâu phải chuyện đùa\nChúng mày lếu láo chẳng vừa ý ta”\nQuân canh thôi quát thôi la\nVội vàng quay gót vào tòa Chàng Năm\nChàng Năm nổi nóng lầm bầm:\n“Thói người trần giới cõi âm xem thường\nOai nghiêm nhất chốn công đường\nDù là sứ giả Ngọc hoàng đến đây\nDù là người ở trên mây\nTrói mà đánh tuốt nơi này không tha\nMột mình một ngựa xông pha\nThằng nào dám đến mà tra chốn này”",
+      "line_start": 3181,
+      "line_end": 3200,
+      "approx_seconds": 75
+    },
+    {
+      "id": "pham_cong_cuc_hoa-0161",
+      "sort_order": 161,
+      "label": "Đoạn 161 (câu 3201–3220)",
+      "body": "Phạm Công bước xuống chắp tay\nTrông chàng lễ độ mà đầy quyền uy\nChàng Năm thấy vậy tức thì\nTrải hai hàng chiếu lễ nghi chào mời\nNgỡ là thiên sứ trên trời\nBá quan văn võ đồng thời bước ra\nPhạm Công quỳ xuống khoan hòa:\n“Tôi người trần giới rất xa chốn này\nCúc Hoa là vợ xưa nay\nMới ba mươi tuổi chẳng may lìa đời\nĐể hai con dại mồ côi\nNhớ thương tôi xuống tìm tòi âm cung\nNghĩ rằng có ở ngục trong\nNên đà mạn phép đột xông kiếm nàng”\nTriều đình ai cũng ngỡ ngàng\nChàng Năm nước mắt hai hàng thương thay:\n“Thế mà trạng chẳng bảo ngay\nLại nói thiên sứ xuống đây khám tù”\nPHạm Công thú thật cùng vua:\n“Không dùng chước ấy khó vô nơi này”",
+      "line_start": 3201,
+      "line_end": 3220,
+      "approx_seconds": 75
+    },
+    {
+      "id": "pham_cong_cuc_hoa-0162",
+      "sort_order": 162,
+      "label": "Đoạn 162 (câu 3221–3240)",
+      "body": "Vua cười truyền ở cửa ngay\nCho chàng xem hết đặng hay chân tình\nTù đông phải đến hàng nghìn\nChẳng ai giống mặt giống hình mà mong\nPhạm Công cùng với ngựa hồng\nTìm nàng chẳng thấy rầu lòng bước ra\nOang oang tiếng quát gần xa\nGiám ngục từng đám khảo tra trong ngoài\nThấy đoàn con gái hoang t hai\nMặc đồ nhơ uế rạc rài héo hon\nNhác trông thân thể gầy mòn\nNước nôi không có nuôi con cực lòng\nCả đoàn bị cấm xuống sông\nMẹ con ghẻ lở tắm trong vũng bùn\nPhạm Công nhìn thấy hãi hùng\nBước vào tâu với bệ rồng phân minh:\n“Hoang thai là chuyện tội tình\nchứ đâu có phải tội hình xưa nay\nĐời mẹ lầm lỗi đã vầy\nHay gì cái vịec đọa đày đời con",
+      "line_start": 3221,
+      "line_end": 3240,
+      "approx_seconds": 75
+    },
+    {
+      "id": "pham_cong_cuc_hoa-0163",
+      "sort_order": 163,
+      "label": "Đoạn 163 (câu 3241–3260)",
+      "body": "Trời sinh có nước có n on\nPhải năng tắm rửa mới luôn an hòa”\nChàng Năm gật gật nghe ra\nTruyền tha tất cả đàn bà hoang thai\nPhạm Công tìm mãi tìm hoài\nCúc Hoa chẳng thấy lệ dài chứa chan\nThấy đoàn phù thủy kêu van\nBinh âm khảo đả nhộn nhàng như ong\nChuông treo trống buộc đầu gông\nPhạm Công bèn hỏi cõi dương tội gì\nChàng Năm mặt vẫn lầm lì:\n“Bọn thầy phù thủy chuyên bề gian ngoan\nKhua chuông gõ trống rộn ràng\nLại còn thét mắng Long vương đêm ngày\nAi người biết được bọn này\nĐảo điên mà định làm thầy thế gian”\nPhạm Công bộc bạch nguồn cơn:\n“Làm thầy chẳng lẽ lại nhờn với ma\nKhông cho thét mắng kêu la\nLàm sao đuổi quỷ xua tà cho an",
+      "line_start": 3241,
+      "line_end": 3260,
+      "approx_seconds": 75
+    },
+    {
+      "id": "pham_cong_cuc_hoa-0164",
+      "sort_order": 164,
+      "label": "Đoạn 164 (câu 3261–3280)",
+      "body": "Nói xằng vâng lệnh Ngọc hoàng\nSai tà làm bệnh tìm đường kiếm ăn\nChúng đà dại dột muôn phần\nCúi xin lượng cả gia ân khoan hồng”\nChàng Năm cũng thấy mủi lòng\nCả đoàn phù thủy cuối cùng được tha\nPhạm Công nhìn kỹ nhận ra\nSư mô một bọn trong tòa lô nhô\nCạo đầu dối thế mơ hồ\nCũng đang giam chấp tù đồ kêu rên\nTiếng rằng tụ tập đạo thiền\nMắt lo nhìn gái mồm quen thịt thà\nChúng đi quyên góp người ta\nNói rằng tô tượng cùng là đúc chuông\nTiền nong của khách thập phương\nĐem về nuôi béo một phường gian ngoan\nCõi dương tội đã rõ ràng\nCho nên thác xuống vẫn đang lao tù\nPhạm Công rằng: “Thật hư vô\nLòng tà niệm phật sớm trưa ích gì”",
+      "line_start": 3261,
+      "line_end": 3280,
+      "approx_seconds": 75
+    },
+    {
+      "id": "pham_cong_cuc_hoa-0165",
+      "sort_order": 165,
+      "label": "Đoạn 165 (câu 3281–3300)",
+      "body": "Ngó quanh trong dạ sầu bi:\n“Cúc Hoa không biết giạt về nơi đâu?”\nMột mình ra tới phía sau\nThấy lũ thầy bói lao nhao khóc ròng\nChậu thau lật úp bên gông\nMột tay cầm quẻ người trông la đà\nMột tay rờ túi xuýt xoa\nTrước là kiếm lễ sau là độ thân\nCả đời đi kiếm miếng ăn\nNgờ đâu thác xuống mang thân tội đày\nPhạm Công bước lẹ vào đây\nLựa lời chàng mới tâu ngay thực thà:\n“Bởi chưng trời đất dựng ra\nQuyền đâu đến quẻ bói khoa ở đời\nThế gian vạn kẻ có tài\nLỗi thầy bói chỉ ở lời thốt ra\nDở hay tiền định thôi mà\nVí dù không nói cũng ra làm vầy”\nChàng Năm mới bảo từ nay\nThầy bói khỏi phải tội đày lao lung.",
+      "line_start": 3281,
+      "line_end": 3300,
+      "approx_seconds": 75
+    },
+    {
+      "id": "pham_cong_cuc_hoa-0166",
+      "sort_order": 166,
+      "label": "Đoạn 166 (câu 3301–3320)",
+      "body": "Đã hơn bốn tháng vua dương\nĐêm ngày cầu khấn trời thương trạng cùng\nMiệng hỏi nước mắt rưng rưng:\n“Lộ trình của trạng theo phương hướng nào?”\nXuân Dung công chúa liền tâu:\n“Trạng nguyên còn ở dưới lầu Chàng Năm\nNgười đâu đại lượng từ tâm\nPhù thủy thầy bói trong tầm Diêm la\nChàng xin cho họ được tha\nKính tối chưa thấy trạng ra phương nào.”\nTrịnh vương nước mắt tuôn trào\nNgồi kính bốn tháng trạng sao chưa về\nTHương nàng công chúa nhiều bề\nThức ròng bốn tháng người thì xanh xao.\nPhạm Công nhìn trước ngó sau\nLạ lùng bèn hỏi một câu như vầy:\n“Lương y sao chẳng thấy đây\nCùng là thầy dịch chốn này cũng không”\nChàng Năm mới nói thực lòng:\n“Lương y thầy dịch về cùng người ngay",
+      "line_start": 3301,
+      "line_end": 3320,
+      "approx_seconds": 75
+    },
+    {
+      "id": "pham_cong_cuc_hoa-0167",
+      "sort_order": 167,
+      "label": "Đoạn 167 (câu 3321–3340)",
+      "body": "Họ có làm hại chi ai\nMà bắt bớ họ về đày Diêm la”\nMột mình quan trạng trở ra\nGặp đoàn bán mắm kêu la bên hồ\nÂm ty chịu cảnh tù đồ\nHai tay chặt cục nhuốc nhơ một đời\nBuôn mắm muốn đựơc nhiều lời\nBao nhiêu nước cốt ngon thời chắt ra\nChỉ bán có thứ nước pha\nLãi ăn cho lắm oan gia nỗi gì\nTiền là tiền thật lấy về\nMắm thì mắm giả dung chi kẻ tà\nPhạm Công qua đó trở ra\nThấy đoàn thầy mã ở tòa cửa đông\nTội hình giáng xuống chẳng dung\nThân kia phải đánh búa đồng tan xương\nPhạm Công mới hỏi tỏ tường:\n“Người ở trần giới đã vương tội gì”\nGiám ngụcd dáp lại tức thì:\n“Làm nghề thợ mã cũng nghề gian ngoan",
+      "line_start": 3321,
+      "line_end": 3340,
+      "approx_seconds": 75
+    },
+    {
+      "id": "pham_cong_cuc_hoa-0168",
+      "sort_order": 168,
+      "label": "Đoạn 168 (câu 3341–3360)",
+      "body": "Đồ mã chẳng có ruột gan\nLấy tiền nói dối dương gian đã dày”\nVợ chàng không có nơi đây\nPhạm Công bèn hỏi liệu bài quay ra\n“Khu trẫm không có Cúc Hoa\nMời trạng xuống cửa vua cha bên này\nĐất người thoáng đãng phía tây\nĐất người không có một ngày cùm gông”.\nPhạm Công lên ngựa ruổi rong\nVòng vèo mấy khúc tới vùng vua cha\nTứ bề đào mận nở hoa\nSuối trong nước lặng chan hòa ánh dương\nBấy lâu ảm đạm một phương\nĐến đây động phủ Long vương chói lòa\nDập dìu đàn hát xướng ca\nBá quan văn võ bước ra mời chào\nLong vương phán hỏi một câu:\n“Chẳng hay quan trạng dãi dầu việc chi?”\nPhạm Công quỳ xuống đan trì\nKhấu đầu làm lễ tức thì trình qua:",
+      "line_start": 3341,
+      "line_end": 3360,
+      "approx_seconds": 75
+    },
+    {
+      "id": "pham_cong_cuc_hoa-0169",
+      "sort_order": 169,
+      "label": "Đoạn 169 (câu 3361–3380)",
+      "body": "“Vợ tôi tên gọi Cúc Hoa\nMới ba mươi tuổi xưa đà xuống đây\nĐi tìm hơn bốn tháng nay\nVẫn chưa gặp được lòng này xót xa”\nLong vương nghe nói cười xòa:\n“Hãy ăn yến đã Cúc Hoa thấy liền”\nBá quan văn võ cùng khuyên:\n“Rồi trạng sẽ gặp vợ hiền ngay thôi”\nPhạm Công bèn ngỏ một lời:\n“Vợ tìm không thấy ngồi chơi làm gì”.\nTrịnh vương hết đứng lại đi\nPhán hỏi công chúa: “Trạng về phương nao”\nXuân Dung sức lực tiêu hao\nBốn tháng thức trắng ngồi chầu ăn chay\nNàng vẫn tỉnh táo tâu ngay:\n“Trạng nguyên mới đến cửa này Long vương\nCòn nghe tiếng nói tỏ tường\nCả triều náo nức chào mừng trạng nguyên”\nCông chúa lại nói tiếp liền:\n“Tòa vàng lặng lẽ sao nhìn vắng tanh”",
+      "line_start": 3361,
+      "line_end": 3380,
+      "approx_seconds": 75
+    },
+    {
+      "id": "pham_cong_cuc_hoa-0170",
+      "sort_order": 170,
+      "label": "Đoạn 170 (câu 3381–3400)",
+      "body": "Vua hỏi: “Trạng có về nhanh”\nNàng bèn quỳ tấu phân minh nhẹ nhàng:\n“Long vương yến tiệc mời chàng\nẮt là biết đặng đâu nàng Cúc Hoa”.\nTrạng rằng: “Dạ thật an hòa\nNếu gặp lại vợ tại nhà quân vương”\nLong vương đáp giọng vui mừng:\n“Ra ngươi vẫn nhớ quá chừng Cúc Hoa\nTrẫm có công chúa trong tòa\nMới mười tám tuổi tiên sa non bồng\nNgồi thì đua nở hoa hồng\nĐứng thì ngào ngạt hương xông hoa nhài\nĐi thì én liệng bướm bay\nHình dung nhan sắc cũng tày Cúc Hoa\nGả cho trạng để giao hòa\nNhường vì ngôi báu vua cha dưới này”\nPhạm Công lễ phép giãi bày:\n“Dù là tiên nữ mặt mày như hoa\nDù là bắc đẩu sao sa\nTôi cũng chẳng thiết huống là con vua",
+      "line_start": 3381,
+      "line_end": 3400,
+      "approx_seconds": 75
+    },
+    {
+      "id": "pham_cong_cuc_hoa-0171",
+      "sort_order": 171,
+      "label": "Đoạn 171 (câu 3401–3420)",
+      "body": "Thủy chung giữ đạo ngàn xưa”\nLong vương nhìn trạng, từ từ vuốt râu:\n“Vợ trạng tuyệt sắc hay sao\nTrạng nói mặc trạng ai nào tin qua\nCon ta mắt phượng da ngà\nChảy dài suối tóc mượt mà lưng ong”\nPhạm Công quỳ trước bệ rồng:\n“Tìm chưa thấy vợ trong lòng xót xa\nNếu như tính chuyện nguyệt hoa\nThiếu gì người đẹp ngọc ngà dương gian”\nLong vương mới phán rõ ràng:\n“Gả nàng công chúa thêm nàng Cúc Hoa”\nPhạm Công đáp lại khoan hòa:\n“Xin Người đừng nói nguyệt hoa thêm rầu”\nLong vương bèn phán ậm ào:\n“Số chàng còn phải dãi dầu quan san\nBa năm rong ruổi gian nan\nMới mong gặp đựoc vợ chàng Cúc Hoa”\nPhán rồi vua trở vào tòa\nPhạm Công nước mắt chan hòa ra đi.",
+      "line_start": 3401,
+      "line_end": 3420,
+      "approx_seconds": 75
+    },
+    {
+      "id": "pham_cong_cuc_hoa-0172",
+      "sort_order": 172,
+      "label": "Đoạn 172 (câu 3421–3440)",
+      "body": "Thủy cung công chúa sầu bi\nNói cùng quan trạng tỉ tê mấy lời:\n“Cha thiếp nói dối chàng thôi\nCúc Hoa đã ở gần rồi chàng ơi\nMười ngày chàng sẽ tới nơi\nBõ công lặn lội không ngơi bấy chầy\nThiếp đưa chàng quá một ngày\nTới Diêm quan phủ thấy ngay thôi mà\nViệc thời phải có mẹ cha\nĐưa chàng chẳng tiện đường xa thương chàng\nPhạm Công nhỏ nhẹ bảo nàng:\n“Có chăng trở lại đền vàng hẵng hay”\nCông chúa bèn đáp lời ngay:\n“Dù không trở lại nơi đây mặc lòng\nRồi ra chàng nhớ hay không\nRiêng thiếp thì vẫn vô cùng xót thương\nChàng ơi đến đó nhiều đường\nMột khi lạc bước không phương đôi hồi\nNhiều tinh quỷ lắm chàng ơi\nE khi nó đón chàng thôi giữa đường",
+      "line_start": 3421,
+      "line_end": 3440,
+      "approx_seconds": 75
+    },
+    {
+      "id": "pham_cong_cuc_hoa-0173",
+      "sort_order": 173,
+      "label": "Đoạn 173 (câu 3441–3460)",
+      "body": "Làm sao tránh chuỵên bất thường\nÂu là viết sắc cho chàng đi qua\nNửa chừng có gặp yêu ma\nCùng là tinh thủy thảy đà phải thôi”\nNhững đang ngần ngại bồi hồi\nNàng đà phát sắc xong xuôi mọi bề\nPhạm Công lĩnh sắc tức thì\nNhìn nàng mà lệ phân kỳ rưng rưng.\nĐưa trạng thêm mấy độ đường\nXốn xang ước được dặm trường cùng ai\nCông chúa lặng lẽ thở dài:\n“Gối rêu nằm đất từ nay thương chàng\nChiếu đà trải dọc trải ngang\nXót thay quan trạng tàn vàng bỏ không”\nPhạm Công vuốt má ngựa hồng\nCả hai hớn hở trong lòng ra đi\nĐường xa trở ngại sá gì\nChẳng may lạc bước khó bề trở tay.\nPhạm Công ruổi ngựa đi lên\nHai bên thạch nhũ dấu tiên rườm rà",
+      "line_start": 3441,
+      "line_end": 3460,
+      "approx_seconds": 75
+    },
+    {
+      "id": "pham_cong_cuc_hoa-0174",
+      "sort_order": 174,
+      "label": "Đoạn 174 (câu 3461–3480)",
+      "body": "Lối này không thấy ai qua\nVen đường rực rỡ trăm hoa khoe màu\nTrên cao hạc múa rồng chầu\nBên dưới uốn khúc sông sâu thanh bình\nXem ra sơn thủy hữu tình\nRập rờn uốn lượn tường thành toàn hoa\nThảnh thơi người ngựa đi qua\nKhông gặp tù ngục cùng là quân canh\nMênh mang trời nước trong lành\nBên bờ hoa rộ trên cành chim ca\nSông này tên gọi Giang hà\nHợp lưu hai ngọn giao hòa xanh xanh\nNgựa hồng mừng rỡ chạy quanh\nBõ khi qua chốn hôi tanh ngục tù\nĐến đây thấy hết âm u\nTắm sông chơi với ngày thu thỏa lòng\nTha hồ kì móng kì lông\nThơm tho rồi mới rời dòng chạy lên\nNgựa hồng gặm cỏ kề bên\nPhạm Công xuống tắm giang biên chói lòa",
+      "line_start": 3461,
+      "line_end": 3480,
+      "approx_seconds": 75
+    },
+    {
+      "id": "pham_cong_cuc_hoa-0175",
+      "sort_order": 175,
+      "label": "Đoạn 175 (câu 3481–3500)",
+      "body": "Một đoàn đầy tớ Cúc Hoa\nBa mươi cô gái bước hòa thong dong\nLụa xanh đua với nhiễu hồng\nCởi ngay áo yếm nhắm sông Giang hà\nNgựa hồng ngó thấy người ta\nRung người vươn cổ hí la liền liền\nĐám người xinh đẹp nhuư tiên\nThoắt thôi mắc cỡ thảy bèn kêu la\nPhạm Công nghe tiếng đàn bà\nLiệu bài chàng mới bước ra dần dần\nĐám người bỏ chạy rần rần\nTay vung miệng hét khổ thân làm vầy\nĐàn ông cấm đến nơi đây\nNữ nhi quen lối lâu nay xuề xòa\nTưởng như mọi bữa xông pha\nTha hồ ưỡn ẹo đẫy đà tấm thân\nPhăng phăng cởi áo tụt quần\nBuông tay xõa tóc nhảy ầm xuống sông\nTưởng rằng chẳng có đàn ông\nNgờ đâu lại thấy Phạm Công chốn này",
+      "line_start": 3481,
+      "line_end": 3500,
+      "approx_seconds": 75
+    },
+    {
+      "id": "pham_cong_cuc_hoa-0176",
+      "sort_order": 176,
+      "label": "Đoạn 176 (câu 3501–3520)",
+      "body": "Ngời ngời một đấng râu mày\nCả ba mươi đứa chân tay rụng rời\nlấy gì mà đậy hỡi trời\nTay che chân chạy một hơi lên bờ\nÁo quần rối rít mặc vô\nRào rào tiếng chửi tựa hồ đàn ong:\n“Khúc sông quen thuộc lặng dòng\nBỗng dưng lồ lộ một ông như vầy\nThằng nào quái gở đến đây\nĐáng cho Thập điện lệnh ngay chém đầu”\nPhạm Công đứng lặng hồi lâu\nTai như không thấu những câu tục tằn\nNgó quanh xem có ai chăng\nĐể nhờ phân giải hộ chàng mới xong\nHết nhìn núi lại nhìn sông\nCúi đầu nhẫn nhục Phạm Công thở dài:\n“Trên bờ có Thổ công đây\nDưới nước Hà bá các ngài thủy quan\nDòng sông ta tắm đàng hoàng\nKhi không nó lại một đoàn chửi la",
+      "line_start": 3501,
+      "line_end": 3520,
+      "approx_seconds": 75
+    },
+    {
+      "id": "pham_cong_cuc_hoa-0177",
+      "sort_order": 177,
+      "label": "Đoạn 177 (câu 3521–3540)",
+      "body": "Hôm nay tháng sáu mười ba\nCác ngươi làm chứng cho ta chuyện này”\nBọn kia kéo một hàng dài\nQuay về quỳ trước lâu đài tuôn ra:\n“Trình bà công chúa Cúc Hoa\nXin soi xét kẻo oan gia có ngày\nGiang hà tắm gội bấy nay\nMột ông lạ mặt đến đây tranh phần\nChúng con chưa kịp tỏ phân\nTrước sau nó đã mồm năm miệng mười\nChúng con lặng tiếng im hơi\nVậy mà nó chửi liền thôi thưa bà”\nDiêm vương giận dữ quát la:\n“Thằng nào xấc láo gần xa phương nào\nChửi vua là chửi làm sao\nKhinh vua Thập điện ngôi cao cửu trùng\nTội này phải trị mới xong\nPhải đem nói với hội đồng quốc gia\nTa là chúa tể mọi nhà\nVậy mà hắn chẳng coi ta ra gì",
+      "line_start": 3521,
+      "line_end": 3540,
+      "approx_seconds": 75
+    },
+    {
+      "id": "pham_cong_cuc_hoa-0178",
+      "sort_order": 178,
+      "label": "Đoạn 178 (câu 3541–3560)",
+      "body": "Hắn còn ở đấy hay đi”\nBa mươi đầy tớ tâu quỳ vua cha:\n“Tay nó dắt ngựa hồng hoa\nMinh fmặc áo giáp nguy nga lạ lùng”\nVua sai mười tám thị đồng\nRùng rùng chiêng trống thẳng sông Giang hà\nĐầy đường chỉ thấy can qua\nCung tên giáo mác bày ra ngút trời\nLệnh nghiêm thuyền giữ khắp nơi\nĐể chàng khó nỗi băng vời trốn đi\nNhìn qua tán lá rậm rì\nNgựa hồng thương trạng phải kỳ gian nan\nQuân quan la hết oang oang\nBủa vây kín mít trên ngàn dưới sông\nThuyền ra vừa tới giữa dòng\nPhạm Công bèn hỏi gạn cùng mấy câu:\n“Hãy nói cho rõ vì đâu\nMà bắt ta phải chầu chầu tra tra\nTay không ta đến từ xa\nKhông làm điều ác lại ra thế này",
+      "line_start": 3541,
+      "line_end": 3560,
+      "approx_seconds": 75
+    },
+    {
+      "id": "pham_cong_cuc_hoa-0179",
+      "sort_order": 179,
+      "label": "Đoạn 179 (câu 3561–3580)",
+      "body": "Mình ta là lính bu đầy\nHỏi rằng ai mạnh bọn mày hay ta?”\nQuân quan lời lẽ khoan hòa:\n“Chúng tôi vâng lệnh quốc gia thi hành\nDám đâu làm sự tung hoành\nXin đừng nghĩ quẩn nghĩ quanh làm gì”\nCập bờ chúng dẫn chàng đi\nBước nhanh về chốn kinh kỳ đông dân\nĐủ mặt văn võ bá quan\nVua giao công chuyện cho nàng Cúc Hoa\nHai bên chư tướng giãn ra\nNgồi sau trướng gấm nàng tra hỏi dần:\n“Bay khai có kẻ lần khân\nChắc là quen thói người trần quát la\nBờ sông chửi mắng quân ta\nTừng đứa một hãy kể ra việc này\nHỏi rằng khi nó chửi mày\nCos ai gần đó nghe vầy hay không\nBên nguyên biên bản lập xong\nSẽ cho bên bị thong dong trả lời",
+      "line_start": 3561,
+      "line_end": 3580,
+      "approx_seconds": 75
+    },
+    {
+      "id": "pham_cong_cuc_hoa-0180",
+      "sort_order": 180,
+      "label": "Đoạn 180 (câu 3581–3600)",
+      "body": "Phòng bay vu cáo cho người\nTruyền đòi Hà bá kịp thời tới đây”\nQuan hầu vâng dạ đi ngay\nRa nơi sông rộng tính bài gọi ông.\nTrịnh vương hỏi kính nóng lòng:\n“Xuân Dung con hỡi trạng vòng phương nao”\nKính ngồi canh trạng lao đao\nVua lo cho trạng biết bao nhiêu ngày\nMột niềm cầu khấn ăn chay\nThầm mong cho trạng bấy chầy bình yên\nNhẹ nhàng công chúa tâu lên:\n“Trạng nguyên đã xuống đến đền Cúc hoa\nCòn đang kiện tụng hỏi tra\nVì bọn đầy tớ mà ra chuyện này”\nTrịnh vương nghe nói hỏi ngay:\n“Đầu đuôi là tại ta sai hay người?”\nCông chúa cố nén bồi hồi:\n“Tại lũ con gái dựng lời nói ngoa”.\nQuan hầu vừa mới đi ra\nĐã dẫn Hà bá về tòa làm cung:",
+      "line_start": 3581,
+      "line_end": 3600,
+      "approx_seconds": 75
+    },
+    {
+      "id": "pham_cong_cuc_hoa-0181",
+      "sort_order": 181,
+      "label": "Đoạn 181 (câu 3601–3620)",
+      "body": "“Nào khi chửi mắng ven sông\nCó phân bua đến cùng ông chăng là”\nHà bá cứ nói thật thà:\n“Thần vốn làm chứng đã ba bốn đời\nLỗi này là tại quân Người\nHùa nhau chửi mắng tơi bời đức ông\nNói ngay thì sợ mất lòng\nNói gian e tội chẳng xong phen này”\nCúc Hoa bèn bảo rằng: “Hay!\nHãy cung cho rõ cho ngay rồi về”\nLời cung tâu đến đan trì\nDiêm vương nghe rõ mọi bề mới hay\nPhán rằng: “Quả sự dường này\nLỗi lầm là tại chúng bay ả hoàn\nĐem đi chém quách cả đoàn\nNhững đứa cứ muốn cáo oan cho người”\nHà bá từ tạ lui rồi\nVua truyền lệnh xuống bời bời quyền uy\nĐem ba mươi đứa nữ nhi\nKhai đao một lúc tức thì làm gương",
+      "line_start": 3601,
+      "line_end": 3620,
+      "approx_seconds": 75
+    },
+    {
+      "id": "pham_cong_cuc_hoa-0182",
+      "sort_order": 182,
+      "label": "Đoạn 182 (câu 3621–3640)",
+      "body": "Phạm Công quỳ lạy Diêm vương:\n“Xin Người lượng thứ rộng đường hiếu sinh\nVì tôi họ phải tội hình\nẮt là có kẻ oan tình chẳng không”\nDiêm vương nghe nói động lòng\nCả bọn được hưởng khoan hồng một khi\nNgười bèn phán hỏi vân vi:\n“Chẳng hay chàng có việc gì xuống đây”\nPhạm Công cứ thực tâu bày:\n“Tôi là quốc trạng ở rày Trịnh bang\nVợ tôi là Cúc Hoa nương\nMới ba mươi tuổi suối vàng than ôi\nBỏ con thơ dại mồ côi\nCho nên tôi phải băng vời tới đây\nTìm tòi đã mấy tháng nay\nKhắp mọi cửa ngục chốn này bặt tin\nBăn khoăn chưa biết căn nguyên\nXin Người đoái tới lòng yên bội phần\nCho nàng trở lại cõi trần\nMẹ con chồng vợ được gần bên nhau”",
+      "line_start": 3621,
+      "line_end": 3640,
+      "approx_seconds": 75
+    },
+    {
+      "id": "pham_cong_cuc_hoa-0183",
+      "sort_order": 183,
+      "label": "Đoạn 183 (câu 3641–3660)",
+      "body": "Diêm vương thấu đặng nỗi đau\nKhen chàng phò mã nặng sâu nghĩa tình:\n“Âm dương cách biệt muôn nghìn\nVậy mà chàng chịu tần phiền xuống đây”.\nCúc Hoa nghe nói khóc ngay\nVật mình xuống bệ tâu bày khúc nhôi:\n“Xưa con vâng mệnh đầu thai\nCùng chàng sớm kết duyên hài sắt son\nBa mươi tuổi đặng hai con\nPhải về âm phủ héo hon bấy chầy\nCon thơ côi cút đắng cay\nChồng thì đơn chiếc tháng ngày tủi thân”\nVua lau nước mắt ân cần:\n“Cha cho con lại cõi trần tái sinh\nCùng chàng trọn nghĩa trọn tình\nĐúng sáu mươi tuổi về trình cha thôi\nBấy giờ con sẽ tái hồi\nCó dâu có rể nối ngôi cửu trùng”\nVợ chồng bái tạ đền rồng\nTức thì xe ngựa thẳng giong Trịnh thành.",
+      "line_start": 3641,
+      "line_end": 3660,
+      "approx_seconds": 75
+    },
+    {
+      "id": "pham_cong_cuc_hoa-0184",
+      "sort_order": 184,
+      "label": "Đoạn 184 (câu 3661–3680)",
+      "body": "Trịnh vương hỏi kính sự tình:\n“Chẳng hay quan trạng lộ trình đến đâu”\nXuân Dung hớn hở quỳ tâu:\n“Trạng nguyên chồng vợ gặp nhau vừa rồi\nDiêm vương cho họ tái hồi\nĐộ cuối giờ ngọ về nơi cõi trần”\nTrịnh vương nghe nói mừng thầm\nCho mời văn võ triều thần gần xa\nHồn trạng nhập xác sáng lòa\nNgựa hồng với lại Cúc Hoa cùng về\nVua truyền mở tiệc tức thì\nMừng vợ chồng trạng đề huề từ đây:\n“Công nương cầm kính đêm ngày\nHẳn lòng khắc khoải bấy nay mong chờ”\nTrạng rằng: “Xin để toan lo\nDuyên sau nghĩa trước phải cho vẹn toàn”\nCúc Hoa quỳ xuống hân hoan\nXin cho một phượng hai loan sánh kề\nLòng già nhẹ nhõm hả hê\nMừng vui con trẻ yên bề trăm năm",
+      "line_start": 3661,
+      "line_end": 3680,
+      "approx_seconds": 75
+    },
+    {
+      "id": "pham_cong_cuc_hoa-0185",
+      "sort_order": 185,
+      "label": "Đoạn 185 (câu 3681–3700)",
+      "body": "Này tình cũ nọ duyên thầm\nCàng sâu duyên thắm càng đằm tình yêu\nTrạng liền bái tạ bản triều\nLọng tàn xe ngựa quân reo hằng hà\nCông chúa ở lại hầu cha\nPhạm Công cùng với Cúc Hoa lên đường\nĐến nhà tri phủ vội vàng\nÔng bà trông thấy lòng càng hồ nghi:\n“Cúc Hoa nó đã thác đi\nCớ sao tìm đặng mà về đến đây”\nPhạm Công kể hết niềm tây\nLực Xuân thấy mẹ sà ngay vào lòng\nNhìn cha nhìn mẹ nhìn chồng\nÔm con nàng cứ khóc ròng như mưa.\nLòng vui ngày tháng thoi đưa\nTạ từ cha mẹ bấy giờ vinh quy\nQuỳnh Vân ngựa kíp ruổi phi\nTừ đường lễ tạ nhà thì yến diên\nHọ hàng chúng bạn láng giềng\nĐến mừng quan trạng như nêm một nhà",
+      "line_start": 3681,
+      "line_end": 3700,
+      "approx_seconds": 75
+    },
+    {
+      "id": "pham_cong_cuc_hoa-0186",
+      "sort_order": 186,
+      "label": "Đoạn 186 (câu 3701–3708)",
+      "body": "Còn đang yến ẩm xướng ca\nTin kinh có sứ triệu ra triều đình\nĐòi quan phò mã về liền\nLàm người kế vị trị yên dân trời\nCả nhà xiết nỗi mừng vui\nLai kinh mừng đón sắc mời đăng quang\nVua cha mến cảnh già lam\nNên nhường cho trạng ngôi vàng từ nay.",
+      "line_start": 3701,
+      "line_end": 3708,
+      "approx_seconds": 30
+    }
+  ]
 }

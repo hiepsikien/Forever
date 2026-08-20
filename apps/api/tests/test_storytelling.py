@@ -81,7 +81,7 @@ def test_storytelling_listen_needs_voice_or_cache(client: TestClient):
     assert all(
         w["chunk_count"] > 0
         for w in works
-        if w["slug"] in {"kieu", "luc_van_tien"}
+        if w["slug"] in {"kieu", "luc_van_tien", "pham_cong_cuc_hoa"}
     )
 
     # No work enabled → nothing to hear
