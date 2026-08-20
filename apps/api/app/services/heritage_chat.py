@@ -597,6 +597,19 @@ def pick_poem_for_recite(poems: list[MemoryItem], query: str) -> MemoryItem | No
     return best if best_score >= 10 else None
 
 
+def _recite_body(lead: str, passage: str) -> tuple[str, int]:
+    """Reply text, and where the recording starts inside it.
+
+    A recitation is cached per poem or per passage and shared with the library
+    and the Nghe đọc shelf, so the audio never contains the lead line. The call
+    screen needs to know that, or the follow-along highlight spreads the voice
+    over the lead too and trails it by seconds.
+    """
+    if not passage:
+        return lead, 0
+    return f"{lead}\n\n{passage}".strip(), len(lead) + 2
+
+
 def try_poem_recite_reply(
     db: Session,
     *,
@@ -643,10 +656,11 @@ def try_poem_recite_reply(
     )
     title = (poem.title or "thơ").strip()
     lead = f"Bài «{title}» của {persona.me(audience)} đây {persona.you(audience)}."
-    body = f"{lead}\n\n{(poem.body or '').strip()}".strip()
+    body, spoken_from = _recite_body(lead, (poem.body or "").strip())
     meta = {
         "audience": audience,
         "poem_recite": True,
+        "spoken_from": spoken_from,
         "cited": [{"memory_id": poem.id, "title": title, "kind": "poem"}],
     }
     return body, meta, relative, "audio/mpeg"
@@ -754,11 +768,11 @@ def try_story_recite_reply(
         lead = f"{me} đọc «{title}» — {label} đây {you}."
     else:
         lead = f"{me} đọc «{title}» đây {you}."
-    passage = (chunk.body or "").strip()
-    body = f"{lead}\n\n{passage}".strip() if passage else lead
+    body, spoken_from = _recite_body(lead, (chunk.body or "").strip())
     meta = {
         "audience": audience,
         "story_recite": True,
+        "spoken_from": spoken_from,
         "story_work_slug": work.slug,
         "story_work_title": title,
         "story_work_category": work.category or "classic",

@@ -43,8 +43,8 @@ import {
 } from "@/lib/micPermission";
 import { useAuth } from "@/lib/auth";
 import {
-  sentenceIndexForProgress,
-  splitIntoSentences,
+  activeSentenceForProgress,
+  followAlongPlan,
 } from "@/lib/callFollowAlong";
 import { formatMessageTime } from "@/lib/datetime";
 import { fetchAuthedMediaUri } from "@/lib/media";
@@ -80,6 +80,8 @@ type CallTurn = {
   replyAt: string;
   hasMedia: boolean;
   cited: string[];
+  /** Where the recording starts inside the reply text, in characters. */
+  spokenFrom: number;
 };
 
 type KeepsakeBanner = {
@@ -142,6 +144,13 @@ function citedTitles(meta: ChatMessage["meta"]): string[] {
     if (title) titles.push(title);
   }
   return titles;
+}
+
+/** Reciting a poem or a passage: the lead line is on screen but not in the audio. */
+function spokenFromMeta(meta: ChatMessage["meta"]): number {
+  if (!meta || typeof meta !== "object") return 0;
+  const from = (meta as { spoken_from?: unknown }).spoken_from;
+  return typeof from === "number" && from > 0 ? Math.trunc(from) : 0;
 }
 
 function shortCloneId(id: string | null | undefined): string {
@@ -207,6 +216,7 @@ function buildTurns(
       replyAt: m.created_at || "",
       hasMedia: isVoiceMedia(m),
       cited: citedTitles(m.meta),
+      spokenFrom: spokenFromMeta(m.meta),
     });
   }
   return turns.slice(-limit);
@@ -214,19 +224,26 @@ function buildTurns(
 
 function FollowAlongBody({
   text,
+  spokenFrom,
   activeIndex,
   playing,
   onBodyY,
   onSentenceY,
 }: {
   text: string;
+  spokenFrom: number;
   activeIndex: number | null;
   playing: boolean;
   onBodyY: (yInBubble: number) => void;
   /** Y of each sentence relative to the sentences body. */
   onSentenceY: (index: number, yInBody: number) => void;
 }) {
-  const sentences = useMemo(() => splitIntoSentences(text), [text]);
+  // Same split the progress callback measures against, or the highlight would
+  // land on a different sentence than the one it was aimed at.
+  const sentences = useMemo(
+    () => followAlongPlan(text, spokenFrom).sentences,
+    [text, spokenFrom],
+  );
 
   if (!playing || activeIndex == null) {
     return (
@@ -549,6 +566,7 @@ export default function CallScreen() {
         fromQueue?: boolean;
         queue?: CallTurn[];
         audioUrl?: string;
+        spokenFrom?: number;
       },
     ): Promise<boolean> => {
       if (!messageId || playLockRef.current) return false;
@@ -576,6 +594,7 @@ export default function CallScreen() {
         void playReply(next.replyId, next.replyText, {
           auto: true,
           fromQueue: true,
+          spokenFrom: next.spokenFrom,
         });
       };
 
@@ -590,7 +609,7 @@ export default function CallScreen() {
           mediaCacheRef.current.set(cacheKey, uri);
         }
 
-        const sentences = splitIntoSentences(replyText);
+        const plan = followAlongPlan(replyText, opts?.spokenFrom ?? 0);
         await preparePlaybackMode();
         setPhase("speaking");
 
@@ -598,14 +617,11 @@ export default function CallScreen() {
         requestAnimationFrame(() => scrollToSentence(messageId, 0));
 
         await playLocalAudio(uri, {
-          updateInterval: 180,
+          // Coarser polling shows the move a beat after the voice made it.
+          updateInterval: 100,
           onProgress: ({ currentTime, duration }) => {
             if (duration <= 0) return;
-            const idx = sentenceIndexForProgress(
-              currentTime,
-              duration,
-              sentences,
-            );
+            const idx = activeSentenceForProgress(plan, currentTime, duration);
             setActiveSentence((prev) => {
               if (prev === idx) return prev;
               return idx;
@@ -722,6 +738,7 @@ export default function CallScreen() {
           if (m.has_media) {
             const started = await playReply(m.id, (m.body || "").trim(), {
               auto: true,
+              spokenFrom: spokenFromMeta(m.meta),
             });
             // Never strand the screen on «đang nghĩ» when the reply is here.
             if (!started) setPhase("idle");
@@ -973,7 +990,10 @@ export default function CallScreen() {
     if (!replayClips.length) return;
     const [first, ...rest] = replayClips;
     setReplaySession(replayClips);
-    void playReply(first.replyId, first.replyText, { queue: rest });
+    void playReply(first.replyId, first.replyText, {
+      queue: rest,
+      spokenFrom: first.spokenFrom,
+    });
   };
 
   const openSpeakSettings = () => {
@@ -1256,7 +1276,10 @@ export default function CallScreen() {
                   }}
                   onPress={
                     turn.hasMedia && phase === "idle"
-                      ? () => void playReply(turn.replyId, turn.replyText)
+                      ? () =>
+                          void playReply(turn.replyId, turn.replyText, {
+                            spokenFrom: turn.spokenFrom,
+                          })
                       : undefined
                   }
                   accessibilityRole={turn.hasMedia ? "button" : undefined}
@@ -1269,6 +1292,7 @@ export default function CallScreen() {
                   </Text>
                   <FollowAlongBody
                     text={turn.replyText}
+                    spokenFrom={turn.spokenFrom}
                     playing={playingThis}
                     activeIndex={playingThis ? activeSentence : null}
                     onBodyY={(yInBubble) => {

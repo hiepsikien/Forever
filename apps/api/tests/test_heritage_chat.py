@@ -626,6 +626,9 @@ def test_try_story_recite_reply_attaches_audio():
     assert meta["story_work_slug"] == "kinh_duoc_su"
     assert "Dược Sư" in body
     assert "Nam mô" in body
+    # The lead line is on screen but not in the recording — the call screen
+    # follows along from here, or the highlight trails the voice.
+    assert body[meta["spoken_from"] :] == chunk.body
 
 
 def test_pick_poem_for_recite_matches_title():
