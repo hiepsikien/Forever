@@ -14,6 +14,17 @@ import { HOLD_TO_TALK_CANCEL_PX } from "@/lib/holdToTalk";
 const EDGE_SLOP = 20;
 /** Samsung/Android often emit bogus move coords right after touch-start. */
 const MOVE_ARM_MS = Platform.OS === "android" ? 450 : 0;
+/**
+ * Wait before opening the mic. Filters tap noise and lets the gesture settle
+ * before setAudioMode (which triggers ACTION_CANCEL on many Samsungs).
+ */
+const PRESS_ACTIVATE_MS = Platform.OS === "android" ? 100 : 0;
+/**
+ * Audio-mode switch on Samsung fires ACTION_CANCEL while the finger is still
+ * down — that ended the hold (red flash → idle). Ignore cancel on Android;
+ * real lift still gets touchEnd. AppState covers backgrounding.
+ */
+const IGNORE_TOUCH_CANCEL = Platform.OS === "android";
 
 type Props = {
   disabled?: boolean;
@@ -49,7 +60,10 @@ export function HoldToTalkTarget({
   const originYRef = useRef(0);
   const startedAtRef = useRef(0);
   const holdingRef = useRef(false);
+  const activatedRef = useRef(false);
   const armedRef = useRef(false);
+  const activateTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const startEventRef = useRef<GestureResponderEvent | null>(null);
   const disabledRef = useRef(disabled);
   const directionRef = useRef(cancelDirection);
   const startRef = useRef(onHoldStart);
@@ -62,6 +76,13 @@ export function HoldToTalkTarget({
   armedChangeRef.current = onCancelArmedChange;
   endRef.current = onHoldEnd;
 
+  const clearActivateTimer = useCallback(() => {
+    if (activateTimerRef.current) {
+      clearTimeout(activateTimerRef.current);
+      activateTimerRef.current = null;
+    }
+  }, []);
+
   const setArmed = useCallback((next: boolean) => {
     if (armedRef.current === next) return;
     armedRef.current = next;
@@ -71,13 +92,29 @@ export function HoldToTalkTarget({
   const endHold = useCallback(
     (cancelled: boolean) => {
       if (!holdingRef.current) return;
+      clearActivateTimer();
+      const wasActivated = activatedRef.current;
       holdingRef.current = false;
+      activatedRef.current = false;
+      startEventRef.current = null;
       setPressed(false);
-      endRef.current(cancelled);
       setArmed(false);
+      // Finger left before activate — never opened the mic; stay quiet.
+      if (!wasActivated) return;
+      endRef.current(cancelled);
     },
-    [setArmed],
+    [clearActivateTimer, setArmed],
   );
+
+  const activate = useCallback(() => {
+    activateTimerRef.current = null;
+    if (!holdingRef.current || activatedRef.current) return;
+    activatedRef.current = true;
+    setPressed(true);
+    const ev = startEventRef.current;
+    if (ev) startRef.current(ev);
+    else startRef.current({ nativeEvent: {} } as GestureResponderEvent);
+  }, []);
 
   const leftHitRing = useCallback((locationX: number, locationY: number) => {
     const { width, height } = sizeRef.current;
@@ -94,12 +131,20 @@ export function HoldToTalkTarget({
     (e: GestureResponderEvent) => {
       if (disabledRef.current || holdingRef.current) return;
       holdingRef.current = true;
-      setPressed(true);
+      activatedRef.current = false;
+      // Pressed style waits for activate on Android so taps do not flash.
+      if (PRESS_ACTIVATE_MS <= 0) setPressed(true);
       armedRef.current = false;
       startedAtRef.current = Date.now();
       originXRef.current = e.nativeEvent.pageX;
       originYRef.current = e.nativeEvent.pageY;
-      startRef.current(e);
+      startEventRef.current = e;
+      clearActivateTimer();
+      if (PRESS_ACTIVATE_MS <= 0) {
+        activate();
+      } else {
+        activateTimerRef.current = setTimeout(activate, PRESS_ACTIVATE_MS);
+      }
       if (Platform.OS === "ios") {
         const { locationX, locationY } = e.nativeEvent;
         if (leftHitRing(locationX, locationY)) {
@@ -107,7 +152,7 @@ export function HoldToTalkTarget({
         }
       }
     },
-    [endHold, leftHitRing],
+    [activate, clearActivateTimer, endHold, leftHitRing],
   );
 
   const onTouchMove = useCallback(
@@ -119,6 +164,8 @@ export function HoldToTalkTarget({
         endHold(true);
         return;
       }
+      // Until MOVE_ARM_MS, ignore slide-cancel — Samsung often jumps pageX/Y once.
+      if (!armed) return;
       const slid =
         directionRef.current === "left"
           ? originXRef.current - pageX > HOLD_TO_TALK_CANCEL_PX
@@ -129,7 +176,12 @@ export function HoldToTalkTarget({
   );
 
   const onTouchEnd = useCallback(() => endHold(false), [endHold]);
-  const onTouchCancel = useCallback(() => endHold(true), [endHold]);
+
+  const onTouchCancel = useCallback(() => {
+    if (IGNORE_TOUCH_CANCEL) return;
+    endHold(true);
+  }, [endHold]);
+
   const onLayout = useCallback((e: LayoutChangeEvent) => {
     const { width, height } = e.nativeEvent.layout;
     sizeRef.current = { width, height };

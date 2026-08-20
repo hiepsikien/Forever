@@ -789,12 +789,14 @@ export default function CallScreen() {
         return;
       }
       await beginVoiceRecording(recorder);
-      if (!holdingRef.current || holdGenRef.current !== gen) {
+      if (holdGenRef.current !== gen) {
         await abortListening();
         return;
       }
       recordStartedAtRef.current = Date.now();
       speechGateRef.current = emptySpeechGate();
+      // Finger may already be up (or a ghost end ran). finishHold owns stop/send
+      // — aborting here was the red flash → idle on Samsung.
     } catch (e) {
       holdingRef.current = false;
       setError(e instanceof Error ? e.message : "Không ghi âm được.");
@@ -848,6 +850,16 @@ export default function CallScreen() {
     finishingHoldRef.current = true;
     holdingRef.current = false;
     try {
+      // Finger may lift (or a late ghost end) while Samsung is still flipping
+      // the audio session — wait briefly for MediaRecorder before treating it
+      // as a cancelled open.
+      if (phaseRef.current === "listening" && !recorder.isRecording) {
+        const deadline = Date.now() + 1200;
+        while (Date.now() < deadline && !recorder.isRecording) {
+          if (phaseRef.current !== "listening") break;
+          await new Promise((r) => setTimeout(r, 40));
+        }
+      }
       if (phaseRef.current !== "listening") {
         holdGenRef.current += 1;
         if (recorder.isRecording) await abortListening();

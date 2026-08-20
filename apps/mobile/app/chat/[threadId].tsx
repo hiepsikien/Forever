@@ -761,12 +761,13 @@ export default function ChatScreen() {
         return;
       }
       await beginVoiceRecording(recorder);
-      if (!holdingRef.current || holdGenRef.current !== gen) {
+      if (holdGenRef.current !== gen) {
         await abortRecording();
         return;
       }
       recordStartedAtRef.current = Date.now();
       speechGateRef.current = emptySpeechGate();
+      // Finger may already be up — finishHold owns stop/send (do not abort here).
     } catch (e) {
       holdingRef.current = false;
       recordingRef.current = false;
@@ -818,6 +819,13 @@ export default function ChatScreen() {
     finishingHoldRef.current = true;
     holdingRef.current = false;
     try {
+      if (recordingRef.current && !recorder.isRecording) {
+        const deadline = Date.now() + 1200;
+        while (Date.now() < deadline && !recorder.isRecording) {
+          if (!recordingRef.current) break;
+          await new Promise((r) => setTimeout(r, 40));
+        }
+      }
       if (!recordingRef.current) {
         // Finger left before the recorder finished opening — drop that take.
         holdGenRef.current += 1;
