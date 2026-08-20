@@ -476,7 +476,7 @@ def pick_random_chunk_for_work(
     work_id: str,
     rng: random.Random | None = None,
 ) -> StoryChunk | None:
-    """Uniform random passage — recorded or not; chat recite must not prefer cache."""
+    """Uniform random passage — recorded or not."""
     candidates = (
         db.query(StoryChunk)
         .filter(StoryChunk.work_id == work_id)
@@ -486,6 +486,37 @@ def pick_random_chunk_for_work(
     if not candidates:
         return None
     return (rng or random.SystemRandom()).choice(candidates)
+
+
+def pick_next_chunk_for_recite(
+    db: Session,
+    *,
+    identity_id: str,
+    work_id: str,
+) -> StoryChunk | None:
+    """The passage to read next: forward through the work, reusing what is on disk.
+
+    A random passage rendered fresh Voice DNA audio nearly every time and told
+    the story out of order. Continue after the furthest passage this person has
+    already read aloud, and when the work runs out wrap to the beginning, where
+    the recording is already cached.
+    """
+    chunks = (
+        db.query(StoryChunk)
+        .filter(StoryChunk.work_id == work_id)
+        .order_by(StoryChunk.sort_order.asc())
+        .all()
+    )
+    if not chunks:
+        return None
+    done = recorded_chunk_ids(db, identity_id=identity_id, work_id=work_id)
+    if not done:
+        return chunks[0]
+    last = max(
+        (index for index, chunk in enumerate(chunks) if chunk.id in done),
+        default=-1,
+    )
+    return chunks[(last + 1) % len(chunks)]
 
 
 def _work_search_blob(work: StoryWork) -> str:
@@ -543,7 +574,9 @@ def pick_work_for_recite(
     if not allow_category_fallback:
         return None
 
-    want_sutra = bool(re.search(r"\b(kinh|niem|tung)\b", query_norm))
+    want_sutra = bool(
+        re.search(r"\bkinh\b|\b(niem|tung)\s+(kinh|phat)\b", query_norm)
+    )
     want_classic = bool(re.search(r"\btruyen\b", query_norm))
     if want_sutra and not want_classic:
         pool = [w for w in works if (w.category or "classic") == "sutra"]

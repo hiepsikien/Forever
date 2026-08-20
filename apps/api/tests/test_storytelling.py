@@ -325,6 +325,74 @@ def test_kinh_duoc_su_seeded_with_expanded_repeats(client: TestClient):
     assert bodies.count("NAM MÔ HƯƠNG CÚNG DƯỜNG BỒ TÁT MA HA TÁT") >= 3
 
 
+def test_recite_reads_forward_and_wraps_to_cached_passage(client: TestClient):
+    """Chat recite walks the work in order, then reuses audio already on disk."""
+    from datetime import datetime, timezone
+
+    from nanoid import generate
+
+    from app.db import SessionLocal
+    from app.models import StoryChunk, StoryRecording, StoryWork
+    from app.services.storytelling import pick_next_chunk_for_recite
+
+    token = _login(client, "recite@forever.family", "Cháu")
+    headers = {"Authorization": f"Bearer {token}"}
+    space_id = _space(client, token)
+    identity_id = _identity(client, token, space_id)
+    user_id = client.get("/api/auth/me", headers=headers).json()["id"]
+
+    now = datetime.now(timezone.utc)
+    with SessionLocal() as db:
+        work = StoryWork(
+            id=generate(size=16),
+            slug="recite_order_test",
+            title="Truyện thử thứ tự",
+            created_at=now,
+        )
+        db.add(work)
+        chunk_ids = [f"{work.id}-{i}" for i in range(3)]
+        for order, chunk_id in enumerate(chunk_ids):
+            db.add(
+                StoryChunk(
+                    id=chunk_id,
+                    work_id=work.id,
+                    sort_order=order,
+                    body=f"Đoạn {order}",
+                )
+            )
+        db.commit()
+
+        def next_chunk() -> str:
+            chunk = pick_next_chunk_for_recite(
+                db, identity_id=identity_id, work_id=work.id
+            )
+            assert chunk is not None
+            return chunk.id
+
+        def mark_recorded(chunk_id: str) -> None:
+            db.add(
+                StoryRecording(
+                    id=generate(size=16),
+                    space_id=space_id,
+                    identity_id=identity_id,
+                    chunk_id=chunk_id,
+                    media_path=f"{space_id}/{chunk_id}.mp3",
+                    source="tts",
+                    status="ready",
+                    created_by=user_id,
+                    created_at=now,
+                )
+            )
+            db.commit()
+
+        assert next_chunk() == chunk_ids[0]
+        mark_recorded(chunk_ids[0])
+        assert next_chunk() == chunk_ids[1]
+        mark_recorded(chunk_ids[2])
+        # Past the last passage she starts over, where the audio is cached.
+        assert next_chunk() == chunk_ids[0]
+
+
 def test_import_tam_kinh_sutra(client: TestClient):
     token = _login(client, "sutra@import.forever", "Steward")
     headers = {"Authorization": f"Bearer {token}"}

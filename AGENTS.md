@@ -129,8 +129,14 @@ phải có trong Docker image (`COPY data/` trong `apps/api/Dockerfile`) thì
 `seed_storytelling_corpus` mới chạy trên prod. Voice DNA TTS + cache
 `StoryRecording(source=tts)` (`routers/storytelling.py`, mobile
 `/stories/[spaceId]/[identityId]`). Trong chat heritage, «đọc kinh /
-truyện / Kiều…» đi short-circuit `try_story_recite_reply` (đúng tập, đoạn ngẫu
-nhiên, bỏ qua DEPTH + chat-TTS 512) giống đọc thơ thư viện. Steward bật tập
+truyện / Kiều…» đi short-circuit `try_story_recite_reply` (đúng tập, bỏ qua
+DEPTH + chat-TTS 512) giống đọc thơ thư viện. Đoạn lấy theo
+`pick_next_chunk_for_recite`: đọc tiếp sau đoạn xa nhất đã ghi, hết tập thì
+vòng lại đầu — nghe theo thứ tự và dùng lại file đã ghi thay vì dựng TTS mới
+mỗi lượt. «Kể Phạm Công Cúc Hoa» cũng vào đường này, nhưng «kể» phải gọi đúng
+tên tập (đủ tên hoặc slug) chứ không phải trùng một chữ như «cô Hoa». «Niệm» và
+«tụng» chỉ tính khi đứng cạnh «kinh/Phật» — để trống là «kỷ niệm» và «niềm vui»
+kéo câu đòi bịa ký ức sang đường đọc kinh và mất lá chắn taboo. Steward bật tập
 trên kệ; kinh và truyện chưa có chữ PD thì **Nhập chữ** từ sách/kinh nhà.
 Tái tạo chunk: `./scripts/rebuild-storytelling-chunks.py`. Bật kệ bà trên
 prod sau deploy: `./scripts/enable-ba-thong-stories-prod.sh`.

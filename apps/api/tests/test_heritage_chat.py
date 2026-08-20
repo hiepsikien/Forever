@@ -484,6 +484,23 @@ def test_looks_like_story_recite_request():
     assert not looks_like_story_recite_request("Bà nhớ bài thơ về quê không?", [kieu])
     # Library poem ask must not steal the story path without a work title.
     assert not looks_like_story_recite_request("bố đọc thơ em gái", [kieu, duoc])
+    # «Kể» counts when the ask names the work, and only then.
+    pcc = SimpleNamespace(
+        slug="pham_cong_cuc_hoa",
+        title="Phạm Công – Cúc Hoa",
+        author="khuyết danh",
+        category="classic",
+    )
+    van = SimpleNamespace(
+        slug="luc_van_tien",
+        title="Lục Vân Tiên",
+        author="Nguyễn Đình Chiểu",
+        category="classic",
+    )
+    assert looks_like_story_recite_request("kể Phạm Công Cúc Hoa", [kieu, pcc])
+    assert looks_like_story_recite_request("bà kể Lục Vân Tiên cho con nghe", [van])
+    assert not looks_like_story_recite_request("bà kể chuyện ngày xưa đi", [kieu, pcc])
+    assert not looks_like_story_recite_request("bà kể về cô Hoa nhà mình", [pcc])
 
 
 def test_pick_work_for_recite_matches_title_and_category():
@@ -585,7 +602,7 @@ def test_try_story_recite_reply_attaches_audio():
             return_value=work,
         ),
         patch(
-            "app.services.heritage_chat.pick_random_chunk_for_work",
+            "app.services.heritage_chat.pick_next_chunk_for_recite",
             return_value=chunk,
         ),
         patch(

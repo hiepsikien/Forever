@@ -105,7 +105,7 @@ from .storytelling import (
     StoryTtsError,
     enabled_readable_works,
     ensure_story_tts_recording,
-    pick_random_chunk_for_work,
+    pick_next_chunk_for_recite,
     pick_work_for_recite,
     score_work_for_recite,
 )
@@ -515,13 +515,24 @@ _STORY_READ_HINT = re.compile(
     r"\bke\s+chuyen\b|"
     r"\bnghe\b.{0,28}\b(doc|kinh|truyen)\b|"
     r"\bdoc\b.{0,24}\b(kinh|truyen)\b|"
-    r"\b(doc|ngam|niem|tung)\b"
+    r"\b(niem|tung)\s+(kinh|phat)\b|"
+    r"\b(doc|ngam)\b"
     r")",
     re.I,
 )
 
-_STORY_CATEGORY_SUTRA = re.compile(r"\b(kinh|niem|tung)\b")
+# «Niệm» and «tụng» only mean chanting next to kinh / Phật. Standing alone they
+# swallow «kỷ niệm» and «niềm vui» — and a request to invent a memory then came
+# back as a sutra instead of a refusal.
+_STORY_CATEGORY_SUTRA = re.compile(r"\bkinh\b|\b(niem|tung)\s+(kinh|phat)\b")
 _STORY_CATEGORY_CLASSIC = re.compile(r"\btruyen\b")
+# «Kể Phạm Công Cúc Hoa» is a request to hear the whole story, but «kể» is also
+# ordinary family talk — it only counts when the ask names a work clearly.
+_STORY_TELL_HINT = re.compile(r"\bke\b")
+_STORY_TITLE_SCORE = 12
+# «Kể» must land on the whole title or slug (50–60 points), not on one shared
+# word — «cô Hoa» scores on Phạm Công – Cúc Hoa twice over.
+_STORY_TITLE_SCORE_TELL = 50
 
 
 def looks_like_poem_recite_request(text: str) -> bool:
@@ -534,13 +545,20 @@ def looks_like_story_recite_request(
 ) -> bool:
     """True when they asked to hear a kinh / truyện — or named an enabled work."""
     norm = _normalize_text(text)
-    if not _STORY_READ_HINT.search(norm):
+    read_verb = bool(_STORY_READ_HINT.search(norm))
+    tell_verb = bool(_STORY_TELL_HINT.search(norm))
+    if not read_verb and not tell_verb:
         return False
-    if _STORY_CATEGORY_SUTRA.search(norm) or _STORY_CATEGORY_CLASSIC.search(norm):
+    if read_verb and (
+        _STORY_CATEGORY_SUTRA.search(norm) or _STORY_CATEGORY_CLASSIC.search(norm)
+    ):
         return True
     # «Bà đọc Kiều» / «đọc Dược Sư» — verb + title, no generic kinh/truyện word.
+    # «Kể …» must name the work more fully: one shared word like «Hoa» is a
+    # granddaughter, not a request for Phạm Công – Cúc Hoa.
+    need = _STORY_TITLE_SCORE if read_verb else _STORY_TITLE_SCORE_TELL
     if works:
-        return any(score_work_for_recite(w, text) >= 12 for w in works)
+        return any(score_work_for_recite(w, text) >= need for w in works)
     return False
 
 
@@ -642,7 +660,7 @@ def try_story_recite_reply(
     user_message: Message,
     settings: Settings | None = None,
 ) -> tuple[str, dict, str | None, str | None] | None:
-    """If they asked for a kinh / truyện, play a random chunk (TTS or cache).
+    """If they asked for a kinh / truyện, read the next passage (TTS or cache).
 
     Bypasses Gemini DEPTH and the short chat-TTS char guard — audio comes from
     the storytelling path (chunked Voice DNA), same as the Nghe đọc shelf.
@@ -687,7 +705,9 @@ def try_story_recite_reply(
             )
         return None
 
-    chunk = pick_random_chunk_for_work(db, work_id=work.id)
+    chunk = pick_next_chunk_for_recite(
+        db, identity_id=identity.id, work_id=work.id
+    )
     if chunk is None:
         body = f"«{work.title}» chưa có chữ để {me} đọc cho {you}."
         return (
