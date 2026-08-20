@@ -1,9 +1,4 @@
 import { ChatMessage, IdentityProfile, ThreadSummary } from "@forever/api-client";
-import {
-  AudioRecorder,
-  useAudioRecorder,
-  useAudioRecorderState,
-} from "expo-audio";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import {
   memo,
@@ -17,12 +12,12 @@ import {
 import {
   ActivityIndicator,
   Alert,
-  AppState,
   FlatList,
   GestureResponderEvent,
   Image,
   Keyboard,
   KeyboardAvoidingView,
+  LayoutChangeEvent,
   NativeScrollEvent,
   NativeSyntheticEvent,
   Platform,
@@ -35,32 +30,7 @@ import { useHeaderHeight } from "@react-navigation/elements";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { HandleSuggestBar } from "@/components/HandleSuggestBar";
-import {
-  playLocalAudio,
-  preparePlaybackMode,
-  stopActivePlayback,
-} from "@/lib/audio";
-import {
-  beginVoiceRecording,
-  recorderLooksLive,
-} from "@/lib/beginVoiceRecording";
-import {
-  HOLD_TO_TALK_MAX_MS,
-  HOLD_TO_TALK_MIN_MS,
-  emptySpeechGate,
-  gateHeardSpeech,
-  noteSpeechMetering,
-  type SpeechGate,
-} from "@/lib/holdToTalk";
-import { HoldToTalkTarget } from "@/lib/holdToTalkTarget";
-import {
-  ensureRecordingPermission,
-  isRequestingRecordingPermission,
-  micPermissionNeedsSettings,
-  openMicSettings,
-} from "@/lib/micPermission";
-import { RecordingLevelMeter } from "@/lib/recordingMeter";
-import { VOICE_RECORDING_OPTIONS } from "@/lib/recordingOptions";
+import { playLocalAudio, stopActivePlayback } from "@/lib/audio";
 import { useAuth } from "@/lib/auth";
 import { formatMessageTime } from "@/lib/datetime";
 import {
@@ -349,33 +319,6 @@ const ChatMessageRow = memo(function ChatMessageRow({
   );
 });
 
-/** Owns the 80ms metering subscription so the message list is not redrawn with it. */
-function ActiveRecordingBar({
-  recorder,
-  cancelArmed,
-  speechGateRef,
-}: {
-  recorder: AudioRecorder;
-  cancelArmed: boolean;
-  speechGateRef: { current: SpeechGate };
-}) {
-  const recorderState = useAudioRecorderState(recorder, 80);
-  useEffect(() => {
-    noteSpeechMetering(speechGateRef.current, recorderState.metering);
-  }, [recorderState.metering, speechGateRef]);
-  return (
-    <View
-      style={[styles.recordingPill, cancelArmed && styles.recordingPillCancel]}
-    >
-      <RecordingLevelMeter
-        active
-        metering={recorderState.metering}
-        durationMillis={recorderState.durationMillis}
-      />
-    </View>
-  );
-}
-
 export default function ChatScreen() {
   const { threadId, messageId: focusMessageId } = useLocalSearchParams<{
     threadId: string;
@@ -385,20 +328,23 @@ export default function ChatScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const headerHeight = useHeaderHeight();
-  const recorder = useAudioRecorder(VOICE_RECORDING_OPTIONS);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [text, setText] = useState("");
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
-  const [recording, setRecording] = useState(false);
   const [keyboardUp, setKeyboardUp] = useState(false);
   /**
+   * How far to lift the screen for the keyboard on Android.
+   *
    * Android draws edge to edge since SDK 53, so the window no longer shrinks
    * for the keyboard and `KeyboardAvoidingView` has nothing to work with — the
-   * keyboard simply covered the composer. Lift the screen by the height the
-   * system reports instead.
+   * keyboard simply covered the composer. Lift by the height the system
+   * reports, minus whatever the window did give back, measured rather than
+   * assumed: a build that still resizes would otherwise jump twice as far.
    */
   const [keyboardInset, setKeyboardInset] = useState(0);
+  const keyboardHeightRef = useRef(0);
+  const rootHeightRef = useRef(0);
   const [playingId, setPlayingId] = useState<string | null>(null);
   const [spaceId, setSpaceId] = useState<string | null>(null);
   const [threadMeta, setThreadMeta] = useState<ThreadSummary | null>(null);
@@ -428,15 +374,6 @@ export default function ChatScreen() {
   /** Finger or fling in progress — never call scrollToEnd over that. */
   const scrollingRef = useRef(false);
   const sendingRef = useRef(false);
-  const recordingRef = useRef(false);
-  const holdGenRef = useRef(0);
-  const holdingRef = useRef(false);
-  const holdStartedAtRef = useRef(0);
-  const recordStartedAtRef = useRef(0);
-  const cancelArmedRef = useRef(false);
-  const speechGateRef = useRef(emptySpeechGate());
-  const finishingHoldRef = useRef(false);
-  const [cancelArmed, setCancelArmed] = useState(false);
   const knownMessageIdsRef = useRef<Set<string>>(new Set());
   const pendingMessageRef = useRef<ChatMessage | null>(null);
   const listSeqRef = useRef(0);
@@ -672,10 +609,6 @@ export default function ChatScreen() {
     return () => clearTimeout(timer);
   }, [typewriter]);
 
-  useEffect(() => {
-    recordingRef.current = recording;
-  }, [recording]);
-
   // Opening the keyboard shortens the list without changing its content, so
   // nothing else would scroll — and the reply just read disappears behind the
   // composer.
@@ -685,12 +618,15 @@ export default function ChatScreen() {
     const subs = [
       Keyboard.addListener(shown, (e) => {
         setKeyboardUp(true);
-        setKeyboardInset(e.endCoordinates?.height ?? 0);
+        const height = e.endCoordinates?.height ?? 0;
+        keyboardHeightRef.current = height;
+        if (Platform.OS === "android") setKeyboardInset(height);
         // Opening the keyboard means she is writing, not reading back.
         jumpToLatest();
       }),
       Keyboard.addListener(hidden, () => {
         setKeyboardUp(false);
+        keyboardHeightRef.current = 0;
         setKeyboardInset(0);
       }),
     ];
@@ -700,18 +636,12 @@ export default function ChatScreen() {
   useEffect(() => {
     return () => {
       void stopActivePlayback();
-      if (!recordingRef.current) return;
-      try {
-        void recorder.stop().catch(() => undefined);
-      } catch {
-        // native recorder may already be released on unmount
-      }
     };
-  }, [recorder]);
+  }, []);
 
   const send = async () => {
     const body = text.trim();
-    if (!body || !threadId || sending || recording || !user) return;
+    if (!body || !threadId || sending || !user) return;
     const optimistic: ChatMessage = {
       id: `local-${Date.now()}`,
       thread_id: threadId,
@@ -750,202 +680,6 @@ export default function ChatScreen() {
       setSending(false);
     }
   };
-
-  const abortRecording = useCallback(async () => {
-    try {
-      // Always ask for a stop: a lagging isRecording flag would leave it open.
-      await recorder.stop();
-    } catch {
-      // ignore
-    } finally {
-      recordStartedAtRef.current = 0;
-      cancelArmedRef.current = false;
-      setCancelArmed(false);
-      recordingRef.current = false;
-      setRecording(false);
-      await preparePlaybackMode();
-    }
-  }, [recorder]);
-
-  const startRecording = async (gen: number) => {
-    if (sendingRef.current || recorderLooksLive(recorder)) return;
-    recordingRef.current = true;
-    setRecording(true);
-    try {
-      const allowed = await ensureRecordingPermission();
-      if (!allowed) {
-        holdingRef.current = false;
-        recordingRef.current = false;
-        setRecording(false);
-        if (micPermissionNeedsSettings()) {
-          Alert.alert(
-            "Micro đang tắt",
-            "Bật micro cho Forever trong Cài đặt rồi giữ nút nói lại.",
-            [
-              { text: "Để sau", style: "cancel" },
-              { text: "Mở Cài đặt", onPress: openMicSettings },
-            ],
-          );
-        } else {
-          Alert.alert("Cần quyền", "Cho phép micro để gửi giọng nói.");
-        }
-        return;
-      }
-      if (!holdingRef.current || holdGenRef.current !== gen) {
-        if (recordingRef.current) await abortRecording();
-        return;
-      }
-      await stopActivePlayback();
-      setPlayingId(null);
-      if (!holdingRef.current || holdGenRef.current !== gen) {
-        if (recordingRef.current) await abortRecording();
-        return;
-      }
-      await beginVoiceRecording(recorder);
-      if (holdGenRef.current !== gen) {
-        await abortRecording();
-        return;
-      }
-      recordStartedAtRef.current = Date.now();
-      speechGateRef.current = emptySpeechGate();
-      // Finger may already be up — finishHold owns stop/send (do not abort here).
-    } catch (e) {
-      holdingRef.current = false;
-      recordingRef.current = false;
-      setRecording(false);
-      Alert.alert("Lỗi", e instanceof Error ? e.message : "Không ghi âm được.");
-    }
-  };
-
-  const stopAndSendVoice = async () => {
-    if (!threadId || sendingRef.current) return;
-    setSending(true);
-    sendingRef.current = true;
-    try {
-      await recorder.stop();
-      recordingRef.current = false;
-      setRecording(false);
-      recordStartedAtRef.current = 0;
-      cancelArmedRef.current = false;
-      setCancelArmed(false);
-      await preparePlaybackMode();
-      const uri = recorder.uri;
-      if (!uri) throw new Error("Không có file ghi âm.");
-
-      if (isHeritageThread) {
-        setHeritageTyping(true);
-        replyDeadlineRef.current = Date.now() + HERITAGE_REPLY_TIMEOUT_MS;
-      }
-
-      await api.sendVoiceMessage(threadId, {
-        uri,
-        name: "voice.m4a",
-        mimeType: "audio/mp4",
-      });
-      const list = await fetchMessages();
-      if (list) applyMessages(list, { animateNewHeritage: true });
-      jumpToLatest();
-    } catch (e) {
-      replyDeadlineRef.current = 0;
-      setHeritageTyping(false);
-      Alert.alert("Lỗi", e instanceof Error ? e.message : "Không gửi được giọng nói.");
-    } finally {
-      sendingRef.current = false;
-      setSending(false);
-    }
-  };
-
-  const finishHold = async () => {
-    if (finishingHoldRef.current) return;
-    finishingHoldRef.current = true;
-    holdingRef.current = false;
-    try {
-      if (recordingRef.current && !recorderLooksLive(recorder)) {
-        const deadline = Date.now() + 1200;
-        while (Date.now() < deadline && !recorderLooksLive(recorder)) {
-          if (!recordingRef.current) break;
-          await new Promise((r) => setTimeout(r, 40));
-        }
-      }
-      const live = recorderLooksLive(recorder);
-      if (!recordingRef.current) {
-        // Finger left before the recorder finished opening — drop that take.
-        holdGenRef.current += 1;
-        if (live) await abortRecording();
-        return;
-      }
-      if (
-        cancelArmedRef.current ||
-        (!live && Date.now() - holdStartedAtRef.current < 800) ||
-        (live &&
-          Date.now() -
-            (recordStartedAtRef.current || holdStartedAtRef.current) <
-            HOLD_TO_TALK_MIN_MS)
-      ) {
-        await abortRecording();
-        return;
-      }
-      if (!gateHeardSpeech(speechGateRef.current)) {
-        await abortRecording();
-        Alert.alert(
-          "Chưa nghe thấy câu nói",
-          "Giữ Mic và nói rồi thả tay để gửi.",
-        );
-        return;
-      }
-      await stopAndSendVoice();
-    } finally {
-      cancelArmedRef.current = false;
-      setCancelArmed(false);
-      finishingHoldRef.current = false;
-    }
-  };
-
-  const onMicPressIn = () => {
-    if (sendingRef.current || holdingRef.current || recordingRef.current) return;
-    holdingRef.current = true;
-    holdStartedAtRef.current = Date.now();
-    cancelArmedRef.current = false;
-    setCancelArmed(false);
-    finishingHoldRef.current = false;
-    const gen = ++holdGenRef.current;
-    void startRecording(gen);
-  };
-
-  const onMicCancelArmed = (armed: boolean) => {
-    if (armed === cancelArmedRef.current) return;
-    cancelArmedRef.current = armed;
-    setCancelArmed(armed);
-  };
-
-  const onMicPressOut = (cancelled: boolean) => {
-    if (!holdingRef.current) return;
-    if (cancelled) cancelArmedRef.current = true;
-    void finishHold();
-  };
-
-  useEffect(() => {
-    if (!recording) return;
-    const timer = setTimeout(() => {
-      if (!recordingRef.current) return;
-      cancelArmedRef.current = false;
-      void finishHold();
-    }, HOLD_TO_TALK_MAX_MS);
-    return () => clearTimeout(timer);
-  }, [recording]);
-
-  useEffect(() => {
-    const sub = AppState.addEventListener("change", (next) => {
-      if (next === "active") return;
-      // A permission dialog flashing over us is not the user leaving the app.
-      if (isRequestingRecordingPermission()) return;
-      if (Platform.OS === "android" && next !== "background") return;
-      if (!holdingRef.current && !recordingRef.current) return;
-      holdingRef.current = false;
-      void abortRecording();
-    });
-    return () => sub.remove();
-  }, [abortRecording]);
 
   const saveToLibrary = useCallback(
     (item: ChatMessage) => {
@@ -1072,6 +806,18 @@ export default function ChatScreen() {
     };
   }, [highlightId, loading, messages]);
 
+  const onRootLayout = useCallback((e: LayoutChangeEvent) => {
+    const height = e.nativeEvent.layout.height;
+    if (!keyboardHeightRef.current) {
+      // Keyboard down: this is the room we have to give back later.
+      rootHeightRef.current = height;
+      return;
+    }
+    if (Platform.OS !== "android" || !rootHeightRef.current) return;
+    const gaveBack = Math.max(0, rootHeightRef.current - height);
+    setKeyboardInset(Math.max(0, keyboardHeightRef.current - gaveBack));
+  }, []);
+
   const onContentSizeChange = useCallback((_w: number, h: number) => {
     const grew = h > lastContentHeightRef.current + 1;
     lastContentHeightRef.current = h;
@@ -1115,6 +861,7 @@ export default function ChatScreen() {
       ]}
       behavior={Platform.OS === "ios" ? "padding" : undefined}
       keyboardVerticalOffset={Platform.OS === "ios" ? headerHeight : 0}
+      onLayout={onRootLayout}
     >
       <FlatList
         ref={listRef}
@@ -1127,7 +874,6 @@ export default function ChatScreen() {
         onMomentumScrollBegin={onMomentumScrollBegin}
         onMomentumScrollEnd={onMomentumScrollEnd}
         scrollEventThrottle={16}
-        scrollEnabled={!recording}
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode="interactive"
         onContentSizeChange={onContentSizeChange}
@@ -1168,15 +914,11 @@ export default function ChatScreen() {
       <Text style={styles.hint}>
         {heritageBlocked
           ? "Cần thổi hồn trước khi trò chuyện Ký ức"
-          : recording
-            ? cancelArmed
-              ? "Thả tay để huỷ"
-              : "Đang nói — thả tay để gửi · vuốt khỏi nút để huỷ"
-            : isHeritageThread
-              ? "Giữ Mic để nói · Giữ tin nhắn để lưu · Chạm tin giọng để nghe"
-              : "Giữ Mic để nói · Giữ tin nhắn để lưu vào thư viện · Chạm tin giọng để nghe"}
+          : isHeritageThread
+            ? "Giữ tin nhắn để lưu · Chạm tin giọng để nghe"
+            : "Giữ tin nhắn để lưu vào thư viện · Chạm tin giọng để nghe"}
       </Text>
-      {isHeritageThread && !heritageBlocked && !recording ? (
+      {isHeritageThread && !heritageBlocked ? (
         <Pressable
           onPress={() => threadId && router.push(`/call/${threadId}`)}
           style={styles.callHint}
@@ -1222,58 +964,21 @@ export default function ChatScreen() {
           { paddingBottom: keyboardUp ? 12 : Math.max(insets.bottom, 12) },
         ]}
       >
-        <HoldToTalkTarget
-          disabled={sending}
-          cancelDirection="left"
-          onHoldStart={onMicPressIn}
-          onCancelArmedChange={onMicCancelArmed}
-          onHoldEnd={onMicPressOut}
-          style={[
-            styles.micBtn,
-            recording && styles.micBtnHot,
-            recording && cancelArmed && styles.micBtnCancel,
-            sending && { opacity: 0.5 },
-          ]}
-          accessibilityLabel={
-            recording
-              ? cancelArmed
-                ? "Thả để huỷ"
-                : "Thả để gửi"
-              : "Giữ để nói"
-          }
-          accessibilityHint="Giữ để nói, thả tay để gửi, vuốt khỏi nút để huỷ"
+        <TextInput
+          value={text}
+          onChangeText={setText}
+          placeholder="Nhắn cho cả nhà… (@tên để gắn)"
+          placeholderTextColor={colors.inkSoft}
+          style={styles.input}
+          multiline
+        />
+        <Pressable
+          onPress={send}
+          disabled={sending || !text.trim()}
+          style={[styles.send, (!text.trim() || sending) && { opacity: 0.5 }]}
         >
-          <Text
-            style={[styles.micText, recording && styles.micTextHot]}
-          >
-            {recording ? (cancelArmed ? "Huỷ" : "Nói") : "Mic"}
-          </Text>
-        </HoldToTalkTarget>
-        {recording ? (
-          <ActiveRecordingBar
-            recorder={recorder}
-            cancelArmed={cancelArmed}
-            speechGateRef={speechGateRef}
-          />
-        ) : (
-          <>
-            <TextInput
-              value={text}
-              onChangeText={setText}
-              placeholder="Nhắn cho cả nhà… (@tên để gắn)"
-              placeholderTextColor={colors.inkSoft}
-              style={styles.input}
-              multiline
-            />
-            <Pressable
-              onPress={send}
-              disabled={sending || !text.trim()}
-              style={[styles.send, (!text.trim() || sending) && { opacity: 0.5 }]}
-            >
-              <Text style={styles.sendText}>{sending ? "…" : "Gửi"}</Text>
-            </Pressable>
-          </>
-        )}
+          <Text style={styles.sendText}>{sending ? "…" : "Gửi"}</Text>
+        </Pressable>
       </View>
       </>
       )}
@@ -1437,43 +1142,6 @@ const styles = createThemedStyles((colors) => ({
     backgroundColor: "#fff",
     color: colors.ink,
     fontSize: 16,
-  },
-  micBtn: {
-    borderWidth: 1,
-    borderColor: colors.line,
-    borderRadius: 16,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    minWidth: 56,
-    minHeight: 48,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "#fff",
-  },
-  micText: { color: colors.brand, fontWeight: "600" },
-  micBtnHot: {
-    borderColor: "rgba(180, 80, 60, 0.45)",
-    backgroundColor: "#fff7f5",
-  },
-  micBtnCancel: {
-    borderColor: "rgba(138, 58, 50, 0.55)",
-    backgroundColor: "#f3e4e1",
-  },
-  micTextHot: { color: "#a04535" },
-  recordingPill: {
-    flex: 1,
-    minHeight: 44,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: "rgba(180, 80, 60, 0.35)",
-    backgroundColor: "#fff7f5",
-    justifyContent: "center",
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-  },
-  recordingPillCancel: {
-    borderColor: "rgba(138, 58, 50, 0.45)",
-    backgroundColor: "#f3e4e1",
   },
   send: {
     backgroundColor: colors.brand,

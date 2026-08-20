@@ -18,6 +18,21 @@ Plan: `docs/voice-to-voice.plan.md`. Flags: `STT_ENABLED`, `HERITAGE_TTS_ENABLED
 (default on). Mobile entry: `/call/[threadId]` — auto-play only for the reply to
 the turn she just spoke.
 
+Phòng chat chữ (`/chat/[threadId]`) **không có nút Mic** — giọng chỉ đi qua
+`/call`. Bàn phím Android ở đó không dùng `KeyboardAvoidingView`: SDK 54 vẽ tràn
+viền nên cửa sổ không co lại, màn tự đội theo chiều cao bàn phím hệ thống báo và
+trừ đi phần cửa sổ đã nhường (đo bằng `onLayout`, đừng đoán) — đội hai lần là ô
+gõ bay lên giữa màn.
+
+Chữ sáng theo giọng ở `/call` chỉ là phép chia theo số ký tự (TTS không trả mốc
+thời gian từng từ), nên lượt **đọc thơ / đọc truyện** phải nói cho màn hình biết
+audio bắt đầu ở đâu: `meta.spoken_from` — bản ghi được cache theo bài thơ hoặc
+theo đoạn và dùng chung với Thư viện lẫn kệ Nghe đọc, nên nó không bao giờ chứa
+câu dẫn «Bà đọc «Truyện Kiều» — Đoạn 1 đây con.» Trải giọng lên cả câu dẫn là
+highlight tụt sau tiếng nói vài giây trên một đoạn dài. `followAlongPlan` cắt
+câu dẫn ra khỏi trục thời gian, `activeSentenceForProgress` chừa 0,2s cho câu
+sáng lên cùng lúc nghe chứ không sáng sau.
+
 Nút giữ để nói phải xin quyền mic qua `lib/micPermission.ts`. Gọi thẳng
 `requestRecordingPermissionsAsync` là Android mở `GrantPermissionsActivity`
 **dù quyền đã cấp, và cả khi quyền đã bị chặn hẳn**: cả hai trường hợp activity
