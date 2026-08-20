@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Enable classics / sutras on Bà Nội's storytelling shelf.
 
-Includes Phạm Công – Cúc Hoa (catalog slot; Nhập chữ when family has the book).
+Includes Phạm Công – Cúc Hoa (family Quốc ngữ text in corpus).
 
 Run inside forever-api after corpus seed (API boot with data/storytelling in image):
 

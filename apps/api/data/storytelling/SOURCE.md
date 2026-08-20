@@ -8,7 +8,7 @@ Dùng làm **đoạn đọc** để ghi giọng người được nhớ — truy
 |----------|---------|--------|
 | Truyện Kiều | Nguyễn Du | Wikisource (PD) |
 | Lục Vân Tiên | Nguyễn Đình Chiểu | Wikisource (PD) |
-| Phạm Công – Cúc Hoa | Dương Minh Đức Thị | Chờ chữ gia đình (~4.610 câu; chưa có bản PD sạch) |
+| Phạm Công – Cúc Hoa | Dương Minh Đức Thị | Bản quốc ngữ gia đình (đã làm sạch để đọc) |
 | Lưu Bình – Dương Lễ | Khuyết danh | Chờ chữ gia đình |
 | Chiêu Quân Cống Hồ | Khuyết danh | Chờ chữ gia đình |
 
