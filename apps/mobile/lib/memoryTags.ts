@@ -1,6 +1,6 @@
 import { IdentityProfile } from "@forever/api-client";
 
-import { identityChipLabel } from "@/lib/identityDisplay";
+import { identityChipLabel, shortPersonLabel } from "@/lib/identityDisplay";
 
 export const HERITAGE_TAG_PREFIX = "heritage:";
 
@@ -70,6 +70,13 @@ export function parseCalendarKind(tags: string | null | undefined): CalendarKind
   return "khac";
 }
 
+/** Giỗ / ngày mất / giỗ đầu — commemorated on âm lịch, not solar month/day. */
+export function isLunarMemorialKind(tags: string | null | undefined): boolean {
+  const kind = parseCalendarKind(tags);
+  if (kind === "gio" || kind === "mat") return true;
+  return tagTokens(tags ?? "").some((t) => t === "lich-rite:gio_dau");
+}
+
 export function isCalendarYearOnly(tags: string | null | undefined): boolean {
   return tagTokens(tags ?? "").includes(CALENDAR_YEAR_ONLY);
 }
@@ -96,4 +103,16 @@ export function heritageLabelsForMemory(
     .map((id) => identities.find((i) => i.id === id))
     .filter((i): i is IdentityProfile => Boolean(i))
     .map((i) => identityChipLabel(i, userId));
+}
+
+/** Short who-labels for family calendar — «Bố», «Bà Nội», not full chips. */
+export function shortHeritageLabelsForMemory(
+  tags: string,
+  identities: IdentityProfile[],
+  userId?: string | null,
+): string[] {
+  return parseHeritageIdentityIds(tags)
+    .map((id) => identities.find((i) => i.id === id))
+    .filter((i): i is IdentityProfile => Boolean(i))
+    .map((i) => shortPersonLabel(i, userId));
 }

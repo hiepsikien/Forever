@@ -384,6 +384,16 @@ def ensure_schema() -> None:
         "sort_order",
         "ALTER TABLE story_works ADD COLUMN sort_order INTEGER DEFAULT 100",
     )
+    _add_column_if_missing(
+        "story_recordings",
+        "source",
+        "ALTER TABLE story_recordings ADD COLUMN source VARCHAR(16) DEFAULT 'human'",
+    )
+    _add_column_if_missing(
+        "story_recordings",
+        "fingerprint",
+        "ALTER TABLE story_recordings ADD COLUMN fingerprint VARCHAR(64) DEFAULT ''",
+    )
     _backfill_heritage_threads()
     try:
         with engine.begin() as conn:

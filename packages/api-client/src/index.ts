@@ -451,6 +451,7 @@ export interface StoryChunkDetail {
     id: string;
     duration_ms?: number | null;
     media_mime?: string;
+    source?: "tts" | "human" | string;
   };
 }
 
@@ -1233,8 +1234,18 @@ export function createApiClient({
       const q = workSlug ? `?work=${encodeURIComponent(workSlug)}` : "";
       return request<StoryChunkDetail>(
         `/api/spaces/${spaceId}/identities/${identityId}/stories/next-to-listen${q}`,
+        { timeoutMs: 120_000 },
       );
     },
+    synthesizeStoryChunk: (
+      spaceId: string,
+      identityId: string,
+      chunkId: string,
+    ) =>
+      request<StoryChunkDetail>(
+        `/api/spaces/${spaceId}/identities/${identityId}/stories/chunks/${chunkId}/synthesize`,
+        { method: "POST", timeoutMs: 120_000 },
+      ),
     uploadStoryRecording: async (
       spaceId: string,
       identityId: string,

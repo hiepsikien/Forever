@@ -17,7 +17,8 @@ import { MemoryItem } from "@forever/api-client";
 import { PhotoLightbox } from "@/components/library/PhotoLightbox";
 import { formatLocalDate } from "@/lib/datetime";
 import {
-  calendarDateLabel,
+  calendarDateLines,
+  displayCalendarMilestoneTitle,
   isGiftPoem,
   meterFromTags,
   meterLabel,
@@ -35,6 +36,7 @@ type Props = {
   item: MemoryItem | null;
   visible: boolean;
   onClose: () => void;
+  milestones?: MemoryItem[];
   photoUri?: string;
   onOpenSource?: () => void;
   onEdit?: () => void;
@@ -145,6 +147,7 @@ export function MemoryReadModal({
   item,
   visible,
   onClose,
+  milestones,
   photoUri,
   onOpenSource,
   onEdit,
@@ -226,8 +229,14 @@ export function MemoryReadModal({
     );
   }
   const isPoem = item.kind === "poem";
-  const title = displayMemoryTitle(item.kind, item.title);
-  const untitled = isGenericMemoryTitle(item.kind, item.title);
+  const title =
+    item.kind === "milestone"
+      ? displayCalendarMilestoneTitle(item, { milestones })
+      : displayMemoryTitle(item.kind, item.title);
+  const untitled =
+    item.kind === "milestone"
+      ? false
+      : isGenericMemoryTitle(item.kind, item.title);
   const themes = themeFromTags(item.tags);
   const meter = meterFromTags(item.tags);
   const showTitle =
@@ -292,9 +301,24 @@ export function MemoryReadModal({
             ) : (
                 <>
                   {item.kind === "milestone" ? (
-                    <Text style={styles.year}>
-                      {calendarDateLabel(item.occurred_at, item.tags)}
-                    </Text>
+                    (() => {
+                      const dateLines = calendarDateLines(
+                        item.occurred_at,
+                        item.tags,
+                        new Date(),
+                        item,
+                      );
+                      return (
+                        <View style={styles.yearBlock}>
+                          <Text style={styles.year}>{dateLines.primary}</Text>
+                          {dateLines.secondary ? (
+                            <Text style={styles.yearSub}>
+                              {dateLines.secondary}
+                            </Text>
+                          ) : null}
+                        </View>
+                      );
+                    })()
                   ) : null}
                   {showTitle ? (
                     <Text style={[styles.title, untitled && styles.titleUntitled]}>
@@ -487,10 +511,17 @@ const styles = createThemedStyles((colors) => ({
     fontWeight: "700",
     fontSize: 16,
   },
+  yearBlock: { gap: 4, marginBottom: 4 },
   year: {
     fontFamily: fonts.display,
-    fontSize: 36,
+    fontSize: 32,
     color: colors.brand,
+    lineHeight: 38,
+  },
+  yearSub: {
+    fontSize: 14,
+    lineHeight: 18,
+    color: colors.inkSoft,
   },
   title: {
     fontFamily: fonts.display,

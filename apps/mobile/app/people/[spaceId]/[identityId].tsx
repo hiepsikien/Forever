@@ -179,7 +179,7 @@ export default function LivingPersonProfileScreen() {
           >
             <Text style={styles.memoryKind}>{item.kind}</Text>
             <Text style={styles.memoryTitle} numberOfLines={2}>
-              {displayMemoryTitle(item)}
+              {displayMemoryTitle(item.kind, item.title ?? "")}
             </Text>
           </Pressable>
         )}

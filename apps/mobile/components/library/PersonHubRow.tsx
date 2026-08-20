@@ -1,5 +1,6 @@
 import { Pressable, Text, View } from "react-native";
 
+import { formatHandleDisplay } from "@/lib/handles";
 import { formatShelfSummary, PersonHubRow } from "@/lib/libraryShelves";
 import { fonts, createThemedStyles } from "@/lib/theme";
 
@@ -28,7 +29,11 @@ export function PersonHubRowView({
           <Text style={[styles.label, compact && styles.labelCompact]}>
             {row.label}
           </Text>
-          {handle ? <Text style={styles.handle}>@{handle}</Text> : null}
+          {handle ? (
+            <Text style={styles.handle} numberOfLines={1}>
+              {formatHandleDisplay(handle)}
+            </Text>
+          ) : null}
         </View>
         <Text style={styles.summary}>
           {formatShelfSummary(row.counts, {
@@ -75,7 +80,9 @@ const styles = createThemedStyles((colors) => ({
     fontSize: 17,
   },
   handle: {
+    flexShrink: 1,
     fontSize: 13,
+    lineHeight: 18,
     color: colors.brandSoft,
     fontWeight: "600",
   },

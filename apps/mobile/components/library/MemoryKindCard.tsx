@@ -9,7 +9,8 @@ import {
 import { IdentityProfile, MemoryItem } from "@forever/api-client";
 
 import {
-  calendarDateLabel,
+  calendarDateLines,
+  displayCalendarMilestoneTitle,
   isGiftPoem,
   meterFromTags,
   meterLabel,
@@ -30,11 +31,17 @@ import {
   parseCalendarKind,
   tagTokens,
 } from "@/lib/memoryTags";
+import {
+  calendarGioOrdinalLabel,
+  mourningRiteLabel,
+} from "@/lib/mourningRites";
 import { colors, fonts, createThemedStyles } from "@/lib/theme";
 
 type Props = {
   item: MemoryItem;
   identities: IdentityProfile[];
+  /** Sibling milestones — resolve death year for «Giỗ năm thứ N». */
+  milestones?: MemoryItem[];
   userId?: string | null;
   /** On a person hub — hide redundant heritage chips. */
   hideHeritageChips?: boolean;
@@ -69,6 +76,7 @@ function isLongText(body: string, kind: string): boolean {
 export function MemoryKindCard({
   item,
   identities,
+  milestones,
   userId,
   hideHeritageChips = false,
   photoUri,
@@ -91,8 +99,14 @@ export function MemoryKindCard({
   playingRecite,
   onRecite,
 }: Props) {
-  const title = displayMemoryTitle(item.kind, item.title);
-  const untitled = isGenericMemoryTitle(item.kind, item.title);
+  const title =
+    item.kind === "milestone"
+      ? displayCalendarMilestoneTitle(item, { milestones })
+      : displayMemoryTitle(item.kind, item.title);
+  const untitled =
+    item.kind === "milestone"
+      ? false
+      : isGenericMemoryTitle(item.kind, item.title);
   const note = displayMemoryNote(item.body);
   const people = hideHeritageChips
     ? []
@@ -107,6 +121,8 @@ export function MemoryKindCard({
   const isPoem = item.kind === "poem";
   const calendarTagged = tagTokens(item.tags).some((t) => t.startsWith("lich:"));
   const calendarKind = parseCalendarKind(item.tags);
+  const gioChip =
+    calendarGioOrdinalLabel(item, milestones) || mourningRiteLabel(item.tags);
   const showSourceTitle =
     item.kind === "knowledge" &&
     Boolean(item.title?.trim()) &&
@@ -138,10 +154,26 @@ export function MemoryKindCard({
   const bodyBlock =
     item.kind === "milestone" ? (
       <View style={styles.milestoneRow}>
-        <Text style={styles.year}>{calendarDateLabel(item.occurred_at, item.tags)}</Text>
+        {(() => {
+          const dateLines = calendarDateLines(item.occurred_at, item.tags, new Date(), item);
+          return (
+            <View style={styles.yearCol}>
+              <Text style={styles.year}>{dateLines.primary}</Text>
+              {dateLines.secondary ? (
+                <Text style={styles.yearSub}>{dateLines.secondary}</Text>
+              ) : null}
+            </View>
+          );
+        })()}
         <View style={styles.milestoneBody}>
           <Text style={[styles.title, untitled && styles.titleUntitled]}>{title}</Text>
-          {calendarTagged && calendarKind !== "khac" ? (
+          {gioChip ? (
+            <View style={styles.peopleRow}>
+              <View style={styles.personChip}>
+                <Text style={styles.personChipText}>{gioChip}</Text>
+              </View>
+            </View>
+          ) : calendarTagged && calendarKind !== "khac" ? (
             <View style={styles.peopleRow}>
               <View style={styles.personChip}>
                 <Text style={styles.personChipText}>
@@ -427,11 +459,17 @@ const styles = createThemedStyles((colors) => ({
     gap: 14,
     alignItems: "flex-start",
   },
+  yearCol: { minWidth: 72, gap: 2 },
   year: {
     fontFamily: fonts.display,
-    fontSize: 28,
+    fontSize: 22,
     color: colors.brand,
-    minWidth: 64,
+    lineHeight: 26,
+  },
+  yearSub: {
+    fontSize: 12,
+    lineHeight: 16,
+    color: colors.inkSoft,
   },
   milestoneBody: { flex: 1, gap: 4 },
   peopleRow: {

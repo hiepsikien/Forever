@@ -1,4 +1,4 @@
-"""Storytelling shelf — record & replay authentic readings of classics."""
+"""Storytelling shelf — Voice DNA reads classics/sutras; audio is cached per chunk."""
 
 from __future__ import annotations
 
@@ -11,7 +11,7 @@ from nanoid import generate
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
-from ..access import require_membership, require_steward_or_owner
+from ..access import require_membership, require_moderator_or_above
 from ..auth import get_current_user
 from ..db import get_db
 from ..models import (
@@ -28,10 +28,13 @@ from ..services.storage import (
     save_upload,
 )
 from ..services.storytelling import (
+    StoryTtsError,
     chunk_prose_text,
     chunk_verse_text,
+    ensure_story_tts_recording,
     expand_ritual_spoken,
     get_identity_in_space,
+    pick_next_chunk_to_hear,
     pick_next_to_listen,
     pick_next_to_record,
     ready_recording_for_chunk,
@@ -158,7 +161,7 @@ def enable_story_work(
     user: Annotated[User, Depends(get_current_user)],
     db: Annotated[Session, Depends(get_db)],
 ):
-    require_steward_or_owner(db, space_id=space_id, user=user)
+    require_moderator_or_above(db, space_id=space_id, user=user)
     _ensure_corpus(db)
     identity = _require_identity(db, space_id=space_id, identity_id=identity_id)
     work = (
@@ -201,7 +204,7 @@ def disable_story_work(
     user: Annotated[User, Depends(get_current_user)],
     db: Annotated[Session, Depends(get_db)],
 ):
-    require_steward_or_owner(db, space_id=space_id, user=user)
+    require_moderator_or_above(db, space_id=space_id, user=user)
     identity = _require_identity(db, space_id=space_id, identity_id=identity_id)
     work = (
         db.query(StoryWork).filter(StoryWork.slug == work_slug).one_or_none()
@@ -232,12 +235,12 @@ def import_story_work_text(
     user: Annotated[User, Depends(get_current_user)],
     db: Annotated[Session, Depends(get_db)],
 ):
-    """Steward pastes quốc ngữ text — chunked for recording prompts.
+    """Moderator+ pastes quốc ngữ text — chunked for Voice DNA reading.
 
     Used when a classic is not yet in the PD corpus (e.g. Lưu Bình, Chiêu Quân).
     Replaces existing chunks and deletes recordings tied to them.
     """
-    require_steward_or_owner(db, space_id=space_id, user=user)
+    require_moderator_or_above(db, space_id=space_id, user=user)
     _ensure_corpus(db)
     work = (
         db.query(StoryWork).filter(StoryWork.slug == work_slug).one_or_none()
@@ -397,6 +400,7 @@ def next_chunk_to_listen(
     db: Annotated[Session, Depends(get_db)],
     work: str | None = None,
 ):
+    """Pick a passage and ensure Voice DNA audio is cached (reuse if already read)."""
     require_membership(db, space_id=space_id, user=user)
     _ensure_corpus(db)
     identity = _require_identity(db, space_id=space_id, identity_id=identity_id)
@@ -406,13 +410,39 @@ def next_chunk_to_listen(
         if not row:
             raise HTTPException(status_code=404, detail="Không có tác phẩm này.")
         work_id = row.id
+
     picked = pick_next_to_listen(db, identity_id=identity.id, work_id=work_id)
-    if not picked:
-        raise HTTPException(
-            status_code=404,
-            detail="Chưa có đoạn nào được ghi âm.",
+    if picked:
+        chunk, recording = picked
+        # Refresh TTS cache if voice prefs / body drifted.
+        try:
+            recording = ensure_story_tts_recording(
+                db, identity=identity, chunk=chunk, user_id=user.id
+            )
+        except StoryTtsError as exc:
+            # Keep human upload if TTS is unavailable.
+            if (getattr(recording, "source", None) or "human") == "human":
+                pass
+            else:
+                raise HTTPException(
+                    status_code=exc.status, detail=exc.detail
+                ) from exc
+    else:
+        chunk = pick_next_chunk_to_hear(
+            db, identity_id=identity.id, work_id=work_id
         )
-    chunk, recording = picked
+        if not chunk:
+            raise HTTPException(
+                status_code=404,
+                detail="Chưa bật tập nào trên kệ, hoặc chưa có chữ để đọc.",
+            )
+        try:
+            recording = ensure_story_tts_recording(
+                db, identity=identity, chunk=chunk, user_id=user.id
+            )
+        except StoryTtsError as exc:
+            raise HTTPException(status_code=exc.status, detail=exc.detail) from exc
+
     story = db.query(StoryWork).filter(StoryWork.id == chunk.work_id).one()
     return {
         "work": {
@@ -426,6 +456,61 @@ def next_chunk_to_listen(
             "id": recording.id,
             "duration_ms": recording.duration_ms,
             "media_mime": recording.media_mime,
+            "source": getattr(recording, "source", None) or "tts",
+        },
+    }
+
+
+@router.post(
+    "/api/spaces/{space_id}/identities/{identity_id}/stories/chunks/{chunk_id}/synthesize"
+)
+def synthesize_story_chunk(
+    space_id: str,
+    identity_id: str,
+    chunk_id: str,
+    user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[Session, Depends(get_db)],
+):
+    """Generate (or reuse) Voice DNA audio for one chunk."""
+    require_membership(db, space_id=space_id, user=user)
+    _ensure_corpus(db)
+    identity = _require_identity(db, space_id=space_id, identity_id=identity_id)
+    chunk = db.query(StoryChunk).filter(StoryChunk.id == chunk_id).one_or_none()
+    if not chunk:
+        raise HTTPException(status_code=404, detail="Không có đoạn này.")
+    enabled = (
+        db.query(IdentityStoryWork)
+        .filter(
+            IdentityStoryWork.identity_id == identity.id,
+            IdentityStoryWork.work_id == chunk.work_id,
+        )
+        .one_or_none()
+    )
+    if not enabled:
+        raise HTTPException(
+            status_code=400,
+            detail="Tác phẩm chưa được bật trên kệ Nghe đọc của hồ sơ này.",
+        )
+    try:
+        recording = ensure_story_tts_recording(
+            db, identity=identity, chunk=chunk, user_id=user.id
+        )
+    except StoryTtsError as exc:
+        raise HTTPException(status_code=exc.status, detail=exc.detail) from exc
+    story = db.query(StoryWork).filter(StoryWork.id == chunk.work_id).one()
+    return {
+        "work": {
+            "id": story.id,
+            "slug": story.slug,
+            "title": story.title,
+            "author": story.author,
+        },
+        "chunk": _chunk_payload(chunk, recording=recording, include_body=True),
+        "recording": {
+            "id": recording.id,
+            "duration_ms": recording.duration_ms,
+            "media_mime": recording.media_mime,
+            "source": getattr(recording, "source", None) or "tts",
         },
     }
 
@@ -489,6 +574,8 @@ async def upload_story_recording(
         media_path=media_path,
         media_mime=mime,
         duration_ms=duration_ms if duration_ms and duration_ms > 0 else None,
+        source="human",
+        fingerprint="",
         status="ready",
         created_by=user.id,
         created_at=now,

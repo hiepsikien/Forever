@@ -37,7 +37,7 @@ export default function StoryShelfScreen() {
   useSpaceScreenOptions({
     spaceId,
     title: "Nghe đọc",
-    backTitle: "Hồ sơ",
+    backTitle: "Ký ức",
   });
 
   const load = useCallback(async () => {
@@ -53,7 +53,9 @@ export default function StoryShelfScreen() {
       setWorks(shelf.works);
       setRecordedTotal(shelf.recorded_total);
       setCanManage(
-        spaceRes.role === "owner" || Boolean(stewardRes?.is_steward),
+        spaceRes.role === "owner" ||
+          spaceRes.role === "moderator" ||
+          Boolean(stewardRes?.is_steward),
       );
     } catch (e) {
       Alert.alert("Lỗi", e instanceof Error ? e.message : "Không tải kệ.");
@@ -76,6 +78,13 @@ export default function StoryShelfScreen() {
     for (const w of works) {
       const cat = w.category === "sutra" ? "sutra" : "classic";
       map[cat].push(w);
+    }
+    // Enabled shelf first — mother should see what she can hear without scrolling.
+    for (const key of Object.keys(map)) {
+      map[key].sort((a, b) => {
+        if (a.enabled !== b.enabled) return a.enabled ? -1 : 1;
+        return (a.title || "").localeCompare(b.title || "", "vi");
+      });
     }
     return map;
   }, [works]);
@@ -107,45 +116,48 @@ export default function StoryShelfScreen() {
 
   const enabled = works.filter((w) => w.enabled);
   const who = name || "Người được nhớ";
+  const canListen = enabled.some((w) => w.chunk_count > 0);
 
   return (
     <ScrollView style={styles.root} contentContainerStyle={styles.content}>
       <Text style={styles.lead}>
-        Nghe {who} kể chuyện và đọc kinh — chỉ phát đoạn đã ghi giọng thật.
+        Nghe {who} đọc truyện và kinh bằng giọng Voice DNA. Đoạn đã đọc được
+        giữ lại — lần sau phát lại, không đọc mới.
       </Text>
       <Text style={styles.meta}>
-        Đã ghi {recordedTotal} đoạn
+        Đã có {recordedTotal} đoạn trong kho nghe
         {enabled.length ? ` · ${enabled.length} tập đang mở` : ""}
       </Text>
 
       <View style={styles.actions}>
         <Pressable
-          style={[styles.primaryBtn, recordedTotal === 0 && styles.btnDisabled]}
-          disabled={recordedTotal === 0}
+          style={[styles.primaryBtn, !canListen && styles.btnDisabled]}
+          disabled={!canListen}
           onPress={() =>
             router.push(`/stories/${spaceId}/${identityId}/listen`)
           }
         >
           <Text style={styles.primaryBtnText}>Nghe ngẫu nhiên</Text>
         </Pressable>
-        <Pressable
-          style={styles.secondaryBtn}
-          onPress={() =>
-            router.push(`/stories/${spaceId}/${identityId}/record`)
-          }
-        >
-          <Text style={styles.secondaryBtnText}>Thu giọng đọc</Text>
-        </Pressable>
       </View>
 
       {SECTIONS.map((section) => {
         const list = bySection[section.id] || [];
         if (!list.length) return null;
+        const openCount = list.filter((w) => w.enabled).length;
         return (
           <View key={section.id} style={styles.sectionBlock}>
-            <Text style={styles.section}>{section.title}</Text>
+            <View style={styles.sectionHeader}>
+              <Text style={styles.section}>{section.title}</Text>
+              {openCount > 0 ? (
+                <Text style={styles.sectionMeta}>{openCount} đang mở</Text>
+              ) : null}
+            </View>
             {list.map((work) => (
-              <View key={work.id} style={styles.card}>
+              <View
+                key={work.id}
+                style={[styles.card, work.enabled && styles.cardOn]}
+              >
                 <Pressable
                   onPress={() =>
                     router.push(
@@ -153,22 +165,45 @@ export default function StoryShelfScreen() {
                     )
                   }
                 >
-                  <Text style={styles.cardTitle}>{work.title}</Text>
+                  <View style={styles.titleRow}>
+                    <Text
+                      style={[
+                        styles.cardTitle,
+                        !work.enabled && styles.cardTitleOff,
+                      ]}
+                    >
+                      {work.title}
+                    </Text>
+                    {work.enabled ? (
+                      <Text style={styles.badgeOn}>Đang mở</Text>
+                    ) : (
+                      <Text style={styles.badgeOff}>Chưa mở</Text>
+                    )}
+                  </View>
                   <Text style={styles.cardAuthor}>{work.author}</Text>
                   <Text style={styles.cardMeta}>
                     {work.chunk_count === 0
                       ? "Chưa có chữ — steward nhập từ sách / kinh nhà"
-                      : `${work.recorded_count}/${work.chunk_count} đoạn đã ghi`}
-                    {work.enabled ? "" : " · chưa mở trên kệ"}
+                      : work.enabled
+                        ? `${work.recorded_count}/${work.chunk_count} đoạn đã đọc`
+                        : `${work.chunk_count} đoạn · bật kệ để nghe`}
                   </Text>
                 </Pressable>
                 {canManage ? (
                   <Pressable
-                    style={styles.enableBtn}
+                    style={[
+                      styles.enableBtn,
+                      work.enabled && styles.enableBtnOn,
+                    ]}
                     disabled={busySlug === work.slug}
                     onPress={() => toggleWork(work)}
                   >
-                    <Text style={styles.enableBtnText}>
+                    <Text
+                      style={[
+                        styles.enableBtnText,
+                        work.enabled && styles.enableBtnTextOn,
+                      ]}
+                    >
                       {work.enabled ? "Tắt kệ" : "Bật kệ"}
                     </Text>
                   </Pressable>
@@ -210,27 +245,27 @@ const styles = createThemedStyles(() => ({
     color: "#fff",
     fontSize: 16,
   },
-  secondaryBtn: {
-    borderWidth: 1,
-    borderColor: colors.line,
-    borderRadius: 12,
-    paddingVertical: 14,
-    alignItems: "center",
-  },
-  secondaryBtnText: {
-    fontFamily: fonts.sansSemi,
-    color: colors.ink,
-    fontSize: 16,
-  },
   btnDisabled: { opacity: 0.4 },
   sectionBlock: { gap: 0, marginTop: 8 },
+  sectionHeader: {
+    flexDirection: "row",
+    alignItems: "baseline",
+    justifyContent: "space-between",
+    marginBottom: 4,
+    gap: 8,
+  },
   section: {
     fontFamily: fonts.sansSemi,
     fontSize: 13,
     color: colors.muted,
     textTransform: "uppercase",
     letterSpacing: 0.6,
-    marginBottom: 4,
+  },
+  sectionMeta: {
+    fontFamily: fonts.sans,
+    fontSize: 12,
+    color: colors.brand,
+    fontWeight: "600",
   },
   card: {
     borderTopWidth: StyleSheet.hairlineWidth,
@@ -238,10 +273,43 @@ const styles = createThemedStyles(() => ({
     paddingVertical: 14,
     gap: 10,
   },
+  cardOn: {
+    backgroundColor: colors.brandSoft,
+    marginHorizontal: -12,
+    paddingHorizontal: 12,
+    borderRadius: 12,
+    borderTopWidth: 0,
+    marginBottom: 6,
+  },
+  titleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 10,
+  },
   cardTitle: {
+    flex: 1,
     fontFamily: fonts.serif,
     fontSize: 20,
     color: colors.ink,
+  },
+  cardTitleOff: {
+    color: colors.muted,
+  },
+  badgeOn: {
+    fontFamily: fonts.sansSemi,
+    fontSize: 11,
+    color: colors.brand,
+    backgroundColor: "#fff",
+    overflow: "hidden",
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 999,
+  },
+  badgeOff: {
+    fontFamily: fonts.sans,
+    fontSize: 11,
+    color: colors.muted,
   },
   cardAuthor: {
     fontFamily: fonts.sans,
@@ -262,9 +330,15 @@ const styles = createThemedStyles(() => ({
     borderRadius: 8,
     backgroundColor: colors.brandSoft,
   },
+  enableBtnOn: {
+    backgroundColor: "#fff",
+  },
   enableBtnText: {
     fontFamily: fonts.sansSemi,
     fontSize: 13,
     color: colors.brand,
+  },
+  enableBtnTextOn: {
+    color: colors.ink,
   },
 }));

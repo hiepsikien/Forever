@@ -68,6 +68,7 @@ import {
   parseHeritageIdentityIds,
   CalendarKind,
 } from "@/lib/memoryTags";
+import { ensureMourningRites } from "@/lib/mourningRites";
 import {
   documentPickerErrorMessage,
   MediaPermissionError,
@@ -679,7 +680,7 @@ export default function LibraryPersonScreen() {
           textPhotoUri!.startsWith("assets-library:"));
 
       if (textEditingId) {
-        await api.updateMemory(textEditingId, {
+        const updated = await api.updateMemory(textEditingId, {
           title: textTitle.trim() || (textKind === "milestone" ? "Ngày gia đình" : undefined),
           body: textBody.trim(),
           tags: tags || undefined,
@@ -695,6 +696,19 @@ export default function LibraryPersonScreen() {
             mimeType: textPhotoMime,
           });
         }
+        if (
+          textKind === "milestone" &&
+          textCalendarKind === "mat" &&
+          occurred_at &&
+          !yearOnly
+        ) {
+          const pool = memories.map((m) => (m.id === updated.id ? updated : m));
+          await ensureMourningRites(pool, {
+            create: (payload) => api.createNoteMemory(spaceId, payload),
+            update: (id, payload) => api.updateMemory(id, payload),
+            remove: (id) => api.deleteMemory(id),
+          });
+        }
       } else {
         const created = await api.createNoteMemory(spaceId, {
           kind: textKind,
@@ -708,6 +722,18 @@ export default function LibraryPersonScreen() {
             uri: textPhotoUri!,
             name: textPhotoName,
             mimeType: textPhotoMime,
+          });
+        }
+        if (
+          textKind === "milestone" &&
+          textCalendarKind === "mat" &&
+          occurred_at &&
+          !yearOnly
+        ) {
+          await ensureMourningRites([...memories, created], {
+            create: (payload) => api.createNoteMemory(spaceId, payload),
+            update: (id, payload) => api.updateMemory(id, payload),
+            remove: (id) => api.deleteMemory(id),
           });
         }
       }
@@ -1094,6 +1120,7 @@ export default function LibraryPersonScreen() {
             <MemoryKindCard
               item={item}
               identities={identities}
+              milestones={personMemories.filter((m) => m.kind === "milestone")}
               userId={user?.id}
               hideHeritageChips={item.kind !== "milestone"}
               photoUri={photoUris[item.id]}
@@ -1151,6 +1178,7 @@ export default function LibraryPersonScreen() {
       <MemoryReadModal
         item={reading}
         visible={Boolean(reading)}
+        milestones={personMemories.filter((m) => m.kind === "milestone")}
         onClose={() => {
           void recite.stop();
           setReading(null);

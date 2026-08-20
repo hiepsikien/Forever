@@ -91,6 +91,10 @@ IA: `docs/library-ia.plan.md`. One `MemoryItem` vault per `FamilySpace`.
 - **`@handle`** — `IdentityProfile.handle` unique per space; living linked mirrors
   `User.handle`. Resolve via `GET /api/spaces/{id}/handles/{handle}`. Storage tags
   stay `heritage:{uuid}`.
+- **Nghe đọc** (truyện thơ / kinh) — per remembered identity under memorial
+  (`/stories/{spaceId}/{identityId}`). Voice DNA TTS trên từng đoạn, cache
+  `StoryRecording(source=tts)` để lần sau phát lại. Không thu mic cho người đã mất.
+  Bật/tắt kệ và nạp chữ: `require_moderator_or_above` (giống duyệt ký ức).
 
 ## Heritage chat
 
@@ -99,8 +103,10 @@ Pipeline + rationale: `docs/heritage-chat-v2.plan.md`. Code is flat in
 flag in `config.py`.
 
 **Nghe đọc (truyện thơ + kinh Phật):** corpus ở `apps/api/data/storytelling/`;
-ghi giọng thật rồi chỉ phát lại (`routers/storytelling.py`, mobile
-`/stories/[spaceId]/[identityId]`). Không TTS đoạn chưa ghi. Steward bật tập
+Voice DNA TTS + cache `StoryRecording(source=tts)` (`routers/storytelling.py`,
+mobile `/stories/[spaceId]/[identityId]`). Trong chat heritage, «đọc kinh /
+truyện / Kiều…» đi short-circuit `try_story_recite_reply` (đúng tập, đoạn ngẫu
+nhiên, bỏ qua DEPTH + chat-TTS 512) giống đọc thơ thư viện. Steward bật tập
 trên kệ; kinh và truyện chưa có chữ PD thì **Nhập chữ** từ sách/kinh nhà.
 Tái tạo chunk: `./scripts/rebuild-storytelling-chunks.py`.
 

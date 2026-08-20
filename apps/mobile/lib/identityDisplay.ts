@@ -63,3 +63,22 @@ export function identityChipLabel(
   }
   return `${name} · ${relation}`;
 }
+
+/**
+ * Compact who-label for calendar rows — prefer «Bố» / «Bà Nội» over full legal name.
+ */
+export function shortPersonLabel(
+  ident: IdentityProfile,
+  userId?: string | null,
+): string {
+  if (ident.linked_user_id && ident.linked_user_id === userId) return "Tôi";
+  const relation = (ident.relation_label ?? "").trim();
+  if (relation && relation.toLowerCase() !== SELF_RELATION) {
+    return relation;
+  }
+  const name = (ident.display_name ?? "").trim();
+  if (!name) return "Ai đó";
+  // First significant word if the legal name is long.
+  const parts = name.split(/\s+/).filter(Boolean);
+  return parts.length <= 2 ? name : parts[parts.length - 1]!;
+}

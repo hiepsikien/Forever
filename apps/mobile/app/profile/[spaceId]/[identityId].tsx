@@ -162,6 +162,7 @@ export default function IdentityLockScreen() {
   const [revisions, setRevisions] = useState<IdentityProfileRevision[]>([]);
 
   const [displayName, setDisplayName] = useState("");
+  const [handle, setHandle] = useState("");
   const [relation, setRelation] = useState("");
   const [coreValues, setCoreValues] = useState<string[]>([]);
   const [traits, setTraits] = useState<string[]>([]);
@@ -191,6 +192,7 @@ export default function IdentityLockScreen() {
   const hydrate = useCallback((row: IdentityProfile) => {
     setIdentity(row);
     setDisplayName(row.display_name ?? "");
+    setHandle((row.handle ?? "").replace(/^@/, ""));
     setRelation(row.relation_label ?? "");
     setCoreValues(asStringList(row.core_values));
     setRoles(asStringList(row.roles));
@@ -283,6 +285,7 @@ export default function IdentityLockScreen() {
     return {
       display_name: displayName.trim(),
       relation_label: relation.trim(),
+      handle: handle.trim().replace(/^@/, "").toLowerCase() || undefined,
       core_values: cleanList(coreValues),
       roles: cleanList(roles),
       speech_style: { traits: cleanList(traits) },
@@ -296,6 +299,11 @@ export default function IdentityLockScreen() {
     if (!spaceId || !identityId || saving) return;
     if (!displayName.trim()) {
       Alert.alert("Thiếu tên", "Hồ sơ cần một cái tên.");
+      return;
+    }
+    const handleClean = handle.trim().replace(/^@/, "").toLowerCase();
+    if (handleClean && (handleClean.length < 2 || handleClean.length > 32)) {
+      Alert.alert("@handle", "Handle cần từ 2 đến 32 ký tự (a–z, 0–9, _).");
       return;
     }
     if (markReviewed && missing.length) {
@@ -457,6 +465,26 @@ export default function IdentityLockScreen() {
             value={displayName}
             onChangeText={setDisplayName}
             placeholder="vd. Nguyễn Đình Triệu"
+            placeholderTextColor={colors.inkSoft}
+          />
+        </View>
+
+        <View style={styles.field}>
+          <Text style={styles.label}>@handle</Text>
+          <Text style={styles.help}>
+            Tên ngắn để @ trong chat (a–z, 0–9, _). Owner và moderator đổi được.
+            Hồ sơ gắn tài khoản: đổi ở đây cũng đổi @ tài khoản.
+          </Text>
+          <TextInput
+            style={styles.input}
+            value={handle}
+            onChangeText={(t) =>
+              setHandle(t.replace(/^@/, "").toLowerCase().replace(/[^a-z0-9_]/g, ""))
+            }
+            autoCapitalize="none"
+            autoCorrect={false}
+            maxLength={32}
+            placeholder="vd. bo_trieu"
             placeholderTextColor={colors.inkSoft}
           />
         </View>

@@ -27,10 +27,13 @@ export default function StoryListenScreen() {
   const [playing, setPlaying] = useState(false);
   const [detail, setDetail] = useState<StoryChunkDetail | null>(null);
   const [empty, setEmpty] = useState(false);
+  const [emptyHint, setEmptyHint] = useState(
+    "Steward bật tập trên kệ và hoàn thiện Voice DNA. Lần nghe đầu app đọc bằng giọng ký ức rồi giữ lại — lần sau phát lại.",
+  );
 
   useSpaceScreenOptions({
     spaceId,
-    title: "Nghe kể chuyện",
+    title: "Nghe đọc",
     backTitle: "Kệ",
   });
 
@@ -47,9 +50,14 @@ export default function StoryListenScreen() {
         typeof work === "string" ? work : undefined,
       );
       setDetail(next);
-    } catch {
+    } catch (e) {
       setDetail(null);
       setEmpty(true);
+      setEmptyHint(
+        e instanceof Error
+          ? e.message
+          : "Steward bật tập trên kệ và hoàn thiện Voice DNA trước.",
+      );
     } finally {
       setLoading(false);
     }
@@ -87,6 +95,7 @@ export default function StoryListenScreen() {
     return (
       <View style={styles.center}>
         <ActivityIndicator color={colors.brand} />
+        <Text style={styles.loadingHint}>Đang chuẩn bị giọng đọc…</Text>
       </View>
     );
   }
@@ -94,10 +103,8 @@ export default function StoryListenScreen() {
   if (empty || !detail) {
     return (
       <View style={styles.centerPad}>
-        <Text style={styles.emptyTitle}>Chưa có đoạn nào để nghe</Text>
-        <Text style={styles.emptyBody}>
-          Thu kể chuyện trước — app chỉ phát lại giọng đã ghi, không đọc hộ.
-        </Text>
+        <Text style={styles.emptyTitle}>Chưa nghe được đoạn nào</Text>
+        <Text style={styles.emptyBody}>{emptyHint}</Text>
       </View>
     );
   }
@@ -114,7 +121,7 @@ export default function StoryListenScreen() {
       <View style={styles.footer}>
         <Pressable style={styles.primaryBtn} onPress={play}>
           <Text style={styles.primaryBtnText}>
-            {playing ? "Dừng" : "Phát giọng thật"}
+            {playing ? "Dừng" : "Phát giọng đọc"}
           </Text>
         </Pressable>
         <Pressable style={styles.secondaryBtn} onPress={() => void loadNext()}>
@@ -128,7 +135,12 @@ export default function StoryListenScreen() {
 const styles = createThemedStyles(() => ({
   root: { flex: 1, backgroundColor: colors.bg },
   content: { padding: 20, paddingBottom: 24 },
-  center: { flex: 1, alignItems: "center", justifyContent: "center" },
+  center: { flex: 1, alignItems: "center", justifyContent: "center", gap: 12 },
+  loadingHint: {
+    fontFamily: fonts.sans,
+    fontSize: 14,
+    color: colors.muted,
+  },
   centerPad: {
     flex: 1,
     padding: 28,

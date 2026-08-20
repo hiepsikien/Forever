@@ -101,6 +101,14 @@ from .heritage_gemini import GeminiCall, call_gemini
 from .memory_scope import readable_by, reader_for_thread
 from .poem_recite import PoemReciteError, get_or_create_recite_audio
 from .storage import save_bytes
+from .storytelling import (
+    StoryTtsError,
+    enabled_readable_works,
+    ensure_story_tts_recording,
+    pick_random_chunk_for_work,
+    pick_work_for_recite,
+    score_work_for_recite,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -497,9 +505,43 @@ _RECITE_FILLER = {
     "oi", "a", "nhe", "di", "con", "noi",
 }
 
+# Verbs / phrases that mean «please read aloud» for kinh + truyện thơ.
+_STORY_READ_HINT = re.compile(
+    r"("
+    r"\bdoc\s+kinh\b|"
+    r"\bniem\s+kinh\b|"
+    r"\btung\s+kinh\b|"
+    r"\bdoc\s+truyen\b|"
+    r"\bke\s+chuyen\b|"
+    r"\bnghe\b.{0,28}\b(doc|kinh|truyen)\b|"
+    r"\bdoc\b.{0,24}\b(kinh|truyen)\b|"
+    r"\b(doc|ngam|niem|tung)\b"
+    r")",
+    re.I,
+)
+
+_STORY_CATEGORY_SUTRA = re.compile(r"\b(kinh|niem|tung)\b")
+_STORY_CATEGORY_CLASSIC = re.compile(r"\btruyen\b")
+
 
 def looks_like_poem_recite_request(text: str) -> bool:
     return bool(_RECITE_HINT.search(_normalize_text(text)))
+
+
+def looks_like_story_recite_request(
+    text: str,
+    works: list | None = None,
+) -> bool:
+    """True when they asked to hear a kinh / truyện — or named an enabled work."""
+    norm = _normalize_text(text)
+    if not _STORY_READ_HINT.search(norm):
+        return False
+    if _STORY_CATEGORY_SUTRA.search(norm) or _STORY_CATEGORY_CLASSIC.search(norm):
+        return True
+    # «Bà đọc Kiều» / «đọc Dược Sư» — verb + title, no generic kinh/truyện word.
+    if works:
+        return any(score_work_for_recite(w, text) >= 12 for w in works)
+    return False
 
 
 def _recite_remainder(query: str) -> str:
@@ -544,7 +586,7 @@ def try_poem_recite_reply(
     identity: IdentityProfile,
     user_message: Message,
     settings: Settings | None = None,
-) -> tuple[str, dict, str, str] | None:
+) -> tuple[str, dict, str | None, str | None] | None:
     """If they asked to hear a poem, attach the cached Voice DNA recitation."""
     user_text = (user_message.body or "").strip()
     if not looks_like_poem_recite_request(user_text):
@@ -590,6 +632,128 @@ def try_poem_recite_reply(
         "cited": [{"memory_id": poem.id, "title": title, "kind": "poem"}],
     }
     return body, meta, relative, "audio/mpeg"
+
+
+def try_story_recite_reply(
+    db: Session,
+    *,
+    thread: Thread,
+    identity: IdentityProfile,
+    user_message: Message,
+    settings: Settings | None = None,
+) -> tuple[str, dict, str | None, str | None] | None:
+    """If they asked for a kinh / truyện, play a random chunk (TTS or cache).
+
+    Bypasses Gemini DEPTH and the short chat-TTS char guard — audio comes from
+    the storytelling path (chunked Voice DNA), same as the Nghe đọc shelf.
+    """
+    user_text = (user_message.body or "").strip()
+    works = enabled_readable_works(db, identity_id=identity.id)
+    if not looks_like_story_recite_request(user_text, works):
+        return None
+    persona = persona_for(identity)
+    audience = _detect_audience(
+        db,
+        space_id=thread.space_id,
+        sender_user_id=user_message.sender_user_id,
+        user_text=user_text,
+        thread=thread,
+        persona=persona,
+    )
+    me = persona.me(audience)
+    you = persona.you(audience)
+
+    if not works:
+        body = (
+            f"{me} chưa mở kệ nghe đọc trong thư viện — "
+            f"nhờ người giữ nhà bật kinh hoặc truyện giúp {you}."
+        )
+        return body, {"audience": audience, "story_recite": False, "story_recite_empty": True}, None, None
+
+    work = pick_work_for_recite(works, user_text)
+    if work is None:
+        norm = _normalize_text(user_text)
+        if _STORY_CATEGORY_SUTRA.search(norm) or _STORY_CATEGORY_CLASSIC.search(norm):
+            kind_label = "kinh" if _STORY_CATEGORY_SUTRA.search(norm) else "truyện"
+            body = (
+                f"Trên kệ của {me} chưa có {kind_label} mở sẵn để đọc — "
+                f"nhờ người giữ nhà bật giúp {you}."
+            )
+            return (
+                body,
+                {"audience": audience, "story_recite": False, "story_recite_empty": True},
+                None,
+                None,
+            )
+        return None
+
+    chunk = pick_random_chunk_for_work(db, work_id=work.id)
+    if chunk is None:
+        body = f"«{work.title}» chưa có chữ để {me} đọc cho {you}."
+        return (
+            body,
+            {
+                "audience": audience,
+                "story_recite": False,
+                "story_work_slug": work.slug,
+                "story_recite_empty": True,
+            },
+            None,
+            None,
+        )
+
+    sender = user_message.sender_user_id
+    if not sender:
+        return None
+    try:
+        recording = ensure_story_tts_recording(
+            db, identity=identity, chunk=chunk, user_id=sender
+        )
+    except StoryTtsError as exc:
+        logger.info("heritage story recite skipped: %s", exc.detail)
+        body = f"{me} chưa đọc được «{work.title}» lúc này {you}. {exc.detail}"
+        return (
+            body,
+            {
+                "audience": audience,
+                "story_recite": False,
+                "story_work_slug": work.slug,
+                "story_chunk_id": chunk.id,
+                "story_recite_error": exc.detail,
+            },
+            None,
+            None,
+        )
+    except Exception:
+        logger.exception("heritage story recite failed")
+        return None
+
+    title = (work.title or work.slug).strip()
+    label = (chunk.label or "").strip()
+    if label:
+        lead = f"{me} đọc «{title}» — {label} đây {you}."
+    else:
+        lead = f"{me} đọc «{title}» đây {you}."
+    passage = (chunk.body or "").strip()
+    body = f"{lead}\n\n{passage}".strip() if passage else lead
+    meta = {
+        "audience": audience,
+        "story_recite": True,
+        "story_work_slug": work.slug,
+        "story_work_title": title,
+        "story_work_category": work.category or "classic",
+        "story_chunk_id": chunk.id,
+        "story_recording_id": recording.id,
+        "cited": [
+            {
+                "kind": "story_chunk",
+                "work_slug": work.slug,
+                "title": title,
+                "chunk_id": chunk.id,
+            }
+        ],
+    }
+    return body, meta, recording.media_path, recording.media_mime or "audio/mpeg"
 
 
 def _knowledge_snippets(
@@ -1533,16 +1697,26 @@ def maybe_heritage_reply(
         body = app_refusal("unheard", persona_for(identity))
         meta = {"heritage_refusal": "unheard"}
     else:
-        recited_pack = try_poem_recite_reply(
+        # Story/sutra before library poems — «đọc Kiều» must not fall through to Gemini.
+        recited_pack = try_story_recite_reply(
             db,
             thread=thread,
             identity=identity,
             user_message=user_message,
             settings=settings,
         )
+        if recited_pack is None:
+            recited_pack = try_poem_recite_reply(
+                db,
+                thread=thread,
+                identity=identity,
+                user_message=user_message,
+                settings=settings,
+            )
         if recited_pack is not None:
             body, meta, media_path, media_mime = recited_pack
-            kind = "voice"
+            if media_path:
+                kind = "voice"
             recited = True
         else:
             body, meta = generate_heritage_reply(

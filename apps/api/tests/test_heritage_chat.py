@@ -458,6 +458,150 @@ def test_looks_like_poem_recite_request():
     assert not looks_like_poem_recite_request("Con khỏe không bố")
 
 
+def test_looks_like_story_recite_request():
+    from types import SimpleNamespace
+
+    from app.services.heritage_chat import looks_like_story_recite_request
+
+    kieu = SimpleNamespace(
+        slug="kieu",
+        title="Truyện Kiều",
+        author="Nguyễn Du",
+        category="classic",
+    )
+    duoc = SimpleNamespace(
+        slug="kinh_duoc_su",
+        title="Kinh Dược Sư",
+        author="HT",
+        category="sutra",
+    )
+    assert looks_like_story_recite_request("Bà đọc kinh giúp cháu")
+    assert looks_like_story_recite_request("Bà niệm kinh Dược Sư")
+    assert looks_like_story_recite_request("đọc truyện Kiều đi bà")
+    assert looks_like_story_recite_request("Bà đọc Kiều cho con nghe", [kieu, duoc])
+    assert looks_like_story_recite_request("đọc Dược Sư", [kieu, duoc])
+    assert not looks_like_story_recite_request("Con khỏe không bà")
+    assert not looks_like_story_recite_request("Bà nhớ bài thơ về quê không?", [kieu])
+    # Library poem ask must not steal the story path without a work title.
+    assert not looks_like_story_recite_request("bố đọc thơ em gái", [kieu, duoc])
+
+
+def test_pick_work_for_recite_matches_title_and_category():
+    from types import SimpleNamespace
+
+    from app.services.storytelling import pick_work_for_recite
+
+    kieu = SimpleNamespace(
+        slug="kieu",
+        title="Truyện Kiều",
+        author="Nguyễn Du",
+        category="classic",
+    )
+    van = SimpleNamespace(
+        slug="luc_van_tien",
+        title="Lục Vân Tiên",
+        author="Nguyễn Đình Chiểu",
+        category="classic",
+    )
+    duoc = SimpleNamespace(
+        slug="kinh_duoc_su",
+        title="Kinh Dược Sư",
+        author="HT",
+        category="sutra",
+    )
+    adi = SimpleNamespace(
+        slug="kinh_a_di_da",
+        title="Kinh A Di Đà",
+        author="Kinh Phật",
+        category="sutra",
+    )
+    works = [kieu, van, duoc, adi]
+    assert pick_work_for_recite(works, "bà đọc Kiều") is kieu
+    assert pick_work_for_recite(works, "đọc Dược Sư giúp con") is duoc
+    assert pick_work_for_recite(works, "đọc Lục Vân Tiên") is van
+    sutra = pick_work_for_recite(works, "bà đọc kinh đi", rng=__import__("random").Random(0))
+    assert sutra in (duoc, adi)
+    classic = pick_work_for_recite(
+        works, "bà đọc truyện giúp cháu", rng=__import__("random").Random(1)
+    )
+    assert classic in (kieu, van)
+    assert pick_work_for_recite(works, "con khỏe không") is None
+
+
+def test_try_story_recite_reply_attaches_audio():
+    from app.models import IdentityProfile, Message, Thread
+    from app.services.heritage_chat import try_story_recite_reply
+    from types import SimpleNamespace
+
+    work = SimpleNamespace(
+        id="w1",
+        slug="kinh_duoc_su",
+        title="Kinh Dược Sư",
+        category="sutra",
+    )
+    chunk = SimpleNamespace(
+        id="kinh_duoc_su-0001",
+        work_id="w1",
+        label="Đoạn 1",
+        body="Nam mô Dược Sư Lưu Ly Quang Vương Phật",
+    )
+    recording = SimpleNamespace(
+        id="r1",
+        media_path="s1/story.mp3",
+        media_mime="audio/mpeg",
+    )
+    thread = MagicMock(spec=Thread)
+    thread.space_id = "s1"
+    identity = MagicMock(spec=IdentityProfile)
+    identity.id = "i1"
+    identity.relation_label = "Bà Nội"
+    identity.display_name = "Bà"
+    identity.address_forms_json = json.dumps(
+        {"with_children": {"self": "bà", "other": "con"}},
+        ensure_ascii=False,
+    )
+    identity.roles_json = ""
+    user_message = MagicMock(spec=Message)
+    user_message.body = "Bà đọc Kinh Dược Sư giúp con"
+    user_message.sender_user_id = "u1"
+
+    db = MagicMock()
+    with (
+        patch(
+            "app.services.heritage_chat.enabled_readable_works",
+            return_value=[work],
+        ),
+        patch(
+            "app.services.heritage_chat.pick_work_for_recite",
+            return_value=work,
+        ),
+        patch(
+            "app.services.heritage_chat.pick_random_chunk_for_work",
+            return_value=chunk,
+        ),
+        patch(
+            "app.services.heritage_chat.ensure_story_tts_recording",
+            return_value=recording,
+        ),
+        patch(
+            "app.services.heritage_chat._detect_audience",
+            return_value="child",
+        ),
+    ):
+        pack = try_story_recite_reply(
+            db, thread=thread, identity=identity, user_message=user_message
+        )
+
+    assert pack is not None
+    body, meta, path, mime = pack
+    assert path == "s1/story.mp3"
+    assert mime == "audio/mpeg"
+    assert meta["story_recite"] is True
+    assert meta["story_work_slug"] == "kinh_duoc_su"
+    assert "Dược Sư" in body
+    assert "Nam mô" in body
+
+
 def test_pick_poem_for_recite_matches_title():
     em_gai = MagicMock()
     em_gai.title = "ĐỌC THƠ EM GÁI"
@@ -551,6 +695,10 @@ def test_maybe_heritage_recite_skips_chat_tts():
         patch(
             "app.services.heritage_chat.identity_for_heritage_thread",
             return_value=identity,
+        ),
+        patch(
+            "app.services.heritage_chat.try_story_recite_reply",
+            return_value=None,
         ),
         patch(
             "app.services.heritage_chat.try_poem_recite_reply",

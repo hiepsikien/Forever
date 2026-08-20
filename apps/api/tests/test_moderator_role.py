@@ -252,3 +252,39 @@ def test_declaring_someone_remembered_stays_with_the_steward(client: TestClient)
         json={"status": "remembered"},
     )
     assert allowed.status_code == 200, allowed.text
+
+
+def test_a_moderator_may_toggle_and_import_story_shelf(client: TestClient):
+    space_id, identity_id, _, _steward, mod, plain = _house_with_moderator(
+        client, "mr-story"
+    )
+    en = client.post(
+        f"/api/spaces/{space_id}/identities/{identity_id}/stories/works/kieu/enable",
+        headers=mod,
+    )
+    assert en.status_code == 200, en.text
+
+    denied = client.post(
+        f"/api/spaces/{space_id}/identities/{identity_id}/stories/works/luc_van_tien/enable",
+        headers=plain,
+    )
+    assert denied.status_code == 403
+
+    prose = (
+        "Ngày xưa có hai người kết bạn rất thân. Một người tên Lưu Bình, "
+        "một người tên Dương Lễ. Họ ăn cùng mâm, học cùng đèn suốt thời niên thiếu. "
+        "Đến khoa thi mỗi người một ngả, rồi mới biết ơn nghĩa bạn bè sâu nặng."
+    )
+    imp = client.post(
+        f"/api/spaces/{space_id}/stories/works/luu_binh_duong_le/import",
+        headers=mod,
+        json={"text": prose, "form": "prose"},
+    )
+    assert imp.status_code == 200, imp.text
+    assert imp.json()["chunk_count"] >= 1
+
+    off = client.delete(
+        f"/api/spaces/{space_id}/identities/{identity_id}/stories/works/kieu/enable",
+        headers=mod,
+    )
+    assert off.status_code == 200, off.text

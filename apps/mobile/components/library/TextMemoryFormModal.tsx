@@ -20,8 +20,31 @@ import {
   CalendarKind,
 } from "@/lib/memoryTags";
 import { colors, fonts, createThemedStyles } from "@/lib/theme";
+import {
+  formatLunarShort,
+  formatSolarShort,
+  nextLunarAnniversarySolar,
+  solarToLunar,
+} from "@/lib/vnLunar";
 
 export type TextMemoryKind = "note" | "milestone" | "poem";
+
+function LunarPreview({ occurredAt }: { occurredAt: string }) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(occurredAt);
+  if (!m) return null;
+  const y = Number(m[1]);
+  const mo = Number(m[2]);
+  const d = Number(m[3]);
+  const lunar = solarToLunar(d, mo, y);
+  const next = nextLunarAnniversarySolar({ y, m: mo, d });
+  const solarObs = next ? formatSolarShort(next) : null;
+  return (
+    <Text style={styles.help}>
+      → {formatLunarShort(lunar)}
+      {solarObs ? ` · năm nay ${solarObs} dương` : ""}
+    </Text>
+  );
+}
 
 type Props = {
   visible: boolean;
@@ -152,11 +175,25 @@ export function TextMemoryFormModal({
                     <TextInput
                       value={occurredAt}
                       onChangeText={onChangeOccurredAt}
-                      placeholder="Ngày (vd. 1966-06-01) hoặc chỉ năm (1966)"
+                      placeholder={
+                        calendarKind === "mat" || calendarKind === "gio"
+                          ? "Ngày mất dương lịch (vd. 1966-07-18)"
+                          : "Ngày (vd. 1966-06-01) hoặc chỉ năm (1966)"
+                      }
                       placeholderTextColor={colors.inkSoft}
                       style={styles.input}
                       autoCapitalize="none"
                     />
+                    {kind === "milestone" &&
+                    (calendarKind === "mat" || calendarKind === "gio") &&
+                    /^\d{4}-\d{2}-\d{2}$/.test(occurredAt.trim()) ? (
+                      <LunarPreview occurredAt={occurredAt.trim()} />
+                    ) : calendarKind === "mat" || calendarKind === "gio" ? (
+                      <Text style={styles.help}>
+                        Nhập ngày dương trên giấy tờ — Forever đổi sang âm để giỗ
+                        và hiện cả hai.
+                      </Text>
+                    ) : null}
                   </>
                 ) : null}
                 <TextInput
@@ -272,6 +309,7 @@ const styles = createThemedStyles((colors) => ({
   photoLink: { fontSize: 14, fontWeight: "600", color: colors.brand },
   clearPhoto: { fontSize: 14, fontWeight: "600", color: colors.inkSoft },
   label: { fontSize: 13, fontWeight: "600", color: colors.inkSoft, marginTop: 4 },
+  help: { fontSize: 13, lineHeight: 18, color: colors.inkSoft },
   kindRow: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
   kindChip: {
     borderWidth: 1,

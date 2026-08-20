@@ -412,14 +412,20 @@ def synthesize_poem_audio(
     voice: VoiceProfile,
     text: str,
     settings: Settings | None = None,
+    max_chars: int | None = None,
 ) -> bytes:
-    """Render a poem (possibly in chunks). Raises PoemReciteError on failure."""
+    """Render a poem (possibly in chunks). Raises PoemReciteError on failure.
+
+    Pass ``max_chars=0`` to skip the hard cap (story/sutra chat recite — still
+    split into ``heritage_poem_tts_chunk_chars`` pieces so playback is complete).
+    """
     settings = settings or get_settings()
     body = (text or "").strip()
     if not body:
         raise PoemReciteError(400, "Bài thơ trống.")
-    max_chars = max(1, int(settings.heritage_poem_tts_max_chars or 8000))
-    if len(body) > max_chars:
+    if max_chars is None:
+        max_chars = max(1, int(settings.heritage_poem_tts_max_chars or 8000))
+    if max_chars > 0 and len(body) > max_chars:
         raise PoemReciteError(
             400,
             f"Bài thơ dài hơn {max_chars} ký tự — tách khổ hoặc rút gọn trước khi đọc.",

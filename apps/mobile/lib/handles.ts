@@ -11,13 +11,21 @@ export function identityHandle(ident: IdentityProfile): string | null {
   return h || null;
 }
 
+/** Truncate long @handles for hub rows / chips — full value still used for tagging. */
+export function formatHandleDisplay(handle: string, max = 14): string {
+  const h = handle.trim().replace(/^@/, "");
+  if (!h) return "";
+  if (h.length <= max) return `@${h}`;
+  return `@${h.slice(0, Math.max(1, max - 1))}…`;
+}
+
 export function chipLabelWithHandle(
   ident: IdentityProfile,
   userId?: string | null,
 ): string {
   const base = identityChipLabel(ident, userId);
   const handle = identityHandle(ident);
-  return handle ? `${base} · @${handle}` : base;
+  return handle ? `${base} · ${formatHandleDisplay(handle)}` : base;
 }
 
 /** Active @query at the end of text (for composer autocomplete). */

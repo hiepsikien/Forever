@@ -758,7 +758,7 @@ class IdentityStoryWork(Base):
 
 
 class StoryRecording(Base):
-    """Authentic audio of a person reading one chunk — listen only replays these."""
+    """Cached reading of one chunk — Voice DNA TTS (heritage) or optional human upload."""
 
     __tablename__ = "story_recordings"
 
@@ -771,6 +771,10 @@ class StoryRecording(Base):
     media_path: Mapped[str] = mapped_column(String(512))
     media_mime: Mapped[str] = mapped_column(String(120), default="audio/mp4")
     duration_ms: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    # tts — Voice DNA cache; human — mic upload (legacy / rare)
+    source: Mapped[str] = mapped_column(String(16), default="tts", index=True)
+    # Hash of voice+text so prefs/body changes re-synthesize.
+    fingerprint: Mapped[str] = mapped_column(String(64), default="")
     # ready | retired
     status: Mapped[str] = mapped_column(String(16), default="ready", index=True)
     created_by: Mapped[str] = mapped_column(ForeignKey("users.id"))

@@ -389,7 +389,7 @@ def pick_next_to_listen(
     work_id: str | None = None,
     rng: random.Random | None = None,
 ) -> tuple[StoryChunk, StoryRecording] | None:
-    """Random among ready recordings only — never synthesize missing chunks."""
+    """Prefer a ready cache; otherwise None (caller synthesizes)."""
     q = (
         db.query(StoryRecording, StoryChunk)
         .join(StoryChunk, StoryChunk.id == StoryRecording.chunk_id)
@@ -405,3 +405,260 @@ def pick_next_to_listen(
         return None
     recording, chunk = (rng or random.SystemRandom()).choice(rows)
     return chunk, recording
+
+
+def pick_next_chunk_to_hear(
+    db: Session,
+    *,
+    identity_id: str,
+    work_id: str | None = None,
+    rng: random.Random | None = None,
+) -> StoryChunk | None:
+    """Any chunk on an enabled work — for TTS-on-demand when nothing is cached yet."""
+    enabled = (
+        db.query(IdentityStoryWork.work_id)
+        .filter(IdentityStoryWork.identity_id == identity_id)
+        .all()
+    )
+    work_ids = [row[0] for row in enabled]
+    if work_id:
+        if work_id not in work_ids:
+            return None
+        work_ids = [work_id]
+    if not work_ids:
+        return None
+    candidates = (
+        db.query(StoryChunk)
+        .filter(StoryChunk.work_id.in_(work_ids))
+        .order_by(StoryChunk.sort_order.asc())
+        .all()
+    )
+    if not candidates:
+        return None
+    done = recorded_chunk_ids(db, identity_id=identity_id)
+    # Prefer uncached so the shelf fills out; fall back to any chunk.
+    open_chunks = [c for c in candidates if c.id not in done]
+    pool = open_chunks or candidates
+    return (rng or random.SystemRandom()).choice(pool)
+
+
+def enabled_readable_works(db: Session, *, identity_id: str) -> list[StoryWork]:
+    """Enabled shelf works that already have at least one chunk of text."""
+    rows = (
+        db.query(StoryWork)
+        .join(IdentityStoryWork, IdentityStoryWork.work_id == StoryWork.id)
+        .filter(IdentityStoryWork.identity_id == identity_id)
+        .order_by(StoryWork.category.asc(), StoryWork.sort_order.asc())
+        .all()
+    )
+    if not rows:
+        return []
+    work_ids = [w.id for w in rows]
+    with_text = {
+        row[0]
+        for row in (
+            db.query(StoryChunk.work_id)
+            .filter(StoryChunk.work_id.in_(work_ids))
+            .distinct()
+            .all()
+        )
+    }
+    return [w for w in rows if w.id in with_text]
+
+
+def pick_random_chunk_for_work(
+    db: Session,
+    *,
+    work_id: str,
+    rng: random.Random | None = None,
+) -> StoryChunk | None:
+    """Uniform random passage — recorded or not; chat recite must not prefer cache."""
+    candidates = (
+        db.query(StoryChunk)
+        .filter(StoryChunk.work_id == work_id)
+        .order_by(StoryChunk.sort_order.asc())
+        .all()
+    )
+    if not candidates:
+        return None
+    return (rng or random.SystemRandom()).choice(candidates)
+
+
+def _work_search_blob(work: StoryWork) -> str:
+    from .heritage import normalize_text
+
+    slug = (work.slug or "").replace("_", " ")
+    return normalize_text(f"{slug} {work.title or ''} {work.author or ''}")
+
+
+def score_work_for_recite(work: StoryWork, query: str) -> int:
+    """How well a user ask matches this classic/sutra title (not category alone)."""
+    from .heritage import normalize_text
+
+    query_norm = normalize_text(query)
+    blob = _work_search_blob(work)
+    title_norm = normalize_text(work.title or "")
+    slug_norm = normalize_text((work.slug or "").replace("_", " "))
+    score = 0
+    if title_norm and title_norm in query_norm:
+        score += 60
+    if slug_norm and slug_norm in query_norm:
+        score += 50
+    # Significant tokens from the title/slug that appear in the ask.
+    skip = {"kinh", "truyen", "tho", "phat", "tac", "gia"}
+    for tok in re.split(r"[^\w]+", blob):
+        if len(tok) < 3 or tok in skip:
+            continue
+        if tok in query_norm:
+            score += 12
+    return score
+
+
+def pick_work_for_recite(
+    works: list[StoryWork],
+    query: str,
+    *,
+    rng: random.Random | None = None,
+    allow_category_fallback: bool = True,
+) -> StoryWork | None:
+    """Match a specific work, or fall back to a random enabled kinh / truyện."""
+    from .heritage import normalize_text
+
+    if not works:
+        return None
+    query_norm = normalize_text(query)
+    best: StoryWork | None = None
+    best_score = 0
+    for work in works:
+        score = score_work_for_recite(work, query)
+        if score > best_score:
+            best_score = score
+            best = work
+    if best is not None and best_score >= 12:
+        return best
+    if not allow_category_fallback:
+        return None
+
+    want_sutra = bool(re.search(r"\b(kinh|niem|tung)\b", query_norm))
+    want_classic = bool(re.search(r"\btruyen\b", query_norm))
+    if want_sutra and not want_classic:
+        pool = [w for w in works if (w.category or "classic") == "sutra"]
+    elif want_classic and not want_sutra:
+        pool = [w for w in works if (w.category or "classic") == "classic"]
+    else:
+        return None
+    if not pool:
+        return None
+    return (rng or random.SystemRandom()).choice(pool)
+
+
+class StoryTtsError(Exception):
+    def __init__(self, status: int, detail: str):
+        self.status = status
+        self.detail = detail
+        super().__init__(detail)
+
+
+def ensure_story_tts_recording(
+    db: Session,
+    *,
+    identity: IdentityProfile,
+    chunk: StoryChunk,
+    user_id: str,
+) -> StoryRecording:
+    """Synthesize Voice DNA for a chunk and cache as StoryRecording(source=tts).
+
+    Reuses a ready row when fingerprint still matches voice+text.
+    """
+    from ..config import get_settings
+    from .heritage import voice_for_identity
+    from .heritage_tts import PoemReciteError, synthesize_poem_audio
+    from .poem_recite import recite_fingerprint, voice_can_recite
+    from .storage import absolute_media_path, delete_media_artifacts, save_bytes
+
+    text = (chunk.body or "").strip()
+    if not text:
+        raise StoryTtsError(400, "Đoạn trống.")
+    voice = voice_for_identity(db, identity)
+    if not voice_can_recite(voice):
+        raise StoryTtsError(
+            409,
+            "Chưa có Voice DNA sẵn để đọc. Steward hoàn thiện Giọng từ ký ức trước.",
+        )
+    assert voice is not None
+    fingerprint = recite_fingerprint(voice, text)
+
+    existing = ready_recording_for_chunk(
+        db, identity_id=identity.id, chunk_id=chunk.id
+    )
+    if existing and (getattr(existing, "fingerprint", None) or "") == fingerprint:
+        path = absolute_media_path(existing.media_path)
+        if path.exists() and path.stat().st_size >= 8:
+            return existing
+
+    try:
+        # Chat «đọc kinh/truyện» must not abort mid-passage on the poem char cap;
+        # chunk_tts_text still splits for the provider.
+        audio = synthesize_poem_audio(
+            db,
+            voice=voice,
+            text=text,
+            settings=get_settings(),
+            max_chars=0,
+        )
+    except PoemReciteError as exc:
+        raise StoryTtsError(exc.status_code, exc.detail) from exc
+
+    relative = save_bytes(identity.space_id, audio, ext=".mp3")
+    now = datetime.now(timezone.utc)
+    if existing:
+        old = existing.media_path
+        if old and old != relative:
+            try:
+                delete_media_artifacts(old)
+            except Exception:
+                pass
+        existing.media_path = relative
+        existing.media_mime = "audio/mpeg"
+        existing.source = "tts"
+        existing.fingerprint = fingerprint
+        existing.status = "ready"
+        existing.created_by = user_id
+        existing.created_at = now
+        db.add(existing)
+        db.commit()
+        db.refresh(existing)
+        return existing
+
+    # Retire any other ready takes for this chunk.
+    priors = (
+        db.query(StoryRecording)
+        .filter(
+            StoryRecording.identity_id == identity.id,
+            StoryRecording.chunk_id == chunk.id,
+            StoryRecording.status == "ready",
+        )
+        .all()
+    )
+    for prior in priors:
+        prior.status = "retired"
+        db.add(prior)
+
+    recording = StoryRecording(
+        id=generate(),
+        space_id=identity.space_id,
+        identity_id=identity.id,
+        chunk_id=chunk.id,
+        media_path=relative,
+        media_mime="audio/mpeg",
+        duration_ms=None,
+        source="tts",
+        fingerprint=fingerprint,
+        status="ready",
+        created_by=user_id,
+        created_at=now,
+    )
+    db.add(recording)
+    db.commit()
+    db.refresh(recording)
+    return recording

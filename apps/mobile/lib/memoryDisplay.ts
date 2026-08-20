@@ -16,8 +16,8 @@ export function titleFromFileName(name: string): string {
   return base || "Ký ức mới";
 }
 
-export function isGenericMemoryTitle(kind: string, title: string): boolean {
-  const trimmed = title.trim();
+export function isGenericMemoryTitle(kind: string, title: string | null | undefined): boolean {
+  const trimmed = (title ?? "").trim();
   if (kind === "milestone") {
     return trimmed === "Mốc đời" || trimmed === "Ngày gia đình";
   }
@@ -25,8 +25,11 @@ export function isGenericMemoryTitle(kind: string, title: string): boolean {
   return list.includes(trimmed);
 }
 
-export function displayMemoryTitle(kind: string, title: string): string {
-  const trimmed = title.trim();
+export function displayMemoryTitle(
+  kind: string,
+  title: string | null | undefined,
+): string {
+  const trimmed = (title ?? "").trim();
   if (!trimmed || isGenericMemoryTitle(kind, trimmed)) {
     if (kind === "video") return "Video chưa đặt tên";
     if (kind === "photo") return "Ảnh chưa đặt tên";

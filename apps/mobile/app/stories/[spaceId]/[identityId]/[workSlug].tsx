@@ -55,7 +55,9 @@ export default function StoryWorkChunksScreen() {
       setWork(res.work);
       setChunks(res.chunks);
       setCanManage(
-        spaceRes?.role === "owner" || Boolean(stewardRes?.is_steward),
+        spaceRes?.role === "owner" ||
+          spaceRes?.role === "moderator" ||
+          Boolean(stewardRes?.is_steward),
       );
       if (res.work.category === "sutra") {
         setImportForm("prose");
@@ -83,19 +85,38 @@ export default function StoryWorkChunksScreen() {
   }, [load]);
 
   const play = async (chunk: StoryChunkSummary) => {
-    if (!chunk.recording_id) return;
+    if (!spaceId || !identityId) return;
     try {
-      if (playingId === chunk.recording_id) {
+      const existingId = chunk.recording_id;
+      if (playingId && existingId && playingId === existingId) {
         await stopActivePlayback();
         setPlayingId(null);
         return;
       }
+      setPlayingId(chunk.id);
+      let recordingId = chunk.recording_id;
+      let mime = "audio/mpeg";
+      if (!recordingId) {
+        const detail = await api.synthesizeStoryChunk(
+          spaceId,
+          identityId,
+          chunk.id,
+        );
+        recordingId = detail.recording?.id ?? null;
+        mime = detail.recording?.media_mime ?? mime;
+        await load();
+      }
+      if (!recordingId) {
+        setPlayingId(null);
+        Alert.alert("Lỗi", "Không tạo được giọng đọc.");
+        return;
+      }
       const uri = await fetchAuthedMediaUri(
-        api.storyRecordingMediaUrl(chunk.recording_id),
-        chunk.recording_id,
-        "audio/mp4",
+        api.storyRecordingMediaUrl(recordingId),
+        recordingId,
+        mime,
       );
-      setPlayingId(chunk.recording_id);
+      setPlayingId(recordingId);
       await playLocalAudio(uri, () => setPlayingId(null));
     } catch (e) {
       setPlayingId(null);
@@ -149,8 +170,8 @@ export default function StoryWorkChunksScreen() {
         {(
           [
             ["all", "Tất cả"],
-            ["recorded", "Đã ghi"],
-            ["unrecorded", "Chưa ghi"],
+            ["recorded", "Đã đọc"],
+            ["unrecorded", "Chưa đọc"],
           ] as const
         ).map(([id, label]) => (
           <Pressable
@@ -167,24 +188,6 @@ export default function StoryWorkChunksScreen() {
       <View style={styles.actions}>
         <Pressable
           style={styles.link}
-          disabled={(work?.chunk_count ?? 0) === 0}
-          onPress={() =>
-            router.push(
-              `/stories/${spaceId}/${identityId}/record?work=${workSlug}`,
-            )
-          }
-        >
-          <Text
-            style={[
-              styles.linkText,
-              (work?.chunk_count ?? 0) === 0 && styles.linkMuted,
-            ]}
-          >
-            Thu đoạn chưa ghi
-          </Text>
-        </Pressable>
-        <Pressable
-          style={styles.link}
           onPress={() =>
             router.push(
               `/stories/${spaceId}/${identityId}/listen?work=${workSlug}`,
@@ -197,7 +200,7 @@ export default function StoryWorkChunksScreen() {
       {canManage ? (
         <Pressable style={styles.importBtn} onPress={() => setImportOpen(true)}>
           <Text style={styles.importBtnText}>
-            {(work?.chunk_count ?? 0) === 0 ? "Nhập chữ để thu" : "Thay chữ"}
+            {(work?.chunk_count ?? 0) === 0 ? "Nhập chữ để đọc" : "Thay chữ"}
           </Text>
         </Pressable>
       ) : null}
@@ -223,28 +226,19 @@ export default function StoryWorkChunksScreen() {
                 <Text style={styles.rowTitle}>{item.label}</Text>
                 <Text style={styles.rowMeta}>
                   {item.recorded
-                    ? "Đã ghi · chạm để nghe"
-                    : `Chưa ghi · ~${item.approx_seconds}s`}
+                    ? "Đã đọc · chạm để nghe lại"
+                    : `Chưa đọc · ~${item.approx_seconds}s · chạm để đọc`}
                 </Text>
               </View>
-              {item.recorded ? (
-                <Pressable onPress={() => play(item)} hitSlop={8}>
-                  <Text style={styles.play}>
-                    {playingId === item.recording_id ? "Dừng" : "Nghe"}
-                  </Text>
-                </Pressable>
-              ) : (
-                <Pressable
-                  onPress={() =>
-                    router.push(
-                      `/stories/${spaceId}/${identityId}/record?work=${workSlug}`,
-                    )
-                  }
-                  hitSlop={8}
-                >
-                  <Text style={styles.play}>Thu</Text>
-                </Pressable>
-              )}
+              <Pressable onPress={() => void play(item)} hitSlop={8}>
+                <Text style={styles.play}>
+                  {playingId === item.recording_id || playingId === item.id
+                    ? "…"
+                    : item.recorded
+                      ? "Nghe"
+                      : "Đọc"}
+                </Text>
+              </Pressable>
             </View>
           )}
         />

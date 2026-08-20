@@ -3,7 +3,26 @@
 import { IdentityProfile, MemoryCandidate, MemoryItem } from "@forever/api-client";
 
 import { identityChipLabel } from "@/lib/identityDisplay";
-import { parseHeritageIdentityIds, tagTokens, isCalendarYearOnly } from "@/lib/memoryTags";
+import {
+  parseHeritageIdentityIds,
+  tagTokens,
+  isCalendarYearOnly,
+  isLunarMemorialKind,
+  parseCalendarKind,
+} from "@/lib/memoryTags";
+import {
+  nextLunarAnniversarySolar,
+  solarToLunar,
+  type Ymd,
+} from "@/lib/vnLunar";
+import {
+  calendarGioOrdinalLabel,
+  dedupeMourningMilestones,
+  isDeathMilestone,
+  parseRiteId,
+  titleAlreadyHasGioOrdinal,
+} from "@/lib/mourningRites";
+import { displayMemoryTitle } from "@/lib/memoryDisplay";
 
 export const UNTAGGED_PERSON_ID = "_none";
 
@@ -268,18 +287,55 @@ function mdKey(month: number, day: number): number {
   return month * 100 + day;
 }
 
-/** Lịch gia đình: sắp tới theo tháng/ngày, rồi đã qua, năm, chưa rõ. */
+function ymdKey(day: Ymd): number {
+  return day.y * 10000 + day.m * 100 + day.d;
+}
+
+function todayYmd(now: Date): Ymd {
+  return {
+    y: now.getFullYear(),
+    m: now.getMonth() + 1,
+    d: now.getDate(),
+  };
+}
+
+/**
+ * Absolute solar day used to order the family calendar.
+ * 49 / 100 / giỗ đầu / ngày mất → đúng ngày đã lưu (một lần).
+ * Giỗ thường → lần âm kế tiếp. Cưới·sinh → dương năm nay/tới.
+ */
+function calendarOccurrenceSolar(item: MemoryItem, now: Date): Ymd | null {
+  const p = utcParts(item.occurred_at!);
+  if (!p) return null;
+  const rite = parseRiteId(item.tags);
+  if (rite === "49" || rite === "100" || rite === "gio_dau") {
+    return p;
+  }
+  if (isDeathMilestone(item)) {
+    return p;
+  }
+  if (isLunarMemorialKind(item.tags)) {
+    return nextLunarAnniversarySolar(p, now) ?? p;
+  }
+  // Cưới / sinh / khác — neo theo dương trong năm nay (đã qua hoặc còn tới).
+  const today = todayYmd(now);
+  return { y: today.y, m: p.m, d: p.d };
+}
+
+/** Lịch gia đình: sắp tới theo ngày dương tuyệt đối, rồi đã qua, năm, chưa rõ. */
 export function groupFamilyCalendar(
   items: MemoryItem[],
   now: Date = new Date(),
 ): DecadeSection[] {
-  const todayMd = mdKey(now.getMonth() + 1, now.getDate());
+  const deduped = dedupeMourningMilestones(items);
+  const today = todayYmd(now);
+  const todayKey = ymdKey(today);
   const upcoming: MemoryItem[] = [];
   const past: MemoryItem[] = [];
   const yearOnly: MemoryItem[] = [];
   const unknown: MemoryItem[] = [];
 
-  for (const item of items) {
+  for (const item of deduped) {
     if (!item.occurred_at) {
       unknown.push(item);
       continue;
@@ -288,33 +344,52 @@ export function groupFamilyCalendar(
       yearOnly.push(item);
       continue;
     }
-    const p = utcParts(item.occurred_at);
-    if (!p) {
+    const sort = calendarOccurrenceSolar(item, now);
+    if (!sort) {
       unknown.push(item);
       continue;
     }
-    if (mdKey(p.m, p.d) >= todayMd) upcoming.push(item);
+    if (ymdKey(sort) >= todayKey) upcoming.push(item);
     else past.push(item);
   }
 
-  const byNext = (a: MemoryItem, b: MemoryItem) => {
+  const byOccurrenceAsc = (a: MemoryItem, b: MemoryItem) => {
+    const pa = calendarOccurrenceSolar(a, now)!;
+    const pb = calendarOccurrenceSolar(b, now)!;
+    const da = ymdKey(pa);
+    const db = ymdKey(pb);
+    if (da !== db) return da - db;
+    return (a.title || "").localeCompare(b.title || "", "vi");
+  };
+
+  /** Đã xảy ra: theo ngày gốc trên dòng đời (sinh → cưới → mất → …). */
+  const byAbsoluteAsc = (a: MemoryItem, b: MemoryItem) => {
     const pa = utcParts(a.occurred_at!)!;
     const pb = utcParts(b.occurred_at!)!;
-    const da = mdKey(pa.m, pa.d);
-    const db = mdKey(pb.m, pb.d);
+    const da = ymdKey(pa);
+    const db = ymdKey(pb);
     if (da !== db) return da - db;
-    return pb.y - pa.y;
+    return (a.title || "").localeCompare(b.title || "", "vi");
   };
-  upcoming.sort(byNext);
-  past.sort(byNext);
+
+  upcoming.sort(byOccurrenceAsc);
+  past.sort(byAbsoluteAsc);
   yearOnly.sort((a, b) => (occurredMs(a) ?? 0) - (occurredMs(b) ?? 0));
   unknown.sort((a, b) => createdMs(a) - createdMs(b));
 
   const sections: DecadeSection[] = [];
-  if (upcoming.length) sections.push({ key: "upcoming", label: "Sắp tới", items: upcoming });
-  if (past.length) sections.push({ key: "past", label: "Đã qua trong năm", items: past });
-  if (yearOnly.length) sections.push({ key: "year", label: "Chỉ biết năm", items: yearOnly });
-  if (unknown.length) sections.push({ key: "unknown", label: "Chưa rõ ngày", items: unknown });
+  if (upcoming.length) {
+    sections.push({ key: "upcoming", label: "Sắp tới", items: upcoming });
+  }
+  if (past.length) {
+    sections.push({ key: "past", label: "Đã xảy ra", items: past });
+  }
+  if (yearOnly.length) {
+    sections.push({ key: "year", label: "Chỉ biết năm", items: yearOnly });
+  }
+  if (unknown.length) {
+    sections.push({ key: "unknown", label: "Chưa rõ ngày", items: unknown });
+  }
   return sections;
 }
 
@@ -361,17 +436,90 @@ export function yearLabel(occurredAt: string | null | undefined): string {
 export function calendarDateLabel(
   occurredAt: string | null | undefined,
   tags?: string | null,
+  item?: MemoryItem,
 ): string {
-  if (!occurredAt) return "?";
+  const lines = calendarDateLines(occurredAt, tags, new Date(), item);
+  return lines.secondary
+    ? `${lines.primary} · ${lines.secondary}`
+    : lines.primary;
+}
+
+/**
+ * Date column — same stack everywhere so rows align:
+ *   trên: ngày/tháng(/năm khi cần — giỗ đầu, 49, 100, mất…)
+ *   dưới: ngày/tháng âm (cưới·sinh bỏ dòng này)
+ */
+export function calendarDateLines(
+  occurredAt: string | null | undefined,
+  tags?: string | null,
+  now: Date = new Date(),
+  item?: MemoryItem,
+): { primary: string; secondary?: string } {
+  if (!occurredAt) return { primary: "?" };
   const p = utcParts(occurredAt);
-  if (!p) return "?";
+  if (!p) return { primary: "?" };
   if (
     isCalendarYearOnly(tags) ||
     (p.m === 1 && p.d === 1 && !tags?.includes("lich-precision:day"))
   ) {
-    return String(p.y);
+    return { primary: String(p.y) };
   }
-  return `${p.d}/${p.m}`;
+
+  const kind = parseCalendarKind(tags);
+  const rite = parseRiteId(tags);
+  const isDeath =
+    kind === "mat" || Boolean(item && isDeathMilestone(item));
+
+  // Cưới / sinh — chỉ dương, không năm (lặp hằng năm).
+  if (kind === "cuoi" || kind === "sinh") {
+    return { primary: `${p.d}/${p.m}` };
+  }
+
+  const needYear =
+    isDeath ||
+    kind === "gio" ||
+    rite === "gio_dau" ||
+    rite === "49" ||
+    rite === "100";
+  const primary = needYear
+    ? `${p.d}/${p.m}/${p.y}`
+    : `${p.d}/${p.m}`;
+
+  const lunar = solarToLunar(p.d, p.m, p.y);
+  const secondary = `${lunar.d}/${lunar.m} âm`;
+
+  // Mất / giỗ / nghi lễ — luôn có dòng âm bên dưới.
+  if (
+    isDeath ||
+    kind === "gio" ||
+    Boolean(rite) ||
+    isLunarMemorialKind(tags)
+  ) {
+    return { primary, secondary };
+  }
+
+  return { primary };
+}
+
+/**
+ * Calendar / mốc title with «Giỗ đầu» / «Giỗ năm thứ N» when death year is known.
+ */
+export function displayCalendarMilestoneTitle(
+  item: MemoryItem,
+  opts?: { milestones?: MemoryItem[]; now?: Date },
+): string {
+  const base = displayMemoryTitle(item.kind, item.title ?? "");
+  const gio = calendarGioOrdinalLabel(
+    item,
+    opts?.milestones,
+    opts?.now ?? new Date(),
+  );
+  if (!gio) return base;
+  if (titleAlreadyHasGioOrdinal(base)) return base;
+  const genericDeath =
+    /^(tạ thế|ngày mất|giỗ|mốc đời|ngày gia đình)$/i.test(base.trim());
+  if (genericDeath) return gio;
+  return `${base} · ${gio}`;
 }
 
 /** Thơ / hiện vật / knowledge: newest saved first. */
