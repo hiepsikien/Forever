@@ -108,12 +108,15 @@ Pipeline + rationale: `docs/heritage-chat-v2.plan.md`. Code is flat in
 flag in `config.py`.
 
 **Nghe đọc (truyện thơ + kinh Phật):** corpus ở `apps/api/data/storytelling/`;
-Voice DNA TTS + cache `StoryRecording(source=tts)` (`routers/storytelling.py`,
-mobile `/stories/[spaceId]/[identityId]`). Trong chat heritage, «đọc kinh /
+phải có trong Docker image (`COPY data/` trong `apps/api/Dockerfile`) thì
+`seed_storytelling_corpus` mới chạy trên prod. Voice DNA TTS + cache
+`StoryRecording(source=tts)` (`routers/storytelling.py`, mobile
+`/stories/[spaceId]/[identityId]`). Trong chat heritage, «đọc kinh /
 truyện / Kiều…» đi short-circuit `try_story_recite_reply` (đúng tập, đoạn ngẫu
 nhiên, bỏ qua DEPTH + chat-TTS 512) giống đọc thơ thư viện. Steward bật tập
 trên kệ; kinh và truyện chưa có chữ PD thì **Nhập chữ** từ sách/kinh nhà.
-Tái tạo chunk: `./scripts/rebuild-storytelling-chunks.py`.
+Tái tạo chunk: `./scripts/rebuild-storytelling-chunks.py`. Bật kệ bà trên
+prod sau deploy: `./scripts/enable-ba-thong-stories-prod.sh`.
 
 ### Ba tầng quy định — luật của một người không được áp cho người khác
 

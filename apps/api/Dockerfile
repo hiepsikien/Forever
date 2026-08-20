@@ -15,6 +15,8 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 COPY app/ app/
+# Catalog JSON for Kiều / Lục Vân Tiên / Kinh Dược Sư — seed_storytelling_corpus
+COPY data/ data/
 
 RUN mkdir -p /data/uploads
 
