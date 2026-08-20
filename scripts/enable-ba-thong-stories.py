@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
-"""Enable Kiều / Lục Vân Tiên / Kinh Dược Sư on Bà Nội's storytelling shelf.
+"""Enable classics / sutras on Bà Nội's storytelling shelf.
+
+Includes Phạm Công – Cúc Hoa (catalog slot; Nhập chữ when family has the book).
 
 Run inside forever-api after corpus seed (API boot with data/storytelling in image):
 
@@ -20,7 +22,7 @@ from pathlib import Path
 
 from nanoid import generate
 
-SLUGS = ("kieu", "luc_van_tien", "kinh_duoc_su")
+SLUGS = ("kieu", "luc_van_tien", "pham_cong_cuc_hoa", "kinh_duoc_su")
 OWNER_EMAIL = "anh.nguyendinh.cs@gmail.com"
 
 

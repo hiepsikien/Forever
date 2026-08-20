@@ -519,6 +519,15 @@ def test_pick_work_for_recite_matches_title_and_category():
     assert pick_work_for_recite(works, "bà đọc Kiều") is kieu
     assert pick_work_for_recite(works, "đọc Dược Sư giúp con") is duoc
     assert pick_work_for_recite(works, "đọc Lục Vân Tiên") is van
+    pcc = SimpleNamespace(
+        slug="pham_cong_cuc_hoa",
+        title="Phạm Công – Cúc Hoa",
+        author="Dương Minh Đức Thị",
+        category="classic",
+    )
+    works_with_pcc = [kieu, van, pcc, duoc, adi]
+    assert pick_work_for_recite(works_with_pcc, "bà đọc Phạm Công Cúc Hoa") is pcc
+    assert pick_work_for_recite(works_with_pcc, "đọc Cúc Hoa giúp cháu") is pcc
     sutra = pick_work_for_recite(works, "bà đọc kinh đi", rng=__import__("random").Random(0))
     assert sutra in (duoc, adi)
     classic = pick_work_for_recite(
