@@ -1,9 +1,8 @@
-import { ReactNode, useCallback, useRef } from "react";
+import { ReactNode, useCallback, useRef, useState } from "react";
 import {
   GestureResponderEvent,
   LayoutChangeEvent,
   Platform,
-  Pressable,
   StyleProp,
   View,
   ViewStyle,
@@ -28,9 +27,9 @@ type Props = {
 };
 
 /**
- * Hold-to-talk host. Pressable gives Android the same reliable touch path as
- * the old Mic button; onTouchMove keeps slide-to-cancel and leaving the hit
- * ring. The responder system was iOS-first and often never granted on Android.
+ * Hold-to-talk host. Uses low-level touch events (not the responder system) so
+ * Android gets the same reliable path as Pressable buttons like «Nghe lại».
+ * Immediate pressed styling fires before async mic open.
  */
 export function HoldToTalkTarget({
   disabled,
@@ -53,6 +52,7 @@ export function HoldToTalkTarget({
   const startRef = useRef(onHoldStart);
   const armedChangeRef = useRef(onCancelArmedChange);
   const endRef = useRef(onHoldEnd);
+  const [pressed, setPressed] = useState(false);
   disabledRef.current = disabled;
   directionRef.current = cancelDirection;
   startRef.current = onHoldStart;
@@ -69,9 +69,8 @@ export function HoldToTalkTarget({
     (cancelled: boolean) => {
       if (!holdingRef.current) return;
       holdingRef.current = false;
+      setPressed(false);
       endRef.current(cancelled);
-      // Visual cancel red is only for an in-progress take. After the hold
-      // ends the parent must not be left with cancelArmed stuck true.
       setArmed(false);
     },
     [setArmed],
@@ -88,19 +87,21 @@ export function HoldToTalkTarget({
     );
   }, []);
 
-  const onPressIn = useCallback(
+  const onTouchStart = useCallback(
     (e: GestureResponderEvent) => {
       if (disabledRef.current || holdingRef.current) return;
       holdingRef.current = true;
+      setPressed(true);
       armedRef.current = false;
       originXRef.current = e.nativeEvent.pageX;
       originYRef.current = e.nativeEvent.pageY;
       startRef.current(e);
-      // iOS can delay press-in until the finger has already slid off a light
-      // rest. Don't keep a hold that started outside the control.
-      const { locationX, locationY } = e.nativeEvent;
-      if (leftHitRing(locationX, locationY)) {
-        endHold(true);
+      // Android locationX/Y at touch-start are unreliable; only iOS checks here.
+      if (Platform.OS === "ios") {
+        const { locationX, locationY } = e.nativeEvent;
+        if (leftHitRing(locationX, locationY)) {
+          endHold(true);
+        }
       }
     },
     [endHold, leftHitRing],
@@ -123,7 +124,7 @@ export function HoldToTalkTarget({
     [endHold, leftHitRing, setArmed],
   );
 
-  const onPressOut = useCallback(() => endHold(false), [endHold]);
+  const onTouchEnd = useCallback(() => endHold(false), [endHold]);
   const onTouchCancel = useCallback(() => endHold(true), [endHold]);
   const onLayout = useCallback((e: LayoutChangeEvent) => {
     const { width, height } = e.nativeEvent.layout;
@@ -131,26 +132,27 @@ export function HoldToTalkTarget({
   }, []);
 
   return (
-    <Pressable
+    <View
       collapsable={false}
-      disabled={disabled}
-      android_ripple={
-        Platform.OS === "android"
-          ? { color: "rgba(45, 74, 62, 0.18)", borderless: false }
-          : undefined
-      }
-      onPressIn={onPressIn}
-      onPressOut={onPressOut}
+      onTouchStart={disabled ? undefined : onTouchStart}
       onTouchMove={onTouchMove}
+      onTouchEnd={onTouchEnd}
       onTouchCancel={onTouchCancel}
       onLayout={onLayout}
-      style={style}
+      style={[style, pressed && !disabled && styles.pressed]}
       accessibilityRole="button"
       accessibilityState={{ disabled: Boolean(disabled) }}
       accessibilityLabel={accessibilityLabel}
       accessibilityHint={accessibilityHint}
     >
       <View pointerEvents="none">{children}</View>
-    </Pressable>
+    </View>
   );
 }
+
+const styles = {
+  pressed: {
+    opacity: 0.82,
+    transform: [{ scale: 0.97 }],
+  },
+} as const;

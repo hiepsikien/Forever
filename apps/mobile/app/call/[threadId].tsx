@@ -762,6 +762,9 @@ export default function CallScreen() {
       phaseRef.current === "idle" || phaseRef.current === "error";
     if (!canStart || recorder.isRecording) return;
     setError(null);
+    // Turn red immediately so mẹ sees the button react before mic open (~300ms).
+    phaseRef.current = "listening";
+    setPhase("listening");
     try {
       const perm = await requestRecordingPermissionsAsync();
       if (!perm.granted) {
@@ -785,8 +788,6 @@ export default function CallScreen() {
       }
       recordStartedAtRef.current = Date.now();
       speechGateRef.current = emptySpeechGate();
-      phaseRef.current = "listening";
-      setPhase("listening");
     } catch (e) {
       holdingRef.current = false;
       setError(e instanceof Error ? e.message : "Không ghi âm được.");
@@ -847,6 +848,7 @@ export default function CallScreen() {
       }
       if (
         cancelArmedRef.current ||
+        recordStartedAtRef.current === 0 ||
         Date.now() - recordStartedAtRef.current < HOLD_TO_TALK_MIN_MS
       ) {
         await abortListening();
@@ -1476,6 +1478,7 @@ const styles = createThemedStyles((colors) => ({
   transcriptScroll: {
     flex: 1,
     minHeight: 0,
+    ...(Platform.OS === "android" ? { zIndex: 0 } : null),
   },
   transcriptContent: {
     paddingVertical: 8,
@@ -1649,7 +1652,7 @@ const styles = createThemedStyles((colors) => ({
     borderTopColor: colors.line,
     position: "relative",
     ...(Platform.OS === "android"
-      ? { elevation: 8, zIndex: 10, backgroundColor: colors.bg }
+      ? { elevation: 16, zIndex: 20, backgroundColor: colors.bg }
       : null),
   },
   meterFloat: {
@@ -1666,6 +1669,7 @@ const styles = createThemedStyles((colors) => ({
     backgroundColor: "rgba(45, 74, 62, 0.14)",
     alignItems: "center",
     justifyContent: "center",
+    ...(Platform.OS === "android" ? { elevation: 4, zIndex: 21 } : null),
   },
   mainBtnHitListening: {
     backgroundColor: "rgba(139, 58, 58, 0.22)",

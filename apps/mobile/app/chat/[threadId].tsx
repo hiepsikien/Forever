@@ -738,10 +738,14 @@ export default function ChatScreen() {
 
   const startRecording = async (gen: number) => {
     if (sendingRef.current || recorder.isRecording) return;
+    recordingRef.current = true;
+    setRecording(true);
     try {
       const perm = await requestRecordingPermissionsAsync();
       if (!perm.granted) {
         holdingRef.current = false;
+        recordingRef.current = false;
+        setRecording(false);
         Alert.alert("Cần quyền", "Cho phép micro để gửi giọng nói.");
         return;
       }
@@ -756,8 +760,6 @@ export default function ChatScreen() {
       }
       recordStartedAtRef.current = Date.now();
       speechGateRef.current = emptySpeechGate();
-      recordingRef.current = true;
-      setRecording(true);
     } catch (e) {
       holdingRef.current = false;
       recordingRef.current = false;
@@ -1338,7 +1340,7 @@ const styles = createThemedStyles((colors) => ({
     borderTopColor: colors.line,
     backgroundColor: colors.bg,
     ...(Platform.OS === "android"
-      ? { elevation: 8, zIndex: 10 }
+      ? { elevation: 16, zIndex: 20 }
       : null),
   },
   input: {
