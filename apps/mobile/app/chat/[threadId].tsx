@@ -39,9 +39,9 @@ import { HandleSuggestBar } from "@/components/HandleSuggestBar";
 import {
   playLocalAudio,
   preparePlaybackMode,
-  prepareRecordingMode,
   stopActivePlayback,
 } from "@/lib/audio";
+import { beginVoiceRecording } from "@/lib/beginVoiceRecording";
 import {
   HOLD_TO_TALK_MAX_MS,
   HOLD_TO_TALK_MIN_MS,
@@ -748,13 +748,8 @@ export default function ChatScreen() {
       if (!holdingRef.current || holdGenRef.current !== gen) return;
       await stopActivePlayback();
       setPlayingId(null);
-      await prepareRecordingMode();
-      if (!holdingRef.current || holdGenRef.current !== gen) {
-        await preparePlaybackMode();
-        return;
-      }
-      await recorder.prepareToRecordAsync();
-      recorder.record();
+      if (!holdingRef.current || holdGenRef.current !== gen) return;
+      await beginVoiceRecording(recorder);
       if (!holdingRef.current || holdGenRef.current !== gen) {
         await abortRecording();
         return;
@@ -1342,6 +1337,9 @@ const styles = createThemedStyles((colors) => ({
     borderTopWidth: 1,
     borderTopColor: colors.line,
     backgroundColor: colors.bg,
+    ...(Platform.OS === "android"
+      ? { elevation: 8, zIndex: 10 }
+      : null),
   },
   input: {
     flex: 1,

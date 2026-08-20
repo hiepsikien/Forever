@@ -21,6 +21,7 @@ import {
   LayoutChangeEvent,
   NativeScrollEvent,
   NativeSyntheticEvent,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -32,9 +33,9 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import {
   playLocalAudio,
   preparePlaybackMode,
-  prepareRecordingMode,
   stopActivePlayback,
 } from "@/lib/audio";
+import { beginVoiceRecording } from "@/lib/beginVoiceRecording";
 import { useAuth } from "@/lib/auth";
 import {
   sentenceIndexForProgress,
@@ -776,15 +777,8 @@ export default function CallScreen() {
       setReplaySession(null);
       setPlayingReplyId(null);
       setActiveSentence(null);
-      await prepareRecordingMode();
-      // iOS needs a beat after flipping the audio session before record.
-      await new Promise((r) => setTimeout(r, 200));
-      if (!holdingRef.current || holdGenRef.current !== gen) {
-        await preparePlaybackMode();
-        return;
-      }
-      await recorder.prepareToRecordAsync();
-      recorder.record();
+      if (!holdingRef.current || holdGenRef.current !== gen) return;
+      await beginVoiceRecording(recorder);
       if (!holdingRef.current || holdGenRef.current !== gen) {
         await abortListening();
         return;
@@ -1654,6 +1648,9 @@ const styles = createThemedStyles((colors) => ({
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: colors.line,
     position: "relative",
+    ...(Platform.OS === "android"
+      ? { elevation: 8, zIndex: 10, backgroundColor: colors.bg }
+      : null),
   },
   meterFloat: {
     position: "absolute",

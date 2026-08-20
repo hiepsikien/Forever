@@ -2,6 +2,7 @@ import { ReactNode, useCallback, useRef } from "react";
 import {
   GestureResponderEvent,
   LayoutChangeEvent,
+  Platform,
   Pressable,
   StyleProp,
   View,
@@ -133,6 +134,11 @@ export function HoldToTalkTarget({
     <Pressable
       collapsable={false}
       disabled={disabled}
+      android_ripple={
+        Platform.OS === "android"
+          ? { color: "rgba(45, 74, 62, 0.18)", borderless: false }
+          : undefined
+      }
       onPressIn={onPressIn}
       onPressOut={onPressOut}
       onTouchMove={onTouchMove}
