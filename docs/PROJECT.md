@@ -105,6 +105,7 @@ và detector Stage 0 chặn lời khuyên đời sống nhạy cảm. Chi tiết
 - E2E / IPFS / on-chain family tree  
 - Social graph, marketplace  
 - **Mời vào nhà:** QR quét camera, duyệt admin trước khi join, sửa nhiều mã mời song song — `docs/join-invite.backlog.md`  
+- **Chất lượng heritage:** HITL chất lượng chat/giọng, phương ngữ Bắc, giọng kể lục bát (Nghe đọc) — `docs/heritage-quality.backlog.md`  
 
 ## 7. Lộ trình piece by piece
 
@@ -216,7 +217,14 @@ từng thành viên. Chưa có Alembic — bảng mới qua `create_all`, cột 
 4. Bật critic (`HERITAGE_CRITIC_ENABLED`) sau khi golden live đạt *bịa năm/tên = 0*.  
 5. Micro-rituals (Phase 5) và export archive (Phase 6) khi mẹ đã dùng đều.  
 
-## 11. Backlog — Forever Pro + Ezviz *(chưa bắt đầu)*
+## 11. Backlog — Chất lượng heritage *(chưa bắt đầu)*
+
+Ghi nhận 21/8/2026 — ba chủ đề: **HITL** (vòng lặp chất lượng chat/giọng sau khi đã có duyệt
+fact), **vùng miền** (giảm lẫn phương ngữ Nam trên entity Kinh Bắc — Gemini + MiniMax), **giọng
+kể** (Nghe đọc lục bát nghe «kể» không «đọc từng dòng» — `body_tts` cho story chunks, profile TTS
+riêng). Chi tiết: `docs/heritage-quality.backlog.md`.
+
+## 12. Backlog — Forever Pro + Ezviz *(chưa bắt đầu)*
 
 Tier **Forever Pro**: bản thường giữ scope hiện tại (gate quyền); Pro thêm **camera
 Ezviz live + mic 2 chiều** gom trong app. Gọi video người sống (Daily/Zalo) là
