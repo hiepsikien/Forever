@@ -13,6 +13,7 @@ from app.services.heritage_chat import (
     _infer_audience_from_message,
     _is_child_profile,
     _is_spouse_profile,
+    _living_offset,
     build_system_prompt,
     looks_like_poem_recite_request,
     pick_poem_for_recite,
@@ -810,6 +811,13 @@ def test_self_declared_grandchild_beats_a_relation_label():
     # Kể VỀ một đứa cháu, không phải tự xưng.
     assert not _declares_grandchild("Cháu Hương Ly mới đi học về")
     assert not _declares_grandchild("Con chào mẹ")
+
+
+def test_living_offset_covers_siblings_and_nieces():
+    assert _living_offset("Em gái") == 0
+    assert _living_offset("Em trai") == 0
+    assert _living_offset("Cháu gái") == 2
+    assert _living_offset("Con gái") == 1
 
 
 def test_child_relation_accepts_con_trai():

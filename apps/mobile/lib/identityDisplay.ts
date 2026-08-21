@@ -7,11 +7,48 @@ import { IdentityProfile } from "@forever/api-client";
  */
 const SELF_RELATION = "tôi";
 
-/**
- * How this living person stands to the remembered one — never to the owner
- * account. «Anh/Chị/Mẹ» flip depending on who is looking; these do not.
- */
-export const LIVING_RELATIONS_TO_REMEMBERED = ["Vợ", "Con", "Cháu"] as const;
+/** Quick-pick labels — always relative to the remembered anchor, never the viewer. */
+export const LIVING_RELATION_GROUPS = [
+  {
+    title: "Bạn đời",
+    options: ["Vợ", "Chồng"],
+  },
+  {
+    title: "Con cháu",
+    options: ["Con", "Con gái", "Con trai", "Cháu", "Cháu gái", "Cháu trai", "Chắt"],
+  },
+  {
+    title: "Anh em",
+    options: ["Em gái", "Em trai", "Anh", "Chị"],
+  },
+  {
+    title: "Họ hàng",
+    options: ["Cô", "Chú", "Dì", "Cậu", "Bác"],
+  },
+] as const;
+
+export const LIVING_RELATION_PRESETS = LIVING_RELATION_GROUPS.flatMap(
+  (group) => group.options,
+);
+
+/** @deprecated Use LIVING_RELATION_PRESETS — kept for older imports. */
+export const LIVING_RELATIONS_TO_REMEMBERED = LIVING_RELATION_PRESETS;
+
+export const DEFAULT_LIVING_RELATION = "Con";
+
+function foldVi(value: string): string {
+  return value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/đ/gi, "d")
+    .toLowerCase()
+    .trim();
+}
+
+export function isLivingRelationPreset(relation: string): boolean {
+  const folded = foldVi(relation);
+  return LIVING_RELATION_PRESETS.some((preset) => foldVi(preset) === folded);
+}
 
 export function relationToRememberedPrompt(
   remembered?: Pick<IdentityProfile, "display_name" | "relation_label"> | null,
@@ -23,6 +60,15 @@ export function relationToRememberedPrompt(
   }
   if (name) return `Với ${name}, người này là`;
   return "Với người đã mất trong nhà, người này là";
+}
+
+export function livingRelationHelp(
+  remembered?: Pick<IdentityProfile, "display_name" | "relation_label"> | null,
+): string {
+  return (
+    `${relationToRememberedPrompt(remembered)}. Không phải với tài khoản quản trị — ` +
+    "ghi quan hệ so với người được nhớ (vd. Em gái, Cháu), không phải Anh/Chị/Mẹ theo góc nhìn của bạn."
+  );
 }
 
 export function relationRelativeLine(

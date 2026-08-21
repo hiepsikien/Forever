@@ -220,8 +220,12 @@ def _infer_audience_from_message(text: str) -> str | None:
 # Bố», «Con của Bố». Con số là số bậc người ấy đứng DƯỚI người neo.
 _LIVING_OFFSET: dict[str, int] = {
     "vo": 0, "chong": 0, "me": 0, "bo": 0,
-    "con": 1, "con dau": 1, "con re": 1, "dau": 1, "re": 1,
-    "chau": 2, "chau noi": 2, "chau ngoai": 2,
+    "em": 0, "em gai": 0, "em trai": 0,
+    "anh": 0, "chi": 0, "chị": 0, "anh trai": 0, "chi gai": 0,
+    "con": 1, "con dau": 1, "con re": 1, "con gai": 1, "con trai": 1,
+    "dau": 1, "re": 1,
+    "co": 1, "chu": 1, "di": 1, "cau": 1, "bac": 1, "thim": 1, "mo": 1,
+    "chau": 2, "chau noi": 2, "chau ngoai": 2, "chau gai": 2, "chau trai": 2,
     "chat": 3,
 }
 

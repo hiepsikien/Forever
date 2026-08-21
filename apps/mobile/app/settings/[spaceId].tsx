@@ -26,12 +26,12 @@ import {
   View,
 } from "react-native";
 
+import { LivingRelationField } from "@/components/LivingRelationField";
 import { useAuth } from "@/lib/auth";
 import {
+  DEFAULT_LIVING_RELATION,
   isLoginMirror,
-  LIVING_RELATIONS_TO_REMEMBERED,
   relationRelativeLine,
-  relationToRememberedPrompt,
 } from "@/lib/identityDisplay";
 import { useSpaceScreenOptions } from "@/lib/spaceHeader";
 import { colors, fonts, createThemedStyles, useTheme } from "@/lib/theme";
@@ -158,7 +158,7 @@ export default function SettingsScreen() {
   const [voiceKeyOpen, setVoiceKeyOpen] = useState(false);
   const [addingLivingFor, setAddingLivingFor] = useState<string | null>(null);
   const [newLivingName, setNewLivingName] = useState("");
-  const [newLivingRelation, setNewLivingRelation] = useState("Con");
+  const [newLivingRelation, setNewLivingRelation] = useState(DEFAULT_LIVING_RELATION);
 
   useSpaceScreenOptions({
     spaceId,
@@ -642,11 +642,6 @@ export default function SettingsScreen() {
 
   const livingForm = (attachToMemberId?: string) => (
     <View style={styles.livingForm}>
-      <Text style={styles.help}>
-        {relationToRememberedPrompt(rememberedAnchor)}. Không phải với tài khoản
-        quản trị. Bạn đời = Vợ. Con cái = Con. Đừng dùng Anh/Chị/Mẹ — mỗi người
-        nhìn một kiểu.
-      </Text>
       <TextInput
         style={styles.input}
         value={newLivingName}
@@ -654,22 +649,11 @@ export default function SettingsScreen() {
         placeholder="Tên — ví dụ Nguyễn Đình Anh"
         placeholderTextColor={colors.inkSoft}
       />
-      <View style={styles.chipRow}>
-        {LIVING_RELATIONS_TO_REMEMBERED.map((rel) => {
-          const active = newLivingRelation === rel;
-          return (
-            <Pressable
-              key={rel}
-              style={[styles.chip, active && styles.chipActive]}
-              onPress={() => setNewLivingRelation(rel)}
-            >
-              <Text style={[styles.chipText, active && styles.chipTextActive]}>
-                {rel}
-              </Text>
-            </Pressable>
-          );
-        })}
-      </View>
+      <LivingRelationField
+        value={newLivingRelation}
+        onChange={setNewLivingRelation}
+        remembered={rememberedAnchor}
+      />
       <View style={styles.chipRow}>
         <Pressable
           style={[styles.smallBtn, adminBusy && styles.btnDisabled]}
