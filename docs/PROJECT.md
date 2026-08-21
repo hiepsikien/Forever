@@ -104,6 +104,7 @@ và detector Stage 0 chặn lời khuyên đời sống nhạy cảm. Chi tiết
 - Nhật ký riêng / chia sẻ chọn lọc từng `MemoryItem`  
 - E2E / IPFS / on-chain family tree  
 - Social graph, marketplace  
+- **Mời vào nhà:** QR quét camera, duyệt admin trước khi join, sửa nhiều mã mời song song — `docs/join-invite.backlog.md`  
 
 ## 7. Lộ trình piece by piece
 
