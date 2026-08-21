@@ -6,7 +6,7 @@ import {
   livingRelationHelp,
   relationToRememberedPrompt,
 } from "@/lib/identityDisplay";
-import { createThemedStyles, useTheme } from "@/lib/theme";
+import { createThemedStyles, fonts, useTheme } from "@/lib/theme";
 
 type RememberedAnchor = {
   display_name?: string | null;
@@ -71,7 +71,7 @@ export function LivingRelationField({
   );
 }
 
-const styles = createThemedStyles((colors, fonts) => ({
+const styles = createThemedStyles((colors) => ({
   wrap: { gap: 8, width: "100%" },
   help: { fontSize: 13, color: colors.inkSoft, lineHeight: 18 },
   group: { gap: 4 },
