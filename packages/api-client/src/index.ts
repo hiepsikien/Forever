@@ -423,6 +423,40 @@ export interface HandleResolveResult {
   library_path: string;
 }
 
+export interface FamilyTreeNode {
+  id: string;
+  space_id: string;
+  identity_profile_id?: string | null;
+  display_name: string;
+  birth_year?: number | null;
+  death_year?: number | null;
+  gender_hint?: "male" | "female" | "unknown" | string;
+  birth_order?: number | null;
+  notes?: string;
+  identity_status?: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface FamilyTreeEdge {
+  id: string;
+  space_id: string;
+  from_node_id: string;
+  to_node_id: string;
+  kind: "parent" | "spouse" | string;
+  meta: {
+    parent_role?: "father" | "mother" | "unknown" | string;
+    spouse_order?: number;
+    spouse_label?: string;
+  };
+  created_at: string;
+}
+
+export interface GenealogyPayload {
+  nodes: FamilyTreeNode[];
+  edges: FamilyTreeEdge[];
+}
+
 export interface IdentityProfileRevision {
   id: string;
   space_id: string;
@@ -1376,6 +1410,74 @@ export function createApiClient({
         `/api/spaces/${spaceId}/identities${
           includeArchived ? "?include_archived=true" : ""
         }`,
+      ),
+    getGenealogy: (spaceId: string) =>
+      request<GenealogyPayload>(`/api/spaces/${spaceId}/genealogy`),
+    createGenealogyNode: (
+      spaceId: string,
+      payload: {
+        display_name: string;
+        identity_profile_id?: string | null;
+        birth_year?: number | null;
+        death_year?: number | null;
+        gender_hint?: string;
+        birth_order?: number | null;
+        notes?: string;
+      },
+    ) =>
+      request<FamilyTreeNode>(`/api/spaces/${spaceId}/genealogy/nodes`, {
+        method: "POST",
+        body: JSON.stringify(payload),
+      }),
+    updateGenealogyNode: (
+      spaceId: string,
+      nodeId: string,
+      payload: {
+        display_name?: string;
+        identity_profile_id?: string | null;
+        clear_identity_profile_id?: boolean;
+        birth_year?: number | null;
+        death_year?: number | null;
+        gender_hint?: string;
+        birth_order?: number | null;
+        notes?: string;
+      },
+    ) =>
+      request<FamilyTreeNode>(
+        `/api/spaces/${spaceId}/genealogy/nodes/${nodeId}`,
+        { method: "PATCH", body: JSON.stringify(payload) },
+      ),
+    deleteGenealogyNode: (spaceId: string, nodeId: string) =>
+      request<{ ok: boolean }>(
+        `/api/spaces/${spaceId}/genealogy/nodes/${nodeId}`,
+        { method: "DELETE" },
+      ),
+    createGenealogyEdge: (
+      spaceId: string,
+      payload: {
+        from_node_id: string;
+        to_node_id: string;
+        kind: "parent" | "spouse";
+        meta?: FamilyTreeEdge["meta"];
+      },
+    ) =>
+      request<FamilyTreeEdge>(`/api/spaces/${spaceId}/genealogy/edges`, {
+        method: "POST",
+        body: JSON.stringify(payload),
+      }),
+    updateGenealogyEdge: (
+      spaceId: string,
+      edgeId: string,
+      payload: { meta: FamilyTreeEdge["meta"] },
+    ) =>
+      request<FamilyTreeEdge>(
+        `/api/spaces/${spaceId}/genealogy/edges/${edgeId}`,
+        { method: "PATCH", body: JSON.stringify(payload) },
+      ),
+    deleteGenealogyEdge: (spaceId: string, edgeId: string) =>
+      request<{ ok: boolean }>(
+        `/api/spaces/${spaceId}/genealogy/edges/${edgeId}`,
+        { method: "DELETE" },
       ),
     resolveHandle: (spaceId: string, handle: string) =>
       request<HandleResolveResult>(

@@ -361,6 +361,66 @@ class FamilyEntity(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
 
 
+class FamilyTreeNode(Base):
+    """One person on the family genealogy chart for a space.
+
+    May link to an IdentityProfile or exist only on the tree (e.g. a great-grandparent
+    who never had an app profile).
+    """
+
+    __tablename__ = "family_tree_nodes"
+    __table_args__ = (
+        UniqueConstraint(
+            "space_id",
+            "identity_profile_id",
+            name="uq_family_tree_node_identity",
+        ),
+    )
+
+    id: Mapped[str] = mapped_column(String(32), primary_key=True)
+    space_id: Mapped[str] = mapped_column(ForeignKey("family_spaces.id"), index=True)
+    identity_profile_id: Mapped[str | None] = mapped_column(
+        ForeignKey("identity_profiles.id"), nullable=True, index=True
+    )
+    display_name: Mapped[str] = mapped_column(String(120))
+    birth_year: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    death_year: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    # male | female | unknown — sibling labels and display hints only.
+    gender_hint: Mapped[str] = mapped_column(String(16), default="unknown")
+    # Order among siblings who share the same parent set (1 = eldest).
+    birth_order: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    notes: Mapped[str] = mapped_column(Text, default="")
+    created_by: Mapped[str] = mapped_column(ForeignKey("users.id"))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+
+class FamilyTreeEdge(Base):
+    """Directed relationship on the genealogy chart.
+
+    parent — from_node is parent, to_node is child.
+    spouse — undirected pair; a person may have many spouse edges (e.g. vợ cả, vợ lẽ).
+    """
+
+    __tablename__ = "family_tree_edges"
+
+    id: Mapped[str] = mapped_column(String(32), primary_key=True)
+    space_id: Mapped[str] = mapped_column(ForeignKey("family_spaces.id"), index=True)
+    from_node_id: Mapped[str] = mapped_column(
+        ForeignKey("family_tree_nodes.id"), index=True
+    )
+    to_node_id: Mapped[str] = mapped_column(
+        ForeignKey("family_tree_nodes.id"), index=True
+    )
+    # parent | spouse
+    kind: Mapped[str] = mapped_column(String(16), index=True)
+    # parent: {"parent_role": "father"|"mother"|"unknown"}
+    # spouse: {"spouse_order": 1, "spouse_label": "Vợ cả"}
+    meta_json: Mapped[str] = mapped_column(Text, default="")
+    created_by: Mapped[str] = mapped_column(ForeignKey("users.id"))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+
 class MemoryCandidate(Base):
     """A fact the chat heard, waiting for a human to say it may be kept.
 
