@@ -1050,7 +1050,7 @@ export default function GenealogyScreen() {
                   <Image
                     source={{ uri: selectedPhotoUri }}
                     style={styles.photoThumb}
-                    resizeMode="cover"
+                    resizeMode="contain"
                   />
                 </Pressable>
               </View>
@@ -1436,7 +1436,7 @@ export default function GenealogyScreen() {
                       <Image
                         source={{ uri: editorPhotoUri }}
                         style={styles.photoThumb}
-                        resizeMode="cover"
+                        resizeMode="contain"
                       />
                     ) : (
                       <Text style={styles.fieldHint}>
@@ -1569,8 +1569,8 @@ export default function GenealogyScreen() {
                       })}
                     </View>
                     <Text style={styles.fieldHint}>
-                      Để chip bật nếu là con của cả hai — hầu hết đúng. Chỉ bỏ
-                      khi là con riêng, như cô Tâm với bà nội.
+                      Để chip bật nếu là con của cả hai. Bỏ chọn khi chỉ là con
+                      của {anchorName}.
                     </Text>
                   </View>
                 ) : null}
@@ -1621,8 +1621,8 @@ export default function GenealogyScreen() {
                       })}
                     </View>
                     <Text style={styles.fieldHint}>
-                      Con chung giữ vợ/chồng đã lưu. Chỉ chọn con riêng khi
-                      như cô Tâm — con của bà nội, không phải của ông nội.
+                      Con chung là con của cả hai người đã ghi. Con riêng chỉ
+                      gắn với một người, không phải của vợ hoặc chồng trên cây.
                     </Text>
                   </View>
                 ) : null}
@@ -1775,7 +1775,7 @@ const styles = createThemedStyles((colors) => ({
   },
   photoThumb: {
     width: "100%",
-    height: 160,
+    height: 240,
     borderRadius: 12,
     backgroundColor: colors.bgDeep,
   },
