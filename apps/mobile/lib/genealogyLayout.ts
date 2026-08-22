@@ -546,6 +546,7 @@ export function parentAttributionLine(
   return null;
 }
 
+/** Cha / mẹ label in the selected-person relations list. */
 function parentRoleOf(graph: GenealogyGraph, parentId: string): string {
   const node = graph.nodes.get(parentId);
   if (node?.gender_hint === "female") return "Mẹ";

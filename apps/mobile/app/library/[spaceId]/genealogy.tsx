@@ -231,6 +231,7 @@ export default function GenealogyScreen() {
       setPayload(tree);
       setIdentities(idRes.identities);
       setCanEdit(
+        // Mirrors require_moderator_or_above — members only view the tree.
         spaceRes.role === "owner" ||
           spaceRes.role === "moderator" ||
           Boolean(stewardRes?.is_steward),
@@ -448,6 +449,7 @@ export default function GenealogyScreen() {
     anchorId?: string | null,
     preset?: { gender?: GenderHint },
   ) => {
+    if (!canEdit) return;
     const anchor = payload.nodes.find(
       (n) => n.id === (anchorId ?? selectedNodeId),
     );
@@ -555,7 +557,7 @@ export default function GenealogyScreen() {
   };
 
   const saveEditor = async () => {
-    if (!spaceId || saving) return;
+    if (!spaceId || saving || !canEdit) return;
     const death = parseDeathInput(deathInput);
     if (death.invalid) {
       setError("Năm mất ghi 1971, hoặc ngày 12/3/1971.");
@@ -952,17 +954,18 @@ export default function GenealogyScreen() {
           }
         >
           <Text style={styles.hint}>
-            Cuộn theo từng đời. Nam trong họ hơi xanh, nữ hơi vàng, dâu và rể
-            thẻ nhạt hơn. Cháu nội / cháu ngoại / con riêng ghi trên thẻ. Chạm
-            một người để sửa hoặc thêm quan hệ.
+            {canEdit
+              ? "Cuộn theo từng đời. Nam trong họ hơi xanh, nữ hơi vàng, dâu và rể thẻ nhạt hơn. Cháu nội / cháu ngoại ghi trên thẻ. Chạm một người để sửa hoặc thêm quan hệ."
+              : "Cuộn theo từng đời. Nam trong họ hơi xanh, nữ hơi vàng, dâu và rể thẻ nhạt hơn. Cháu nội / cháu ngoại ghi trên thẻ. Chạm một người để xem — chỉ Moderator trở lên được sửa gia phả."}
           </Text>
 
           {payload.nodes.length === 0 ? (
           <View style={styles.emptyBox}>
             <Text style={styles.emptyTitle}>Chưa có gia phả</Text>
             <Text style={styles.emptyBody}>
-              Bắt đầu từ cụ, ông bà hoặc người được nhớ — chọn người đã có trong
-              nhà hoặc thêm tên mới.
+              {canEdit
+                ? "Bắt đầu từ cụ, ông bà hoặc người được nhớ — chọn người đã có trong nhà hoặc thêm tên mới."
+                : "Khi người trông nom gia phả ghi vào, cả nhà xem được ở đây."}
             </Text>
             {canEdit ? (
               <Pressable style={styles.primaryBtn} onPress={() => openEditor("person")}>
@@ -1141,7 +1144,7 @@ export default function GenealogyScreen() {
       </View>
 
       <Modal
-        visible={editorOpen}
+        visible={editorOpen && canEdit}
         animationType="slide"
         transparent
         onRequestClose={closeEditor}
