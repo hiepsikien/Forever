@@ -517,6 +517,35 @@ export type PersonRelations = {
   children: NamedRelation[];
 };
 
+function givenName(display: string): string {
+  const parts = (display || "").trim().split(/\s+/).filter(Boolean);
+  return parts[parts.length - 1] || display.trim();
+}
+
+/**
+ * Light card line: «Con bố Triệu, mẹ Định». Only recorded parents;
+ * given name (last word) so the card stays short.
+ */
+export function parentAttributionLine(
+  graph: GenealogyGraph,
+  id: string,
+): string | null {
+  let father: string | null = null;
+  let mother: string | null = null;
+  for (const parentId of graph.parents.get(id) ?? []) {
+    const node = graph.nodes.get(parentId);
+    if (!node) continue;
+    const name = givenName(node.display_name);
+    if (!name) continue;
+    if (node.gender_hint === "female") mother = name;
+    else if (node.gender_hint === "male") father = name;
+  }
+  if (father && mother) return `Con bố ${father}, mẹ ${mother}`;
+  if (father) return `Con bố ${father}`;
+  if (mother) return `Con mẹ ${mother}`;
+  return null;
+}
+
 function parentRoleOf(graph: GenealogyGraph, parentId: string): string {
   const node = graph.nodes.get(parentId);
   if (node?.gender_hint === "female") return "Mẹ";

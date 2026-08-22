@@ -203,6 +203,9 @@ export default function GenealogyScreen() {
   const listRef = useRef<ScrollView>(null);
   const actionOffsetY = useRef(0);
   const pendingScrollToActions = useRef(false);
+  const treeYOnList = useRef(0);
+  const nodeYOnTree = useRef(new Map<string, number>());
+  const pendingTreeScrollId = useRef<string | null>(null);
   /**
    * Android edge-to-edge no longer resizes the window, so KeyboardAvoidingView
    * cannot lift this sheet. Pad by the keyboard height the system reports.
@@ -277,6 +280,20 @@ export default function GenealogyScreen() {
     return () => clearTimeout(timer);
   }, [selectedNodeId]);
 
+  const scrollToNodeOnTree = (id: string) => {
+    pendingScrollToActions.current = false;
+    const rel = nodeYOnTree.current.get(id);
+    if (rel == null) {
+      pendingTreeScrollId.current = id;
+      return;
+    }
+    pendingTreeScrollId.current = null;
+    listRef.current?.scrollTo({
+      y: Math.max(0, treeYOnList.current + rel - 12),
+      animated: true,
+    });
+  };
+
   const closeEditor = () => {
     Keyboard.dismiss();
     setEditorOpen(false);
@@ -347,10 +364,33 @@ export default function GenealogyScreen() {
   const nameMatches = useMemo(() => {
     const q = foldName(searchQuery);
     if (q.length < 1) return [];
+    const order = new Map(
+      bands
+        .flatMap((band) => band.clusters.flatMap((cluster) => cluster.ids))
+        .map((id, i) => [id, i]),
+    );
     return payload.nodes
       .filter((n) => foldName(n.display_name).includes(q))
-      .sort((a, b) => a.display_name.localeCompare(b.display_name, "vi"));
-  }, [payload.nodes, searchQuery]);
+      .sort(
+        (a, b) =>
+          (order.get(a.id) ?? 9999) - (order.get(b.id) ?? 9999) ||
+          a.display_name.localeCompare(b.display_name, "vi"),
+      );
+  }, [bands, payload.nodes, searchQuery]);
+  const firstMatchId = nameMatches[0]?.id ?? null;
+
+  useEffect(() => {
+    if (!firstMatchId) {
+      pendingTreeScrollId.current = null;
+      return;
+    }
+    const timer = setTimeout(() => {
+      pendingScrollToActions.current = false;
+      setSelectedNodeId(firstMatchId);
+      scrollToNodeOnTree(firstMatchId);
+    }, 160);
+    return () => clearTimeout(timer);
+  }, [firstMatchId]);
   const anchorName =
     payload.nodes.find((n) => n.id === anchorNodeId)?.display_name ?? "người này";
   const addingPersonName = pickedTreeNodeId
@@ -839,29 +879,9 @@ export default function GenealogyScreen() {
 
   return (
     <>
-      <ScrollView
-        ref={listRef}
-        style={styles.root}
-        contentContainerStyle={styles.list}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={() => {
-              setRefreshing(true);
-              void load();
-            }}
-            tintColor={colors.brand}
-          />
-        }
-      >
-        <Text style={styles.hint}>
-          Cuộn theo từng đời. Nam trong họ hơi xanh, nữ hơi vàng, dâu và rể
-          thẻ nhạt hơn. Cháu nội / cháu ngoại / con riêng ghi trên thẻ. Chạm
-          một người để sửa hoặc thêm quan hệ.
-        </Text>
-
+      <View style={styles.root}>
         {payload.nodes.length > 0 ? (
-          <View style={styles.searchBlock}>
+          <View style={styles.searchSticky}>
             <TextInput
               style={styles.searchInput}
               value={searchQuery}
@@ -875,39 +895,69 @@ export default function GenealogyScreen() {
             />
             {foldName(searchQuery) ? (
               nameMatches.length ? (
-                <View style={styles.actionRow}>
-                  {nameMatches.map((node) => (
-                    <Pressable
-                      key={node.id}
-                      style={[
-                        styles.pickChip,
-                        selectedNodeId === node.id && styles.pickChipOn,
-                      ]}
-                      onPress={() => {
-                        pendingScrollToActions.current = true;
-                        setSelectedNodeId(node.id);
-                      }}
-                    >
-                      <Text
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  keyboardShouldPersistTaps="handled"
+                >
+                  <View style={styles.pickerRow}>
+                    {nameMatches.map((node) => (
+                      <Pressable
+                        key={node.id}
                         style={[
-                          styles.pickChipText,
-                          selectedNodeId === node.id && styles.pickChipTextOn,
+                          styles.pickChip,
+                          selectedNodeId === node.id && styles.pickChipOn,
                         ]}
-                        numberOfLines={1}
+                        onPress={() => {
+                          pendingScrollToActions.current = false;
+                          setSelectedNodeId(node.id);
+                          scrollToNodeOnTree(node.id);
+                        }}
                       >
-                        {node.display_name}
-                      </Text>
-                    </Pressable>
-                  ))}
-                </View>
+                        <Text
+                          style={[
+                            styles.pickChipText,
+                            selectedNodeId === node.id && styles.pickChipTextOn,
+                          ]}
+                          numberOfLines={1}
+                        >
+                          {node.display_name}
+                        </Text>
+                      </Pressable>
+                    ))}
+                  </View>
+                </ScrollView>
               ) : (
-                <Text style={styles.fieldHint}>Không thấy tên này trên gia phả.</Text>
+                <Text style={styles.fieldHint}>
+                  Không thấy tên này trên gia phả.
+                </Text>
               )
             ) : null}
           </View>
         ) : null}
+        <ScrollView
+          ref={listRef}
+          style={styles.scroll}
+          contentContainerStyle={styles.list}
+          keyboardShouldPersistTaps="handled"
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={() => {
+                setRefreshing(true);
+                void load();
+              }}
+              tintColor={colors.brand}
+            />
+          }
+        >
+          <Text style={styles.hint}>
+            Cuộn theo từng đời. Nam trong họ hơi xanh, nữ hơi vàng, dâu và rể
+            thẻ nhạt hơn. Cháu nội / cháu ngoại / con riêng ghi trên thẻ. Chạm
+            một người để sửa hoặc thêm quan hệ.
+          </Text>
 
-        {payload.nodes.length === 0 ? (
+          {payload.nodes.length === 0 ? (
           <View style={styles.emptyBox}>
             <Text style={styles.emptyTitle}>Chưa có gia phả</Text>
             <Text style={styles.emptyBody}>
@@ -921,21 +971,37 @@ export default function GenealogyScreen() {
             ) : null}
           </View>
         ) : (
-          <GenerationBandView
-            bands={bands}
-            payload={displayPayload}
-            selectedNodeId={selectedNodeId}
-            onSelectNode={(node) =>
-              setSelectedNodeId((prev) => {
-                if (prev === node.id) {
-                  pendingScrollToActions.current = false;
-                  return null;
-                }
-                pendingScrollToActions.current = true;
-                return node.id;
-              })
-            }
-          />
+          <View
+            collapsable={false}
+            onLayout={(e) => {
+              treeYOnList.current = e.nativeEvent.layout.y;
+            }}
+          >
+            <GenerationBandView
+              bands={bands}
+              payload={displayPayload}
+              selectedNodeId={selectedNodeId}
+              onCardOffset={(id, y) => {
+                nodeYOnTree.current.set(id, y);
+                if (pendingTreeScrollId.current !== id) return;
+                pendingTreeScrollId.current = null;
+                listRef.current?.scrollTo({
+                  y: Math.max(0, treeYOnList.current + y - 12),
+                  animated: true,
+                });
+              }}
+              onSelectNode={(node) =>
+                setSelectedNodeId((prev) => {
+                  if (prev === node.id) {
+                    pendingScrollToActions.current = false;
+                    return null;
+                  }
+                  pendingScrollToActions.current = true;
+                  return node.id;
+                })
+              }
+            />
+          </View>
         )}
 
         {selectedNode ? (
@@ -1072,6 +1138,7 @@ export default function GenealogyScreen() {
 
         {error && !editorOpen ? <Text style={styles.error}>{error}</Text> : null}
       </ScrollView>
+      </View>
 
       <Modal
         visible={editorOpen}
@@ -1622,6 +1689,7 @@ export default function GenealogyScreen() {
 
 const styles = createThemedStyles((colors) => ({
   root: { flex: 1, backgroundColor: colors.bg },
+  scroll: { flex: 1 },
   center: {
     flex: 1,
     alignItems: "center",
@@ -1634,7 +1702,15 @@ const styles = createThemedStyles((colors) => ({
     lineHeight: 18,
     color: colors.inkSoft,
   },
-  searchBlock: { gap: 8 },
+  searchSticky: {
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    paddingBottom: 10,
+    gap: 8,
+    backgroundColor: colors.bg,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.line,
+  },
   searchInput: {
     borderWidth: 1,
     borderColor: colors.line,

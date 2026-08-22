@@ -7,7 +7,7 @@ import {
   descendantLine,
   isInLawInCluster,
   nodeYearLine,
-  siblingHint,
+  parentAttributionLine,
   spouseBadgeForNode,
 } from "@/lib/genealogyLayout";
 import { createThemedStyles } from "@/lib/theme";
@@ -43,7 +43,7 @@ export function PersonNodeCard({
   selected,
 }: Props) {
   const years = nodeYearLine(node);
-  const sibling = siblingHint(node);
+  const parentsLine = parentAttributionLine(graph, node.id);
   const spouseLabel = spouseBadgeForNode(graph, node.id, clusterIds);
   const linked = Boolean(node.identity_profile_id);
   const kind = cardKind(node, graph, clusterIds);
@@ -84,16 +84,12 @@ export function PersonNodeCard({
           {years}
         </Text>
       ) : null}
-      {sibling ? (
-        <Text style={styles.meta} numberOfLines={1}>
-          {sibling}
+      {parentsLine ? (
+        <Text style={styles.parents} numberOfLines={2}>
+          {parentsLine}
         </Text>
       ) : null}
-      {halfParentId ? (
-        <Text style={[styles.lineBadge, styles.lineBadgeNgoai]} numberOfLines={1}>
-          Con riêng
-        </Text>
-      ) : line ? (
+      {line ? (
         <Text
           style={[
             styles.lineBadge,
@@ -187,6 +183,11 @@ const styles = createThemedStyles((colors) => ({
   meta: {
     fontSize: 12,
     lineHeight: 16,
+    color: colors.inkSoft,
+  },
+  parents: {
+    fontSize: 11,
+    lineHeight: 15,
     color: colors.inkSoft,
   },
   lineBadge: {
