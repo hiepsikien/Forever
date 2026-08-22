@@ -108,10 +108,6 @@ def _validate_node_refs(db: Session, *, space_id: str, from_id: str, to_id: str)
     _get_node_or_404(db, space_id=space_id, node_id=to_id)
 
 
-def _spouse_pair_key(a: str, b: str) -> tuple[str, str]:
-    return (a, b) if a < b else (b, a)
-
-
 def _find_spouse_edge(
     db: Session, *, space_id: str, a_id: str, b_id: str
 ) -> FamilyTreeEdge | None:
