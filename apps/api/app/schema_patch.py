@@ -394,6 +394,26 @@ def ensure_schema() -> None:
         "fingerprint",
         "ALTER TABLE story_recordings ADD COLUMN fingerprint VARCHAR(64) DEFAULT ''",
     )
+    _add_column_if_missing(
+        "family_tree_nodes",
+        "death_date",
+        "ALTER TABLE family_tree_nodes ADD COLUMN death_date VARCHAR(10)",
+    )
+    _add_column_if_missing(
+        "family_tree_nodes",
+        "photo_path",
+        "ALTER TABLE family_tree_nodes ADD COLUMN photo_path VARCHAR(512)",
+    )
+    _add_column_if_missing(
+        "family_tree_nodes",
+        "photo_mime",
+        "ALTER TABLE family_tree_nodes ADD COLUMN photo_mime VARCHAR(120)",
+    )
+    _add_column_if_missing(
+        "family_tree_nodes",
+        "con_rieng",
+        "ALTER TABLE family_tree_nodes ADD COLUMN con_rieng BOOLEAN DEFAULT FALSE",
+    )
     _backfill_heritage_threads()
     try:
         with engine.begin() as conn:

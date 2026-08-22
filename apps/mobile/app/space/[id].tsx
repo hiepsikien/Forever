@@ -593,6 +593,13 @@ export default function SpaceScreen() {
           <Text style={styles.memoryTitle}>Lịch gia đình</Text>
           <Text style={styles.memorySub}>Ngày · giỗ · mốc</Text>
         </Pressable>
+        <Pressable
+          style={styles.memoryTile}
+          onPress={() => id && router.push(`/library/${id}/genealogy` as never)}
+        >
+          <Text style={styles.memoryTitle}>Gia phả</Text>
+          <Text style={styles.memorySub}>Họ hàng · từng đời</Text>
+        </Pressable>
         {fatherId ? (
           <Pressable
             style={styles.memoryTile}

@@ -385,11 +385,19 @@ class FamilyTreeNode(Base):
     display_name: Mapped[str] = mapped_column(String(120))
     birth_year: Mapped[int | None] = mapped_column(Integer, nullable=True)
     death_year: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    # Full solar death day YYYY-MM-DD; when set, a family-calendar milestone is upserted.
+    death_date: Mapped[str | None] = mapped_column(String(10), nullable=True)
     # male | female | unknown — sibling labels and display hints only.
     gender_hint: Mapped[str] = mapped_column(String(16), default="unknown")
     # Order among siblings who share the same parent set (1 = eldest).
     birth_order: Mapped[int | None] = mapped_column(Integer, nullable=True)
     notes: Mapped[str] = mapped_column(Text, default="")
+    # True only when the family marked this person as con riêng — not inferred
+    # from a missing parent edge (the other parent is often the spouse, already saved).
+    con_rieng: Mapped[bool] = mapped_column(Boolean, default=False)
+    # Optional grave / bài vị photo (relative path under upload_dir).
+    photo_path: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    photo_mime: Mapped[str | None] = mapped_column(String(120), nullable=True)
     created_by: Mapped[str] = mapped_column(ForeignKey("users.id"))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))

@@ -11,7 +11,6 @@ import {
 } from "react-native";
 
 import { useAuth } from "@/lib/auth";
-import { GenealogyTabs } from "@/components/genealogy/GenealogyTabs";
 import {
   calendarDateLines,
   displayCalendarMilestoneTitle,
@@ -34,7 +33,7 @@ export default function FamilyCalendarScreen() {
 
   useSpaceScreenOptions({
     spaceId,
-    title: "Lịch & gia phả",
+    title: "Lịch gia đình",
     backTitle: "Nhà",
   });
 
@@ -132,7 +131,6 @@ export default function FamilyCalendarScreen() {
         />
       }
     >
-      <GenealogyTabs spaceId={spaceId ?? ""} />
       <Text style={styles.hint}>
         Sắp tới · đã xảy ra tách riêng. Ngày dương trên, âm dưới khi cần.
       </Text>

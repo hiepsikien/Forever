@@ -149,6 +149,47 @@ def test_owner_builds_tree_with_multiple_spouses(client: TestClient):
     assert dup.status_code == 400
 
 
+def test_death_date_writes_family_calendar(client: TestClient):
+    token = _login(client, "gen-death@example.com", "Con")
+    headers = {"Authorization": f"Bearer {token}"}
+    space_id = _space(client, headers)
+
+    node = client.post(
+        f"/api/spaces/{space_id}/genealogy/nodes",
+        headers=headers,
+        json={
+            "display_name": "Cụ Nghiên",
+            "gender_hint": "male",
+            "death_date": "1971-03-12",
+        },
+    )
+    assert node.status_code == 200, node.text
+    body = node.json()
+    assert body["death_date"] == "1971-03-12"
+    assert body["death_year"] == 1971
+
+    memories = client.get(f"/api/spaces/{space_id}/memories", headers=headers)
+    assert memories.status_code == 200, memories.text
+    miles = [m for m in memories.json()["memories"] if m["kind"] == "milestone"]
+    assert len(miles) == 1
+    mile = miles[0]
+    assert mile["title"].startswith("Ngày mất")
+    assert "lich:mat" in mile["tags"]
+    assert f"gia-pha:{body['id']}" in mile["tags"]
+    assert mile["occurred_at"].startswith("1971-03-12")
+
+    again = client.patch(
+        f"/api/spaces/{space_id}/genealogy/nodes/{body['id']}",
+        headers=headers,
+        json={"death_date": "1971-03-15"},
+    )
+    assert again.status_code == 200, again.text
+    memories2 = client.get(f"/api/spaces/{space_id}/memories", headers=headers)
+    miles2 = [m for m in memories2.json()["memories"] if m["kind"] == "milestone"]
+    assert len(miles2) == 1
+    assert miles2[0]["occurred_at"].startswith("1971-03-15")
+
+
 def test_delete_node_removes_edges(client: TestClient):
     token = _login(client, "gen-del@example.com", "Con")
     headers = {"Authorization": f"Bearer {token}"}
@@ -188,3 +229,73 @@ def test_delete_node_removes_edges(client: TestClient):
     assert tree.status_code == 200
     assert len(tree.json()["nodes"]) == 1
     assert tree.json()["edges"] == []
+
+
+_PNG = (
+    b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01"
+    b"\x08\x06\x00\x00\x00\x1f\x15\xc4\x89\x00\x00\x00\nIDATx\x9cc\x00\x01"
+    b"\x00\x00\x05\x00\x01\r\n-\xb4\x00\x00\x00\x00IEND\xaeB`\x82"
+)
+
+
+def test_node_photo_upload_and_delete(client: TestClient):
+    token = _login(client, "gen-photo@example.com", "Con")
+    headers = {"Authorization": f"Bearer {token}"}
+    space_id = _space(client, headers)
+    node = client.post(
+        f"/api/spaces/{space_id}/genealogy/nodes",
+        headers=headers,
+        json={"display_name": "Cụ"},
+    )
+    assert node.status_code == 200, node.text
+    node_id = node.json()["id"]
+    assert node.json()["has_photo"] is False
+
+    uploaded = client.post(
+        f"/api/spaces/{space_id}/genealogy/nodes/{node_id}/photo",
+        headers=headers,
+        files={"file": ("mo.png", _PNG, "image/png")},
+    )
+    assert uploaded.status_code == 200, uploaded.text
+    assert uploaded.json()["has_photo"] is True
+    assert uploaded.json()["photo_mime"] == "image/png"
+
+    photo = client.get(
+        f"/api/spaces/{space_id}/genealogy/nodes/{node_id}/photo",
+        headers=headers,
+    )
+    assert photo.status_code == 200, photo.text
+    assert photo.content == _PNG
+
+    removed = client.delete(
+        f"/api/spaces/{space_id}/genealogy/nodes/{node_id}/photo",
+        headers=headers,
+    )
+    assert removed.status_code == 200, removed.text
+    assert removed.json()["has_photo"] is False
+    missing = client.get(
+        f"/api/spaces/{space_id}/genealogy/nodes/{node_id}/photo",
+        headers=headers,
+    )
+    assert missing.status_code == 404
+
+
+def test_con_rieng_is_opt_in_not_default(client: TestClient):
+    token = _login(client, "gen-rieng@example.com", "Con")
+    headers = {"Authorization": f"Bearer {token}"}
+    space_id = _space(client, headers)
+    node = client.post(
+        f"/api/spaces/{space_id}/genealogy/nodes",
+        headers=headers,
+        json={"display_name": "Cô Tâm"},
+    )
+    assert node.status_code == 200, node.text
+    assert node.json()["con_rieng"] is False
+
+    marked = client.patch(
+        f"/api/spaces/{space_id}/genealogy/nodes/{node.json()['id']}",
+        headers=headers,
+        json={"con_rieng": True},
+    )
+    assert marked.status_code == 200, marked.text
+    assert marked.json()["con_rieng"] is True

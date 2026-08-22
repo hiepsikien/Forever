@@ -3,10 +3,12 @@
 from __future__ import annotations
 
 import json
+import re
 from datetime import datetime, timezone
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
+from fastapi.responses import FileResponse
 from nanoid import generate
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
@@ -14,13 +16,22 @@ from sqlalchemy.orm import Session
 from ..access import require_membership, require_moderator_or_above
 from ..auth import get_current_user
 from ..db import get_db
-from ..models import FamilyTreeEdge, FamilyTreeNode, IdentityProfile, User
+from ..models import FamilyTreeEdge, FamilyTreeNode, IdentityProfile, MemoryItem, User
+from ..services.heritage import tag_tokens
+from ..services.storage import (
+    IMAGE_MIME,
+    absolute_media_path,
+    delete_media_artifacts,
+    save_upload,
+)
 
 router = APIRouter(tags=["genealogy"])
 
 GENDER_HINTS = frozenset({"male", "female", "unknown"})
 PARENT_ROLES = frozenset({"father", "mother", "unknown"})
 EDGE_KINDS = frozenset({"parent", "spouse"})
+GIA_PHA_TAG_PREFIX = "gia-pha:"
+_DEATH_DATE_RE = re.compile(r"^(\d{4})-(\d{2})-(\d{2})$")
 
 
 def _parse_meta(raw: str) -> dict[str, Any]:
@@ -54,9 +65,13 @@ def _node_row(db: Session, node: FamilyTreeNode) -> dict[str, Any]:
         "display_name": node.display_name,
         "birth_year": node.birth_year,
         "death_year": node.death_year,
+        "death_date": node.death_date,
         "gender_hint": node.gender_hint or "unknown",
         "birth_order": node.birth_order,
         "notes": node.notes or "",
+        "con_rieng": bool(node.con_rieng),
+        "has_photo": bool(node.photo_path),
+        "photo_mime": node.photo_mime if node.photo_path else None,
         "identity_status": profile.status if profile else None,
         "created_at": node.created_at.isoformat(),
         "updated_at": node.updated_at.isoformat(),
@@ -101,6 +116,112 @@ def _get_edge_or_404(
     return edge
 
 
+def _normalize_death_date(value: str | None) -> str | None:
+    if value is None:
+        return None
+    raw = value.strip()
+    if not raw:
+        return None
+    match = _DEATH_DATE_RE.fullmatch(raw)
+    if not match:
+        raise HTTPException(
+            status_code=400, detail="Ngày mất phải là YYYY-MM-DD (dương lịch)."
+        )
+    year, month, day = int(match.group(1)), int(match.group(2)), int(match.group(3))
+    if year < 1000 or year > 2200:
+        raise HTTPException(status_code=400, detail="Năm mất không hợp lệ.")
+    try:
+        datetime(year, month, day)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail="Ngày mất không hợp lệ.") from exc
+    return f"{year:04d}-{month:02d}-{day:02d}"
+
+
+def _apply_death_fields(
+    node: FamilyTreeNode,
+    *,
+    death_year: int | None,
+    death_date: str | None,
+    clear_death_date: bool,
+) -> None:
+    if clear_death_date:
+        node.death_date = None
+        if death_year is None:
+            node.death_year = None
+    normalized = _normalize_death_date(death_date)
+    if normalized is not None:
+        node.death_date = normalized
+        node.death_year = int(normalized[:4])
+    elif death_year is not None:
+        node.death_year = death_year
+
+
+def _upsert_death_calendar(
+    db: Session,
+    *,
+    space_id: str,
+    user: User,
+    node: FamilyTreeNode,
+) -> None:
+    """Write ngày mất onto the family calendar when a full solar date is known."""
+    death_date = (node.death_date or "").strip()
+    if not death_date:
+        return
+    occurred = datetime.fromisoformat(death_date).replace(tzinfo=timezone.utc)
+    node_tag = f"{GIA_PHA_TAG_PREFIX}{node.id}"
+    existing = None
+    for item in (
+        db.query(MemoryItem)
+        .filter(MemoryItem.space_id == space_id, MemoryItem.kind == "milestone")
+        .all()
+    ):
+        if node_tag in tag_tokens(item.tags):
+            existing = item
+            break
+
+    parts = [node_tag, "lich:mat", "lich-precision:day"]
+    if node.identity_profile_id:
+        heritage = f"{HERITAGE_TAG_PREFIX}{node.identity_profile_id}"
+        if heritage not in parts:
+            parts.append(heritage)
+    tags = " ".join(parts)
+    title = (
+        "Ngày mất"
+        if node.identity_profile_id
+        else f"Ngày mất · {node.display_name}"
+    )
+    day, month, year = death_date[8:10], death_date[5:7], death_date[:4]
+    body = f"{node.display_name} mất ngày {int(day)}/{int(month)}/{year}."
+    now = datetime.now(timezone.utc)
+    if existing:
+        existing.title = title
+        existing.body = body
+        existing.occurred_at = occurred
+        tokens = [
+            t
+            for t in tag_tokens(existing.tags)
+            if not t.startswith(GIA_PHA_TAG_PREFIX)
+            and not t.startswith("lich:")
+            and t != "lich-precision:day"
+            and t != "lich-precision:year"
+        ]
+        existing.tags = " ".join(dict.fromkeys([*parts, *tokens]))[:500]
+        return
+    db.add(
+        MemoryItem(
+            id=generate(),
+            space_id=space_id,
+            created_by=user.id,
+            kind="milestone",
+            title=title,
+            body=body,
+            tags=tags,
+            occurred_at=occurred,
+            created_at=now,
+        )
+    )
+
+
 def _validate_node_refs(db: Session, *, space_id: str, from_id: str, to_id: str) -> None:
     if from_id == to_id:
         raise HTTPException(status_code=400, detail="Không thể nối một người với chính họ.")
@@ -136,9 +257,11 @@ class CreateNodeBody(BaseModel):
     identity_profile_id: str | None = None
     birth_year: int | None = Field(default=None, ge=1000, le=2200)
     death_year: int | None = Field(default=None, ge=1000, le=2200)
+    death_date: str | None = Field(default=None, max_length=10)
     gender_hint: str = Field(default="unknown", max_length=16)
     birth_order: int | None = Field(default=None, ge=1, le=99)
     notes: str = Field(default="", max_length=4000)
+    con_rieng: bool = False
 
 
 class UpdateNodeBody(BaseModel):
@@ -146,9 +269,12 @@ class UpdateNodeBody(BaseModel):
     identity_profile_id: str | None = None
     birth_year: int | None = Field(default=None, ge=1000, le=2200)
     death_year: int | None = Field(default=None, ge=1000, le=2200)
+    death_date: str | None = Field(default=None, max_length=10)
+    clear_death_date: bool = False
     gender_hint: str | None = Field(default=None, max_length=16)
     birth_order: int | None = Field(default=None, ge=1, le=99)
     notes: str | None = Field(default=None, max_length=4000)
+    con_rieng: bool | None = None
     clear_identity_profile_id: bool = False
 
 
@@ -237,14 +363,24 @@ def create_node(
         display_name=display_name,
         birth_year=body.birth_year,
         death_year=body.death_year,
+        death_date=None,
         gender_hint=gender,
         birth_order=body.birth_order,
         notes=(body.notes or "").strip(),
+        con_rieng=bool(body.con_rieng),
         created_by=user.id,
         created_at=now,
         updated_at=now,
     )
+    _apply_death_fields(
+        node,
+        death_year=body.death_year,
+        death_date=body.death_date,
+        clear_death_date=False,
+    )
     db.add(node)
+    db.flush()
+    _upsert_death_calendar(db, space_id=space_id, user=user, node=node)
     db.commit()
     db.refresh(node)
     return _node_row(db, node)
@@ -292,22 +428,100 @@ def update_node(
 
     if body.display_name is not None:
         node.display_name = body.display_name.strip()
-    if body.birth_year is not None:
+    if "birth_year" in body.model_fields_set:
         node.birth_year = body.birth_year
-    if body.death_year is not None:
-        node.death_year = body.death_year
+    _apply_death_fields(
+        node,
+        death_year=body.death_year,
+        death_date=body.death_date,
+        clear_death_date=body.clear_death_date,
+    )
     if body.gender_hint is not None:
         gender = body.gender_hint.lower()
         if gender not in GENDER_HINTS:
             raise HTTPException(status_code=400, detail="gender_hint không hợp lệ.")
         node.gender_hint = gender
-    if body.birth_order is not None:
+    if "birth_order" in body.model_fields_set:
         node.birth_order = body.birth_order
     if body.notes is not None:
         node.notes = body.notes.strip()
+    if body.con_rieng is not None:
+        node.con_rieng = body.con_rieng
 
     node.updated_at = datetime.now(timezone.utc)
+    db.flush()
+    _upsert_death_calendar(db, space_id=space_id, user=user, node=node)
     db.commit()
+    db.refresh(node)
+    return _node_row(db, node)
+
+
+def _replace_node_photo(node: FamilyTreeNode, relative: str, mime: str) -> None:
+    old = (node.photo_path or "").strip()
+    node.photo_path = relative
+    node.photo_mime = mime
+    if old and old != relative:
+        delete_media_artifacts(old)
+
+
+@router.post("/api/spaces/{space_id}/genealogy/nodes/{node_id}/photo")
+def upload_node_photo(
+    space_id: str,
+    node_id: str,
+    user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[Session, Depends(get_db)],
+    file: Annotated[UploadFile, File()],
+):
+    require_moderator_or_above(db, space_id=space_id, user=user)
+    node = _get_node_or_404(db, space_id=space_id, node_id=node_id)
+    relative, mime = save_upload(space_id, file)
+    if mime not in IMAGE_MIME:
+        delete_media_artifacts(relative)
+        raise HTTPException(status_code=400, detail="Ảnh mộ / bài vị phải là file ảnh.")
+    _replace_node_photo(node, relative, mime)
+    node.updated_at = datetime.now(timezone.utc)
+    db.commit()
+    db.refresh(node)
+    return _node_row(db, node)
+
+
+@router.get("/api/spaces/{space_id}/genealogy/nodes/{node_id}/photo")
+def get_node_photo(
+    space_id: str,
+    node_id: str,
+    user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[Session, Depends(get_db)],
+):
+    require_membership(db, space_id=space_id, user=user)
+    node = _get_node_or_404(db, space_id=space_id, node_id=node_id)
+    if not node.photo_path:
+        raise HTTPException(status_code=404, detail="Chưa có ảnh.")
+    path = absolute_media_path(node.photo_path)
+    if not path.exists():
+        raise HTTPException(status_code=404, detail="Không tìm thấy file ảnh.")
+    return FileResponse(
+        path,
+        media_type=node.photo_mime or "application/octet-stream",
+        filename=path.name,
+    )
+
+
+@router.delete("/api/spaces/{space_id}/genealogy/nodes/{node_id}/photo")
+def delete_node_photo(
+    space_id: str,
+    node_id: str,
+    user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[Session, Depends(get_db)],
+):
+    require_moderator_or_above(db, space_id=space_id, user=user)
+    node = _get_node_or_404(db, space_id=space_id, node_id=node_id)
+    old = (node.photo_path or "").strip()
+    node.photo_path = None
+    node.photo_mime = None
+    node.updated_at = datetime.now(timezone.utc)
+    db.commit()
+    if old:
+        delete_media_artifacts(old)
     db.refresh(node)
     return _node_row(db, node)
 
@@ -321,6 +535,7 @@ def delete_node(
 ):
     require_moderator_or_above(db, space_id=space_id, user=user)
     node = _get_node_or_404(db, space_id=space_id, node_id=node_id)
+    photo = (node.photo_path or "").strip()
     db.query(FamilyTreeEdge).filter(
         FamilyTreeEdge.space_id == space_id,
         (
@@ -330,6 +545,8 @@ def delete_node(
     ).delete(synchronize_session=False)
     db.delete(node)
     db.commit()
+    if photo:
+        delete_media_artifacts(photo)
     return {"ok": True}
 
 

@@ -34,17 +34,13 @@ export function GenerationBandView({
                 {cluster.ids.map((nodeId, index) => {
                   const node = graph.nodes.get(nodeId);
                   if (!node) return null;
-                  const mateId =
-                    cluster.ids.length > 1
-                      ? cluster.ids[index === 0 ? 1 : 0]
-                      : undefined;
                   return (
                     <View key={nodeId} style={styles.cardWrap}>
                       {index > 0 ? <Text style={styles.union}>♦</Text> : null}
                       <PersonNodeCard
                         node={node}
                         graph={graph}
-                        clusterMateId={mateId}
+                        clusterIds={cluster.ids}
                         selected={selectedNodeId === nodeId}
                         onPress={() => onSelectNode?.(node)}
                       />

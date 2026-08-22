@@ -430,9 +430,13 @@ export interface FamilyTreeNode {
   display_name: string;
   birth_year?: number | null;
   death_year?: number | null;
+  death_date?: string | null;
   gender_hint?: "male" | "female" | "unknown" | string;
   birth_order?: number | null;
   notes?: string;
+  con_rieng?: boolean;
+  has_photo?: boolean;
+  photo_mime?: string | null;
   identity_status?: string | null;
   created_at: string;
   updated_at: string;
@@ -1420,9 +1424,11 @@ export function createApiClient({
         identity_profile_id?: string | null;
         birth_year?: number | null;
         death_year?: number | null;
+        death_date?: string | null;
         gender_hint?: string;
         birth_order?: number | null;
         notes?: string;
+        con_rieng?: boolean;
       },
     ) =>
       request<FamilyTreeNode>(`/api/spaces/${spaceId}/genealogy/nodes`, {
@@ -1438,9 +1444,12 @@ export function createApiClient({
         clear_identity_profile_id?: boolean;
         birth_year?: number | null;
         death_year?: number | null;
+        death_date?: string | null;
+        clear_death_date?: boolean;
         gender_hint?: string;
         birth_order?: number | null;
         notes?: string;
+        con_rieng?: boolean;
       },
     ) =>
       request<FamilyTreeNode>(
@@ -1450,6 +1459,30 @@ export function createApiClient({
     deleteGenealogyNode: (spaceId: string, nodeId: string) =>
       request<{ ok: boolean }>(
         `/api/spaces/${spaceId}/genealogy/nodes/${nodeId}`,
+        { method: "DELETE" },
+      ),
+    genealogyPhotoUrl: (spaceId: string, nodeId: string) =>
+      `${resolveRoot()}/api/spaces/${spaceId}/genealogy/nodes/${nodeId}/photo`,
+    uploadGenealogyPhoto: (
+      spaceId: string,
+      nodeId: string,
+      payload: { uri: string; name: string; mimeType: string },
+    ) => {
+      const form = new FormData();
+      form.append("file", {
+        uri: payload.uri,
+        name: payload.name,
+        type: payload.mimeType,
+      } as unknown as Blob);
+      return request<FamilyTreeNode>(
+        `/api/spaces/${spaceId}/genealogy/nodes/${nodeId}/photo`,
+        { method: "POST", body: form as unknown as BodyInit },
+        { json: false },
+      );
+    },
+    deleteGenealogyPhoto: (spaceId: string, nodeId: string) =>
+      request<FamilyTreeNode>(
+        `/api/spaces/${spaceId}/genealogy/nodes/${nodeId}/photo`,
         { method: "DELETE" },
       ),
     createGenealogyEdge: (
