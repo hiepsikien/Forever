@@ -3,8 +3,39 @@ import { ThreadSummary } from "@forever/api-client";
 /** A row the family has not created yet — tapping it opens the private thread. */
 export type HomeThreadRow = ThreadSummary & { pendingDirectFor?: string };
 
-export function isDirectThread(item: ThreadSummary): boolean {
+export function isDirectThread(
+  item: Pick<ThreadSummary, "audience_scope">,
+): boolean {
   return (item.audience_scope ?? "family") === "direct";
+}
+
+/** Who the room is with — «Bố» / «Bà Nội», not the legal name. */
+export function heritageRoomPersonLabel(
+  item: Pick<ThreadSummary, "title" | "heritage">,
+): string {
+  const relation = (item.heritage?.relation_label ?? "").trim();
+  if (relation) return relation;
+  const title = item.title ?? "";
+  const sep = title.lastIndexOf("·");
+  if (sep >= 0) {
+    const fromTitle = title.slice(sep + 1).trim();
+    if (fromTitle) return fromTitle;
+  }
+  return (
+    (item.heritage?.display_name ?? "").trim() ||
+    title.trim() ||
+    "Ký ức"
+  );
+}
+
+/** Matches home cards: «Bố (Cả nhà)», «Bà Nội (Phòng riêng)». */
+export function heritageRoomScreenTitle(
+  item: Pick<ThreadSummary, "kind" | "title" | "heritage" | "audience_scope">,
+): string {
+  const who = heritageRoomPersonLabel(item);
+  if (item.kind !== "heritage") return item.title || who;
+  const scope = isDirectThread(item) ? "Phòng riêng" : "Cả nhà";
+  return `${who} (${scope})`;
 }
 
 /** Onboard room with Người giữ nhà — not the family's living room. */

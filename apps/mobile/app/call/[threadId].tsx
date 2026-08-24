@@ -47,7 +47,7 @@ import {
   followAlongPlan,
 } from "@/lib/callFollowAlong";
 import { formatMessageTime } from "@/lib/datetime";
-import { fetchAuthedMediaUri } from "@/lib/media";
+import { heritageRoomScreenTitle } from "@/lib/homeThreads";
 import {
   HOLD_TO_TALK_MAX_MS,
   HOLD_TO_TALK_MIN_MS,
@@ -56,6 +56,7 @@ import {
   noteSpeechMetering,
 } from "@/lib/holdToTalk";
 import { HoldToTalkTarget } from "@/lib/holdToTalkTarget";
+import { fetchAuthedMediaUri } from "@/lib/media";
 import { RecordingLevelMeter } from "@/lib/recordingMeter";
 import { VOICE_RECORDING_OPTIONS } from "@/lib/recordingOptions";
 import { useSpaceScreenOptions } from "@/lib/spaceHeader";
@@ -352,6 +353,9 @@ export default function CallScreen() {
   const relation =
     threadMeta?.heritage?.relation_label ||
     (displayName.startsWith("Bố") ? "Bố" : "Người thân");
+  const roomTitle = threadMeta
+    ? heritageRoomScreenTitle(threadMeta)
+    : "Gọi";
   const spaceId = threadMeta?.space_id;
   const identityId = threadMeta?.heritage?.identity_id;
 
@@ -380,7 +384,7 @@ export default function CallScreen() {
 
   useSpaceScreenOptions({
     spaceId,
-    title: "Gọi",
+    title: roomTitle,
     backTitle: "Nhà",
   });
 
@@ -1072,7 +1076,8 @@ export default function CallScreen() {
     <View style={[styles.root, { paddingBottom: Math.max(insets.bottom, 12) }]}>
       <View style={styles.metaBar}>
         <Text style={styles.metaLine} numberOfLines={1}>
-          Ký ức của {relation.toLowerCase()} · {displayName}
+          {roomTitle}
+          {displayName && displayName !== relation ? ` · ${displayName}` : ""}
         </Text>
         <Pressable
           onPress={() => setVoiceStripOpen((v) => !v)}

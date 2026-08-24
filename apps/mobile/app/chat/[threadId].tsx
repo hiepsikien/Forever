@@ -37,6 +37,7 @@ import {
   identityHandle,
   suggestHandles,
 } from "@/lib/handles";
+import { heritageRoomScreenTitle } from "@/lib/homeThreads";
 import { fetchAuthedMediaUri } from "@/lib/media";
 import { useSpaceScreenOptions } from "@/lib/spaceHeader";
 import { colors, createThemedStyles, useTheme } from "@/lib/theme";
@@ -514,12 +515,12 @@ export default function ChatScreen() {
     }
   }, [api, threadId, applyMessages]);
 
-  const isDirectThread = threadMeta?.audience_scope === "direct";
-
   useSpaceScreenOptions({
     spaceId: spaceId ?? undefined,
     title: threadMeta
-      ? `${threadMeta.title}${isDirectThread ? " · riêng" : ""}`
+      ? threadMeta.kind === "heritage"
+        ? heritageRoomScreenTitle(threadMeta)
+        : threadMeta.title
       : "Trò chuyện",
     backTitle: "Nhà",
   });
