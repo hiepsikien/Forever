@@ -294,6 +294,36 @@ export interface FamilyCharterSettings {
   note: string;
 }
 
+export interface HomeCameraSettings {
+  pro_tier: boolean;
+  server_ready: boolean;
+  configured: boolean;
+  enabled: boolean;
+  device_serial_hint: string;
+  verify_code_set: boolean;
+  channel_no: number;
+  room_label: string;
+  consent_at?: string | null;
+  can_view: boolean;
+  overridden: string[];
+  note: string;
+}
+
+export interface HomeCameraStatus {
+  pro_tier: boolean;
+  configured: boolean;
+  enabled: boolean;
+  room_label: string;
+  can_view: boolean;
+  server_ready: boolean;
+}
+
+export interface HomeCameraStream {
+  url: string;
+  expires_at?: number | string | null;
+  room_label?: string;
+}
+
 export interface SpaceSettings {
   elevenlabs_api_key_set: boolean;
   elevenlabs_api_key_hint: string;
@@ -303,6 +333,8 @@ export interface SpaceSettings {
   updated_at?: string | null;
   heritage_pipeline?: HeritagePipelineSettings;
   family_charter?: FamilyCharterSettings;
+  pro_tier?: boolean;
+  home_camera?: HomeCameraSettings;
 }
 
 export interface AiUsageBucket {
@@ -1397,12 +1429,25 @@ export function createApiClient({
           living_kin?: string;
           spouse_affection_per_day?: number;
         };
+        pro_tier?: boolean;
+        home_camera?: {
+          enabled?: boolean;
+          device_serial?: string;
+          channel_no?: number;
+          verify_code?: string | null;
+          room_label?: string;
+          record_consent?: boolean;
+        };
       },
     ) =>
       request<SpaceSettings>(`/api/spaces/${spaceId}/settings`, {
         method: "PATCH",
         body: JSON.stringify(payload),
       }),
+    getHomeCameraStatus: (spaceId: string) =>
+      request<HomeCameraStatus>(`/api/spaces/${spaceId}/home-camera`),
+    getHomeCameraStream: (spaceId: string) =>
+      request<HomeCameraStream>(`/api/spaces/${spaceId}/home-camera/stream`),
     getAiUsage: (spaceId: string, days = 30) =>
       request<AiUsageSummary>(
         `/api/spaces/${spaceId}/ai-usage?days=${Math.max(1, Math.min(366, days))}`,

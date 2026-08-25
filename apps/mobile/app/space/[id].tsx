@@ -1,4 +1,4 @@
-import { FamilySpace, Keepsake, ThreadSummary } from "@forever/api-client";
+import { FamilySpace, HomeCameraStatus, Keepsake, ThreadSummary } from "@forever/api-client";
 import { useFocusEffect } from "@react-navigation/native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -102,6 +102,7 @@ export default function SpaceScreen() {
   const [heardByIdentity, setHeardByIdentity] = useState<Record<string, number>>(
     {},
   );
+  const [homeCamera, setHomeCamera] = useState<HomeCameraStatus | null>(null);
   const [error, setError] = useState<string | null>(null);
   const recite = usePoemRecite();
   const spaceRef = useRef<FamilySpace | null>(null);
@@ -151,6 +152,12 @@ export default function SpaceScreen() {
           setHeardByIdentity(counts);
         } catch {
           setHeardByIdentity({});
+        }
+        try {
+          const cam = await api.getHomeCameraStatus(id);
+          setHomeCamera(cam);
+        } catch {
+          setHomeCamera(null);
         }
       } catch (e) {
         setError(e instanceof Error ? e.message : "Không tải được.");
@@ -522,6 +529,27 @@ export default function SpaceScreen() {
             {threadRowMeta(baNoiFamily).preview}
           </Text>
           <Text style={styles.threadCta}>{threadRowMeta(baNoiFamily).cta}</Text>
+        </Pressable>
+      ) : null}
+
+      {homeCamera?.pro_tier ? (
+        <Pressable
+          style={styles.viewHomeGate}
+          onPress={() => id && router.push(`/view-home/${id}` as never)}
+        >
+          <Text style={styles.viewHomeKicker}>Phòng Xem nhà</Text>
+          <Text style={styles.viewHomeTitle}>
+            {homeCamera.can_view
+              ? homeCamera.room_label
+              : "Chưa bật camera"}
+          </Text>
+          <Text style={styles.viewHomeSub}>
+            Xem tình hình nhà khi trò chuyện với Bố và Bà Nội — chỉ thành viên
+            nhà.
+          </Text>
+          <Text style={styles.viewHomeCta}>
+            {homeCamera.can_view ? "Xem live →" : "Thiết lập / xem →"}
+          </Text>
         </Pressable>
       ) : null}
 
@@ -897,6 +925,39 @@ const styles = createThemedStyles((colors) => ({
     color: colors.inkSoft,
   },
   libraryCta: {
+    marginTop: 4,
+    fontSize: 15,
+    fontWeight: "700",
+    color: colors.brand,
+  },
+  viewHomeGate: {
+    backgroundColor: colors.card,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: colors.line,
+    paddingVertical: 16,
+    paddingHorizontal: 16,
+    gap: 6,
+    marginTop: 4,
+  },
+  viewHomeKicker: {
+    fontSize: 11,
+    fontWeight: "700",
+    color: colors.brandSoft,
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+  },
+  viewHomeTitle: {
+    fontFamily: fonts.display,
+    fontSize: 22,
+    color: colors.ink,
+  },
+  viewHomeSub: {
+    fontSize: 14,
+    lineHeight: 21,
+    color: colors.inkSoft,
+  },
+  viewHomeCta: {
     marginTop: 4,
     fontSize: 15,
     fontWeight: "700",

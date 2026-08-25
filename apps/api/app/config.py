@@ -112,6 +112,11 @@ class Settings(BaseSettings):
     # Re-queue running jobs with no worker heartbeat after this many minutes.
     extract_job_stale_minutes: int = 60
 
+    # Phòng Xem nhà — Ezviz Open Platform (see docs/forever-pro-ezviz.plan.md).
+    home_camera_enabled: bool = True
+    ezviz_app_key: str = ""
+    ezviz_app_secret: str = ""
+
     # Sentry (forever-api). Empty DSN = disabled. Never enable send_default_pii —
     # Authorization and chat/memory bodies must not leave the server.
     sentry_dsn: str = ""

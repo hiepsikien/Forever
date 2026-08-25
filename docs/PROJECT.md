@@ -216,12 +216,14 @@ từng thành viên. Chưa có Alembic — bảng mới qua `create_all`, cột 
 4. Bật critic (`HERITAGE_CRITIC_ENABLED`) sau khi golden live đạt *bịa năm/tên = 0*.  
 5. Micro-rituals (Phase 5) và export archive (Phase 6) khi mẹ đã dùng đều.  
 
-## 11. Backlog — Forever Pro + Ezviz *(chưa bắt đầu)*
+## 11. Forever Pro + Phòng Xem nhà *(Phase 1 — 2026-08)*
 
-Tier **Forever Pro**: bản thường giữ scope hiện tại (gate quyền); Pro thêm **camera
-Ezviz live + mic 2 chiều** gom trong app. Gọi video người sống (Daily/Zalo) là
-nice to have — gia đình đã dùng Zalo. Camera **không** thay tablet/phone cho mẹ
-nói với Bố. Chi tiết: `docs/forever-pro-ezviz.plan.md`.
+Tier **Forever Pro**: bản thường giữ scope hiện tại; Pro thêm **Phòng Xem nhà**
+(camera Ezviz live HLS trong app). Gọi video người sống (Daily/Zalo) vẫn nice
+to have — gia đình đã dùng Zalo. Camera **không** thay tablet/phone cho mẹ nói
+với Bố. Chi tiết: `docs/forever-pro-ezviz.plan.md`.
+
+Phase 2 backlog: mic 2 chiều qua loa camera (native Ezviz SDK).
 
 Đã xong: `visibility` trên `MemoryItem` (`family` / `private`) — fact nghe trong
 phòng riêng có thể giữ lâu dài mà vẫn không thành chuyện của cả nhà. Luật đọc nằm
