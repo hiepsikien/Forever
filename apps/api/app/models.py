@@ -240,10 +240,24 @@ class SpaceSettings(Base):
     heritage_pipeline_json: Mapped[str] = mapped_column(Text, default="")
     # Tầng 2 — hiến chương gia đình; xem heritage_rules_family.py.
     family_charter_json: Mapped[str] = mapped_column(Text, default="")
+    # Forever Pro — Phòng Xem nhà (Ezviz). Tier gate + device config JSON.
+    pro_tier: Mapped[bool] = mapped_column(default=False)
+    home_camera_json: Mapped[str] = mapped_column(Text, default="")
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     updated_by: Mapped[str | None] = mapped_column(ForeignKey("users.id"), nullable=True)
 
     space: Mapped[FamilySpace] = relationship(back_populates="settings")
+
+
+class HomeCameraViewLog(Base):
+    """Metadata only — who opened Phòng Xem nhà and when (no video stored)."""
+
+    __tablename__ = "home_camera_view_logs"
+
+    id: Mapped[str] = mapped_column(String(32), primary_key=True)
+    space_id: Mapped[str] = mapped_column(ForeignKey("family_spaces.id"), index=True)
+    user_id: Mapped[str] = mapped_column(ForeignKey("users.id"), index=True)
+    opened_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
 
 
 class IdentityProfile(Base):

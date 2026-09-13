@@ -132,6 +132,10 @@ function ThemedStack() {
             />
             <Stack.Screen name="settings/[spaceId]" options={{ title: "Cài đặt" }} />
             <Stack.Screen
+              name="view-home/[spaceId]"
+              options={{ title: "Phòng Xem nhà", headerBackTitle: "Nhà" }}
+            />
+            <Stack.Screen
               name="settings/philosophy"
               options={{ title: "Triết lý Forever" }}
             />

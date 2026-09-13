@@ -159,6 +159,12 @@ export default function SettingsScreen() {
   const [addingLivingFor, setAddingLivingFor] = useState<string | null>(null);
   const [newLivingName, setNewLivingName] = useState("");
   const [newLivingRelation, setNewLivingRelation] = useState(DEFAULT_LIVING_RELATION);
+  const [homeCameraOpen, setHomeCameraOpen] = useState(false);
+  const [homeCameraBusy, setHomeCameraBusy] = useState(false);
+  const [homeCameraSerial, setHomeCameraSerial] = useState("");
+  const [homeCameraVerify, setHomeCameraVerify] = useState("");
+  const [homeCameraLabel, setHomeCameraLabel] = useState("Phòng mẹ");
+  const [homeCameraChannel, setHomeCameraChannel] = useState("1");
 
   useSpaceScreenOptions({
     spaceId,
@@ -176,6 +182,45 @@ export default function SettingsScreen() {
     setLivingKin(charter.living_kin);
     setAffectionPerDay(charter.spouse_affection_per_day);
   }, [charter]);
+
+  const homeCamera = settings?.home_camera;
+  useEffect(() => {
+    if (!homeCamera) return;
+    if (homeCamera.device_serial_hint) {
+      // Hint only — steward re-enters full serial when changing device.
+    }
+    setHomeCameraLabel(homeCamera.room_label || "Phòng mẹ");
+    setHomeCameraChannel(String(homeCamera.channel_no || 1));
+  }, [homeCamera]);
+
+  const saveHomeCamera = async (patch: {
+    pro_tier?: boolean;
+    home_camera?: {
+      enabled?: boolean;
+      device_serial?: string;
+      channel_no?: number;
+      verify_code?: string | null;
+      room_label?: string;
+      record_consent?: boolean;
+    };
+  }) => {
+    if (!spaceId || !settings?.can_edit || homeCameraBusy) return;
+    setHomeCameraBusy(true);
+    try {
+      const res = await api.updateSpaceSettings(spaceId, patch);
+      setSettings(res);
+      if (patch.home_camera?.verify_code) {
+        setHomeCameraVerify("");
+      }
+    } catch (e) {
+      Alert.alert(
+        "Lỗi",
+        e instanceof Error ? e.message : "Không lưu được Phòng Xem nhà.",
+      );
+    } finally {
+      setHomeCameraBusy(false);
+    }
+  };
 
   const load = useCallback(async () => {
     if (!spaceId) return;
@@ -816,7 +861,158 @@ export default function SettingsScreen() {
         </>
       ) : tab === "ai" ? (
         <>
-          <Text style={styles.section}>Nhà dùng</Text>
+          <Text style={styles.section}>Phòng Xem nhà</Text>
+          <Text style={styles.help}>
+            Camera Ezviz trong nhà — xem live khi trò chuyện với Bố và Bà Nội.
+            Mẹ phải biết và đồng ý trước khi bật.
+          </Text>
+          <View style={styles.card}>
+            <View style={styles.pipelineRow}>
+              <View style={styles.pipelineMain}>
+                <Text style={styles.pipelineLabel}>Forever Pro</Text>
+                <Text style={styles.pipelineHelp}>
+                  Bật tier Pro cho nhà này — thành viên mới thấy Phòng Xem nhà.
+                </Text>
+              </View>
+              <Switch
+                value={Boolean(settings?.pro_tier)}
+                onValueChange={(v) => void saveHomeCamera({ pro_tier: v })}
+                disabled={homeCameraBusy || !settings?.can_edit}
+                trackColor={{ false: colors.line, true: colors.brandWash }}
+                thumbColor={settings?.pro_tier ? colors.brand : colors.onBrand}
+              />
+            </View>
+            <Disclosure
+              title="Camera Ezviz"
+              subtitle={
+                homeCamera?.configured
+                  ? `${homeCamera.room_label}${homeCamera.device_serial_hint ? ` · ${homeCamera.device_serial_hint}` : ""}`
+                  : "Chưa cấu hình"
+              }
+              open={homeCameraOpen}
+              onToggle={() => setHomeCameraOpen((v) => !v)}
+            >
+              {!homeCamera?.server_ready ? (
+                <Text style={styles.help}>
+                  Server cần EZVIZ_APP_KEY và EZVIZ_APP_SECRET (Open Platform).
+                </Text>
+              ) : null}
+              <View style={styles.pipelineRow}>
+                <View style={styles.pipelineMain}>
+                  <Text style={styles.pipelineLabel}>Bật xem live</Text>
+                  <Text style={styles.pipelineHelp}>
+                    Tắt khi không dùng — tile vẫn hiện nếu Pro đang bật.
+                  </Text>
+                </View>
+                <Switch
+                  value={Boolean(homeCamera?.enabled)}
+                  onValueChange={(v) =>
+                    void saveHomeCamera({ home_camera: { enabled: v } })
+                  }
+                  disabled={homeCameraBusy || !settings?.can_edit}
+                  trackColor={{ false: colors.line, true: colors.brandWash }}
+                  thumbColor={homeCamera?.enabled ? colors.brand : colors.onBrand}
+                />
+              </View>
+              <Text style={styles.pipelineLabel}>Serial camera (Ezviz)</Text>
+              <TextInput
+                style={styles.input}
+                value={homeCameraSerial}
+                onChangeText={setHomeCameraSerial}
+                placeholder={
+                  homeCamera?.device_serial_hint
+                    ? `Giữ ${homeCamera.device_serial_hint} nếu không đổi`
+                    : "G10041709"
+                }
+                placeholderTextColor={colors.inkSoft}
+                autoCapitalize="characters"
+                autoCorrect={false}
+              />
+              <Text style={styles.pipelineLabel}>Mã xác minh (trên máy / hộp)</Text>
+              <TextInput
+                style={styles.input}
+                value={homeCameraVerify}
+                onChangeText={setHomeCameraVerify}
+                placeholder={
+                  homeCamera?.verify_code_set ? "•••• (để trống giữ cũ)" : "XXXXXX"
+                }
+                placeholderTextColor={colors.inkSoft}
+                autoCapitalize="characters"
+                autoCorrect={false}
+                secureTextEntry
+              />
+              <Text style={styles.pipelineLabel}>Nhãn phòng</Text>
+              <TextInput
+                style={styles.input}
+                value={homeCameraLabel}
+                onChangeText={setHomeCameraLabel}
+                placeholder="Phòng mẹ"
+                placeholderTextColor={colors.inkSoft}
+              />
+              <Text style={styles.pipelineLabel}>Kênh (thường là 1)</Text>
+              <TextInput
+                style={styles.input}
+                value={homeCameraChannel}
+                onChangeText={setHomeCameraChannel}
+                keyboardType="number-pad"
+                placeholder="1"
+                placeholderTextColor={colors.inkSoft}
+              />
+              <Pressable
+                style={[styles.btn, homeCameraBusy && styles.btnDisabled]}
+                disabled={homeCameraBusy || !settings?.can_edit}
+                onPress={() => {
+                  const serial = homeCameraSerial.trim();
+                  const channel = parseInt(homeCameraChannel, 10);
+                  void saveHomeCamera({
+                    home_camera: {
+                      device_serial: serial || undefined,
+                      channel_no: Number.isFinite(channel) ? channel : 1,
+                      verify_code: homeCameraVerify.trim() || undefined,
+                      room_label: homeCameraLabel.trim() || "Phòng mẹ",
+                    },
+                  });
+                }}
+              >
+                <Text style={styles.btnText}>
+                  {homeCameraBusy ? "Đang lưu…" : "Lưu camera"}
+                </Text>
+              </Pressable>
+              <Pressable
+                style={[styles.btnSecondary, homeCameraBusy && styles.btnDisabled]}
+                disabled={
+                  homeCameraBusy || !settings?.can_edit || Boolean(homeCamera?.consent_at)
+                }
+                onPress={() => {
+                  Alert.alert(
+                    "Đồng ý riêng tư",
+                    "Xác nhận mẹ (và cả nhà) biết camera trong phòng và đồng ý thành viên xem khi cần — không ghi hình mặc định.",
+                    [
+                      { text: "Huỷ", style: "cancel" },
+                      {
+                        text: "Xác nhận",
+                        onPress: () =>
+                          void saveHomeCamera({
+                            home_camera: { record_consent: true },
+                          }),
+                      },
+                    ],
+                  );
+                }}
+              >
+                <Text style={styles.btnSecondaryText}>
+                  {homeCamera?.consent_at
+                    ? `Đã đồng ý · ${new Date(homeCamera.consent_at).toLocaleDateString("vi-VN")}`
+                    : "Xác nhận mẹ đồng ý camera"}
+                </Text>
+              </Pressable>
+              {homeCamera?.note ? (
+                <Text style={styles.footnote}>{homeCamera.note}</Text>
+              ) : null}
+            </Disclosure>
+          </View>
+
+          <Text style={[styles.section, { marginTop: 24 }]}>Nhà dùng</Text>
           <Text style={styles.help}>
             Lượt người sống nói với ký ức trên API này. Không khóa ai — thấy nhiều
             thì gọi người thật.

@@ -365,6 +365,16 @@ def ensure_schema() -> None:
         "ALTER TABLE space_settings ADD COLUMN family_charter_json TEXT DEFAULT ''",
     )
     _add_column_if_missing(
+        "space_settings",
+        "pro_tier",
+        "ALTER TABLE space_settings ADD COLUMN pro_tier BOOLEAN DEFAULT FALSE",
+    )
+    _add_column_if_missing(
+        "space_settings",
+        "home_camera_json",
+        "ALTER TABLE space_settings ADD COLUMN home_camera_json TEXT DEFAULT ''",
+    )
+    _add_column_if_missing(
         "library_ingest_proposals",
         "authorship",
         "ALTER TABLE library_ingest_proposals ADD COLUMN authorship VARCHAR(16) DEFAULT 'own'",

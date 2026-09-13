@@ -1,16 +1,17 @@
-# Forever Pro — camera Ezviz (future)
+# Forever Pro — Phòng Xem nhà (Ezviz)
 
-> Trạng thái: **Chưa bắt đầu** — backlog sản phẩm, ghi nhận sau thảo luận 2026-08.
+> Trạng thái: **Phase 1 xong** (2026-08-25) — xem live HLS qua Ezviz Open Platform.
+> Phase 2 (mic 2 chiều qua loa camera) chưa bắt đầu.
 > Đọc cùng `docs/PROJECT.md`, `docs/voice-to-voice.plan.md`.
 
-## 1. Vì sao (và vì sao không vội)
+## 1. Vì sao (và vì sao không vội Phase 2)
 
 Gia đình đã **gọi video người sống bằng Zalo** — tích hợp WebRTC (Daily/LiveKit)
 trong app là **nice to have**, không phải lý do mua Pro.
 
-**Forever Pro** nên neo vào thứ Zalo không có trong bối cảnh Forever:
+**Forever Pro · Phòng Xem nhà** neo vào thứ Zalo không có trong bối cảnh Forever:
 
-- Xem **camera Ezviz** (live + nói 2 chiều qua mic/loa camera) **trong cùng app**
+- Xem **camera Ezviz** (live; sau này + nói 2 chiều qua mic/loa camera) **trong cùng app**
   với Thư viện, chat Bố/Bà, Voice DNA.
 - Bản **Forever** (thường): giữ scope hiện tại; **ẩn / 403** tính năng Pro bằng tier
   trên `FamilySpace` — không fork app, không xóa code.
@@ -28,88 +29,115 @@ Thiết bị tham chiếu: **Ezviz C1C**, serial dạng `G10041709` (camera tron
 | Gọi video người sống (Daily.co) | **Nice to have, ưu tiên thấp** — cả nhà dùng Zalo |
 | RTSP-only làm xem từ xa | **Không đủ** — RTSP local; xem xa cần **Ezviz Open Platform** |
 | API Ezviz không chính thức (pyEzviz) | **Không** production |
+| Phòng Xem nhà là thread chat | **Không** — tiện ích cấp space, không heritage / memory candidates |
 
-## 3. Kiến trúc đề xuất (khi làm)
+## 3. Kiến trúc (đã triển khai Phase 1)
 
 ### 3.1 Forever Pro tier
 
-- Flag trên space (ví dụ `space_settings.pro_tier` hoặc billing sau này).
-- Mobile + API: `require_pro` cho route camera; bản thường không thấy entry.
+- `space_settings.pro_tier` — steward bật trong Cài đặt → AI.
+- `require_pro()` trên API stream; tile space home chỉ hiện khi `pro_tier`.
 
 ### 3.2 Ezviz — đường chính thống
 
 ```
 App Forever (Pro)  →  API Forever  →  Ezviz Open Platform  →  C1C (cloud)
         ↑                                    ↑
-   SDK native / H5                    AppKey + accessToken
-   live view + Two-Way Audio          (tài khoản Ezviz đã link device)
+   expo-video HLS                    AppKey + accessToken (env)
+   /view-home/{spaceId}             + device serial (settings)
 ```
 
 **Open Platform** ([ezviz.com/developer](https://www.ezviz.com/developer/index)):
 
-- Live View (HLS / FLV / SDK).
-- **Two-Way Audio** (half/full duplex) — mic/loa camera, giống app Ezviz.
-- Capture snapshot (tuỳ chọn).
+- Live View HLS (`protocol=2` qua `/api/lapp/v2/live/address/get`).
+- **Two-Way Audio** (Phase 2) — cần native SDK, không làm bằng HLS thuần.
 - Free developer tier ~ **3 kênh đồng thời** — đủ 1 camera gia đình.
 
-**Không** dùng RTSP cho Pro xem xa. RTSP (`rtsp://admin:VERIFICATION_CODE@IP:554/…`)
-chỉ khi server/app **cùng LAN** với camera; bật trong app Ezviz: *Cài đặt → LAN
-Live View → Local Service Settings → RTSP*.
+**Env server** (production):
 
-### 3.3 Vai trò thiết bị tại nhà mẹ
+- `EZVIZ_APP_KEY`, `EZVIZ_APP_SECRET` — từ Open Platform.
+- `HOME_CAMERA_ENABLED=true` (mặc định bật; tắt = 404 toàn route).
+
+**Cấu hình theo nhà** (`space_settings.home_camera_json`, steward PATCH settings):
+
+| Trường | Ý nghĩa |
+|--------|---------|
+| `enabled` | Bật xem live |
+| `device_serial` | Serial C1C |
+| `channel_no` | Kênh (thường 1) |
+| `verify_code` | Mã trên máy — **không** trả về client |
+| `room_label` | Nhãn UI («Phòng mẹ») |
+| `consent_at` / `consent_by` | Steward xác nhận mẹ đồng ý |
+
+### 3.3 Routes
+
+| Layer | Path |
+|-------|------|
+| Mobile | `/view-home/[spaceId]` — player HLS |
+| Space home | Tile **Phòng Xem nhà** (khi Pro) |
+| API status | `GET /api/spaces/{id}/home-camera` |
+| API stream | `GET /api/spaces/{id}/home-camera/stream` → `{ url, expires_at }` |
+| Audit | Bảng `home_camera_view_logs` — ai mở, lúc nào (không ghi video) |
+
+### 3.4 Vai trò thiết bị tại nhà mẹ
 
 | Thiết bị | Vai trò |
 |----------|---------|
 | **Tablet / phone Forever** | Mẹ ↔ Bố (AI) qua `/call`; interface chính |
-| **C1C Ezviz** | Con (Pro) **xem live + bấm mic** nói vào phòng — passive từ phía mẹ |
+| **C1C Ezviz** | Con (Pro) **xem live** phòng mẹ — passive; Phase 2: bấm mic nói vào phòng |
 | **Zalo** | Gọi video mẹ ↔ con hàng ngày — **ngoài scope Pro MVP** |
 
-### 3.4 Latency VN
+### 3.5 Latency VN
 
-- Ezviz cloud: chấp nhận **~2–5s** (HLS) cho xem passive — không cần realtime như gọi.
-- Nếu sau này làm Daily call: pin region **Singapore** (`ap-southeast-1`).
+- Ezviz cloud HLS: chấp nhận **~2–5s** cho xem passive — không cần realtime như gọi.
 
-## 4. Blocker hiện tại
+## 4. Blocker vận hành (chưa có trên prod)
 
 Chưa có quyền Ezviz từ anh trai (chủ tài khoản / camera). Cần một trong:
 
-- Share device C1C sang tài khoản steward Forever, hoặc
-- Tài khoản phụ + quyền xem/nói.
+- Share device C1C sang tài khoản đã đăng ký Open Platform, hoặc
+- Tài khoản phụ + quyền xem trên cloud Ezviz.
 
 **Không cần** pass WiFi nhà. Serial tham chiếu: `G10041709`.
 
-Có thể làm trước khi có camera: tier flag, UI placeholder, đăng ký Open Platform
-(AppKey/Secret).
+**Steward checklist sau deploy:**
 
-## 5. Phạm vi MVP Pro (khi ưu tiên)
+1. Đặt `EZVIZ_APP_KEY` / `EZVIZ_APP_SECRET` trên API.
+2. Cài đặt → AI → bật **Forever Pro**.
+3. Nhập serial + mã xác minh C1C, nhãn phòng.
+4. Bấm **Xác nhận mẹ đồng ý camera**.
+5. Bật **Bật xem live** → thử `/view-home`.
 
-1. `require_pro` + màn **「Camera nhà」** trên space home.
-2. Link Ezviz (OAuth / token server-side) — steward only.
-3. Live view + nút mic (Two-Way Talk) qua SDK hoặc embed H5.
-4. Metadata log: *ai mở xem, lúc nào* — **không** ghi video mặc định.
-5. Sleep mode / nhắc quyền riêng tư — mẹ đồng ý camera trong phòng khách.
+## 5. Phạm vi đã ship (Phase 1)
 
-**Không** trong MVP: Daily call, STT cuộc gọi, ghi hình cloud Ezviz vào Thư viện.
+1. `pro_tier` + `home_camera_json` trên `SpaceSettings`.
+2. Tile **Phòng Xem nhà** trên space home (Pro).
+3. Màn `/view-home` — HLS qua `expo-video`.
+4. API proxy Ezviz token + live URL server-side.
+5. Audit metadata xem.
+6. Cài đặt steward: Pro toggle, camera, consent.
+
+**Chưa ship:** Two-Way Talk, PiP trên `/call`, snapshot → Thư viện.
 
 ## 6. Quyền riêng tư (hard)
 
-- Camera luôn bật = nhạy cảm; mẹ phải **biết và đồng ý**.
-- Chỉ steward / member Pro được xem; không public link.
+- Camera luôn bật = nhạy cảm; mẹ phải **biết và đồng ý** (`consent_at` bắt buộc trước stream).
+- Chỉ member Pro space được xem; không public link.
 - Ưu tiên **xem khi cần**, không surveillance 24/7 trong UX copy.
 
-## 7. Lộ trình gợi ý
+## 7. Lộ trình tiếp theo
 
 ```
-P0  Forever Pro flag + ẩn tính năng bản thường
-P1  Ezviz Open Platform — link account + live + mic (1× C1C)
-P2  (Tuỳ chọn) snapshot → MemoryItem, opt-in
+✓  P1  Ezviz Open Platform — link device + live HLS (1× C1C)
+P2  Two-Way Talk — native SDK, dev build
+P3  (Tuỳ chọn) PiP trên /call; snapshot opt-in → MemoryItem
 —   Gọi người sống Daily     ← nice to have, sau hoặc không
-—   STT / ghi cuộc gọi       ← chỉ nếu có nút «Lưu vào ký ức»
 ```
 
 ## 8. Tham chiếu kỹ thuật
 
-- Ezviz Open Platform SDK: Live View, Two-Way Audio — FAQ 428, developer index.
-- C1C: RTSP supported (local); cloud protocol proprietary.
-- Forever STT hiện tại (`app/services/stt.py`): dành cho **heritage / voice note**,
-  không dùng cho Pro call trừ khi có opt-in ghi âm.
+- Code: `apps/api/app/routers/home_camera.py`, `services/home_camera_ezviz.py`,
+  `services/home_camera_config.py`, `apps/mobile/app/view-home/[spaceId].tsx`.
+- Tests: `apps/api/tests/test_home_camera.py`.
+- Ezviz: `POST /api/lapp/token/get`, `POST /api/lapp/v2/live/address/get` (protocol 2 = HLS).
+- C1C: RTSP supported (local only); cloud = Open Platform.

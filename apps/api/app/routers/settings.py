@@ -22,6 +22,11 @@ from ..services.heritage_rules_family import (
     apply_charter_overrides,
     charter_admin_payload,
 )
+from ..services.home_camera_config import (
+    apply_home_camera_overrides,
+    home_camera_admin_payload,
+)
+from ..services.home_camera_ezviz import ezviz_credentials_ready
 
 router = APIRouter(prefix="/api/spaces", tags=["settings"])
 
@@ -41,6 +46,8 @@ class SettingsUpdateBody(BaseModel):
     heritage_pipeline: dict[str, Any] | None = None
     # Tầng 2 — { lines, living_kin, spouse_affection_per_day }.
     family_charter: dict[str, Any] | None = None
+    pro_tier: bool | None = None
+    home_camera: dict[str, Any] | None = None
 
 
 def _split_pipeline_update(
@@ -79,6 +86,8 @@ def _settings_payload(db: Session, row: SpaceSettings | None, *, can_edit: bool,
     hint = ""
     if key:
         hint = f"…{key[-4:]}" if len(key) >= 4 else "••••"
+    app_settings = get_settings()
+    pro_tier = bool(row and row.pro_tier)
     return {
         "elevenlabs_api_key_set": bool(key) or env_fallback,
         "elevenlabs_api_key_hint": hint if key else ("(server env)" if env_fallback else ""),
@@ -88,6 +97,13 @@ def _settings_payload(db: Session, row: SpaceSettings | None, *, can_edit: bool,
         "updated_at": row.updated_at.isoformat() if row else None,
         "heritage_pipeline": pipeline_admin_payload(db, space_id),
         "family_charter": charter_admin_payload(db, space_id),
+        "pro_tier": pro_tier,
+        "home_camera": home_camera_admin_payload(
+            row,
+            pro_tier=pro_tier,
+            server_ready=app_settings.home_camera_enabled
+            and ezviz_credentials_ready(app_settings),
+        ),
     }
 
 
@@ -101,6 +117,8 @@ def get_or_create_settings(db: Session, space_id: str) -> SpaceSettings:
         elevenlabs_api_key=None,
         heritage_pipeline_json="",
         family_charter_json="",
+        pro_tier=False,
+        home_camera_json="",
         updated_at=now,
         updated_by=None,
     )
@@ -190,6 +208,66 @@ def update_settings(
             )
         except ValueError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
+    if body.pro_tier is not None:
+        row.pro_tier = body.pro_tier
+    if body.home_camera is not None:
+        raw = body.home_camera
+        unknown = [
+            k
+            for k in raw
+            if k
+            not in (
+                "enabled",
+                "device_serial",
+                "channel_no",
+                "verify_code",
+                "room_label",
+                "record_consent",
+            )
+        ]
+        if unknown:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Unknown home_camera keys: {', '.join(unknown)}",
+            )
+        channel = raw.get("channel_no")
+        if channel is not None and (not isinstance(channel, int) or isinstance(channel, bool)):
+            raise HTTPException(
+                status_code=400, detail="home_camera.channel_no must be an integer."
+            )
+        enabled = raw.get("enabled")
+        if enabled is not None and not isinstance(enabled, bool):
+            raise HTTPException(status_code=400, detail="home_camera.enabled must be boolean.")
+        serial = raw.get("device_serial")
+        if serial is not None and not isinstance(serial, str):
+            raise HTTPException(
+                status_code=400, detail="home_camera.device_serial must be a string."
+            )
+        verify = raw.get("verify_code")
+        if verify is not None and not isinstance(verify, str):
+            raise HTTPException(
+                status_code=400, detail="home_camera.verify_code must be a string."
+            )
+        label = raw.get("room_label")
+        if label is not None and not isinstance(label, str):
+            raise HTTPException(
+                status_code=400, detail="home_camera.room_label must be a string."
+            )
+        consent = raw.get("record_consent")
+        if consent is not None and not isinstance(consent, bool):
+            raise HTTPException(
+                status_code=400, detail="home_camera.record_consent must be boolean."
+            )
+        apply_home_camera_overrides(
+            row,
+            enabled=enabled,
+            device_serial=serial,
+            channel_no=channel,
+            verify_code=verify,
+            room_label=label,
+            record_consent=bool(consent),
+            consent_by=user.id if consent else None,
+        )
     row.updated_at = datetime.now(timezone.utc)
     row.updated_by = user.id
     db.commit()

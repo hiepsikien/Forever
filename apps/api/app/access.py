@@ -3,7 +3,7 @@ from __future__ import annotations
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
-from .models import FamilySpace, Membership, Thread, User
+from .models import FamilySpace, Membership, SpaceSettings, Thread, User
 
 #: Membership roles, widest authority first.
 #:
@@ -106,4 +106,22 @@ def is_moderator_or_above(db: Session, *, space_id: str, user: User) -> bool:
         require_moderator_or_above(db, space_id=space_id, user=user)
     except HTTPException:
         return False
+    return True
+
+
+def is_pro_space(db: Session, *, space_id: str) -> bool:
+    row = (
+        db.query(SpaceSettings)
+        .filter(SpaceSettings.space_id == space_id)
+        .one_or_none()
+    )
+    return bool(row and row.pro_tier)
+
+
+def require_pro(db: Session, *, space_id: str) -> bool:
+    if not is_pro_space(db, space_id=space_id):
+        raise HTTPException(
+            status_code=403,
+            detail="Forever Pro required for Phòng Xem nhà.",
+        )
     return True
