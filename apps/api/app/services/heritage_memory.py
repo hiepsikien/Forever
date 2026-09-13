@@ -338,10 +338,12 @@ def conversation_facts_from_turn(*, user_message: Message) -> list[dict]:
         return []
     if _GREETING_ONLY.match(body):
         return []
+    # `life_state` is kept in thread memory but never offered for review
+    # (PERISHABLE_KINDS). Spoken turns need a steward row — use `event`.
     return [
         {
             "statement": body[:800],
-            "kind": "life_state",
+            "kind": "event",
             "source_message_id": user_message.id,
         }
     ]

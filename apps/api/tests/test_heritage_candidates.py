@@ -164,6 +164,31 @@ def test_the_same_fact_is_not_queued_twice(client):
         db.close()
 
 
+def test_conversation_fallback_reaches_the_review_queue(client):
+    """Spoken turns without analyzer facts must still land in «Điều nghe được»."""
+    from app.db import SessionLocal
+    from app.services.heritage_memory import conversation_facts_from_turn
+
+    db = SessionLocal()
+    try:
+        _, identity, thread, message, _, _ = _scene(db)
+        message.body = "Hôm nay con đi làm muộn, mẹ nấu cơm một mình ở nhà."
+        db.commit()
+        facts = conversation_facts_from_turn(user_message=message)
+        queued = enqueue_facts(
+            db,
+            thread=thread,
+            identity=identity,
+            user_message=message,
+            facts=facts,
+        )
+        assert len(queued) == 1
+        assert queued[0].fact_kind == "event"
+        assert "mẹ nấu cơm" in queued[0].statement.lower()
+    finally:
+        db.close()
+
+
 def test_todays_news_is_never_offered_as_a_life_story(client):
     """"Công việc hôm nay tốt đẹp" belongs in the thread, not in a biography."""
     from app.db import SessionLocal
@@ -317,6 +342,55 @@ def test_an_approved_fact_is_not_queued_again_from_a_later_turn(client):
         db.commit()
         # The queue forgot it, but the library remembers.
         assert enqueue_facts(db, **args, facts=[_fact("Mẹ ở phòng ngoài")]) == []
+    finally:
+        db.close()
+
+
+def test_write_back_queues_spoken_sentence_when_analyzer_silent(client):
+    """Analyzer off / no new_facts — fallback still reaches enqueue_facts."""
+    import json
+
+    from app.config import Settings
+    from app.db import SessionLocal
+    from app.services.heritage_chat import _write_back_memory
+
+    db = SessionLocal()
+    try:
+        _, identity, thread, message, steward, _ = _scene(db)
+        message.body = "Hôm nay con đi làm muộn, mẹ nấu cơm một mình ở nhà."
+        db.commit()
+        reply = Message(
+            id=generate(),
+            thread_id=thread.id,
+            sender_kind="heritage",
+            kind="text",
+            body="Bố nghe con rồi.",
+            meta_json=json.dumps({}, ensure_ascii=False),
+            created_at=datetime.now(timezone.utc),
+        )
+        db.add(reply)
+        db.commit()
+
+        _write_back_memory(
+            db,
+            thread=thread,
+            user_message=message,
+            reply=reply,
+            settings=Settings(
+                gemini_api_key="",
+                seed_demo=False,
+                heritage_candidates_enabled=True,
+            ),
+        )
+
+        queued = (
+            db.query(MemoryCandidate)
+            .filter(MemoryCandidate.identity_id == identity.id)
+            .all()
+        )
+        assert len(queued) == 1
+        assert "mẹ nấu cơm" in queued[0].statement.lower()
+        assert queued[0].reviewer_user_id == steward.id
     finally:
         db.close()
 

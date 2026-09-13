@@ -394,14 +394,13 @@ export default function CallScreen() {
       try {
         const res = await api.listVoices(space);
         const forIdentity = res.voices.filter(
-          (v) => v.identity_profile_id === identity,
+          (v) => v.identity_profile_id === identity && !v.archived_at,
         );
         const score = (v: VoiceProfile) => {
-          const prefsId =
-            v.tts_prefs?.provider_voice_id || v.provider_voice_id || "";
-          const hasPrefs = prefsId.trim().length > 0 ? 1 : 0;
+          const hasCallPrefs = Boolean(v.tts_prefs?.provider_voice_id?.trim());
           const ready = v.status === "ready" ? 1 : 0;
-          return ready + hasPrefs * 2;
+          const updated = Date.parse(v.updated_at || v.created_at || "") || 0;
+          return (hasCallPrefs ? 100 : 0) + ready * 10 + updated / 1e15;
         };
         const match =
           [...forIdentity].sort((a, b) => score(b) - score(a))[0] ?? null;
@@ -534,11 +533,14 @@ export default function CallScreen() {
     if (!spaceId) return;
     try {
       const res = await api.listMemoryCandidates(spaceId, "pending");
-      setPendingReviewCount(res.candidates.length);
+      const rows = identityId
+        ? res.candidates.filter((c) => c.identity_id === identityId)
+        : res.candidates;
+      setPendingReviewCount(rows.length);
     } catch {
       setPendingReviewCount(0);
     }
-  }, [api, spaceId]);
+  }, [api, spaceId, identityId]);
 
   useFocusEffect(
     useCallback(() => {

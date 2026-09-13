@@ -157,11 +157,26 @@ def test_strip_living_joy_boilerplate():
     assert "con dạo này" in out.lower()
 
 
+def test_strip_living_joy_single_boilerplate_returns_empty():
+    raw = "Bố mừng vì con vẫn sống với người sống."
+    assert strip_living_joy_boilerplate(raw) == ""
+
+
+def test_strip_living_joy_keeps_memory_with_nha_minh_con():
+    raw = "Nhà mình còn bài thơ bố viết năm bảy nhăm."
+    assert strip_living_joy_boilerplate(raw) == raw
+
+
 def test_drop_trailing_family_redirect():
     raw = "Bố nhớ bài thơ tuổi bảy nhăm. Con hãy nói chuyện với người nhà nhé."
     out = drop_trailing_family_redirect(raw)
     assert "bảy nhăm" in out.lower()
     assert "nói chuyện với người nhà" not in out.lower()
+
+
+def test_drop_trailing_keeps_nha_minh_con_memory():
+    raw = "Bố nhớ nhiều. Nhà mình còn bài thơ bố viết năm bảy nhăm."
+    assert drop_trailing_family_redirect(raw) == raw
 
 
 def test_grandmother_never_gets_the_spouse_register():

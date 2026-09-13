@@ -114,32 +114,43 @@ def poem_count_for_identity(
     )
 
 
-def _voice_profile_score(voice: VoiceProfile) -> tuple[int, int, int, datetime]:
-    """Prefer the clone wired for Gọi — not the first row by accident."""
+def _has_call_tts_prefs(voice: VoiceProfile) -> bool:
+    """True only when steward saved «Dùng cho Gọi» (tts_prefs_json)."""
     raw = (getattr(voice, "tts_prefs_json", None) or "").strip()
-    has_prefs = 0
-    if raw:
-        try:
-            data = json.loads(raw)
-            if isinstance(data, dict) and (
-                (data.get("provider_voice_id") or voice.provider_voice_id or "").strip()
-            ):
-                has_prefs = 1
-        except json.JSONDecodeError:
-            pass
-    elif (voice.provider_voice_id or "").strip():
-        has_prefs = 1
+    if not raw:
+        return False
+    try:
+        data = json.loads(raw)
+    except json.JSONDecodeError:
+        return False
+    return isinstance(data, dict) and bool(
+        (data.get("provider_voice_id") or "").strip()
+    )
+
+
+def _voice_profile_score(voice: VoiceProfile) -> tuple[int, int, datetime]:
+    """Prefer the clone wired for Gọi — not merely the newest ready row."""
+    if getattr(voice, "archived_at", None):
+        return (-1, -1, voice.created_at)
+    has_call = 1 if _has_call_tts_prefs(voice) else 0
     ready = 1 if (voice.status or "") == "ready" else 0
     updated = getattr(voice, "updated_at", None) or voice.created_at
-    return (ready and has_prefs, has_prefs, ready, updated)
+    return (has_call, has_call and ready, updated)
 
 
 def voice_for_identity(db: Session, identity: IdentityProfile) -> VoiceProfile | None:
-    profiles = list(identity.voice_profiles or [])
+    profiles = [
+        p
+        for p in list(identity.voice_profiles or [])
+        if not getattr(p, "archived_at", None)
+    ]
     if not profiles:
         profiles = (
             db.query(VoiceProfile)
-            .filter(VoiceProfile.identity_profile_id == identity.id)
+            .filter(
+                VoiceProfile.identity_profile_id == identity.id,
+                VoiceProfile.archived_at.is_(None),
+            )
             .order_by(VoiceProfile.created_at.desc())
             .all()
         )

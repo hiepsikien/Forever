@@ -43,6 +43,7 @@ def test_conversation_facts_from_turn_skips_greetings():
     msg.body = "Hôm nay con đi làm muộn, mẹ nấu cơm một mình ở nhà."
     facts = conversation_facts_from_turn(user_message=msg)
     assert len(facts) == 1
+    assert facts[0]["kind"] == "event"
     assert "mẹ nấu cơm" in facts[0]["statement"]
 
 

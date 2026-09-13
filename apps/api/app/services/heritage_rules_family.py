@@ -107,12 +107,28 @@ _REDIRECT_BASE = (
 FAMILY_REDIRECT = re.compile(f"({_REDIRECT_BASE})", re.IGNORECASE)
 
 # Model hay bịa «Bố mừng vì con vẫn sống với người sống» — không phải lời bố thật.
-_LIVING_JOY = re.compile(
-    r"("
-    r"(mừng|vui|rất\s+vui|thật\s+vui).*?(người\s+sống|người\s+đang\s+sống|người\s+thật)|"
-    r"(người\s+sống|người\s+đang\s+sống|người\s+thật).*?(mừng|vui)"
-    r")",
-    re.IGNORECASE,
+# Chỉ khớp câu boilerplate rõ, không quét .*? trên cả đoạn dài.
+_LIVING_JOY_PHRASES: tuple[re.Pattern[str], ...] = (
+    re.compile(r"mừng\s+vì\b.*\bngười\s+sống", re.IGNORECASE),
+    re.compile(r"vui\s+khi\b.*\b(ở\s+bên\s+)?người\s+sống", re.IGNORECASE),
+    re.compile(
+        r"(mừng|vui)\s+vì\b.*\bvẫn\s+sống\s+với\s+người\s+sống", re.IGNORECASE
+    ),
+    re.compile(
+        r"(mừng|vui)\s+lắm\b.*\b(người\s+sống|người\s+đang\s+sống)",
+        re.IGNORECASE,
+    ),
+)
+
+# Chỉ cắt đuôi «hãy nói/kể với …» — không dùng «nhà mình còn» (có thể là ký ức thật).
+_TRAILING_REDIRECT_BASE = (
+    r"kể với (các con|mẹ|anh chị|người nhà|gia đình|chúng)|"
+    r"bàn với (gia đình|người nhà)|"
+    r"nói chuyện với (gia đình|người nhà|các con|mẹ)|"
+    r"gọi (chúng|các con|anh chị)|"
+    r"về với (gia đình|người thật|người sống)|"
+    r"kể với người đang sống|"
+    r"hãy nói.*?(gia đình|người nhà)"
 )
 
 _SENT_SPLIT = re.compile(r"(?<=[.!?…])\s+")
@@ -127,7 +143,6 @@ DEFAULT_CHARTER_LINES: tuple[str, ...] = (
     "của chính mình, khi đó là giá trị hay bài thơ đã lưu.",
     "Thiếu một chi tiết thì nói chưa nhớ phần đó, rồi trả lời phần còn biết. Đừng từ chối "
     "cả câu, đừng biến mỗi lượt thành «hãy nói với gia đình».",
-    "Không nói «mừng/vui vì con ở bên người sống» — đó không phải giọng nhà mình.",
 )
 
 
@@ -373,6 +388,10 @@ def strip_repeated_family_redirect(
     return " ".join(kept)
 
 
+def _living_joy_sentence(sentence: str) -> bool:
+    return any(p.search(sentence or "") for p in _LIVING_JOY_PHRASES)
+
+
 def strip_living_joy_boilerplate(body: str) -> str:
     """Bỏ câu «mừng/vui vì … người sống» do model hay lặp."""
     text = (body or "").strip()
@@ -381,24 +400,37 @@ def strip_living_joy_boilerplate(body: str) -> str:
     parts = [p.strip() for p in _SENT_SPLIT.split(text) if p.strip()]
     if not parts:
         return text
-    kept = [p for p in parts if not _LIVING_JOY.search(p)]
+    if len(parts) == 1 and _living_joy_sentence(parts[0]):
+        return ""
+    kept = [p for p in parts if not _living_joy_sentence(p)]
     if not kept:
-        return parts[0]
+        return ""
     return " ".join(kept)
+
+
+def trailing_redirect_re(charter: FamilyCharter | None = None) -> re.Pattern[str]:
+    charter = charter or DEFAULT_CHARTER
+    if charter.living_kin == DEFAULT_LIVING_KIN:
+        return re.compile(f"({_TRAILING_REDIRECT_BASE})", re.IGNORECASE)
+    extra = re.escape(charter.living_kin)
+    return re.compile(
+        f"({_TRAILING_REDIRECT_BASE}|kể với {extra}|bàn với {extra}|"
+        f"nói chuyện với {extra})",
+        re.IGNORECASE,
+    )
 
 
 def drop_trailing_family_redirect(
     body: str, charter: FamilyCharter | None = None
 ) -> str:
     """Câu đuôi «hãy nói với người nhà» — bỏ khi còn nội dung thật phía trước."""
-    charter = charter or DEFAULT_CHARTER
     text = (body or "").strip()
     if not text:
         return text
     parts = [p.strip() for p in _SENT_SPLIT.split(text) if p.strip()]
     if len(parts) <= 1:
         return text
-    pattern = charter.redirect_re
+    pattern = trailing_redirect_re(charter)
     while len(parts) > 1 and pattern.search(parts[-1]):
         parts.pop()
     return " ".join(parts)
