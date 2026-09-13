@@ -45,7 +45,9 @@ Nút thắt thực tế: bố mẹ giữ oai nghiêm; con trẻ cần riêng tư
 ## 4. GTM & mũi khoan (wedge)
 
 **Sai:** bán “mạng xã hội gia đình” → bị so với Zalo/FB nhóm.  
-**Đúng:** bán **hành trình bảo tồn di sản / time-capsule thế hệ**.
+**Đúng:** bán **hành trình bảo tồn di sản / time-capsule thế hệ**.  
+**Pricing (draft v1):** `docs/pricing.md` — subscription theo Family Space (Essential /
+Heritage), gift pack one-time, hạn mức voice ở tầng steward.
 
 - **Hook timing:** Tết, ngày giỗ, mừng thọ, khi thế hệ trước cao tuổi / vừa mất mát.  
 - **Wedge feature:** **Time-Capsule Interview** — AI gợi câu hỏi cội nguồn; người lớn tuổi trả lời bằng **giọng nói** (nói dễ hơn viết); con cháu nghe lại bất đồng bộ.  
