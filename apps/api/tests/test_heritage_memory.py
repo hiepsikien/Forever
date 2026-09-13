@@ -14,6 +14,7 @@ from app.services.heritage_memory import (
     avoid_block,
     compact_thread_memory,
     compaction_due,
+    conversation_facts_from_turn,
     is_repetitive,
     jaccard,
     memory_block,
@@ -26,6 +27,23 @@ from app.services.heritage_memory import (
 )
 
 GREETING = "Con dạo này thế nào, có khoẻ không?"
+
+
+def test_conversation_facts_from_turn_skips_greetings():
+    msg = Message(
+        id="m1",
+        thread_id="t1",
+        sender_kind="user",
+        kind="voice",
+        body="Bố ơi",
+        created_at=datetime.now(timezone.utc),
+    )
+    assert conversation_facts_from_turn(user_message=msg) == []
+
+    msg.body = "Hôm nay con đi làm muộn, mẹ nấu cơm một mình ở nhà."
+    facts = conversation_facts_from_turn(user_message=msg)
+    assert len(facts) == 1
+    assert "mẹ nấu cơm" in facts[0]["statement"]
 
 
 def _memory(**summary) -> ThreadMemory:

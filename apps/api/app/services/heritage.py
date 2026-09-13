@@ -114,15 +114,40 @@ def poem_count_for_identity(
     )
 
 
+def _voice_profile_score(voice: VoiceProfile) -> tuple[int, int, int, datetime]:
+    """Prefer the clone wired for Gọi — not the first row by accident."""
+    raw = (getattr(voice, "tts_prefs_json", None) or "").strip()
+    has_prefs = 0
+    if raw:
+        try:
+            data = json.loads(raw)
+            if isinstance(data, dict) and (
+                (data.get("provider_voice_id") or voice.provider_voice_id or "").strip()
+            ):
+                has_prefs = 1
+        except json.JSONDecodeError:
+            pass
+    elif (voice.provider_voice_id or "").strip():
+        has_prefs = 1
+    ready = 1 if (voice.status or "") == "ready" else 0
+    updated = getattr(voice, "updated_at", None) or voice.created_at
+    return (ready and has_prefs, has_prefs, ready, updated)
+
+
 def voice_for_identity(db: Session, identity: IdentityProfile) -> VoiceProfile | None:
-    if identity.voice_profiles:
-        return identity.voice_profiles[0]
-    return (
-        db.query(VoiceProfile)
-        .filter(VoiceProfile.identity_profile_id == identity.id)
-        .order_by(VoiceProfile.created_at.desc())
-        .first()
-    )
+    profiles = list(identity.voice_profiles or [])
+    if not profiles:
+        profiles = (
+            db.query(VoiceProfile)
+            .filter(VoiceProfile.identity_profile_id == identity.id)
+            .order_by(VoiceProfile.created_at.desc())
+            .all()
+        )
+    if not profiles:
+        return None
+    if len(profiles) == 1:
+        return profiles[0]
+    return max(profiles, key=_voice_profile_score)
 
 
 def voice_stage_stats(db: Session, voice: VoiceProfile | None) -> dict:

@@ -63,6 +63,7 @@ from .heritage_rules_family import (
     DEFAULT_CHARTER,
     FamilyCharter,
     charter_block,
+    drop_trailing_family_redirect,
     load_family_charter,
     spouse_affection_rule,
     looks_like_grief,
@@ -70,6 +71,7 @@ from .heritage_rules_family import (
     maybe_family_bridge,
     maybe_winddown,
     refuse_sensitive,
+    strip_living_joy_boilerplate,
     strip_repeated_family_redirect,
 )
 from .heritage_safety import cited_entries, sitting_heritage_count
@@ -77,6 +79,7 @@ from .heritage_memory import (
     MemoryState,
     avoid_block,
     compact_thread_memory,
+    conversation_facts_from_turn,
     is_repetitive,
     load_state,
     memory_block,
@@ -1192,6 +1195,8 @@ def post_process_reply(
             cleaned = soften_affection(cleaned, persona)
     cleaned = strip_deference(cleaned)
     cleaned = strip_repeated_closing(cleaned, persona, audience, previous)
+    cleaned = strip_living_joy_boilerplate(cleaned)
+    cleaned = drop_trailing_family_redirect(cleaned, charter)
     cleaned = strip_repeated_family_redirect(cleaned, previous, charter)
     return cleaned or app_refusal("fallback", persona)
 
@@ -1845,7 +1850,17 @@ def _write_back_memory(
                 if active:
                     mark_heard(active)
                     db.commit()
-            if not queued:
+            if not queued and not extra:
+                fallback = conversation_facts_from_turn(user_message=user_message)
+                if fallback:
+                    enqueue_facts(
+                        db,
+                        thread=thread,
+                        identity=identity,
+                        user_message=user_message,
+                        facts=fallback,
+                    )
+            elif not queued:
                 enqueue_facts(
                     db,
                     thread=thread,

@@ -321,6 +321,32 @@ def _meta_list(meta: object, key: str) -> list[str]:
     return _clean_list(meta.get(key), limit=MAX_FACTS)
 
 
+_GREETING_ONLY = re.compile(
+    r"^(bố|ba|mẹ|me|bà|ông|cháu|con|em|anh|chào|alo|ơi)[\s,.!?…]*$",
+    re.IGNORECASE,
+)
+
+
+def conversation_facts_from_turn(*, user_message: Message) -> list[dict]:
+    """Queue what the family said when the analyzer did not propose facts.
+
+    «Điều nghe được» must not depend on analyzer being on — a voice turn with
+    real content still deserves a steward row to keep or dismiss.
+    """
+    body = (user_message.body or "").strip()
+    if len(body) < 15:
+        return []
+    if _GREETING_ONLY.match(body):
+        return []
+    return [
+        {
+            "statement": body[:800],
+            "kind": "life_state",
+            "source_message_id": user_message.id,
+        }
+    ]
+
+
 def stated_facts(meta: object, *, source_message_id: str) -> list[dict]:
     """Only what the family actually said becomes memory.
 

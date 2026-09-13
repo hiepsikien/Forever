@@ -106,6 +106,15 @@ _REDIRECT_BASE = (
 
 FAMILY_REDIRECT = re.compile(f"({_REDIRECT_BASE})", re.IGNORECASE)
 
+# Model hay bịa «Bố mừng vì con vẫn sống với người sống» — không phải lời bố thật.
+_LIVING_JOY = re.compile(
+    r"("
+    r"(mừng|vui|rất\s+vui|thật\s+vui).*?(người\s+sống|người\s+đang\s+sống|người\s+thật)|"
+    r"(người\s+sống|người\s+đang\s+sống|người\s+thật).*?(mừng|vui)"
+    r")",
+    re.IGNORECASE,
+)
+
 _SENT_SPLIT = re.compile(r"(?<=[.!?…])\s+")
 
 DEFAULT_LIVING_KIN = "người nhà"
@@ -118,6 +127,7 @@ DEFAULT_CHARTER_LINES: tuple[str, ...] = (
     "của chính mình, khi đó là giá trị hay bài thơ đã lưu.",
     "Thiếu một chi tiết thì nói chưa nhớ phần đó, rồi trả lời phần còn biết. Đừng từ chối "
     "cả câu, đừng biến mỗi lượt thành «hãy nói với gia đình».",
+    "Không nói «mừng/vui vì con ở bên người sống» — đó không phải giọng nhà mình.",
 )
 
 
@@ -342,7 +352,7 @@ def recent_had_family_redirect(
     previous: list[str] | None, charter: FamilyCharter | None = None
 ) -> bool:
     pattern = (charter or DEFAULT_CHARTER).redirect_re
-    return any(pattern.search(text or "") for text in (previous or [])[-3:])
+    return any(pattern.search(text or "") for text in (previous or [])[-5:])
 
 
 def strip_repeated_family_redirect(
@@ -363,6 +373,37 @@ def strip_repeated_family_redirect(
     return " ".join(kept)
 
 
+def strip_living_joy_boilerplate(body: str) -> str:
+    """Bỏ câu «mừng/vui vì … người sống» do model hay lặp."""
+    text = (body or "").strip()
+    if not text:
+        return text
+    parts = [p.strip() for p in _SENT_SPLIT.split(text) if p.strip()]
+    if not parts:
+        return text
+    kept = [p for p in parts if not _LIVING_JOY.search(p)]
+    if not kept:
+        return parts[0]
+    return " ".join(kept)
+
+
+def drop_trailing_family_redirect(
+    body: str, charter: FamilyCharter | None = None
+) -> str:
+    """Câu đuôi «hãy nói với người nhà» — bỏ khi còn nội dung thật phía trước."""
+    charter = charter or DEFAULT_CHARTER
+    text = (body or "").strip()
+    if not text:
+        return text
+    parts = [p.strip() for p in _SENT_SPLIT.split(text) if p.strip()]
+    if len(parts) <= 1:
+        return text
+    pattern = charter.redirect_re
+    while len(parts) > 1 and pattern.search(parts[-1]):
+        parts.pop()
+    return " ".join(parts)
+
+
 def _pick(lines: tuple[str, ...], *, seed: str) -> str:
     if not lines:
         return ""
@@ -380,10 +421,7 @@ def bridge_lines(
             f"Nhà mình còn đó — {you} kể với {kin} một câu hôm nay cũng được.",
             "Nhà mình vẫn vậy. Các con cũng đang nhớ — gọi chúng một tiếng nhé.",
         )
-    return (
-        f"{cap(you)} nhớ {me} thì kể với {kin} một câu cũng được.",
-        f"Nhà mình còn đó — {me} vui khi {you} ở bên người sống.",
-    )
+    return (f"{cap(you)} nhớ {me} thì kể với {kin} một câu cũng được.",)
 
 
 def winddown_line(
@@ -395,10 +433,7 @@ def winddown_line(
         return (
             f"Nhà mình vẫn vậy. Giờ {you} nghỉ một chút, nhà mình còn đang chờ {you}."
         )
-    return (
-        f"{cap(me)} nhớ {you}. Giờ {you} nghỉ một chút, "
-        f"rồi kể với {charter.living_kin} nhé."
-    )
+    return f"{cap(me)} nhớ {you}. Giờ {you} nghỉ một chút nhé."
 
 
 def maybe_family_bridge(

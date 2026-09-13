@@ -5,11 +5,13 @@ from types import SimpleNamespace
 
 from app.services.heritage_persona import persona_for
 from app.services.heritage_rules_family import (
+    drop_trailing_family_redirect,
     looks_like_grief,
     looks_like_sensitive,
     maybe_family_bridge,
     maybe_winddown,
     refuse_sensitive,
+    strip_living_joy_boilerplate,
     strip_repeated_family_redirect,
 )
 
@@ -143,6 +145,23 @@ def test_refuse_grandmother_uses_ba():
     child = refuse_sensitive("money", GRANDMOTHER, audience="child")
     assert "bà không bàn được" in child.lower()
     assert "bố không bàn được" not in child.lower()
+
+
+def test_strip_living_joy_boilerplate():
+    raw = (
+        "Bố mừng lắm. Bố mừng vì con vẫn sống với người sống. "
+        "Con dạo này thế nào?"
+    )
+    out = strip_living_joy_boilerplate(raw)
+    assert "người sống" not in out.lower()
+    assert "con dạo này" in out.lower()
+
+
+def test_drop_trailing_family_redirect():
+    raw = "Bố nhớ bài thơ tuổi bảy nhăm. Con hãy nói chuyện với người nhà nhé."
+    out = drop_trailing_family_redirect(raw)
+    assert "bảy nhăm" in out.lower()
+    assert "nói chuyện với người nhà" not in out.lower()
 
 
 def test_grandmother_never_gets_the_spouse_register():
