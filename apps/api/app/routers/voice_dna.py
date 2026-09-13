@@ -35,6 +35,7 @@ from ..routers.settings import HERITAGE_CONSENT, SELF_CONSENT
 from ..services import elevenlabs as el
 from ..services import voice_providers as vp
 from ..services.heritage import (
+    has_call_tts_prefs,
     heritage_readiness_payload,
     heritage_thread_title,
     mark_profile_reviewed,
@@ -511,6 +512,7 @@ def _voice_payload(
         "consent_at": row.consent_at.isoformat() if row.consent_at else None,
         "error_message": row.error_message or None,
         "tts_prefs": prefs_payload(row),
+        "call_tts_bound": has_call_tts_prefs(row),
         "sample_count": stats["sample_count"],
         "unprocessed_count": stats["unprocessed_count"],
         "processed_count": stats["processed_count"],
@@ -2871,6 +2873,20 @@ def set_chat_tts_prefs(
         },
     )
     voice.updated_at = datetime.now(timezone.utc)
+    if voice.identity_profile_id:
+        siblings = (
+            db.query(VoiceProfile)
+            .filter(
+                VoiceProfile.identity_profile_id == voice.identity_profile_id,
+                VoiceProfile.id != voice.id,
+                VoiceProfile.archived_at.is_(None),
+            )
+            .all()
+        )
+        for sibling in siblings:
+            if (sibling.tts_prefs_json or "").strip():
+                sibling.tts_prefs_json = ""
+                sibling.updated_at = datetime.now(timezone.utc)
     db.commit()
     samples = (
         db.query(VoiceSample)

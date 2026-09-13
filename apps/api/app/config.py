@@ -31,17 +31,17 @@ class Settings(BaseSettings):
     # Every stage ships behind a flag so a bad turn can be rolled back per-space.
     heritage_async_reply: bool = True
     heritage_codex_enabled: bool = True
-    heritage_analyzer_enabled: bool = False
+    heritage_analyzer_enabled: bool = True
     heritage_grounding_enabled: bool = True
     heritage_critic_enabled: bool = False
     heritage_memory_enabled: bool = True
     heritage_candidates_enabled: bool = True
     heritage_anti_repeat_enabled: bool = True
     # After grief, append one family-bridge sentence (code, not the model).
-    heritage_family_bridge_enabled: bool = True
+    heritage_family_bridge_enabled: bool = False
     # Append a wind-down sentence after this many heritage replies in one sitting.
     # 0 = off.
-    heritage_session_winddown_turns: int = 8
+    heritage_session_winddown_turns: int = 12
     heritage_analyzer_model: str = "gemini-3.1-flash-lite"
     heritage_compose_model: str = ""
     heritage_critic_model: str = "gemini-3.1-flash-lite"

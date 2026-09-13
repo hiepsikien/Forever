@@ -109,6 +109,8 @@ def test_member_cannot_edit_the_charter(client):
 
 def test_living_kin_reaches_the_reply():
     """Sửa hiến chương đổi được câu nói ra, không cần deploy."""
+    from app.services.heritage_rules_family import maybe_family_bridge
+
     persona = persona_for(
         SimpleNamespace(
             relation_label="Bà Nội",
@@ -118,13 +120,14 @@ def test_living_kin_reaches_the_reply():
         )
     )
     charter = charter_from_data({"living_kin": "các bác"})
-    body, kind = maybe_winddown(
-        "Nhà mình vẫn thế.",
-        sitting_turns=8,
-        threshold=8,
+    body, kind = maybe_family_bridge(
+        "Cháu nhớ bà quá.",
+        enabled=True,
         persona=persona,
         audience="grandchild",
+        grief=True,
+        seed="kin-test",
         charter=charter,
     )
-    assert kind == "sitting"
+    assert kind == "grief"
     assert "kể với các bác" in body.lower()

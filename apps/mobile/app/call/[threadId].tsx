@@ -312,6 +312,7 @@ export default function CallScreen() {
   const [playingReplyId, setPlayingReplyId] = useState<string | null>(null);
   const [activeSentence, setActiveSentence] = useState<number | null>(null);
   const [micBlocked, setMicBlocked] = useState(false);
+  const [pendingReviewCount, setPendingReviewCount] = useState(0);
 
   const awaitingAfterIdRef = useRef<string | null>(null);
   const replyDeadlineRef = useRef(0);
@@ -392,14 +393,17 @@ export default function CallScreen() {
     async (space: string, identity: string) => {
       try {
         const res = await api.listVoices(space);
+        const forIdentity = res.voices.filter(
+          (v) => v.identity_profile_id === identity && !v.archived_at,
+        );
+        const score = (v: VoiceProfile) => {
+          const hasCallPrefs = v.call_tts_bound === true;
+          const ready = v.status === "ready" ? 1 : 0;
+          const updated = Date.parse(v.updated_at || v.created_at || "") || 0;
+          return (hasCallPrefs ? 100 : 0) + ready * 10 + updated / 1e15;
+        };
         const match =
-          res.voices.find(
-            (v) =>
-              v.identity_profile_id === identity &&
-              (v.subject_kind === "heritage" || v.status === "ready"),
-          ) ||
-          res.voices.find((v) => v.identity_profile_id === identity) ||
-          null;
+          [...forIdentity].sort((a, b) => score(b) - score(a))[0] ?? null;
         setVoice(match);
       } catch {
         setVoice(null);
@@ -525,10 +529,24 @@ export default function CallScreen() {
     };
   }, [api, keepsakeBanner?.messageId, keepsakeBanner?.memoryId]);
 
+  const refreshPendingReview = useCallback(async () => {
+    if (!spaceId) return;
+    try {
+      const res = await api.listMemoryCandidates(spaceId, "pending");
+      const rows = identityId
+        ? res.candidates.filter((c) => c.identity_id === identityId)
+        : res.candidates;
+      setPendingReviewCount(rows.length);
+    } catch {
+      setPendingReviewCount(0);
+    }
+  }, [api, spaceId, identityId]);
+
   useFocusEffect(
     useCallback(() => {
       if (spaceId && identityId) void loadVoice(spaceId, identityId);
-    }, [spaceId, identityId, loadVoice]),
+      void refreshPendingReview();
+    }, [spaceId, identityId, loadVoice, refreshPendingReview]),
   );
 
   const scrollToSentence = useCallback(
@@ -749,6 +767,7 @@ export default function CallScreen() {
           } else {
             setPhase("idle");
           }
+          void refreshPendingReview();
           return;
         }
       } catch {
@@ -756,7 +775,7 @@ export default function CallScreen() {
       }
     }, POLL_MS);
     return () => clearInterval(timer);
-  }, [api, threadId, phase, playReply]);
+  }, [api, threadId, phase, playReply, refreshPendingReview]);
 
   useEffect(() => {
     return () => {
@@ -1006,6 +1025,11 @@ export default function CallScreen() {
     router.push(`/voice/${spaceId}/speak${q}` as never);
   };
 
+  const openReview = () => {
+    if (!spaceId) return;
+    router.push(`/review/${spaceId}` as never);
+  };
+
   const openRenders = () => {
     if (!spaceId || !voice?.id) return;
     const cloneId =
@@ -1062,9 +1086,7 @@ export default function CallScreen() {
     phase === "thinking" ||
     phase === "loading" ||
     phase === "speaking";
-  const prefsReady = Boolean(
-    voice?.tts_prefs?.provider_voice_id || voice?.provider_voice_id,
-  );
+  const prefsReady = Boolean(voice?.call_tts_bound);
   const showPending =
     Boolean(pendingUserText) &&
     (phase === "sending" ||
@@ -1367,6 +1389,22 @@ export default function CallScreen() {
           </Pressable>
         ) : null}
       </ScrollView>
+
+      {pendingReviewCount > 0 ? (
+        <Pressable
+          style={styles.reviewBanner}
+          onPress={openReview}
+          accessibilityRole="button"
+          accessibilityLabel={`${pendingReviewCount} điều nghe được chờ duyệt`}
+        >
+          <Text style={styles.reviewBannerTitle}>
+            {pendingReviewCount} điều nghe được — chờ bạn duyệt
+          </Text>
+          <Text style={styles.reviewBannerSub}>
+            Trò chuyện đề xuất — giữ lại thì mới vào Thư viện →
+          </Text>
+        </Pressable>
+      ) : null}
 
       <View style={styles.footer}>
         {phase === "listening" ? (
@@ -1732,6 +1770,29 @@ const styles = createThemedStyles((colors) => ({
     fontFamily: fonts.body,
     fontSize: 16,
     color: colors.brand,
+  },
+  reviewBanner: {
+    marginTop: 4,
+    marginBottom: 6,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    borderRadius: 12,
+    backgroundColor: "rgba(196, 165, 116, 0.22)",
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.accent,
+    gap: 4,
+  },
+  reviewBannerTitle: {
+    fontFamily: fonts.body,
+    fontSize: 16,
+    fontWeight: "700",
+    color: colors.ink,
+  },
+  reviewBannerSub: {
+    fontFamily: fonts.body,
+    fontSize: 14,
+    lineHeight: 20,
+    color: colors.inkSoft,
   },
   footer: {
     alignItems: "center",

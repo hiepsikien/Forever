@@ -106,6 +106,23 @@ _REDIRECT_BASE = (
 
 FAMILY_REDIRECT = re.compile(f"({_REDIRECT_BASE})", re.IGNORECASE)
 
+# Model hay bịa «mừng/vui … người (đang )?sống» — gom một pattern, theo từng câu.
+_LIVING_JOY = re.compile(
+    r"(mừng|vui)\b.*?\bngười\s+(?:đang\s+)?sống",
+    re.IGNORECASE,
+)
+
+# Chỉ cắt đuôi «hãy nói/kể với …» — không dùng «nhà mình còn» (có thể là ký ức thật).
+_TRAILING_REDIRECT_BASE = (
+    r"kể với (các con|mẹ|anh chị|người nhà|gia đình|chúng)|"
+    r"bàn với (gia đình|người nhà)|"
+    r"nói chuyện với (gia đình|người nhà|các con|mẹ)|"
+    r"gọi (chúng|các con|anh chị)|"
+    r"về với (gia đình|người thật|người sống)|"
+    r"kể với người đang sống|"
+    r"hãy nói.*?(gia đình|người nhà)"
+)
+
 _SENT_SPLIT = re.compile(r"(?<=[.!?…])\s+")
 
 DEFAULT_LIVING_KIN = "người nhà"
@@ -342,7 +359,7 @@ def recent_had_family_redirect(
     previous: list[str] | None, charter: FamilyCharter | None = None
 ) -> bool:
     pattern = (charter or DEFAULT_CHARTER).redirect_re
-    return any(pattern.search(text or "") for text in (previous or [])[-3:])
+    return any(pattern.search(text or "") for text in (previous or [])[-5:])
 
 
 def strip_repeated_family_redirect(
@@ -363,6 +380,70 @@ def strip_repeated_family_redirect(
     return " ".join(kept)
 
 
+def _living_joy_sentence(sentence: str) -> bool:
+    return bool(_LIVING_JOY.search(sentence or ""))
+
+
+def strip_living_joy_boilerplate(body: str) -> str:
+    """Bỏ câu «mừng/vui vì … người sống» do model hay lặp."""
+    text = (body or "").strip()
+    if not text:
+        return text
+    parts = [p.strip() for p in _SENT_SPLIT.split(text) if p.strip()]
+    if not parts:
+        return text
+    if len(parts) == 1 and _living_joy_sentence(parts[0]):
+        return ""
+    kept = [p for p in parts if not _living_joy_sentence(p)]
+    if not kept:
+        return ""
+    return " ".join(kept)
+
+
+def trailing_redirect_re(charter: FamilyCharter | None = None) -> re.Pattern[str]:
+    charter = charter or DEFAULT_CHARTER
+    if charter.living_kin == DEFAULT_LIVING_KIN:
+        return re.compile(f"({_TRAILING_REDIRECT_BASE})", re.IGNORECASE)
+    extra = re.escape(charter.living_kin)
+    return re.compile(
+        f"({_TRAILING_REDIRECT_BASE}|kể với {extra}|bàn với {extra}|"
+        f"nói chuyện với {extra})",
+        re.IGNORECASE,
+    )
+
+
+def drop_trailing_family_redirect(
+    body: str, charter: FamilyCharter | None = None
+) -> str:
+    """Câu đuôi «hãy nói với người nhà» — bỏ khi còn nội dung thật phía trước."""
+    text = (body or "").strip()
+    if not text:
+        return text
+    parts = [p.strip() for p in _SENT_SPLIT.split(text) if p.strip()]
+    if len(parts) <= 1:
+        return text
+    pattern = trailing_redirect_re(charter)
+    while len(parts) > 1 and pattern.search(parts[-1]):
+        parts.pop()
+    return " ".join(parts)
+
+
+def strip_redirect_only_reply(
+    body: str, charter: FamilyCharter | None = None
+) -> str:
+    """Sau khi bỏ living-joy, còn mỗi câu redirect thì trả rỗng → fallback."""
+    text = (body or "").strip()
+    if not text:
+        return text
+    parts = [p.strip() for p in _SENT_SPLIT.split(text) if p.strip()]
+    if not parts:
+        return text
+    pattern = trailing_redirect_re(charter)
+    if all(pattern.search(p) for p in parts):
+        return ""
+    return text
+
+
 def _pick(lines: tuple[str, ...], *, seed: str) -> str:
     if not lines:
         return ""
@@ -380,10 +461,7 @@ def bridge_lines(
             f"Nhà mình còn đó — {you} kể với {kin} một câu hôm nay cũng được.",
             "Nhà mình vẫn vậy. Các con cũng đang nhớ — gọi chúng một tiếng nhé.",
         )
-    return (
-        f"{cap(you)} nhớ {me} thì kể với {kin} một câu cũng được.",
-        f"Nhà mình còn đó — {me} vui khi {you} ở bên người sống.",
-    )
+    return (f"{cap(you)} nhớ {me} thì kể với {kin} một câu cũng được.",)
 
 
 def winddown_line(
@@ -395,10 +473,7 @@ def winddown_line(
         return (
             f"Nhà mình vẫn vậy. Giờ {you} nghỉ một chút, nhà mình còn đang chờ {you}."
         )
-    return (
-        f"{cap(me)} nhớ {you}. Giờ {you} nghỉ một chút, "
-        f"rồi kể với {charter.living_kin} nhé."
-    )
+    return f"{cap(me)} nhớ {you}. Giờ {you} nghỉ một chút nhé."
 
 
 def maybe_family_bridge(

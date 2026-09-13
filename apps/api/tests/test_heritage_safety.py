@@ -5,11 +5,14 @@ from types import SimpleNamespace
 
 from app.services.heritage_persona import persona_for
 from app.services.heritage_rules_family import (
+    drop_trailing_family_redirect,
     looks_like_grief,
     looks_like_sensitive,
     maybe_family_bridge,
     maybe_winddown,
     refuse_sensitive,
+    strip_living_joy_boilerplate,
+    strip_redirect_only_reply,
     strip_repeated_family_redirect,
 )
 
@@ -143,6 +146,55 @@ def test_refuse_grandmother_uses_ba():
     child = refuse_sensitive("money", GRANDMOTHER, audience="child")
     assert "bà không bàn được" in child.lower()
     assert "bố không bàn được" not in child.lower()
+
+
+def test_strip_living_joy_boilerplate():
+    raw = (
+        "Bố mừng lắm. Bố mừng vì con vẫn sống với người sống. "
+        "Con dạo này thế nào?"
+    )
+    out = strip_living_joy_boilerplate(raw)
+    assert "người sống" not in out.lower()
+    assert "con dạo này" in out.lower()
+
+
+def test_strip_living_joy_single_boilerplate_returns_empty():
+    raw = "Bố mừng vì con vẫn sống với người sống."
+    assert strip_living_joy_boilerplate(raw) == ""
+
+
+def test_strip_living_joy_variants():
+    for raw in (
+        "Bố vui vì con ở bên người sống.",
+        "Bố mừng vì con ở bên người đang sống.",
+    ):
+        assert strip_living_joy_boilerplate(raw) == ""
+
+
+def test_living_joy_then_redirect_only_becomes_empty():
+    raw = (
+        "Bố mừng vì con vẫn sống với người sống. "
+        "Con hãy nói chuyện với người nhà nhé."
+    )
+    after_joy = strip_living_joy_boilerplate(raw)
+    assert strip_redirect_only_reply(after_joy) == ""
+
+
+def test_strip_living_joy_keeps_memory_with_nha_minh_con():
+    raw = "Nhà mình còn bài thơ bố viết năm bảy nhăm."
+    assert strip_living_joy_boilerplate(raw) == raw
+
+
+def test_drop_trailing_family_redirect():
+    raw = "Bố nhớ bài thơ tuổi bảy nhăm. Con hãy nói chuyện với người nhà nhé."
+    out = drop_trailing_family_redirect(raw)
+    assert "bảy nhăm" in out.lower()
+    assert "nói chuyện với người nhà" not in out.lower()
+
+
+def test_drop_trailing_keeps_nha_minh_con_memory():
+    raw = "Bố nhớ nhiều. Nhà mình còn bài thơ bố viết năm bảy nhăm."
+    assert drop_trailing_family_redirect(raw) == raw
 
 
 def test_grandmother_never_gets_the_spouse_register():
