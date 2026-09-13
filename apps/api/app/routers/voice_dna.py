@@ -35,6 +35,7 @@ from ..routers.settings import HERITAGE_CONSENT, SELF_CONSENT
 from ..services import elevenlabs as el
 from ..services import voice_providers as vp
 from ..services.heritage import (
+    has_call_tts_prefs,
     heritage_readiness_payload,
     heritage_thread_title,
     mark_profile_reviewed,
@@ -68,7 +69,6 @@ from ..services.storage import (
     save_bytes,
     save_upload,
 )
-from ..services.heritage import has_call_tts_prefs
 from ..services.heritage_tts import apply_tts_prefs, prefs_payload
 from ..services.voice_script import generate_voice_sample_script
 
