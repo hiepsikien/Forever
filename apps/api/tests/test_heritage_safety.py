@@ -12,6 +12,7 @@ from app.services.heritage_rules_family import (
     maybe_winddown,
     refuse_sensitive,
     strip_living_joy_boilerplate,
+    strip_redirect_only_reply,
     strip_repeated_family_redirect,
 )
 
@@ -160,6 +161,23 @@ def test_strip_living_joy_boilerplate():
 def test_strip_living_joy_single_boilerplate_returns_empty():
     raw = "Bố mừng vì con vẫn sống với người sống."
     assert strip_living_joy_boilerplate(raw) == ""
+
+
+def test_strip_living_joy_variants():
+    for raw in (
+        "Bố vui vì con ở bên người sống.",
+        "Bố mừng vì con ở bên người đang sống.",
+    ):
+        assert strip_living_joy_boilerplate(raw) == ""
+
+
+def test_living_joy_then_redirect_only_becomes_empty():
+    raw = (
+        "Bố mừng vì con vẫn sống với người sống. "
+        "Con hãy nói chuyện với người nhà nhé."
+    )
+    after_joy = strip_living_joy_boilerplate(raw)
+    assert strip_redirect_only_reply(after_joy) == ""
 
 
 def test_strip_living_joy_keeps_memory_with_nha_minh_con():

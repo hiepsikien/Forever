@@ -114,7 +114,7 @@ def poem_count_for_identity(
     )
 
 
-def _has_call_tts_prefs(voice: VoiceProfile) -> bool:
+def has_call_tts_prefs(voice: VoiceProfile) -> bool:
     """True only when steward saved «Dùng cho Gọi» (tts_prefs_json)."""
     raw = (getattr(voice, "tts_prefs_json", None) or "").strip()
     if not raw:
@@ -132,7 +132,7 @@ def _voice_profile_score(voice: VoiceProfile) -> tuple[int, int, datetime]:
     """Prefer the clone wired for Gọi — not merely the newest ready row."""
     if getattr(voice, "archived_at", None):
         return (-1, -1, voice.created_at)
-    has_call = 1 if _has_call_tts_prefs(voice) else 0
+    has_call = 1 if has_call_tts_prefs(voice) else 0
     ready = 1 if (voice.status or "") == "ready" else 0
     updated = getattr(voice, "updated_at", None) or voice.created_at
     return (has_call, has_call and ready, updated)

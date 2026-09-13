@@ -106,18 +106,10 @@ _REDIRECT_BASE = (
 
 FAMILY_REDIRECT = re.compile(f"({_REDIRECT_BASE})", re.IGNORECASE)
 
-# Model hay bịa «Bố mừng vì con vẫn sống với người sống» — không phải lời bố thật.
-# Chỉ khớp câu boilerplate rõ, không quét .*? trên cả đoạn dài.
-_LIVING_JOY_PHRASES: tuple[re.Pattern[str], ...] = (
-    re.compile(r"mừng\s+vì\b.*\bngười\s+sống", re.IGNORECASE),
-    re.compile(r"vui\s+khi\b.*\b(ở\s+bên\s+)?người\s+sống", re.IGNORECASE),
-    re.compile(
-        r"(mừng|vui)\s+vì\b.*\bvẫn\s+sống\s+với\s+người\s+sống", re.IGNORECASE
-    ),
-    re.compile(
-        r"(mừng|vui)\s+lắm\b.*\b(người\s+sống|người\s+đang\s+sống)",
-        re.IGNORECASE,
-    ),
+# Model hay bịa «mừng/vui … người (đang )?sống» — gom một pattern, theo từng câu.
+_LIVING_JOY = re.compile(
+    r"(mừng|vui)\b.*?\bngười\s+(?:đang\s+)?sống",
+    re.IGNORECASE,
 )
 
 # Chỉ cắt đuôi «hãy nói/kể với …» — không dùng «nhà mình còn» (có thể là ký ức thật).
@@ -389,7 +381,7 @@ def strip_repeated_family_redirect(
 
 
 def _living_joy_sentence(sentence: str) -> bool:
-    return any(p.search(sentence or "") for p in _LIVING_JOY_PHRASES)
+    return bool(_LIVING_JOY.search(sentence or ""))
 
 
 def strip_living_joy_boilerplate(body: str) -> str:
@@ -434,6 +426,22 @@ def drop_trailing_family_redirect(
     while len(parts) > 1 and pattern.search(parts[-1]):
         parts.pop()
     return " ".join(parts)
+
+
+def strip_redirect_only_reply(
+    body: str, charter: FamilyCharter | None = None
+) -> str:
+    """Sau khi bỏ living-joy, còn mỗi câu redirect thì trả rỗng → fallback."""
+    text = (body or "").strip()
+    if not text:
+        return text
+    parts = [p.strip() for p in _SENT_SPLIT.split(text) if p.strip()]
+    if not parts:
+        return text
+    pattern = trailing_redirect_re(charter)
+    if all(pattern.search(p) for p in parts):
+        return ""
+    return text
 
 
 def _pick(lines: tuple[str, ...], *, seed: str) -> str:

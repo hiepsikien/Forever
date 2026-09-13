@@ -844,6 +844,8 @@ export interface VoiceProfile {
   error_message?: string | null;
   /** Clone + knobs used by heritage chat / Gọi. */
   tts_prefs?: VoiceTtsPrefs | null;
+  /** True when steward saved «Dùng cho Gọi» (tts_prefs_json), not inferred from clone column. */
+  call_tts_bound?: boolean;
   sample_count: number;
   unprocessed_count?: number;
   processed_count?: number;

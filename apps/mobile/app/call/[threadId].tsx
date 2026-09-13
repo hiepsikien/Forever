@@ -397,7 +397,7 @@ export default function CallScreen() {
           (v) => v.identity_profile_id === identity && !v.archived_at,
         );
         const score = (v: VoiceProfile) => {
-          const hasCallPrefs = Boolean(v.tts_prefs?.provider_voice_id?.trim());
+          const hasCallPrefs = v.call_tts_bound === true;
           const ready = v.status === "ready" ? 1 : 0;
           const updated = Date.parse(v.updated_at || v.created_at || "") || 0;
           return (hasCallPrefs ? 100 : 0) + ready * 10 + updated / 1e15;
@@ -1086,9 +1086,7 @@ export default function CallScreen() {
     phase === "thinking" ||
     phase === "loading" ||
     phase === "speaking";
-  const prefsReady = Boolean(
-    voice?.tts_prefs?.provider_voice_id || voice?.provider_voice_id,
-  );
+  const prefsReady = Boolean(voice?.call_tts_bound);
   const showPending =
     Boolean(pendingUserText) &&
     (phase === "sending" ||

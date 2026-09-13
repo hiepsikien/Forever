@@ -72,6 +72,7 @@ from .heritage_rules_family import (
     maybe_winddown,
     refuse_sensitive,
     strip_living_joy_boilerplate,
+    strip_redirect_only_reply,
     strip_repeated_family_redirect,
 )
 from .heritage_safety import cited_entries, sitting_heritage_count
@@ -1197,6 +1198,7 @@ def post_process_reply(
     cleaned = strip_repeated_closing(cleaned, persona, audience, previous)
     cleaned = strip_living_joy_boilerplate(cleaned)
     cleaned = drop_trailing_family_redirect(cleaned, charter)
+    cleaned = strip_redirect_only_reply(cleaned, charter)
     cleaned = strip_repeated_family_redirect(cleaned, previous, charter)
     return cleaned or app_refusal("fallback", persona)
 
