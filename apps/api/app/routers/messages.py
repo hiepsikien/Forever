@@ -77,9 +77,17 @@ def _apply_stt(db: Session, message: Message) -> None:
     if thread is not None:
         pipeline = load_heritage_pipeline(db, thread.space_id, settings=settings)
         if not pipeline.stt:
+            logger.info(
+                "review-queue stt skip message=%s reason=pipeline_stt_off",
+                message.id,
+            )
             return
         stt_model = pipeline.stt_model
     elif not settings.stt_enabled:
+        logger.info(
+            "review-queue stt skip message=%s reason=stt_disabled",
+            message.id,
+        )
         return
 
     transcript = transcribe(
@@ -111,6 +119,14 @@ def _apply_stt(db: Session, message: Message) -> None:
     db.add(message)
     db.commit()
     db.refresh(message)
+    logger.info(
+        "review-queue stt message=%s heard=%s ok=%s error=%s body_len=%s",
+        message.id,
+        transcript.heard,
+        transcript.ok,
+        transcript.error or "-",
+        len((message.body or "").strip()),
+    )
 
 
 def _voice_has_utterance(message: Message) -> bool:
@@ -157,6 +173,15 @@ def _heritage_reply_job(thread_id: str, message_id: str) -> None:
                 _apply_stt(db, message)
             if _voice_has_utterance(message):
                 maybe_heritage_reply(db, thread=thread, user_message=message)
+            else:
+                logger.info(
+                    "review-queue heritage-job skip thread=%s message=%s "
+                    "reason=no_utterance kind=%s body_len=%s",
+                    thread.id,
+                    message.id,
+                    message.kind,
+                    len((message.body or "").strip()),
+                )
     except Exception:
         logger.exception("heritage reply failed for message %s", message_id)
     finally:
@@ -173,6 +198,14 @@ def _voice_message_job(thread_id: str, message_id: str) -> None:
             return
         _apply_stt(db, message)
         if not _voice_has_utterance(message):
+            logger.info(
+                "review-queue heritage-job skip thread=%s message=%s "
+                "reason=no_utterance kind=%s body_len=%s",
+                thread.id,
+                message.id,
+                message.kind,
+                len((message.body or "").strip()),
+            )
             return
         if thread.kind == "heritage":
             maybe_heritage_reply(db, thread=thread, user_message=message)

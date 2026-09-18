@@ -1,12 +1,13 @@
 from __future__ import annotations
 
+import logging
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
-from ..access import is_moderator_or_above, require_membership
+from ..access import is_moderator_or_above, is_steward_or_owner, require_membership
 from ..auth import get_current_user
 from ..db import get_db
 from ..models import IdentityProfile, MemoryCandidate, Message, Thread, User
@@ -18,6 +19,7 @@ from ..services.heritage_candidates import (
 from ..services.memory_scope import FAMILY, VISIBILITIES
 
 router = APIRouter(prefix="/api", tags=["memory-candidates"])
+logger = logging.getLogger(__name__)
 
 _STATUSES = ("pending", "approved", "dismissed")
 
@@ -84,15 +86,38 @@ def list_memory_candidates(
     db: Annotated[Session, Depends(get_db)],
     status: str = Query(default="pending"),
 ):
-    require_membership(db, space_id=space_id, user=user)
+    membership = require_membership(db, space_id=space_id, user=user)
     if status not in _STATUSES:
         raise HTTPException(status_code=400, detail="Trạng thái không hợp lệ.")
+    family_scope = is_moderator_or_above(db, space_id=space_id, user=user)
     rows = candidates_for_reviewer(
         db,
         space_id=space_id,
         user_id=user.id,
         status=status,
-        include_family_scope=is_moderator_or_above(db, space_id=space_id, user=user),
+        include_family_scope=family_scope,
+    )
+    space_total = (
+        db.query(MemoryCandidate)
+        .filter(
+            MemoryCandidate.space_id == space_id,
+            MemoryCandidate.status == status,
+        )
+        .count()
+    )
+    logger.info(
+        "review-queue list space=%s user=%s email=%s role=%s steward=%s "
+        "family_scope=%s status=%s returned=%s space_total=%s hidden=%s",
+        space_id,
+        user.id,
+        (user.email or "").strip() or "-",
+        membership.role,
+        is_steward_or_owner(db, space_id=space_id, user=user),
+        family_scope,
+        status,
+        len(rows),
+        space_total,
+        max(0, space_total - len(rows)),
     )
     return {"candidates": [_payload(db, row) for row in rows]}
 

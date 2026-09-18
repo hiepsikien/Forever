@@ -1,3 +1,4 @@
+import logging
 from pathlib import Path
 
 import sentry_sdk
@@ -21,6 +22,26 @@ from .services.storytelling import seed_storytelling_corpus
 
 settings = get_settings()
 Path(settings.upload_dir).mkdir(parents=True, exist_ok=True)
+
+
+def _configure_app_logging() -> None:
+    """Uvicorn leaves the root logger at WARNING, so app `logger.info` never
+    reaches `docker logs`. Attach one INFO handler on the `app` logger tree.
+    """
+    log = logging.getLogger("app")
+    log.setLevel(logging.INFO)
+    if log.handlers:
+        return
+    handler = logging.StreamHandler()
+    handler.setLevel(logging.INFO)
+    handler.setFormatter(
+        logging.Formatter("%(asctime)s %(levelname)s [%(name)s] %(message)s")
+    )
+    log.addHandler(handler)
+    log.propagate = False
+
+
+_configure_app_logging()
 
 _dsn = settings.sentry_dsn.strip()
 if _dsn:

@@ -81,6 +81,7 @@ from .heritage_memory import (
     avoid_block,
     compact_thread_memory,
     conversation_facts_from_turn,
+    conversation_facts_skip_reason,
     is_repetitive,
     load_state,
     memory_block,
@@ -1715,12 +1716,20 @@ def maybe_heritage_reply(
 ) -> Message | None:
     settings = settings or get_settings()
     if not settings.agent_enabled:
+        logger.info(
+            "review-queue heritage-reply skip thread=%s reason=agent_disabled",
+            thread.id,
+        )
         return None
     if thread.kind != "heritage":
         return None
 
     identity = identity_for_heritage_thread(db, thread.id)
     if not identity:
+        logger.info(
+            "review-queue heritage-reply skip thread=%s reason=no_identity",
+            thread.id,
+        )
         return None
 
     entity_status = getattr(identity, "heritage_entity_status", None) or "dormant"
@@ -1736,6 +1745,13 @@ def maybe_heritage_reply(
         body = REFUSE_PAUSED
         meta: dict = {"heritage_refusal": "paused"}
     elif entity_status != "ready":
+        logger.info(
+            "review-queue heritage-reply skip thread=%s identity=%s "
+            "reason=entity_not_ready status=%s",
+            thread.id,
+            identity.id,
+            entity_status,
+        )
         return None
     elif user_kind == "voice" and not user_text:
         # STT empty or missing — refuse rather than invent an answer.
@@ -1817,6 +1833,15 @@ def maybe_heritage_reply(
             db, thread=thread, user_message=user_message, reply=heritage_message,
             settings=settings,
         )
+    else:
+        logger.info(
+            "review-queue write-back skip thread=%s message=%s memory=%s "
+            "refusal=%s",
+            thread.id,
+            user_message.id,
+            settings.heritage_memory_enabled,
+            meta.get("heritage_refusal") or "-",
+        )
     return heritage_message
 
 
@@ -1832,12 +1857,29 @@ def _write_back_memory(
     try:
         record_turn(db, thread=thread, user_message=user_message, reply=reply)
         identity = identity_for_thread(db, thread)
-        if identity and settings.heritage_candidates_enabled:
+        body_len = len((user_message.body or "").strip())
+        if not identity:
+            logger.info(
+                "review-queue write-back skip thread=%s message=%s "
+                "reason=no_identity body_len=%s",
+                thread.id,
+                user_message.id,
+                body_len,
+            )
+        elif not settings.heritage_candidates_enabled:
+            logger.info(
+                "review-queue write-back skip thread=%s message=%s "
+                "reason=candidates_disabled body_len=%s",
+                thread.id,
+                user_message.id,
+                body_len,
+            )
+        else:
             facts = stated_facts(
                 _json_loads(reply.meta_json or ""),
                 source_message_id=user_message.id,
             )
-            queued = enqueue_facts(
+            queued_stated = enqueue_facts(
                 db,
                 thread=thread,
                 identity=identity,
@@ -1847,29 +1889,53 @@ def _write_back_memory(
             extra = story_facts_from_turn(
                 db, thread=thread, user_message=user_message
             )
+            queued_extra: list = []
+            queued_fallback: list = []
+            fallback_skip = ""
             if extra:
                 active = active_photo_keepsake(db, thread)
                 if active:
                     mark_heard(active)
                     db.commit()
-            if not queued and not extra:
+            if not queued_stated and not extra:
                 fallback = conversation_facts_from_turn(user_message=user_message)
                 if fallback:
-                    enqueue_facts(
+                    queued_fallback = enqueue_facts(
                         db,
                         thread=thread,
                         identity=identity,
                         user_message=user_message,
                         facts=fallback,
                     )
-            elif not queued:
-                enqueue_facts(
+                else:
+                    fallback_skip = (
+                        conversation_facts_skip_reason(user_message=user_message)
+                        or "none"
+                    )
+            elif not queued_stated:
+                queued_extra = enqueue_facts(
                     db,
                     thread=thread,
                     identity=identity,
                     user_message=user_message,
                     facts=extra,
                 )
+            logger.info(
+                "review-queue write-back thread=%s identity=%s message=%s "
+                "body_len=%s stated_in=%s stated_queued=%s extra_in=%s "
+                "extra_queued=%s fallback=%s queued=%s fallback_skip=%s",
+                thread.id,
+                identity.id,
+                user_message.id,
+                body_len,
+                len(facts),
+                len(queued_stated),
+                len(extra),
+                len(queued_extra),
+                len(queued_fallback),
+                len(queued_stated) + len(queued_extra) + len(queued_fallback),
+                fallback_skip or "-",
+            )
         history = (
             db.query(Message)
             .filter(Message.thread_id == thread.id)
@@ -1888,4 +1954,9 @@ def _write_back_memory(
             ),
         )
     except Exception:  # noqa: BLE001 — never fail a delivered reply
+        logger.exception(
+            "review-queue write-back failed thread=%s message=%s",
+            thread.id,
+            user_message.id,
+        )
         db.rollback()

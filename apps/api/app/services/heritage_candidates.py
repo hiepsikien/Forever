@@ -7,7 +7,9 @@ turns it into a `MemoryItem` the library shows and retrieval feeds back.
 
 from __future__ import annotations
 
+import logging
 import re
+from collections import Counter
 from datetime import datetime, timezone
 
 from nanoid import generate
@@ -26,8 +28,19 @@ from .heritage import HERITAGE_TAG_PREFIX, normalize_text
 from .heritage_memory import PERISHABLE_KINDS
 from .memory_scope import FAMILY, normalize_visibility, readable_by
 
+logger = logging.getLogger(__name__)
+
 CANDIDATE_KIND = "knowledge"
-MAX_PENDING_PER_IDENTITY = 40
+MAX_PENDING_PER_IDENTITY = 100
+
+
+def _preview(text: str, limit: int = 40) -> str:
+    compact = " ".join((text or "").split())
+    if len(compact) <= limit:
+        return compact
+    return compact[: limit - 1] + "…"
+
+
 _FULL_DATE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 # Shortest overlap we will treat as one fact restated at a different length.
 _PREFIX_MIN = 60
@@ -114,30 +127,50 @@ def enqueue_facts(
         db.query(FamilySpace).filter(FamilySpace.id == thread.space_id).one_or_none()
     )
     if not space:
+        logger.info(
+            "review-queue enqueue skip thread=%s identity=%s reason=no_space",
+            thread.id,
+            identity.id,
+        )
         return []
     reviewer = reviewer_for(thread, space)
     if not reviewer:
+        logger.info(
+            "review-queue enqueue skip thread=%s identity=%s reason=no_reviewer",
+            thread.id,
+            identity.id,
+        )
         return []
 
+    # Cap pending rows for this (reviewer, identity) pair — 100 each. A
+    # private backlog must not fill the family's slots for the same person.
     pending = (
         db.query(MemoryCandidate)
         .filter(
             MemoryCandidate.identity_id == identity.id,
+            MemoryCandidate.reviewer_user_id == reviewer,
             MemoryCandidate.status == "pending",
         )
         .count()
     )
     now = datetime.now(timezone.utc)
     queued: list[MemoryCandidate] = []
+    skipped: Counter[str] = Counter()
     for fact in facts:
         statement = (fact.get("statement") or "").strip()
-        if not statement or pending + len(queued) >= MAX_PENDING_PER_IDENTITY:
+        if not statement:
+            skipped["empty"] += 1
+            continue
+        if pending + len(queued) >= MAX_PENDING_PER_IDENTITY:
+            skipped["queue_full"] += 1
             continue
         # "Công việc hôm nay tốt đẹp" is true today and noise in a life story.
         # It still lives in the thread memory, it just is not offered as one.
         if fact.get("kind") in PERISHABLE_KINDS:
+            skipped["perishable"] += 1
             continue
         if _already_queued(db, identity_id=identity.id, statement=statement):
+            skipped["duplicate"] += 1
             continue
         if _in_library(
             db,
@@ -146,6 +179,7 @@ def enqueue_facts(
             statement=statement,
             reader=reviewer,
         ):
+            skipped["in_library"] += 1
             continue
         row = MemoryCandidate(
             id=generate(),
@@ -165,6 +199,20 @@ def enqueue_facts(
         queued.append(row)
     if queued:
         db.commit()
+    logger.info(
+        "review-queue enqueue thread=%s identity=%s reviewer=%s incoming=%s "
+        "queued=%s pending_before=%s skips=%s preview=%s",
+        thread.id,
+        identity.id,
+        reviewer,
+        len(facts),
+        len(queued),
+        pending,
+        dict(skipped) or "-",
+        _preview(queued[0].statement) if queued else _preview(
+            (facts[0].get("statement") or "") if facts else ""
+        ),
+    )
     return queued
 
 

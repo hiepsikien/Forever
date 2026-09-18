@@ -327,17 +327,25 @@ _GREETING_ONLY = re.compile(
 )
 
 
+def conversation_facts_skip_reason(*, user_message: Message) -> str | None:
+    """Why the spoken turn itself is not offered as a review row."""
+    body = (user_message.body or "").strip()
+    if len(body) < 15:
+        return "too_short"
+    if _GREETING_ONLY.match(body):
+        return "greeting"
+    return None
+
+
 def conversation_facts_from_turn(*, user_message: Message) -> list[dict]:
     """Queue what the family said when the analyzer did not propose facts.
 
     «Điều nghe được» must not depend on analyzer being on — a voice turn with
     real content still deserves a steward row to keep or dismiss.
     """
+    if conversation_facts_skip_reason(user_message=user_message):
+        return []
     body = (user_message.body or "").strip()
-    if len(body) < 15:
-        return []
-    if _GREETING_ONLY.match(body):
-        return []
     # `life_state` is kept in thread memory but never offered for review
     # (PERISHABLE_KINDS). Spoken turns need a steward row — use `event`.
     return [

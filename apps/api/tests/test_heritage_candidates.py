@@ -270,6 +270,73 @@ def test_nothing_is_queued_without_a_reviewer(client):
         db.close()
 
 
+def test_one_reviewers_full_desk_does_not_block_another(client, monkeypatch):
+    """Mother's private backlog must not fill the family's cap for the same person."""
+    from app.db import SessionLocal
+    from app.models import Message, Thread
+    from app.services import heritage_candidates as hc
+
+    monkeypatch.setattr(hc, "MAX_PENDING_PER_IDENTITY", 2)
+    db = SessionLocal()
+    try:
+        space, identity, family_thread, family_msg, steward, member = _scene(db)
+        now = datetime.now(timezone.utc)
+        private = Thread(
+            id=generate(),
+            space_id=space.id,
+            kind="heritage",
+            title="Bố riêng",
+            heritage_identity_id=identity.id,
+            audience_scope="direct",
+            member_user_id=member.id,
+            created_at=now,
+        )
+        db.add(private)
+        private_msg = Message(
+            id=generate(),
+            thread_id=private.id,
+            sender_user_id=member.id,
+            sender_kind="user",
+            kind="text",
+            body="Nói riêng với bố.",
+            created_at=now,
+        )
+        db.add(private_msg)
+        db.commit()
+
+        for i in range(2):
+            queued = enqueue_facts(
+                db,
+                thread=private,
+                identity=identity,
+                user_message=private_msg,
+                facts=[_fact(f"Mẹ kể chuyện riêng số {i} với bố ở nhà")],
+            )
+            assert len(queued) == 1
+            assert queued[0].reviewer_user_id == member.id
+
+        blocked = enqueue_facts(
+            db,
+            thread=private,
+            identity=identity,
+            user_message=private_msg,
+            facts=[_fact("Mẹ kể thêm một chuyện riêng nữa với bố")],
+        )
+        assert blocked == []
+
+        family = enqueue_facts(
+            db,
+            thread=family_thread,
+            identity=identity,
+            user_message=family_msg,
+            facts=[_fact("Con sẽ về thăm nhà trước ngày giỗ 100 ngày")],
+        )
+        assert len(family) == 1
+        assert family[0].reviewer_user_id == steward.id
+    finally:
+        db.close()
+
+
 # --- review, and the fact coming back through retrieval ---
 
 def test_approving_puts_the_fact_in_the_library_where_chat_finds_it(client):
