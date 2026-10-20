@@ -336,7 +336,11 @@ const styles = createThemedStyles(() => ({
     fontSize: 13,
     color: colors.inkSoft,
   },
-  chipTextOn: { color: colors.brand, fontFamily: fonts.body },
+  chipTextOn: {
+    color: colors.brand,
+    fontFamily: fonts.body,
+    fontWeight: "600",
+  },
   actions: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -348,6 +352,7 @@ const styles = createThemedStyles(() => ({
     fontFamily: fonts.body,
     fontSize: 14,
     color: colors.brand,
+    fontWeight: "600",
   },
   linkMuted: { opacity: 0.35 },
   importBtn: {
@@ -362,6 +367,7 @@ const styles = createThemedStyles(() => ({
     fontFamily: fonts.body,
     fontSize: 14,
     color: colors.brand,
+    fontWeight: "600",
   },
   center: { flex: 1, alignItems: "center", justifyContent: "center" },
   list: { paddingHorizontal: 16, paddingBottom: 40 },
@@ -386,6 +392,7 @@ const styles = createThemedStyles(() => ({
     fontFamily: fonts.body,
     fontSize: 15,
     color: colors.ink,
+    fontWeight: "600",
   },
   rowMeta: {
     fontFamily: fonts.body,
@@ -397,6 +404,7 @@ const styles = createThemedStyles(() => ({
     fontFamily: fonts.body,
     fontSize: 14,
     color: colors.brand,
+    fontWeight: "600",
   },
   modalRoot: {
     flex: 1,
@@ -441,6 +449,7 @@ const styles = createThemedStyles(() => ({
     fontFamily: fonts.body,
     color: "#fff",
     fontSize: 16,
+    fontWeight: "600",
   },
   secondaryBtn: {
     borderWidth: 1,
@@ -454,5 +463,6 @@ const styles = createThemedStyles(() => ({
     fontFamily: fonts.body,
     color: colors.ink,
     fontSize: 16,
+    fontWeight: "600",
   },
 }));

@@ -244,6 +244,7 @@ const styles = createThemedStyles(() => ({
     fontFamily: fonts.body,
     color: "#fff",
     fontSize: 16,
+    fontWeight: "600",
   },
   btnDisabled: { opacity: 0.4 },
   sectionBlock: { gap: 0, marginTop: 8 },
@@ -260,6 +261,7 @@ const styles = createThemedStyles(() => ({
     color: colors.inkSoft,
     textTransform: "uppercase",
     letterSpacing: 0.6,
+    fontWeight: "600",
   },
   sectionMeta: {
     fontFamily: fonts.body,
@@ -305,6 +307,7 @@ const styles = createThemedStyles(() => ({
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: 999,
+    fontWeight: "600",
   },
   badgeOff: {
     fontFamily: fonts.body,
@@ -337,6 +340,7 @@ const styles = createThemedStyles(() => ({
     fontFamily: fonts.body,
     fontSize: 13,
     color: colors.brand,
+    fontWeight: "600",
   },
   enableBtnTextOn: {
     color: colors.ink,

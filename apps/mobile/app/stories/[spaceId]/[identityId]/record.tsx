@@ -265,6 +265,7 @@ const styles = createThemedStyles(() => ({
     fontSize: 14,
     color: colors.inkSoft,
     marginBottom: 4,
+    fontWeight: "600",
   },
   hint: {
     fontFamily: fonts.body,
@@ -295,6 +296,7 @@ const styles = createThemedStyles(() => ({
     fontFamily: fonts.body,
     color: "#fff",
     fontSize: 16,
+    fontWeight: "600",
   },
   stopBtn: {
     backgroundColor: "#b33",
@@ -314,6 +316,7 @@ const styles = createThemedStyles(() => ({
     fontFamily: fonts.body,
     color: colors.ink,
     fontSize: 15,
+    fontWeight: "600",
   },
   reviewRow: { flexDirection: "row", gap: 8, alignItems: "center" },
   flex: { flex: 1 },

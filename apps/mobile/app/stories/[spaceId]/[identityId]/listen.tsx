@@ -163,6 +163,7 @@ const styles = createThemedStyles(() => ({
     fontSize: 14,
     color: colors.inkSoft,
     marginBottom: 16,
+    fontWeight: "600",
   },
   body: {
     fontFamily: fonts.display,
@@ -186,6 +187,7 @@ const styles = createThemedStyles(() => ({
     fontFamily: fonts.body,
     color: "#fff",
     fontSize: 16,
+    fontWeight: "600",
   },
   secondaryBtn: {
     borderWidth: 1,
@@ -198,5 +200,6 @@ const styles = createThemedStyles(() => ({
     fontFamily: fonts.body,
     color: colors.ink,
     fontSize: 16,
+    fontWeight: "600",
   },
 }));

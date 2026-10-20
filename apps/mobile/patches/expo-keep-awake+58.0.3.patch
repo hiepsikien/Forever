@@ -1,5 +1,19 @@
+diff --git a/node_modules/expo-keep-awake/build/index.js b/node_modules/expo-keep-awake/build/index.js
+index 1aa5a21..abe0e69 100644
+--- a/node_modules/expo-keep-awake/build/index.js
++++ b/node_modules/expo-keep-awake/build/index.js
+@@ -31,7 +31,8 @@ import ExpoKeepAwake from './ExpoKeepAwake';
+             if (options?.suppressDeactivateWarnings) {
+                 deactivateKeepAwake(tagOrDefault).catch(()=>{});
+             } else {
+-                deactivateKeepAwake(tagOrDefault);
++                // Android Expo Go can reject when Activity isn't resumed; never leave uncaught.
++                deactivateKeepAwake(tagOrDefault).catch(()=>{});
+             }
+         };
+     }, [
 diff --git a/node_modules/expo-keep-awake/src/index.ts b/node_modules/expo-keep-awake/src/index.ts
-index b7a856e..4bb9595 100644
+index cefab60..446b95b 100644
 --- a/node_modules/expo-keep-awake/src/index.ts
 +++ b/node_modules/expo-keep-awake/src/index.ts
 @@ -42,7 +42,8 @@ export function useKeepAwake(tag?: string, options?: KeepAwakeOptions): void {

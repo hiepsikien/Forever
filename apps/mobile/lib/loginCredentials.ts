@@ -16,7 +16,9 @@ const LEGACY_PASSWORD_KEY = "forever_login_password";
  */
 export async function getSavedLoginEmail(): Promise<string | null> {
   try {
-    // Older builds may have left a password in AsyncStorage; drop it.
+    // Pre-AsyncStorage builds stored a password in Keychain (SecureStore).
+    // We no longer touch Keychain; this only clears a leftover if any build
+    // ever wrote the same key into AsyncStorage.
     await deleteDeviceItem(LEGACY_PASSWORD_KEY);
     const email = (await getDeviceItem(EMAIL_KEY))?.trim() ?? "";
     return email || null;
