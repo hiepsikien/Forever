@@ -28,22 +28,14 @@ if [[ -f "$ROOT/.env" ]]; then
 fi
 
 export APP_VARIANT=production
-export EXPO_PUBLIC_API_URL="${EXPO_PUBLIC_API_URL:-https://forever-api.antunai.com}"
-# `.env` is for day-to-day simulator work (AUTH_DEV=true). A TestFlight IPA must
-# not inherit that — family sign-in is Firebase email/password only.
+# `.env` is for day-to-day simulator work (localhost + AUTH_DEV). A TestFlight
+# IPA must not inherit those — phones cannot reach the Mac, and family sign-in
+# is Firebase email/password only.
+export EXPO_PUBLIC_API_URL=https://forever-api.antunai.com
 export EXPO_PUBLIC_AUTH_DEV=false
 export EAS_BUILD_NO_EXPO_GO_WARNING=true
 
 API_URL="${EXPO_PUBLIC_API_URL}"
-if [[ -z "$API_URL" || "$API_URL" == *"localhost"* || "$API_URL" == *"127.0.0.1"* ]]; then
-  echo "ERROR: EXPO_PUBLIC_API_URL is missing or localhost." >&2
-  echo "TestFlight phones cannot reach your Mac." >&2
-  exit 1
-fi
-if [[ "$API_URL" != "https://forever-api.antunai.com" ]]; then
-  echo "WARNING: API is $API_URL — expected https://forever-api.antunai.com for family TestFlight."
-  echo ""
-fi
 
 DIST_DIR="$ROOT/dist"
 ARCHIVE_PATH="$DIST_DIR/Forever.xcarchive"

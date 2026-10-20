@@ -1,8 +1,12 @@
 import Constants from "expo-constants";
-import * as SecureStore from "expo-secure-store";
 import { Platform } from "react-native";
 import { createApiClient } from "@forever/api-client";
 
+import {
+  deleteDeviceItem,
+  getDeviceItem,
+  setDeviceItem,
+} from "./deviceStorage";
 import { firebaseIdToken, isFirebaseConfigured } from "./firebase";
 
 const TOKEN_KEY = "forever_token";
@@ -72,29 +76,26 @@ export function resolveBaseUrl(): string {
 }
 
 export async function getStoredToken(): Promise<string | null> {
-  try {
-    return await SecureStore.getItemAsync(TOKEN_KEY);
-  } catch {
-    return null;
-  }
+  return getDeviceItem(TOKEN_KEY);
 }
 
 export async function setStoredToken(token: string | null): Promise<void> {
   if (!token) {
-    await SecureStore.deleteItemAsync(TOKEN_KEY);
+    await deleteDeviceItem(TOKEN_KEY);
     return;
   }
-  await SecureStore.setItemAsync(TOKEN_KEY, token);
+  await setDeviceItem(TOKEN_KEY, token);
 }
 
 /**
  * The one place that answers "who is calling?".
  *
- * A Firebase sign-in never writes SecureStore — the SDK holds the session and
- * mints a fresh ID token on demand. Anything that reads SecureStore alone gets
- * `null` for a real family member and sends an unauthenticated request, which
- * the API answers with 401. Every authenticated call, including raw file
- * downloads that bypass the API client, must resolve its token through here.
+ * A Firebase sign-in never writes device storage — the SDK holds the session
+ * and mints a fresh ID token on demand. Anything that reads the AUTH_DEV
+ * token alone gets `null` for a real family member and sends an
+ * unauthenticated request, which the API answers with 401. Every authenticated
+ * call, including raw file downloads that bypass the API client, must resolve
+ * its token through here.
  */
 export async function resolveAuthToken(): Promise<string | null> {
   if (isFirebaseConfigured()) {

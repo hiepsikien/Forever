@@ -44,7 +44,7 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<SessionUser | null>(null);
   const [loading, setLoading] = useState(true);
-  // Dev-mode JWTs have no issuer to refresh them, so they still live in SecureStore.
+  // Dev-mode JWTs have no issuer to refresh them, so they still live in AsyncStorage.
   const [devToken, setDevToken] = useState<string | null>(null);
   const devTokenRef = useRef<string | null>(null);
   devTokenRef.current = devToken;
