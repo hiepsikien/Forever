@@ -4,8 +4,7 @@ import {
   SpaceSettings,
   VoiceProfile,
 } from "@forever/api-client";
-import { useFocusEffect } from "@react-navigation/native";
-import { useLocalSearchParams, useRouter } from "expo-router";
+import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import { useCallback, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,

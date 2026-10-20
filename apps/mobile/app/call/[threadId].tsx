@@ -6,8 +6,7 @@ import {
   voiceTtsModelLabel,
 } from "@forever/api-client";
 import { useAudioRecorder, useAudioRecorderState } from "expo-audio";
-import { useFocusEffect } from "@react-navigation/native";
-import { useLocalSearchParams, useRouter } from "expo-router";
+import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,

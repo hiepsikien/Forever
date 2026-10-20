@@ -25,7 +25,7 @@ import {
   TextInput,
   View,
 } from "react-native";
-import { useHeaderHeight } from "@react-navigation/elements";
+import { useHeaderHeight } from "expo-router/react-navigation";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { HandleSuggestBar } from "@/components/HandleSuggestBar";
