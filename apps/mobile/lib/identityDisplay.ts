@@ -51,7 +51,10 @@ export function isLivingRelationPreset(relation: string): boolean {
 }
 
 export function relationToRememberedPrompt(
-  remembered?: Pick<IdentityProfile, "display_name" | "relation_label"> | null,
+  remembered?: {
+    display_name?: string | null;
+    relation_label?: string | null;
+  } | null,
 ): string {
   const name = (remembered?.display_name ?? "").trim();
   const called = (remembered?.relation_label ?? "").trim();
@@ -63,7 +66,10 @@ export function relationToRememberedPrompt(
 }
 
 export function livingRelationHelp(
-  remembered?: Pick<IdentityProfile, "display_name" | "relation_label"> | null,
+  remembered?: {
+    display_name?: string | null;
+    relation_label?: string | null;
+  } | null,
 ): string {
   return (
     `${relationToRememberedPrompt(remembered)}. Không phải với tài khoản quản trị — ` +

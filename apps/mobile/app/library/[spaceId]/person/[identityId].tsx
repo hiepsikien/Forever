@@ -706,7 +706,9 @@ export default function LibraryPersonScreen() {
           await ensureMourningRites(pool, {
             create: (payload) => api.createNoteMemory(spaceId, payload),
             update: (id, payload) => api.updateMemory(id, payload),
-            remove: (id) => api.deleteMemory(id),
+            remove: async (id) => {
+              await api.deleteMemory(id);
+            },
           });
         }
       } else {
@@ -733,7 +735,9 @@ export default function LibraryPersonScreen() {
           await ensureMourningRites([...memories, created], {
             create: (payload) => api.createNoteMemory(spaceId, payload),
             update: (id, payload) => api.updateMemory(id, payload),
-            remove: (id) => api.deleteMemory(id),
+            remove: async (id) => {
+              await api.deleteMemory(id);
+            },
           });
         }
       }

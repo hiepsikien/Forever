@@ -86,17 +86,13 @@ function PoemReader({
 
   return (
     <View style={styles.poemPage}>
-      <Text style={styles.poemKicker} onLongPress={onLongPress} delayLongPress={450}>
-        {kicker}
-      </Text>
+      <Pressable onLongPress={onLongPress} delayLongPress={450}>
+        <Text style={styles.poemKicker}>{kicker}</Text>
+      </Pressable>
       {untitled ? null : (
-        <Text
-          style={styles.poemTitle}
-          onLongPress={onLongPress}
-          delayLongPress={450}
-        >
-          {title}
-        </Text>
+        <Pressable onLongPress={onLongPress} delayLongPress={450}>
+          <Text style={styles.poemTitle}>{title}</Text>
+        </Pressable>
       )}
       <View style={styles.ornament} />
       <View style={styles.verse}>

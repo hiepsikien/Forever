@@ -249,31 +249,31 @@ const styles = createThemedStyles(() => ({
     gap: 12,
   },
   emptyTitle: {
-    fontFamily: fonts.serif,
+    fontFamily: fonts.display,
     fontSize: 22,
     color: colors.ink,
   },
   emptyBody: {
-    fontFamily: fonts.sans,
+    fontFamily: fonts.body,
     fontSize: 15,
     lineHeight: 22,
-    color: colors.muted,
+    color: colors.inkSoft,
     marginBottom: 12,
   },
   work: {
-    fontFamily: fonts.sansSemi,
+    fontFamily: fonts.body,
     fontSize: 14,
-    color: colors.muted,
+    color: colors.inkSoft,
     marginBottom: 4,
   },
   hint: {
-    fontFamily: fonts.sans,
+    fontFamily: fonts.body,
     fontSize: 13,
-    color: colors.muted,
+    color: colors.inkSoft,
     marginBottom: 16,
   },
   body: {
-    fontFamily: fonts.serif,
+    fontFamily: fonts.display,
     fontSize: 20,
     lineHeight: 32,
     color: colors.ink,
@@ -292,7 +292,7 @@ const styles = createThemedStyles(() => ({
     alignItems: "center",
   },
   primaryBtnText: {
-    fontFamily: fonts.sansSemi,
+    fontFamily: fonts.body,
     color: "#fff",
     fontSize: 16,
   },
@@ -311,7 +311,7 @@ const styles = createThemedStyles(() => ({
     alignItems: "center",
   },
   secondaryBtnText: {
-    fontFamily: fonts.sansSemi,
+    fontFamily: fonts.body,
     color: colors.ink,
     fontSize: 15,
   },
@@ -319,8 +319,8 @@ const styles = createThemedStyles(() => ({
   flex: { flex: 1 },
   skip: { alignItems: "center", paddingVertical: 6 },
   skipText: {
-    fontFamily: fonts.sans,
+    fontFamily: fonts.body,
     fontSize: 14,
-    color: colors.muted,
+    color: colors.inkSoft,
   },
 }));

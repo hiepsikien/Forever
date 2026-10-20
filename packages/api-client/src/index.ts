@@ -1300,6 +1300,7 @@ export function createApiClient({
       const q = workSlug ? `?work=${encodeURIComponent(workSlug)}` : "";
       return request<StoryChunkDetail>(
         `/api/spaces/${spaceId}/identities/${identityId}/stories/next-to-listen${q}`,
+        {},
         { timeoutMs: 120_000 },
       );
     },
@@ -1310,7 +1311,8 @@ export function createApiClient({
     ) =>
       request<StoryChunkDetail>(
         `/api/spaces/${spaceId}/identities/${identityId}/stories/chunks/${chunkId}/synthesize`,
-        { method: "POST", timeoutMs: 120_000 },
+        { method: "POST" },
+        { timeoutMs: 120_000 },
       ),
     uploadStoryRecording: async (
       spaceId: string,

@@ -283,7 +283,7 @@ export default function StoryWorkChunksScreen() {
             multiline
             textAlignVertical="top"
             placeholder="Dán chữ vào đây…"
-            placeholderTextColor={colors.muted}
+            placeholderTextColor={colors.inkSoft}
             value={importText}
             onChangeText={setImportText}
           />
@@ -332,11 +332,11 @@ const styles = createThemedStyles(() => ({
     borderColor: colors.brandSoft,
   },
   chipText: {
-    fontFamily: fonts.sans,
+    fontFamily: fonts.body,
     fontSize: 13,
-    color: colors.muted,
+    color: colors.inkSoft,
   },
-  chipTextOn: { color: colors.brand, fontFamily: fonts.sansSemi },
+  chipTextOn: { color: colors.brand, fontFamily: fonts.body },
   actions: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -345,7 +345,7 @@ const styles = createThemedStyles(() => ({
   },
   link: { paddingVertical: 4 },
   linkText: {
-    fontFamily: fonts.sansSemi,
+    fontFamily: fonts.body,
     fontSize: 14,
     color: colors.brand,
   },
@@ -359,17 +359,17 @@ const styles = createThemedStyles(() => ({
     backgroundColor: colors.brandSoft,
   },
   importBtnText: {
-    fontFamily: fonts.sansSemi,
+    fontFamily: fonts.body,
     fontSize: 14,
     color: colors.brand,
   },
   center: { flex: 1, alignItems: "center", justifyContent: "center" },
   list: { paddingHorizontal: 16, paddingBottom: 40 },
   empty: {
-    fontFamily: fonts.sans,
+    fontFamily: fonts.body,
     fontSize: 14,
     lineHeight: 22,
-    color: colors.muted,
+    color: colors.inkSoft,
     padding: 24,
     textAlign: "center",
   },
@@ -383,18 +383,18 @@ const styles = createThemedStyles(() => ({
   },
   rowText: { flex: 1 },
   rowTitle: {
-    fontFamily: fonts.sansSemi,
+    fontFamily: fonts.body,
     fontSize: 15,
     color: colors.ink,
   },
   rowMeta: {
-    fontFamily: fonts.sans,
+    fontFamily: fonts.body,
     fontSize: 13,
-    color: colors.muted,
+    color: colors.inkSoft,
     marginTop: 2,
   },
   play: {
-    fontFamily: fonts.sansSemi,
+    fontFamily: fonts.body,
     fontSize: 14,
     color: colors.brand,
   },
@@ -407,15 +407,15 @@ const styles = createThemedStyles(() => ({
     gap: 10,
   },
   modalTitle: {
-    fontFamily: fonts.serif,
+    fontFamily: fonts.display,
     fontSize: 22,
     color: colors.ink,
   },
   modalHint: {
-    fontFamily: fonts.sans,
+    fontFamily: fonts.body,
     fontSize: 14,
     lineHeight: 20,
-    color: colors.muted,
+    color: colors.inkSoft,
   },
   formRow: { flexDirection: "row", gap: 8 },
   input: {
@@ -424,7 +424,7 @@ const styles = createThemedStyles(() => ({
     borderColor: colors.line,
     borderRadius: 12,
     padding: 12,
-    fontFamily: fonts.serif,
+    fontFamily: fonts.display,
     fontSize: 16,
     lineHeight: 24,
     color: colors.ink,
@@ -438,7 +438,7 @@ const styles = createThemedStyles(() => ({
     alignItems: "center",
   },
   primaryBtnText: {
-    fontFamily: fonts.sansSemi,
+    fontFamily: fonts.body,
     color: "#fff",
     fontSize: 16,
   },
@@ -451,7 +451,7 @@ const styles = createThemedStyles(() => ({
     alignItems: "center",
   },
   secondaryBtnText: {
-    fontFamily: fonts.sansSemi,
+    fontFamily: fonts.body,
     color: colors.ink,
     fontSize: 16,
   },

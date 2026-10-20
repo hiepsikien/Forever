@@ -361,7 +361,7 @@ const styles = createThemedStyles((colors) => ({
     overflow: "hidden",
   },
   swipeActions: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     alignItems: "flex-end",
     justifyContent: "center",
     backgroundColor: colors.danger,

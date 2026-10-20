@@ -425,7 +425,7 @@ export default function SettingsScreen() {
       (i) => i.linked_user_id === memberUserId && i.id !== identity.id,
     );
     const memberName =
-      space?.members.find((m) => m.id === memberUserId)?.name ?? "tài khoản này";
+      space?.members?.find((m) => m.id === memberUserId)?.name ?? "tài khoản này";
     const doLink = async () => {
       setAdminBusy(true);
       try {

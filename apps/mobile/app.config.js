@@ -100,6 +100,12 @@ module.exports = ({ config }) => {
       [
         "expo-build-properties",
         {
+          ios: {
+            // SDK 58 / Xcode 27 require ≥16.4. Resource-bundle Pods can
+            // still ship lower unless we also patch the Podfile
+            // (see withIosPodDeploymentTarget).
+            deploymentTarget: "16.4",
+          },
           android: {
             usesCleartextTraffic: allowCleartext,
             minSdkVersion: 24,
@@ -117,7 +123,13 @@ module.exports = ({ config }) => {
         },
       ],
       "./plugins/withAutomaticSigning",
+      "./plugins/withIosPodDeploymentTarget",
     ],
+    // Mobile does not ship a web SSR host; keep static so expo-router does
+    // not default to SDK 58's server output.
+    web: {
+      output: "static",
+    },
     experiments: {
       typedRoutes: true,
     },

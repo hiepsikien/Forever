@@ -110,7 +110,7 @@ function VideoPlayerBody({
           style={styles.video}
           contentFit="contain"
           nativeControls
-          allowsFullscreen
+          fullscreenOptions={{ enable: true }}
           allowsPictureInPicture
         />
         {buffering ? (
@@ -221,7 +221,7 @@ const styles = createThemedStyles((colors) => ({
     width: "100%",
   },
   bufferOverlay: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: "rgba(0,0,0,0.45)",
