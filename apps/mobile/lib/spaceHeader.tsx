@@ -1,5 +1,4 @@
-import { useNavigation } from "@react-navigation/native";
-import { useRouter } from "expo-router";
+import { useNavigation, useRouter } from "expo-router";
 import { useLayoutEffect } from "react";
 import { Pressable, Text } from "react-native";
 
