@@ -39,9 +39,10 @@ class Settings(BaseSettings):
     heritage_anti_repeat_enabled: bool = True
     # After grief, append one family-bridge sentence (code, not the model).
     heritage_family_bridge_enabled: bool = False
-    # Append a wind-down sentence after this many heritage replies in one sitting.
-    # 0 = off.
-    heritage_session_winddown_turns: int = 12
+    # One stay-open nudge per sitting, on this heritage reply. 0 = off.
+    # Not every window after that — a repeated nudge stays in recent history
+    # and the model copies «nghỉ đi / nhà đang chờ» into ordinary turns.
+    heritage_session_winddown_turns: int = 18
     heritage_analyzer_model: str = "gemini-3.1-flash-lite"
     heritage_compose_model: str = ""
     heritage_critic_model: str = "gemini-3.1-flash-lite"

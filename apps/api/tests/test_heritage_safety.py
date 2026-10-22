@@ -93,7 +93,9 @@ def test_winddown_after_threshold():
         audience="child",
     )
     assert kind == "sitting"
-    assert "nghỉ" in body
+    assert "nhớ" in body
+    assert "kể tiếp" in body
+    assert "nghỉ" not in body
 
 
 def test_looks_like_grief():

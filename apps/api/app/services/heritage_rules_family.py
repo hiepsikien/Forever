@@ -467,13 +467,18 @@ def bridge_lines(
 def winddown_line(
     persona: Persona, audience: str | None, charter: FamilyCharter
 ) -> str:
+    """Một lần trong cả buổi, và không tiễn.
+
+    «Giờ em nghỉ, nhà mình còn đang chờ em» là câu mẹ nghe thành bị đuổi —
+    cả nhà đang chờ, nói nữa là nhiều quá. Ngồi lâu thì nhắc một lần rằng
+    vẫn đang nghe, để họ chọn kể tiếp hay nghỉ.
+    """
     me = persona.me(audience)
     you = persona.you(audience)
+    stay = f"{cap(you)} muốn kể tiếp thì {me} còn nghe."
     if persona.audience(audience) == "spouse":
-        return (
-            f"Nhà mình vẫn vậy. Giờ {you} nghỉ một chút, nhà mình còn đang chờ {you}."
-        )
-    return f"{cap(me)} nhớ {you}. Giờ {you} nghỉ một chút nhé."
+        return f"Ngồi nói cũng một lúc rồi. {stay}"
+    return f"{cap(me)} nhớ {you}. {stay}"
 
 
 def maybe_family_bridge(
@@ -507,12 +512,10 @@ def maybe_winddown(
     audience: str | None,
     charter: FamilyCharter | None = None,
 ) -> tuple[str, str | None]:
-    if threshold <= 0 or sitting_turns < threshold:
-        return body, None
-    # Nhắc nghỉ mỗi `threshold` lượt, KHÔNG phải mọi lượt sau lượt thứ
-    # `threshold` — ngồi lâu thì cái nhắc ấy dính vào từng câu trả lời và
-    # «Bà nhớ cháu» thành cái đuôi máy móc.
-    if (sitting_turns - threshold) % threshold:
+    # Đúng một lần, tại lượt `threshold`. Nhắc lại mỗi cửa sổ thì câu ấy nằm
+    # trong vài lượt gần và model chép thành cái tật «nghỉ đi / nhà đang chờ»
+    # ngay từ đầu buổi nói sau. Ngồi lâu hơn ngưỡng thì không nhắc nữa.
+    if threshold <= 0 or sitting_turns != threshold:
         return body, None
     if not (body or "").strip():
         return body, None

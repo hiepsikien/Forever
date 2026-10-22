@@ -24,6 +24,7 @@ from app.services.heritage_rules_app import (
     clarify_line,
     fix_address_register,
     fix_foreign_self_reference,
+    strip_dismissal,
     strip_repeated_closing,
 )
 from app.services.heritage_rules_family import (
@@ -300,8 +301,8 @@ def test_the_child_pair_never_reaches_a_grandchild():
 # --- Câu kết: một lần thì ấm, lượt nào cũng thế thì thành tật ---
 
 
-def test_winddown_nudges_once_per_window_not_every_turn():
-    """Ngồi lâu từng làm «Bà nhớ cháu» dính vào cuối mọi câu trả lời."""
+def test_winddown_nudges_once_per_sitting_not_every_window():
+    """Nhắc lại mỗi cửa sổ từng để câu tiễn nằm trong lịch sử và bị chép lại."""
     fired = [
         n
         for n in range(1, 25)
@@ -313,7 +314,7 @@ def test_winddown_nudges_once_per_window_not_every_turn():
             audience="child",
         )[1]
     ]
-    assert fired == [8, 16, 24]
+    assert fired == [8]
 
 
 def test_repeated_affection_closing_is_dropped_but_the_first_one_stays():
@@ -350,6 +351,54 @@ def test_stripping_never_empties_a_reply():
     assert strip_repeated_closing(
         body, GRANDMOTHER_CHILD_ONLY, "grandchild", said_before
     )
+
+
+def test_spouse_winddown_does_not_send_her_away():
+    body, kind = maybe_winddown(
+        "Nhà mình vẫn thế.",
+        sitting_turns=8,
+        threshold=8,
+        persona=FATHER,
+        audience="spouse",
+    )
+    assert kind == "sitting"
+    lowered = body.lower()
+    assert "em" in lowered and "anh" in lowered
+    assert "nghỉ" not in lowered
+    assert "chờ" not in lowered
+    assert "kể tiếp" in lowered
+
+
+def test_dismissal_closing_is_cut_and_the_story_stays():
+    raw = (
+        "Bố nhớ bài thơ tuổi bảy nhăm. "
+        "Em nghỉ đi, cả nhà vẫn chờ em nhiều quá."
+    )
+    out = strip_dismissal(raw, FATHER, "spouse")
+    assert "bảy nhăm" in out.lower()
+    assert "nghỉ" not in out.lower()
+    assert "chờ" not in out.lower()
+
+
+def test_a_reply_that_is_only_a_dismissal_stays_in_the_conversation():
+    out = strip_dismissal(
+        "Em nghỉ đi, cả nhà vẫn chờ em nhiều quá.", FATHER, "spouse"
+    )
+    assert "kể tiếp" in out.lower()
+    assert "nghỉ" not in out.lower()
+    assert "chờ" not in out.lower()
+
+
+def test_a_memory_of_the_family_waiting_is_not_a_dismissal():
+    text = "Cả nhà chờ con về ăn cơm hôm ấy."
+    assert strip_dismissal(text, FATHER, "child") == text
+
+
+def test_a_dismissal_glued_on_with_a_comma_keeps_the_story():
+    raw = "Bố nhớ bài thơ tuổi bảy nhăm, em nghỉ đi."
+    out = strip_dismissal(raw, FATHER, "spouse")
+    assert "bảy nhăm" in out.lower()
+    assert "nghỉ" not in out.lower()
 
 
 def test_talking_about_a_daughter_is_left_alone():

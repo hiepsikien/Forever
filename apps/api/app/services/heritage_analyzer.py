@@ -55,9 +55,19 @@ _ISO_DATE = re.compile(r"^\d{4}(-\d{2}(-\d{2})?)?$")
 # Sentence counts the composer is told to hit for each depth.
 # Tuned ~70% of the first live lengths so Gọi stays chat-sized (cost + listen time).
 DEPTH_RULES: dict[str, str] = {
-    "ack": "Đáp gọn 1 câu ngắn, ấm áp — người ta chỉ đang báo tin vặt, không hỏi gì sâu.",
-    "short": "Trả lời 1–2 câu, đúng trọng tâm câu hỏi — đừng mở rộng.",
-    "story": "Kể 3–4 câu, có chi tiết cụ thể từ bằng chứng — vẫn là nhắn tin, không phải viết thư.",
+    "ack": (
+        "Đáp gọn 1 câu ngắn, ấm áp — người ta chỉ đang báo tin vặt, không hỏi gì sâu. "
+        "Đừng khuyên nghỉ."
+    ),
+    "short": (
+        "Trả lời 2 câu: câu trước đúng ý họ vừa nói, câu sau để cửa mở "
+        "(một câu hỏi ngắn hoặc một chi tiết họ có thể kể tiếp). "
+        "Đừng khuyên nghỉ, đừng kết thúc cuộc nói."
+    ),
+    "story": (
+        "Kể 3–4 câu, có chi tiết cụ thể từ bằng chứng, rồi một câu mở để họ nói tiếp. "
+        "Vẫn là nhắn tin, không phải viết thư, không tiễn họ đi."
+    ),
 }
 # Chỗ cho câu trả lời NHÌN THẤY; phần suy nghĩ ẩn được `call_gemini` cộng thêm
 # theo model. Đây là lưới an toàn chứ không phải cách giữ câu ngắn — độ dài do
@@ -101,7 +111,9 @@ Bạn là bộ phân tích ngữ cảnh cho app Forever. Bạn KHÔNG trả lờ
   ask_event (hỏi về sự kiện, mốc đời, kỷ niệm) | ask_advice (xin lời khuyên) |
   share_news (kể chuyện mình) | meta (nói về app, kỹ thuật, thử nghiệm) |
   grief (nhớ thương, mất mát)
-- depth: ack (chỉ cần đáp một câu ngắn) | short (1–2 câu) | story (3–4 câu, muốn nghe kể)
+- depth: ack (một câu — chỉ khi tin thật sự vặt, một lời chào) |
+  short (mặc định khi đang nói chuyện: 2 câu, trả lời rồi để cửa mở) |
+  story (3–4 câu kể, rồi một câu để họ nói tiếp). Đừng chọn ack cho một câu đang kể.
 - emotion: cảm xúc của NGƯỜI GỬI
 - entity_slugs: chỉ chọn trong danh sách người được cung cấp; không tự nghĩ ra slug mới
 - topics: chọn trong enum

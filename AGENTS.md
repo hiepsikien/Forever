@@ -192,14 +192,19 @@ tính chung vào `maxOutputTokens` và Gemini 3 không cho đặt trần cho ri�
 cụt nữa. Chừa rộng không tốn thêm: hoá đơn tính trên token thực sinh ra.
 
 `DEPTH_TOKENS` là lưới an toàn, không phải cách giữ câu ngắn — độ dài do
-`DEPTH_RULES` trong prompt giữ. Bị chặn thì `_gemini_heritage_reply` hỏi lại một
-lần với chỗ rộng gấp ba; `_finalize_reply_text` chỉ là nước cuối.
+`DEPTH_RULES` trong prompt giữ. `short` là 2 câu và câu sau để cửa mở, không
+phải «đừng mở rộng» rồi im — im sau vài câu là cảm giác bị chặn. Bị chặn token
+thì `_gemini_heritage_reply` hỏi lại một lần với chỗ rộng gấp ba;
+`_finalize_reply_text` chỉ là nước cuối.
 `meta.thoughts_tokens` trong telemetry cho biết model tiêu bao nhiêu cho suy nghĩ.
 
-Câu kết phải thưa. `maybe_winddown` nhắc nghỉ mỗi `threshold` lượt chứ không
-phải mọi lượt sau ngưỡng — bỏ mốt-đun ấy là «Bà nhớ cháu» dính vào cuối từng
-câu trả lời. `strip_repeated_closing` cắt câu thương nhớ và cái đuôi «…, con.»
-khi lượt ngay trước đã dùng, nên nói một lần vẫn được, nói mãi thì không.
+Câu kết phải thưa. `maybe_winddown` nhắc đúng một lần, tại lượt `threshold`
+trong một ngồi (mặc định 18) — không nhắc lại mỗi cửa sổ. Câu «nghỉ đi / nhà
+đang chờ» nằm trong vài lượt gần thì model chép vào câu thường, và người nghe
+nghe thành bị tiễn. Câu nhắc không ra lệnh nghỉ và không nói nhà đang chờ.
+`strip_dismissal` cắt đúng kiểu câu ấy nếu model vẫn viết. `strip_repeated_closing`
+cắt câu thương nhớ và cái đuôi «…, con.» khi lượt ngay trước đã dùng, nên nói
+một lần vẫn được, nói mãi thì không.
 
 Steward sửa hiến chương ở Cài đặt → AI → **Hiến chương gia đình**
 (`PATCH /settings` với `family_charter`). Đổi `living_kin` là đổi được câu nói

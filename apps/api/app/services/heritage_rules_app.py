@@ -323,10 +323,16 @@ def soften_affection(text: str, persona: Persona) -> str:
     return re.sub(r" {2,}", " ", out).strip()
 
 
-def app_rules_block(persona: Persona, *, quote_rule: str, length_rule: str) -> str:
-    """Lớp 1 trong system prompt — luật app, nói bằng đại từ của người này."""
-    me = persona.me("child")
-    you = persona.you("child")
+def app_rules_block(
+    persona: Persona,
+    *,
+    quote_rule: str,
+    length_rule: str,
+    audience: str | None = None,
+) -> str:
+    """Lớp 1 trong system prompt — luật app, nói bằng đại từ của vai đang nói."""
+    me = persona.me(audience)
+    you = persona.you(audience)
     return f"""\
 Lớp 1 — Ứng dụng Forever (không đàm phán):
 - Trả lời chuyện nhà, thơ, người thân khi bằng chứng bên dưới đã có — đừng từ chối
@@ -342,6 +348,88 @@ Lớp 1 — Ứng dụng Forever (không đàm phán):
 - Đừng gắn đuôi gọi tên sau dấu phẩy ở cuối («…, {you}.») — nghe cụt. Và đừng
   lượt nào cũng đóng bằng cùng một câu thương nhớ («{cap(me)} nhớ {you}»);
   nói một lần thì ấm, nói mãi thì thành cái tật.
+- Đừng bảo {you} nghỉ, đừng nói nhà đang chờ {you}, đừng tỏ ý muốn dừng cuộc nói.
+  {cap(you)} còn đang kể thì ở lại chuyện đó. Câu cuối để cửa mở — một câu hỏi
+  ngắn, hoặc một chi tiết họ vừa nói — chứ không tiễn họ đi.
 - Trong nhà: thân mật, từ tốn, không khách sáo. {cap(me)} KHÔNG xưng «dạ», không «vâng ạ»,
   không kết câu bằng «ạ» khi nói với con cháu — đó là cách con cháu nói với bề trên.
-- Luôn kết thúc bằng câu trọn vẹn — không dừng giữa chừng."""
+- Luôn dừng ở câu đã trọn — không cắt giữa chừng, cũng không dùng câu cuối để tiễn."""
+
+
+_SENT_SPLIT = re.compile(r"(?<=[.!?…])\s+")
+
+
+def _is_dismissal(sentence: str, you: str) -> bool:
+    """Câu tiễn người nghe: bảo họ nghỉ, hoặc nói nhà đang chờ họ.
+
+    «Cả nhà chờ con về ăn cơm» là ký ức, không phải câu tiễn — chỉ bắt
+    «đang/vẫn chờ» hoặc «chờ … nhiều/quá».
+    """
+    y = re.escape(you)
+    if re.search(
+        rf"\b{y}\s+nghỉ\s+(?:đi|một\s+(?:chút|lát)|nhé|thôi|đã)\b",
+        sentence,
+        re.I,
+    ):
+        return True
+    if re.search(
+        rf"\bnghỉ\s+(?:đi|một\s+(?:chút|lát))\b.{{0,32}}\b{y}\b",
+        sentence,
+        re.I,
+    ):
+        return True
+    waiting = (
+        rf"\b(?:cả\s+nhà|nhà\s+mình|người\s+nhà)\b.{{0,40}}"
+        rf"(?:(?:còn\s+)?đang|vẫn)\s+chờ\s+{y}\b"
+    )
+    if re.search(waiting, sentence, re.I):
+        return True
+    heavy = (
+        rf"\b(?:cả\s+nhà|nhà\s+mình|người\s+nhà)\b.{{0,40}}"
+        rf"chờ\s+{y}\s+(?:nhiều|lắm|quá|đấy|rồi|nhé)\b"
+    )
+    return bool(re.search(heavy, sentence, re.I))
+
+
+def _trim_dismissal_sentence(sentence: str, you: str) -> str | None:
+    """None = bỏ cả câu. Giữ vế trước dấu phẩy nếu chỉ cái đuôi là câu tiễn."""
+    if not _is_dismissal(sentence, you):
+        return sentence
+    bits = re.split(r",\s*", sentence, maxsplit=1)
+    if len(bits) == 2:
+        head, tail = bits[0].strip(), bits[1].strip()
+        if len(head) >= 20 and not _is_dismissal(head, you) and _is_dismissal(tail, you):
+            if head[-1:] not in ".!?…":
+                head = f"{head}."
+            return head
+    return None
+
+
+def strip_dismissal(text: str, persona: Persona, audience: str | None) -> str:
+    """Bỏ câu model tự tiễn người nghe.
+
+    Câu ấy từng được gắn sẵn mỗi cửa sổ ngồi, rồi nằm trong vài lượt gần nên
+    model chép lại thành «em nghỉ đi, cả nhà vẫn chờ em». Phần kể thì giữ.
+    Cả lượt chỉ còn câu tiễn thì đổi thành một câu ở lại, không trả lời rỗng.
+    """
+    body = (text or "").strip()
+    if not body:
+        return body
+    you = persona.you(audience)
+    parts = [p.strip() for p in _SENT_SPLIT.split(body) if p.strip()]
+    if not parts:
+        return body
+    kept: list[str] = []
+    changed = False
+    for part in parts:
+        trimmed = _trim_dismissal_sentence(part, you)
+        if trimmed != part:
+            changed = True
+        if trimmed:
+            kept.append(trimmed)
+    if not changed:
+        return body
+    if not kept:
+        me = persona.me(audience)
+        return f"{cap(me)} nghe {you} rồi. {cap(you)} kể tiếp cũng được."
+    return " ".join(kept)
