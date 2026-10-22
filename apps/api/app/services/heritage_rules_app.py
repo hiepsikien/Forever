@@ -323,10 +323,16 @@ def soften_affection(text: str, persona: Persona) -> str:
     return re.sub(r" {2,}", " ", out).strip()
 
 
-def app_rules_block(persona: Persona, *, quote_rule: str, length_rule: str) -> str:
-    """Lớp 1 trong system prompt — luật app, nói bằng đại từ của người này."""
-    me = persona.me("child")
-    you = persona.you("child")
+def app_rules_block(
+    persona: Persona,
+    *,
+    quote_rule: str,
+    length_rule: str,
+    audience: str | None = None,
+) -> str:
+    """Lớp 1 trong system prompt — luật app, nói bằng đại từ của vai đang nói."""
+    me = persona.me(audience)
+    you = persona.you(audience)
     return f"""\
 Lớp 1 — Ứng dụng Forever (không đàm phán):
 - Trả lời chuyện nhà, thơ, người thân khi bằng chứng bên dưới đã có — đừng từ chối
@@ -342,6 +348,205 @@ Lớp 1 — Ứng dụng Forever (không đàm phán):
 - Đừng gắn đuôi gọi tên sau dấu phẩy ở cuối («…, {you}.») — nghe cụt. Và đừng
   lượt nào cũng đóng bằng cùng một câu thương nhớ («{cap(me)} nhớ {you}»);
   nói một lần thì ấm, nói mãi thì thành cái tật.
+- Đừng bảo {you} nghỉ, đừng nói nhà đang chờ {you}, đừng tỏ ý muốn dừng cuộc nói.
+  {cap(you)} còn đang kể thì ở lại chuyện đó. Câu cuối để cửa mở — một câu hỏi
+  ngắn, hoặc một chi tiết họ vừa nói — chứ không tiễn họ đi.
 - Trong nhà: thân mật, từ tốn, không khách sáo. {cap(me)} KHÔNG xưng «dạ», không «vâng ạ»,
   không kết câu bằng «ạ» khi nói với con cháu — đó là cách con cháu nói với bề trên.
-- Luôn kết thúc bằng câu trọn vẹn — không dừng giữa chừng."""
+- Luôn viết cho trọn câu — không cắt giữa chừng, cũng không dùng câu cuối để tiễn."""
+
+
+_SENT_SPLIT = re.compile(r"(?<=[.!?…])\s+")
+# Giữ dấu ngăn để «vườn và giếng» không bị tách thành hai câu khi vế sau bị bỏ.
+_CLAUSE_SEP = re.compile(
+    r"(\s*,\s*|\s+và\s+|\s*[—–]\s*|\s+-\s+)",
+    re.IGNORECASE,
+)
+_PAST_TIME = re.compile(
+    r"\b(?:hôm\s+(?:ấy|trước|qua|đó)|ngày\s+ấy|bữa\s+(?:ấy|đó|trước)|hồi)\b",
+    re.IGNORECASE,
+)
+_THEN_NEXT = re.compile(r"\brồi\s+(?:mới|hãy)\b", re.IGNORECASE)
+_NEGATED = re.compile(
+    r"\b(?:không\s+phải|không\s+bảo|chẳng\s+(?:phải|bảo)|đâu\s+có)\b",
+    re.IGNORECASE,
+)
+_CLAUSE_END = r"(?=\s*[.!?…]*\s*$)"
+# «nhà» một mình không được ăn vào «nhà thơ».
+_WAIT_WHO = r"(?:cả\s+nhà|nhà\s+mình|người\s+nhà|nhà(?!\s+thơ))"
+
+
+def _is_and(sep: str | None) -> bool:
+    return bool(sep) and bool(re.fullmatch(r"\s+và\s+", sep, re.IGNORECASE))
+
+
+def _is_rest_dismissal(clause: str, you: str) -> bool:
+    """Mệnh lệnh nghỉ. «đi», «một lát» và «đã» chỉ tính khi khép vế."""
+    y = re.escape(you)
+    closer = rf"(?:đi|một\s+(?:chút|lát)|nhé|thôi)(?:\s+(?:nhé|thôi))?"
+    if re.search(
+        rf"\b{y}\s+nghỉ(?:\s+ngơi)?\s+{closer}{_CLAUSE_END}",
+        clause,
+        re.I,
+    ):
+        return True
+    if re.search(
+        rf"\b{y}\s+nghỉ\s+đã(?:\s+(?:nhé|đi|thôi))?{_CLAUSE_END}",
+        clause,
+        re.I,
+    ):
+        return True
+    return bool(
+        re.search(
+            rf"\bnghỉ(?:\s+ngơi)?\s+(?:đi|một\s+(?:chút|lát))\s+{y}"
+            rf"(?:\s+(?:nhé|thôi))?{_CLAUSE_END}",
+            clause,
+            re.I,
+        )
+    )
+
+
+def _is_waiting_dismissal(clause: str, you: str) -> bool:
+    """Câu nhà đang chờ người nghe, hoặc «đang chờ» khép vế.
+
+    «quá lâu» làm cả vế thành ký ức. «nhiều» và «rồi» chỉ tính khi khép vế.
+    """
+    if _PAST_TIME.search(clause) or _THEN_NEXT.search(clause):
+        return False
+    if re.search(r"\bquá\s+lâu\b", clause, re.I):
+        return False
+    y = re.escape(you)
+    ongoing = rf"(?:(?:còn\s+)?đang|vẫn)\s+chờ"
+    if re.search(
+        rf"\b{_WAIT_WHO}\b.{{0,48}}{ongoing}\s+{y}\b",
+        clause,
+        re.I,
+    ):
+        return True
+    if re.search(
+        rf"\b{_WAIT_WHO}\b.{{0,48}}{ongoing}{_CLAUSE_END}",
+        clause,
+        re.I,
+    ):
+        return True
+    if re.search(
+        rf"\b{_WAIT_WHO}\b.{{0,48}}chờ\s+{y}\s+(?:lắm|đấy|nhé|rồi|nhiều){_CLAUSE_END}",
+        clause,
+        re.I,
+    ):
+        return True
+    if re.search(
+        rf"\b{_WAIT_WHO}\b.{{0,48}}chờ\s+{y}\s+nhiều\s+quá{_CLAUSE_END}",
+        clause,
+        re.I,
+    ):
+        return True
+    return bool(
+        re.search(
+            rf"\b{_WAIT_WHO}\b.{{0,48}}chờ\s+{y}\s+quá{_CLAUSE_END}",
+            clause,
+            re.I,
+        )
+    )
+
+
+def _is_dismissal(clause: str, you: str) -> bool:
+    if _NEGATED.search(clause):
+        return False
+    return _is_rest_dismissal(clause, you) or _is_waiting_dismissal(clause, you)
+
+
+def _finish_clause(clause: str) -> str:
+    text = clause.strip().rstrip(" ,;:")
+    if not text:
+        return ""
+    if text[-1] not in ".!?…":
+        text = f"{text}."
+    return cap(text)
+
+
+def _clause_pieces(sentence: str) -> list[tuple[str, str | None]]:
+    bits = _CLAUSE_SEP.split(sentence)
+    pieces: list[tuple[str, str | None]] = []
+    index = 0
+    while index < len(bits):
+        text = bits[index].strip()
+        sep = bits[index + 1] if index + 1 < len(bits) else None
+        index += 2
+        if text:
+            pieces.append((text, sep))
+    return pieces
+
+
+def _render_kept_group(group: list[tuple[str, str | None]]) -> str:
+    text = group[0][0]
+    for index in range(1, len(group)):
+        sep = group[index - 1][1] or " "
+        text = f"{text}{sep}{group[index][0]}"
+    return _finish_clause(text)
+
+
+def _trim_dismissal_sentence(sentence: str, you: str) -> str | None:
+    """Bỏ từng vế tiễn. «và» sau vế bị bỏ vẫn nối hai vế kể. Hết vế thì None."""
+    pieces = _clause_pieces(sentence)
+    if not pieces:
+        return sentence
+    if not any(_is_dismissal(text, you) for text, _sep in pieces):
+        return sentence
+    groups: list[list[tuple[str, str | None]]] = []
+    current: list[tuple[str, str | None]] = []
+    stitch_next = False
+    for text, sep in pieces:
+        if _is_dismissal(text, you):
+            if _is_and(sep):
+                stitch_next = True
+            else:
+                if current:
+                    groups.append(current)
+                    current = []
+                stitch_next = False
+            continue
+        if stitch_next and current:
+            previous, _old = current[-1]
+            current[-1] = (previous, " và ")
+        stitch_next = False
+        current.append((text, sep))
+    if current:
+        groups.append(current)
+    if not groups:
+        return None
+    return " ".join(
+        rendered
+        for rendered in (_render_kept_group(group) for group in groups)
+        if rendered
+    )
+
+
+def strip_dismissal(text: str, persona: Persona, audience: str | None) -> str:
+    """Bỏ câu model tự tiễn người nghe.
+
+    Câu ấy từng được gắn sẵn mỗi cửa sổ ngồi, rồi nằm trong vài lượt gần nên
+    model chép lại thành «em nghỉ đi, cả nhà vẫn chờ em». Phần kể thì giữ.
+    Cả lượt chỉ còn câu tiễn thì đổi thành một câu ở lại, không trả lời rỗng.
+    """
+    body = (text or "").strip()
+    if not body:
+        return body
+    you = persona.you(audience)
+    parts = [p.strip() for p in _SENT_SPLIT.split(body) if p.strip()]
+    if not parts:
+        return body
+    kept: list[str] = []
+    changed = False
+    for part in parts:
+        trimmed = _trim_dismissal_sentence(part, you)
+        if trimmed != part:
+            changed = True
+        if trimmed:
+            kept.append(trimmed)
+    if not changed:
+        return body
+    if not kept:
+        me = persona.me(audience)
+        return f"{cap(me)} nghe {you} rồi. {cap(you)} kể tiếp cũng được."
+    return " ".join(kept)

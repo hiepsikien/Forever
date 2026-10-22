@@ -24,6 +24,7 @@ from app.services.heritage_rules_app import (
     clarify_line,
     fix_address_register,
     fix_foreign_self_reference,
+    strip_dismissal,
     strip_repeated_closing,
 )
 from app.services.heritage_rules_family import (
@@ -300,8 +301,8 @@ def test_the_child_pair_never_reaches_a_grandchild():
 # --- Câu kết: một lần thì ấm, lượt nào cũng thế thì thành tật ---
 
 
-def test_winddown_nudges_once_per_window_not_every_turn():
-    """Ngồi lâu từng làm «Bà nhớ cháu» dính vào cuối mọi câu trả lời."""
+def test_winddown_nudges_once_per_sitting_not_every_window():
+    """Nhắc lại mỗi cửa sổ từng để câu tiễn nằm trong lịch sử và bị chép lại."""
     fired = [
         n
         for n in range(1, 25)
@@ -313,7 +314,7 @@ def test_winddown_nudges_once_per_window_not_every_turn():
             audience="child",
         )[1]
     ]
-    assert fired == [8, 16, 24]
+    assert fired == [8]
 
 
 def test_repeated_affection_closing_is_dropped_but_the_first_one_stays():
@@ -350,6 +351,131 @@ def test_stripping_never_empties_a_reply():
     assert strip_repeated_closing(
         body, GRANDMOTHER_CHILD_ONLY, "grandchild", said_before
     )
+
+
+def test_spouse_winddown_does_not_send_her_away():
+    body, kind = maybe_winddown(
+        "Nhà mình vẫn thế.",
+        sitting_turns=8,
+        threshold=8,
+        persona=FATHER,
+        audience="spouse",
+    )
+    assert kind == "sitting"
+    lowered = body.lower()
+    assert "em" in lowered and "anh" in lowered
+    assert "nghỉ" not in lowered
+    assert "chờ" not in lowered
+    assert "kể tiếp" in lowered
+
+
+def test_dismissal_closing_is_cut_and_the_story_stays():
+    raw = (
+        "Bố nhớ bài thơ tuổi bảy nhăm. "
+        "Em nghỉ đi, cả nhà vẫn chờ em nhiều quá."
+    )
+    out = strip_dismissal(raw, FATHER, "spouse")
+    assert "bảy nhăm" in out.lower()
+    assert "nghỉ" not in out.lower()
+    assert "chờ" not in out.lower()
+    assert "kể tiếp" not in out.lower()
+
+
+def test_a_reply_that_is_only_a_dismissal_stays_in_the_conversation():
+    out = strip_dismissal(
+        "Em nghỉ đi, cả nhà vẫn chờ em nhiều quá.", FATHER, "spouse"
+    )
+    assert "kể tiếp" in out.lower()
+    assert "nghỉ" not in out.lower()
+    assert "chờ" not in out.lower()
+
+
+def test_story_clause_survives_wherever_the_sendaway_sits():
+    """Câu kể đứng trước, đứng sau, hoặc nối bằng «và» / gạch — không bị thay bằng câu đệm."""
+    cases = (
+        "Em nghỉ đi, bố nhớ bài thơ tuổi bảy nhăm.",
+        "Bố nhớ em nhiều, em nghỉ đi.",
+        "Bố nhớ bài thơ tuổi bảy nhăm và em nghỉ đi.",
+        "Bố nhớ bài thơ tuổi bảy nhăm — em nghỉ đi.",
+        "Bố nhớ bài thơ tuổi bảy nhăm, em nghỉ đi.",
+    )
+    for raw in cases:
+        out = strip_dismissal(raw, FATHER, "spouse")
+        assert "kể tiếp" not in out.lower(), raw
+        assert "nghỉ đi" not in out.lower(), raw
+        assert "nhớ" in out.lower(), raw
+
+
+def test_a_memory_of_waiting_or_resting_is_not_a_dismissal():
+    memories = (
+        "Cả nhà chờ con về ăn cơm hôm ấy.",
+        "Hôm ấy cả nhà đang chờ con về ăn cơm.",
+        "Hôm trước cả nhà đang chờ con về ăn cơm.",
+        "Ngày ấy cả nhà đang chờ con về.",
+        "Cả nhà chờ con rồi mới ăn cơm.",
+        "Cả nhà đang chờ cơm chín.",
+        "Về nhà đang chờ mẹ nấu cơm.",
+        "Nhà thơ đang chờ con đọc.",
+        "Bài nhà thơ ấy bố đang chờ đọc cùng con.",
+        "Bố nhớ hồi con nghỉ đã lâu.",
+        "Bố nhớ hồi con nghỉ đã hai năm.",
+        "Bố biết con nghỉ đã mấy hôm rồi.",
+        "Người nhà chờ con quá lâu mới gặp được.",
+        "Ngày ấy con nghỉ đi học.",
+        "Con nghỉ đi học.",
+        "Con nghỉ đi làm từ hồi còn trẻ.",
+        "Bố nhớ con nghỉ đi chơi ngoài vườn.",
+        "Hôm ấy con nghỉ một lát rồi khỏe.",
+        "Con nghỉ một lát rồi khỏe.",
+        "Cả nhà chờ con nhiều năm mới gặp.",
+        "Cả nhà chờ con rồi về.",
+        "Cả nhà đang chờ con quá lâu mới gặp.",
+        "Hôm qua cả nhà đang chờ con về ăn cơm.",
+        "Hôm đó cả nhà đang chờ con về.",
+        "Bữa ấy cả nhà đang chờ con về ăn cơm.",
+        "Bữa đó cả nhà đang chờ con.",
+        "Bữa trước cả nhà đang chờ con về.",
+    )
+    for text in memories:
+        assert strip_dismissal(text, FATHER, "child") == text, text
+
+
+def test_a_coordinated_phrase_stays_one_clause():
+    assert (
+        strip_dismissal("Bố nhớ vườn và giếng, em nghỉ đi.", FATHER, "spouse")
+        == "Bố nhớ vườn và giếng."
+    )
+    assert (
+        strip_dismissal(
+            "Bố nhớ vườn và em nghỉ đi và giếng.", FATHER, "spouse"
+        )
+        == "Bố nhớ vườn và giếng."
+    )
+
+
+def test_a_denial_of_the_sendaway_stays():
+    text = "Không phải anh bảo em nghỉ đi."
+    assert strip_dismissal(text, FATHER, "spouse") == text
+
+
+def test_sendaway_without_the_old_glue_is_still_cut():
+    cases = (
+        "Nhà đang chờ em.",
+        "Em nghỉ ngơi đi, cả nhà đang chờ.",
+        "Cả nhà đang chờ.",
+        "Cả nhà chờ em rồi.",
+        "Cả nhà chờ em nhiều quá.",
+        "Bữa nay cả nhà đang chờ em.",
+        "Bữa cơm cả nhà đang chờ em.",
+        "Em nghỉ đã.",
+        "Em nghỉ đã nhé.",
+        "Em nghỉ đi nhé.",
+    )
+    for raw in cases:
+        out = strip_dismissal(raw, FATHER, "spouse")
+        assert "kể tiếp" in out.lower(), raw
+        assert "nghỉ" not in out.lower(), raw
+        assert "chờ" not in out.lower(), raw
 
 
 def test_talking_about_a_daughter_is_left_alone():

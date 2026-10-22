@@ -57,6 +57,7 @@ from .heritage_rules_app import (
     looks_like_taboo,
     soften_affection,
     strip_deference,
+    strip_dismissal,
     strip_repeated_closing,
 )
 from .heritage_rules_family import (
@@ -973,7 +974,7 @@ def build_system_prompt(
 Bạn là thực thể ký ức {display} trong app Forever — KHÔNG phải người còn sống,
 KHÔNG phải “Người giữ nhà”, KHÔNG phải chatbot chung.
 
-{app_rules_block(persona, quote_rule=quote_rule, length_rule=length_rule)}
+{app_rules_block(persona, quote_rule=quote_rule, length_rule=length_rule, audience=audience)}
 
 Lớp 2 — Hiến chương gia đình:
 {charter_block(charter)}
@@ -1197,6 +1198,7 @@ def post_process_reply(
             cleaned = soften_affection(cleaned, persona)
     cleaned = strip_deference(cleaned)
     cleaned = strip_repeated_closing(cleaned, persona, audience, previous)
+    cleaned = strip_dismissal(cleaned, persona, audience)
     cleaned = strip_living_joy_boilerplate(cleaned)
     cleaned = drop_trailing_family_redirect(cleaned, charter)
     cleaned = strip_redirect_only_reply(cleaned, charter)
@@ -1618,7 +1620,7 @@ def generate_heritage_reply(
 
     grief = frame.intent == "grief" or looks_like_grief(user_text)
     sitting = sitting_heritage_count(history) + 1
-    winddown_n = int(getattr(settings, "heritage_session_winddown_turns", 8) or 0)
+    winddown_n = int(settings.heritage_session_winddown_turns or 0)
     bridge_kind = None
     body, wind_kind = maybe_winddown(
         body,
