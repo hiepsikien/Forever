@@ -410,18 +410,66 @@ def test_a_memory_of_waiting_or_resting_is_not_a_dismissal():
     memories = (
         "Cả nhà chờ con về ăn cơm hôm ấy.",
         "Hôm ấy cả nhà đang chờ con về ăn cơm.",
+        "Hôm trước cả nhà đang chờ con về ăn cơm.",
+        "Ngày ấy cả nhà đang chờ con về.",
         "Cả nhà chờ con rồi mới ăn cơm.",
+        "Cả nhà đang chờ cơm chín.",
+        "Về nhà đang chờ mẹ nấu cơm.",
+        "Nhà thơ đang chờ con đọc.",
+        "Bài nhà thơ ấy bố đang chờ đọc cùng con.",
         "Bố nhớ hồi con nghỉ đã lâu.",
+        "Bố nhớ hồi con nghỉ đã hai năm.",
+        "Bố biết con nghỉ đã mấy hôm rồi.",
         "Người nhà chờ con quá lâu mới gặp được.",
+        "Ngày ấy con nghỉ đi học.",
+        "Con nghỉ đi học.",
+        "Con nghỉ đi làm từ hồi còn trẻ.",
+        "Bố nhớ con nghỉ đi chơi ngoài vườn.",
+        "Hôm ấy con nghỉ một lát rồi khỏe.",
+        "Con nghỉ một lát rồi khỏe.",
+        "Cả nhà chờ con nhiều năm mới gặp.",
+        "Cả nhà chờ con rồi về.",
+        "Cả nhà đang chờ con quá lâu mới gặp.",
+        "Hôm qua cả nhà đang chờ con về ăn cơm.",
+        "Hôm đó cả nhà đang chờ con về.",
+        "Bữa ấy cả nhà đang chờ con về ăn cơm.",
+        "Bữa đó cả nhà đang chờ con.",
+        "Bữa trước cả nhà đang chờ con về.",
     )
     for text in memories:
         assert strip_dismissal(text, FATHER, "child") == text, text
+
+
+def test_a_coordinated_phrase_stays_one_clause():
+    assert (
+        strip_dismissal("Bố nhớ vườn và giếng, em nghỉ đi.", FATHER, "spouse")
+        == "Bố nhớ vườn và giếng."
+    )
+    assert (
+        strip_dismissal(
+            "Bố nhớ vườn và em nghỉ đi và giếng.", FATHER, "spouse"
+        )
+        == "Bố nhớ vườn và giếng."
+    )
+
+
+def test_a_denial_of_the_sendaway_stays():
+    text = "Không phải anh bảo em nghỉ đi."
+    assert strip_dismissal(text, FATHER, "spouse") == text
 
 
 def test_sendaway_without_the_old_glue_is_still_cut():
     cases = (
         "Nhà đang chờ em.",
         "Em nghỉ ngơi đi, cả nhà đang chờ.",
+        "Cả nhà đang chờ.",
+        "Cả nhà chờ em rồi.",
+        "Cả nhà chờ em nhiều quá.",
+        "Bữa nay cả nhà đang chờ em.",
+        "Bữa cơm cả nhà đang chờ em.",
+        "Em nghỉ đã.",
+        "Em nghỉ đã nhé.",
+        "Em nghỉ đi nhé.",
     )
     for raw in cases:
         out = strip_dismissal(raw, FATHER, "spouse")

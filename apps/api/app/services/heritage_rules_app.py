@@ -357,31 +357,49 @@ Lớp 1 — Ứng dụng Forever (không đàm phán):
 
 
 _SENT_SPLIT = re.compile(r"(?<=[.!?…])\s+")
-# Vế trong một câu: phẩy, «và», gạch ngang. Câu kể có thể đứng trước hoặc sau câu tiễn.
-_CLAUSE_SPLIT = re.compile(r"\s*,\s*|\s+và\s+|\s*[—–]\s*|\s+-\s+", re.IGNORECASE)
-_PAST_TIME = re.compile(r"\b(?:hôm\s+ấy|hồi|bữa)\b", re.IGNORECASE)
+# Giữ dấu ngăn để «vườn và giếng» không bị tách thành hai câu khi vế sau bị bỏ.
+_CLAUSE_SEP = re.compile(
+    r"(\s*,\s*|\s+và\s+|\s*[—–]\s*|\s+-\s+)",
+    re.IGNORECASE,
+)
+_PAST_TIME = re.compile(
+    r"\b(?:hôm\s+(?:ấy|trước|qua|đó)|ngày\s+ấy|bữa\s+(?:ấy|đó|trước)|hồi)\b",
+    re.IGNORECASE,
+)
 _THEN_NEXT = re.compile(r"\brồi\s+(?:mới|hãy)\b", re.IGNORECASE)
-_WAIT_WHO = r"(?:cả\s+nhà|nhà\s+mình|người\s+nhà|nhà)"
+_NEGATED = re.compile(
+    r"\b(?:không\s+phải|không\s+bảo|chẳng\s+(?:phải|bảo)|đâu\s+có)\b",
+    re.IGNORECASE,
+)
+_CLAUSE_END = r"(?=\s*[.!?…]*\s*$)"
+# «nhà» một mình không được ăn vào «nhà thơ».
+_WAIT_WHO = r"(?:cả\s+nhà|nhà\s+mình|người\s+nhà|nhà(?!\s+thơ))"
+
+
+def _is_and(sep: str | None) -> bool:
+    return bool(sep) and bool(re.fullmatch(r"\s+và\s+", sep, re.IGNORECASE))
 
 
 def _is_rest_dismissal(clause: str, you: str) -> bool:
-    """Mệnh lệnh nghỉ. «nghỉ đã lâu» là khoảng thời gian, không phải «nghỉ đã»."""
+    """Mệnh lệnh nghỉ. «đi», «một lát» và «đã» chỉ tính khi khép vế."""
     y = re.escape(you)
+    closer = rf"(?:đi|một\s+(?:chút|lát)|nhé|thôi)(?:\s+(?:nhé|thôi))?"
     if re.search(
-        rf"\b{y}\s+nghỉ(?:\s+ngơi)?\s+(?:đi|một\s+(?:chút|lát)|nhé|thôi)\b",
+        rf"\b{y}\s+nghỉ(?:\s+ngơi)?\s+{closer}{_CLAUSE_END}",
         clause,
         re.I,
     ):
         return True
     if re.search(
-        rf"\b{y}\s+nghỉ\s+đã\b(?!\s+(?:lâu|được|qua|rồi))",
+        rf"\b{y}\s+nghỉ\s+đã(?:\s+(?:nhé|đi|thôi))?{_CLAUSE_END}",
         clause,
         re.I,
     ):
         return True
     return bool(
         re.search(
-            rf"\bnghỉ(?:\s+ngơi)?\s+(?:đi|một\s+(?:chút|lát))\b.{{0,32}}\b{y}\b",
+            rf"\bnghỉ(?:\s+ngơi)?\s+(?:đi|một\s+(?:chút|lát))\s+{y}"
+            rf"(?:\s+(?:nhé|thôi))?{_CLAUSE_END}",
             clause,
             re.I,
         )
@@ -389,29 +407,43 @@ def _is_rest_dismissal(clause: str, you: str) -> bool:
 
 
 def _is_waiting_dismissal(clause: str, you: str) -> bool:
-    """«Nhà đang chờ em» cùng lưới với «cả nhà đang chờ em».
+    """Câu nhà đang chờ người nghe, hoặc «đang chờ» khép vế.
 
-    Ký ức có mốc quá khứ, hoặc «rồi mới / rồi hãy», không phải câu tiễn.
-    «chờ … quá lâu» là độ dài, không phải «chờ quá».
+    «quá lâu» làm cả vế thành ký ức. «nhiều» và «rồi» chỉ tính khi khép vế.
     """
     if _PAST_TIME.search(clause) or _THEN_NEXT.search(clause):
         return False
+    if re.search(r"\bquá\s+lâu\b", clause, re.I):
+        return False
     y = re.escape(you)
+    ongoing = rf"(?:(?:còn\s+)?đang|vẫn)\s+chờ"
     if re.search(
-        rf"\b{_WAIT_WHO}\b.{{0,48}}(?:(?:còn\s+)?đang|vẫn)\s+chờ\b",
+        rf"\b{_WAIT_WHO}\b.{{0,48}}{ongoing}\s+{y}\b",
         clause,
         re.I,
     ):
         return True
     if re.search(
-        rf"\b{_WAIT_WHO}\b.{{0,48}}chờ\s+{y}\s+(?:nhiều|lắm|đấy|nhé)\b",
+        rf"\b{_WAIT_WHO}\b.{{0,48}}{ongoing}{_CLAUSE_END}",
+        clause,
+        re.I,
+    ):
+        return True
+    if re.search(
+        rf"\b{_WAIT_WHO}\b.{{0,48}}chờ\s+{y}\s+(?:lắm|đấy|nhé|rồi|nhiều){_CLAUSE_END}",
+        clause,
+        re.I,
+    ):
+        return True
+    if re.search(
+        rf"\b{_WAIT_WHO}\b.{{0,48}}chờ\s+{y}\s+nhiều\s+quá{_CLAUSE_END}",
         clause,
         re.I,
     ):
         return True
     return bool(
         re.search(
-            rf"\b{_WAIT_WHO}\b.{{0,48}}chờ\s+{y}\s+quá\b(?!\s+lâu)",
+            rf"\b{_WAIT_WHO}\b.{{0,48}}chờ\s+{y}\s+quá{_CLAUSE_END}",
             clause,
             re.I,
         )
@@ -419,6 +451,8 @@ def _is_waiting_dismissal(clause: str, you: str) -> bool:
 
 
 def _is_dismissal(clause: str, you: str) -> bool:
+    if _NEGATED.search(clause):
+        return False
     return _is_rest_dismissal(clause, you) or _is_waiting_dismissal(clause, you)
 
 
@@ -431,17 +465,61 @@ def _finish_clause(clause: str) -> str:
     return cap(text)
 
 
+def _clause_pieces(sentence: str) -> list[tuple[str, str | None]]:
+    bits = _CLAUSE_SEP.split(sentence)
+    pieces: list[tuple[str, str | None]] = []
+    index = 0
+    while index < len(bits):
+        text = bits[index].strip()
+        sep = bits[index + 1] if index + 1 < len(bits) else None
+        index += 2
+        if text:
+            pieces.append((text, sep))
+    return pieces
+
+
+def _render_kept_group(group: list[tuple[str, str | None]]) -> str:
+    text = group[0][0]
+    for index in range(1, len(group)):
+        sep = group[index - 1][1] or " "
+        text = f"{text}{sep}{group[index][0]}"
+    return _finish_clause(text)
+
+
 def _trim_dismissal_sentence(sentence: str, you: str) -> str | None:
-    """Bỏ từng vế tiễn. Hết vế thì None — người gọi mới đổi sang câu ở lại."""
-    parts = [p.strip() for p in _CLAUSE_SPLIT.split(sentence) if p.strip()]
-    if not parts:
+    """Bỏ từng vế tiễn. «và» sau vế bị bỏ vẫn nối hai vế kể. Hết vế thì None."""
+    pieces = _clause_pieces(sentence)
+    if not pieces:
         return sentence
-    kept = [p for p in parts if not _is_dismissal(p, you)]
-    if len(kept) == len(parts):
+    if not any(_is_dismissal(text, you) for text, _sep in pieces):
         return sentence
-    if not kept:
+    groups: list[list[tuple[str, str | None]]] = []
+    current: list[tuple[str, str | None]] = []
+    stitch_next = False
+    for text, sep in pieces:
+        if _is_dismissal(text, you):
+            if _is_and(sep):
+                stitch_next = True
+            else:
+                if current:
+                    groups.append(current)
+                    current = []
+                stitch_next = False
+            continue
+        if stitch_next and current:
+            previous, _old = current[-1]
+            current[-1] = (previous, " và ")
+        stitch_next = False
+        current.append((text, sep))
+    if current:
+        groups.append(current)
+    if not groups:
         return None
-    return " ".join(piece for piece in (_finish_clause(p) for p in kept) if piece)
+    return " ".join(
+        rendered
+        for rendered in (_render_kept_group(group) for group in groups)
+        if rendered
+    )
 
 
 def strip_dismissal(text: str, persona: Persona, audience: str | None) -> str:
