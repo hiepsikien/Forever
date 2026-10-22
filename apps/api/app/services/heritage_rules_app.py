@@ -353,56 +353,95 @@ Lớp 1 — Ứng dụng Forever (không đàm phán):
   ngắn, hoặc một chi tiết họ vừa nói — chứ không tiễn họ đi.
 - Trong nhà: thân mật, từ tốn, không khách sáo. {cap(me)} KHÔNG xưng «dạ», không «vâng ạ»,
   không kết câu bằng «ạ» khi nói với con cháu — đó là cách con cháu nói với bề trên.
-- Luôn dừng ở câu đã trọn — không cắt giữa chừng, cũng không dùng câu cuối để tiễn."""
+- Luôn viết cho trọn câu — không cắt giữa chừng, cũng không dùng câu cuối để tiễn."""
 
 
 _SENT_SPLIT = re.compile(r"(?<=[.!?…])\s+")
+# Vế trong một câu: phẩy, «và», gạch ngang. Câu kể có thể đứng trước hoặc sau câu tiễn.
+_CLAUSE_SPLIT = re.compile(r"\s*,\s*|\s+và\s+|\s*[—–]\s*|\s+-\s+", re.IGNORECASE)
+_PAST_TIME = re.compile(r"\b(?:hôm\s+ấy|hồi|bữa)\b", re.IGNORECASE)
+_THEN_NEXT = re.compile(r"\brồi\s+(?:mới|hãy)\b", re.IGNORECASE)
+_WAIT_WHO = r"(?:cả\s+nhà|nhà\s+mình|người\s+nhà|nhà)"
 
 
-def _is_dismissal(sentence: str, you: str) -> bool:
-    """Câu tiễn người nghe: bảo họ nghỉ, hoặc nói nhà đang chờ họ.
-
-    «Cả nhà chờ con về ăn cơm» là ký ức, không phải câu tiễn — chỉ bắt
-    «đang/vẫn chờ» hoặc «chờ … nhiều/quá».
-    """
+def _is_rest_dismissal(clause: str, you: str) -> bool:
+    """Mệnh lệnh nghỉ. «nghỉ đã lâu» là khoảng thời gian, không phải «nghỉ đã»."""
     y = re.escape(you)
     if re.search(
-        rf"\b{y}\s+nghỉ\s+(?:đi|một\s+(?:chút|lát)|nhé|thôi|đã)\b",
-        sentence,
+        rf"\b{y}\s+nghỉ(?:\s+ngơi)?\s+(?:đi|một\s+(?:chút|lát)|nhé|thôi)\b",
+        clause,
         re.I,
     ):
         return True
     if re.search(
-        rf"\bnghỉ\s+(?:đi|một\s+(?:chút|lát))\b.{{0,32}}\b{y}\b",
-        sentence,
+        rf"\b{y}\s+nghỉ\s+đã\b(?!\s+(?:lâu|được|qua|rồi))",
+        clause,
         re.I,
     ):
         return True
-    waiting = (
-        rf"\b(?:cả\s+nhà|nhà\s+mình|người\s+nhà)\b.{{0,40}}"
-        rf"(?:(?:còn\s+)?đang|vẫn)\s+chờ\s+{y}\b"
+    return bool(
+        re.search(
+            rf"\bnghỉ(?:\s+ngơi)?\s+(?:đi|một\s+(?:chút|lát))\b.{{0,32}}\b{y}\b",
+            clause,
+            re.I,
+        )
     )
-    if re.search(waiting, sentence, re.I):
+
+
+def _is_waiting_dismissal(clause: str, you: str) -> bool:
+    """«Nhà đang chờ em» cùng lưới với «cả nhà đang chờ em».
+
+    Ký ức có mốc quá khứ, hoặc «rồi mới / rồi hãy», không phải câu tiễn.
+    «chờ … quá lâu» là độ dài, không phải «chờ quá».
+    """
+    if _PAST_TIME.search(clause) or _THEN_NEXT.search(clause):
+        return False
+    y = re.escape(you)
+    if re.search(
+        rf"\b{_WAIT_WHO}\b.{{0,48}}(?:(?:còn\s+)?đang|vẫn)\s+chờ\b",
+        clause,
+        re.I,
+    ):
         return True
-    heavy = (
-        rf"\b(?:cả\s+nhà|nhà\s+mình|người\s+nhà)\b.{{0,40}}"
-        rf"chờ\s+{y}\s+(?:nhiều|lắm|quá|đấy|rồi|nhé)\b"
+    if re.search(
+        rf"\b{_WAIT_WHO}\b.{{0,48}}chờ\s+{y}\s+(?:nhiều|lắm|đấy|nhé)\b",
+        clause,
+        re.I,
+    ):
+        return True
+    return bool(
+        re.search(
+            rf"\b{_WAIT_WHO}\b.{{0,48}}chờ\s+{y}\s+quá\b(?!\s+lâu)",
+            clause,
+            re.I,
+        )
     )
-    return bool(re.search(heavy, sentence, re.I))
+
+
+def _is_dismissal(clause: str, you: str) -> bool:
+    return _is_rest_dismissal(clause, you) or _is_waiting_dismissal(clause, you)
+
+
+def _finish_clause(clause: str) -> str:
+    text = clause.strip().rstrip(" ,;:")
+    if not text:
+        return ""
+    if text[-1] not in ".!?…":
+        text = f"{text}."
+    return cap(text)
 
 
 def _trim_dismissal_sentence(sentence: str, you: str) -> str | None:
-    """None = bỏ cả câu. Giữ vế trước dấu phẩy nếu chỉ cái đuôi là câu tiễn."""
-    if not _is_dismissal(sentence, you):
+    """Bỏ từng vế tiễn. Hết vế thì None — người gọi mới đổi sang câu ở lại."""
+    parts = [p.strip() for p in _CLAUSE_SPLIT.split(sentence) if p.strip()]
+    if not parts:
         return sentence
-    bits = re.split(r",\s*", sentence, maxsplit=1)
-    if len(bits) == 2:
-        head, tail = bits[0].strip(), bits[1].strip()
-        if len(head) >= 20 and not _is_dismissal(head, you) and _is_dismissal(tail, you):
-            if head[-1:] not in ".!?…":
-                head = f"{head}."
-            return head
-    return None
+    kept = [p for p in parts if not _is_dismissal(p, you)]
+    if len(kept) == len(parts):
+        return sentence
+    if not kept:
+        return None
+    return " ".join(piece for piece in (_finish_clause(p) for p in kept) if piece)
 
 
 def strip_dismissal(text: str, persona: Persona, audience: str | None) -> str:

@@ -378,6 +378,7 @@ def test_dismissal_closing_is_cut_and_the_story_stays():
     assert "bảy nhăm" in out.lower()
     assert "nghỉ" not in out.lower()
     assert "chờ" not in out.lower()
+    assert "kể tiếp" not in out.lower()
 
 
 def test_a_reply_that_is_only_a_dismissal_stays_in_the_conversation():
@@ -389,16 +390,44 @@ def test_a_reply_that_is_only_a_dismissal_stays_in_the_conversation():
     assert "chờ" not in out.lower()
 
 
-def test_a_memory_of_the_family_waiting_is_not_a_dismissal():
-    text = "Cả nhà chờ con về ăn cơm hôm ấy."
-    assert strip_dismissal(text, FATHER, "child") == text
+def test_story_clause_survives_wherever_the_sendaway_sits():
+    """Câu kể đứng trước, đứng sau, hoặc nối bằng «và» / gạch — không bị thay bằng câu đệm."""
+    cases = (
+        "Em nghỉ đi, bố nhớ bài thơ tuổi bảy nhăm.",
+        "Bố nhớ em nhiều, em nghỉ đi.",
+        "Bố nhớ bài thơ tuổi bảy nhăm và em nghỉ đi.",
+        "Bố nhớ bài thơ tuổi bảy nhăm — em nghỉ đi.",
+        "Bố nhớ bài thơ tuổi bảy nhăm, em nghỉ đi.",
+    )
+    for raw in cases:
+        out = strip_dismissal(raw, FATHER, "spouse")
+        assert "kể tiếp" not in out.lower(), raw
+        assert "nghỉ đi" not in out.lower(), raw
+        assert "nhớ" in out.lower(), raw
 
 
-def test_a_dismissal_glued_on_with_a_comma_keeps_the_story():
-    raw = "Bố nhớ bài thơ tuổi bảy nhăm, em nghỉ đi."
-    out = strip_dismissal(raw, FATHER, "spouse")
-    assert "bảy nhăm" in out.lower()
-    assert "nghỉ" not in out.lower()
+def test_a_memory_of_waiting_or_resting_is_not_a_dismissal():
+    memories = (
+        "Cả nhà chờ con về ăn cơm hôm ấy.",
+        "Hôm ấy cả nhà đang chờ con về ăn cơm.",
+        "Cả nhà chờ con rồi mới ăn cơm.",
+        "Bố nhớ hồi con nghỉ đã lâu.",
+        "Người nhà chờ con quá lâu mới gặp được.",
+    )
+    for text in memories:
+        assert strip_dismissal(text, FATHER, "child") == text, text
+
+
+def test_sendaway_without_the_old_glue_is_still_cut():
+    cases = (
+        "Nhà đang chờ em.",
+        "Em nghỉ ngơi đi, cả nhà đang chờ.",
+    )
+    for raw in cases:
+        out = strip_dismissal(raw, FATHER, "spouse")
+        assert "kể tiếp" in out.lower(), raw
+        assert "nghỉ" not in out.lower(), raw
+        assert "chờ" not in out.lower(), raw
 
 
 def test_talking_about_a_daughter_is_left_alone():
