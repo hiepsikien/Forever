@@ -18,6 +18,12 @@ Plan: `docs/voice-to-voice.plan.md`. Flags: `STT_ENABLED`, `HERITAGE_TTS_ENABLED
 (default on). Mobile entry: `/call/[threadId]` — auto-play only for the reply to
 the turn she just spoke.
 
+Nhận người nói trên lượt gọi: embedding giọng (`speaker-id`) gửi **trước** STT
+và chạy song song. Câu tự xưng trong bản chữ («Con Đình Anh đây ạ», «Anh ơi em
+đây») là parse local ngay khi STT trả về — không gọi model thứ hai, nên không
+thêm một bước chờ. Giọng khớp chắc thắng chữ. Chữ chỉ chọn người để xưng hô khi
+giọng không khớp, và không bao giờ ghi vector từ chữ.
+
 Phòng chat chữ (`/chat/[threadId]`) **không có nút Mic** — giọng chỉ đi qua
 `/call`. Bàn phím Android ở đó không dùng `KeyboardAvoidingView`: SDK 54 vẽ tràn
 viền nên cửa sổ không co lại; màn tự đội `paddingBottom` đúng chiều cao bàn phím

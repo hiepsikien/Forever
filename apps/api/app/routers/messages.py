@@ -33,6 +33,7 @@ from ..services.speaker_id import (
     apply_speaker_turn,
     recognized_speaker_id,
     request_embedding,
+    spoken_speaker_id,
 )
 from ..services.storage import absolute_media_path, save_upload
 from ..services.stt import transcribe
@@ -149,9 +150,12 @@ def _apply_stt(db: Session, message: Message) -> None:
 def _prepare_voice_turn(db: Session, thread: Thread, message: Message) -> None:
     """STT the clip and, on a heritage thread, match the voice in parallel.
 
-    The embed call does not touch the database. Speaker meta is written after
-    STT commits so the two updates don't overwrite each other. A down embed
-    process leaves the turn on the logged-in account.
+    The embed starts before STT and does not touch the database. The moment
+    the transcript lands, a local read of «X đây» runs while that embed is
+    still in flight, so the turn waits on the slower of the two and not on a
+    third step. Speaker meta is written after STT commits so the two updates
+    don't overwrite each other. A down embed process leaves the voice on the
+    logged-in account; a clear introduction can still name the speaker.
     """
     settings = get_settings()
     path = None
@@ -171,6 +175,7 @@ def _prepare_voice_turn(db: Session, thread: Thread, message: Message) -> None:
         return
 
     observation = None
+    spoken = None
     with ThreadPoolExecutor(max_workers=1) as pool:
         pending = pool.submit(
             request_embedding,
@@ -179,6 +184,13 @@ def _prepare_voice_turn(db: Session, thread: Thread, message: Message) -> None:
             mime=getattr(message, "media_mime", None),
         )
         _apply_stt(db, message)
+        # Needs the transcript, so it cannot start before STT. It is a string
+        # match on this thread, overlapped with the embed that is already running.
+        try:
+            spoken = spoken_speaker_id(db, thread, message.body or "")
+        except Exception:
+            logger.exception("speaker words failed message=%s", message.id)
+            spoken = None
         try:
             observation = pending.result()
         except SpeakerIdUnavailable as exc:
@@ -194,6 +206,7 @@ def _prepare_voice_turn(db: Session, thread: Thread, message: Message) -> None:
             message=message,
             observation=observation,
             settings=settings,
+            spoken_user_id=spoken,
         )
     except Exception:
         logger.exception("speaker-id persist failed message=%s", message.id)

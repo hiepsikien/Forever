@@ -1,9 +1,14 @@
-"""Who is speaking on a voice turn, from a voiceprint — not from the account.
+"""Who is speaking on a voice turn — voiceprint first, then a spoken introduction.
 
 The API never loads a model. It asks the embed process for a vector, then
 compares that vector to `speaker_prints` for the space. A confident match
 addresses that person and may update their print. Anything doubtful stays on
 the logged-in account and is not enrolled. Prints are not Voice DNA clones.
+
+A self-introduction in the transcript («Con Đình Anh đây», «Anh ơi em đây»)
+can name the speaker when the voice does not. It is a local parse of words
+already heard, so it adds no model call. Voice wins when the two disagree,
+and words alone never enroll a print.
 """
 
 from __future__ import annotations
@@ -11,6 +16,7 @@ from __future__ import annotations
 import json
 import logging
 import math
+import re
 from dataclasses import dataclass
 from datetime import datetime, timezone
 
@@ -19,7 +25,9 @@ from nanoid import generate
 from sqlalchemy.orm import Session
 
 from ..config import Settings, get_settings
-from ..models import IdentityProfile, Message, SpeakerPrint, VoiceProfile
+from ..models import IdentityProfile, Message, SpeakerPrint, Thread, User, VoiceProfile
+from .heritage import identity_for_thread, normalize_text
+from .heritage_persona import persona_for
 
 logger = logging.getLogger(__name__)
 
@@ -255,6 +263,311 @@ def _message_meta(message: Message) -> dict:
     return loaded if isinstance(loaded, dict) else {}
 
 
+# «X đây ạ» is how someone introduces themselves on a call. The word after
+# «đây» has to be a particle, otherwise «đây rồi» / «đây là» is not an intro.
+_AFTER_DAY = frozenset({"a", "nha", "nhe", "nghe", "ha", "oi"})
+_ROLE_WORDS = frozenset({"con", "chau", "chat", "em", "anh", "chi"})
+# A greeting or a kinship word may sit in front of the name. Anything else
+# («kể chuyện Đình Anh đây») is talking about someone, not introducing them.
+_INTRO_LEAD = _ROLE_WORDS | {"da", "alo", "vang", "a", "oi", "la", "toi", "minh", "chao"}
+_INTRO_WINDOW = 12
+# A display name that is only a kinship word («Mẹ», «Anh») is not a personal name.
+_NAME_STOP = frozenset(
+    {
+        "con", "chau", "chat", "em", "anh", "chi", "bo", "ba", "me", "ong",
+        "co", "chu", "di", "bac", "toi", "minh", "vo", "chong",
+    }
+)
+
+
+@dataclass(frozen=True)
+class HouseholdMember:
+    """One living, linked person the transcript may name."""
+
+    user_id: str
+    names: tuple[str, ...]
+    role: str
+    relation_key: str
+
+
+def _tokens(text: str) -> list[str]:
+    cleaned = re.sub(r"[^a-z0-9\s]+", " ", normalize_text(text))
+    return [part for part in cleaned.split() if part]
+
+
+def _name_phrases(raw: str) -> set[str]:
+    tokens = [part for part in normalize_text(raw).split() if part]
+    if not tokens or all(part in _NAME_STOP for part in tokens):
+        return set()
+    phrases = {" ".join(tokens)}
+    if len(tokens) >= 2:
+        phrases.add(" ".join(tokens[-2:]))
+    if len(tokens) >= 3:
+        last = tokens[-1]
+        if last not in _NAME_STOP and len(last) >= 4:
+            phrases.add(last)
+    return {
+        phrase
+        for phrase in phrases
+        if phrase not in _NAME_STOP
+        and not all(part in _NAME_STOP for part in phrase.split())
+    }
+
+
+def _relation_key(relation_label: str) -> str:
+    parts = normalize_text(relation_label).split()
+    return parts[0] if parts else ""
+
+
+def _member_role(relation_label: str, display_name: str) -> str:
+    rel = normalize_text(relation_label)
+    name = normalize_text(display_name)
+    if rel in ("me", "vo", "chong") or (name == "me" and rel in ("me", "to", "toi")):
+        return "spouse"
+    if rel in ("chau", "chat") or rel.startswith(("chau ", "chat ")):
+        return "grandchild"
+    if rel in ("em", "em gai", "em trai", "anh", "chi", "anh trai", "chi gai") or rel.startswith(
+        ("em ", "anh ", "chi ")
+    ):
+        return "sibling"
+    if rel in ("con", "toi", "to") or rel.startswith("con "):
+        return "child"
+    return "other"
+
+
+def load_household(db: Session, space_id: str) -> list[HouseholdMember]:
+    """Living members who can be named on a call. Remembered people are not speakers."""
+    rows = (
+        db.query(IdentityProfile)
+        .filter(
+            IdentityProfile.space_id == space_id,
+            IdentityProfile.status == "living",
+            IdentityProfile.linked_user_id.isnot(None),
+            IdentityProfile.archived_at.is_(None),
+        )
+        .all()
+    )
+    user_ids = [row.linked_user_id for row in rows if row.linked_user_id]
+    users = (
+        {
+            user.id: user
+            for user in db.query(User).filter(User.id.in_(user_ids)).all()
+        }
+        if user_ids
+        else {}
+    )
+    members: list[HouseholdMember] = []
+    for row in rows:
+        if not row.linked_user_id:
+            continue
+        account = users.get(row.linked_user_id)
+        phrases: set[str] = set()
+        phrases |= _name_phrases(row.display_name or "")
+        if account is not None:
+            phrases |= _name_phrases(account.name or "")
+        members.append(
+            HouseholdMember(
+                user_id=row.linked_user_id,
+                names=tuple(sorted(phrases, key=len, reverse=True)),
+                role=_member_role(row.relation_label or "", row.display_name or ""),
+                relation_key=_relation_key(row.relation_label or ""),
+            )
+        )
+    return members
+
+
+def _day_indexes(tokens: list[str]) -> list[int]:
+    found: list[int] = []
+    for index, token in enumerate(tokens):
+        if token != "day":
+            continue
+        nxt = tokens[index + 1] if index + 1 < len(tokens) else ""
+        if nxt and nxt not in _AFTER_DAY:
+            continue
+        found.append(index)
+    return found
+
+
+def _name_before(tokens_before: list[str], members: list[HouseholdMember]) -> str | None:
+    """Longest personal name sitting immediately before «đây»."""
+    if len(tokens_before) > _INTRO_WINDOW:
+        return None
+    for length in (3, 2, 1):
+        if len(tokens_before) < length:
+            continue
+        phrase = " ".join(tokens_before[-length:])
+        owners = list(
+            dict.fromkeys(
+                member.user_id for member in members if phrase in member.names
+            )
+        )
+        if len(owners) > 1:
+            return None
+        if len(owners) != 1:
+            continue
+        start = len(tokens_before) - length
+        prev = tokens_before[start - 1] if start else ""
+        if prev and prev not in _INTRO_LEAD:
+            continue
+        return owners[0]
+    return None
+
+
+def _people_for_role(
+    role_word: str,
+    vocative: str | None,
+    members: list[HouseholdMember],
+    *,
+    spouse_self: str | None,
+    spouse_other: str | None,
+) -> str | None:
+    """One person, or nobody when several could say the same «em đây»."""
+    self_word = normalize_text(spouse_self or "")
+    other_word = normalize_text(spouse_other or "")
+    spouses = list(
+        dict.fromkeys(member.user_id for member in members if member.role == "spouse")
+    )
+    if (
+        vocative
+        and self_word
+        and other_word
+        and vocative == self_word
+        and role_word == other_word
+        and len(spouses) == 1
+    ):
+        return spouses[0]
+
+    if role_word == "con":
+        pool = [member.user_id for member in members if member.role == "child"]
+    elif role_word in ("chau", "chat"):
+        pool = [member.user_id for member in members if member.role == "grandchild"]
+    elif role_word in ("em", "anh", "chi"):
+        pool = []
+        spouse_uses_word = other_word == role_word or (role_word == "em" and not other_word)
+        if spouse_uses_word:
+            pool.extend(spouses)
+        pool.extend(
+            member.user_id
+            for member in members
+            if member.role == "sibling" and member.relation_key == role_word
+        )
+    else:
+        return None
+    pool = list(dict.fromkeys(pool))
+    if len(pool) == 1:
+        return pool[0]
+    return None
+
+
+def _role_before(
+    tokens: list[str],
+    day_at: int,
+    members: list[HouseholdMember],
+    *,
+    spouse_self: str | None,
+    spouse_other: str | None,
+) -> str | None:
+    if day_at < 1 or day_at > _INTRO_WINDOW:
+        return None
+    role_word = tokens[day_at - 1]
+    if role_word not in _ROLE_WORDS:
+        return None
+    vocative = None
+    if day_at >= 3 and tokens[day_at - 2] == "oi":
+        vocative = tokens[day_at - 3]
+    return _people_for_role(
+        role_word,
+        vocative,
+        members,
+        spouse_self=spouse_self,
+        spouse_other=spouse_other,
+    )
+
+
+def match_spoken_intro(
+    text: str,
+    members: list[HouseholdMember],
+    *,
+    spouse_self: str | None = None,
+    spouse_other: str | None = None,
+) -> str | None:
+    """The person who introduced themselves, if the wording names exactly one.
+
+    «Con mới về» and «Cháu Hương Ly mới đi học» mention someone without
+    presenting the speaker, so they match nobody.
+    """
+    tokens = _tokens(text)
+    days = _day_indexes(tokens)
+    if not days or not members:
+        return None
+    named = [
+        hit
+        for index in days
+        if (hit := _name_before(tokens[:index], members))
+    ]
+    named = list(dict.fromkeys(named))
+    if len(named) == 1:
+        return named[0]
+    if len(named) > 1:
+        return None
+    roles = [
+        hit
+        for index in days
+        if (
+            hit := _role_before(
+                tokens,
+                index,
+                members,
+                spouse_self=spouse_self,
+                spouse_other=spouse_other,
+            )
+        )
+    ]
+    roles = list(dict.fromkeys(roles))
+    if len(roles) == 1:
+        return roles[0]
+    return None
+
+
+def spoken_speaker_id(db: Session, thread: Thread, text: str) -> str | None:
+    """Who the transcript introduces. No model — safe to run beside the embed."""
+    if thread.kind != "heritage" or not (text or "").strip():
+        return None
+    members = load_household(db, thread.space_id)
+    if not members:
+        return None
+    remembered = identity_for_thread(db, thread)
+    persona = persona_for(remembered)
+    spouse_self = persona.me("spouse") if persona.speaks_to_spouse else None
+    spouse_other = persona.you("spouse") if persona.speaks_to_spouse else None
+    return match_spoken_intro(
+        text,
+        members,
+        spouse_self=spouse_self,
+        spouse_other=spouse_other,
+    )
+
+
+def fuse_speaker(voice: SpeakerDecision, spoken_user_id: str | None) -> SpeakerDecision:
+    """Voice address wins. Words fill in only when the voice did not match.
+
+    Words never enroll. A confident voice match still updates that print
+    even if the sentence names someone else.
+    """
+    if voice.confident and voice.user_id:
+        return voice
+    if spoken_user_id:
+        return SpeakerDecision(
+            spoken_user_id,
+            True,
+            None,
+            voice.score,
+            voice.second,
+            "words",
+        )
+    return voice
+
+
 def recognized_speaker_id(message: Message) -> str | None:
     """Confident speaker, if this voice turn was matched. Else the account stands."""
     meta = _message_meta(message)
@@ -323,11 +636,13 @@ def apply_speaker_turn(
     message: Message,
     observation: EmbedObservation | None,
     settings: Settings | None = None,
+    spoken_user_id: str | None = None,
 ) -> SpeakerDecision:
-    """Write `meta.speaker_user_id` when the voice matches, and enroll that person.
+    """Write `meta.speaker_user_id` when voice or a spoken intro names someone.
 
-    Does not create a print. The seed script opens the gallery from anchors.
-    Does not write a VoiceSample.
+    Voice enrolls on a confident match. A spoken intro only changes who is
+    addressed, and only when the voice did not match. Does not create a print.
+    The seed script opens the gallery from anchors. Does not write a VoiceSample.
     """
     settings = settings or get_settings()
     meta = _message_meta(message)
@@ -343,9 +658,9 @@ def apply_speaker_turn(
         )
 
     if not settings.speaker_id_enabled:
-        decision = SpeakerDecision(None, False, None, None, None, "disabled")
+        voice = SpeakerDecision(None, False, None, None, None, "disabled")
     else:
-        decision = decide_speaker(
+        voice = decide_speaker(
             observation.embedding if observation else None,
             halves=observation.halves if observation else None,
             duration_s=observation.duration_s if observation else None,
@@ -355,6 +670,7 @@ def apply_speaker_turn(
             min_duration_s=settings.speaker_min_duration_s,
             half_min_cosine=settings.speaker_half_min_cosine,
         )
+    decision = fuse_speaker(voice, spoken_user_id)
 
     enrolled = False
     if decision.enroll_user_id and observation is not None:
@@ -373,6 +689,9 @@ def apply_speaker_turn(
         "second": decision.second,
         "reason": decision.reason,
         "enrolled": enrolled,
+        "voice_reason": voice.reason,
+        "voice_user_id": voice.user_id,
+        "words_user_id": spoken_user_id,
     }
     meta["speaker"] = block
     if decision.confident and decision.user_id:
@@ -384,10 +703,12 @@ def apply_speaker_turn(
     db.commit()
     db.refresh(message)
     logger.info(
-        "speaker-id message=%s reason=%s user=%s score=%s enrolled=%s",
+        "speaker-id message=%s reason=%s user=%s voice=%s words=%s score=%s enrolled=%s",
         message.id,
         decision.reason,
         decision.user_id or "-",
+        voice.reason,
+        spoken_user_id or "-",
         f"{decision.score:.3f}" if decision.score is not None else "-",
         enrolled,
     )
