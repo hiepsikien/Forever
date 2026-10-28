@@ -124,11 +124,15 @@ class Settings(BaseSettings):
     speaker_half_min_cosine: float = 0.50
     # Self-print update, separate from addressing. A live turn may blend into
     # the logged-in account's EXISTING print when that account is the nearest
-    # voice and the cosine clears this bar, even without the 0.10 address
-    # margin. Provisional until real call-vs-anchor cosines are printed by
-    # `scripts/rebuild-speaker-prints.py` (dry-run). Never creates a print and
-    # never writes another person at this threshold.
+    # voice and the cosine clears this bar. Provisional until real
+    # call-vs-anchor cosines are printed by `scripts/rebuild-speaker-prints.py`
+    # (dry-run). Never creates a print and never writes another person.
+    # Closes when the transcript names someone other than the account.
     speaker_self_enroll_threshold: float = 0.45
+    # Gap over the runner-up required to move the account print. Narrower than
+    # speaker_match_margin so a near-tie cannot walk the print toward the
+    # other person one clip at a time.
+    speaker_self_enroll_margin: float = 0.05
     # Running mean stops letting new clips shrink below this weight.
     speaker_print_cap: int = 32
 

@@ -2,14 +2,17 @@
 
 The API never loads a model. It asks the embed process for a vector, then
 compares that vector to `speaker_prints` for the space. A confident match
-addresses that person and may update their print. Anything doubtful stays on
-the logged-in account and is not enrolled. Prints are not Voice DNA clones.
+addresses that person and may update their print. A doubtful voice stays on
+the logged-in account for the address. That account's existing print may
+still move when they are the nearest voice by a small gap and the words did
+not name someone else. Prints are not Voice DNA clones.
 
 A self-introduction in the transcript («Con Đình Anh đây», «Anh ơi em đây»)
 can name the speaker when the voice does not. It is a local parse of words
-already heard, so it adds no model call. Voice wins when the two disagree,
-and words never select whose print is written. A voice self-update that
-already qualified may still refresh the account's own print.
+already heard, so it adds no model call. Voice wins when the two disagree.
+Words never select a print. When they name someone other than the account,
+the lower gate stays shut: one clip is not both the addressed person and
+the account's voice.
 
 Addressing and updating a print are different gates. A doubtful cosine keeps
 the logged-in account. That same clip may still blend into the account's
@@ -219,13 +222,16 @@ def account_self_enroll_id(
     *,
     account_user_id: str | None,
     threshold: float,
+    margin: float,
 ) -> str | None:
     """Whose existing print a doubtful clip may blend into: only the account.
 
     The address gate can stay closed. The clip must already have survived the
     short and mixed checks (those reasons carry no nearest id). The account
-    must be the unique nearest voice, and the cosine must clear `threshold`.
-    The address margin is not required. This never points at a different person.
+    must be the nearest voice, the cosine must clear `threshold`, and the gap
+    over the runner-up must clear `margin`. That margin is narrower than the
+    address gap. A tie, or a photo-finish, does not move the print. This never
+    points at a different person.
     """
     if voice.reason != "unsure":
         return None
@@ -235,6 +241,8 @@ def account_self_enroll_id(
         return None
     if voice.score is None or voice.score < threshold:
         return None
+    if voice.second is not None and (voice.score - voice.second) < margin:
+        return None
     return account
 
 
@@ -243,23 +251,32 @@ def enroll_target(
     *,
     account_user_id: str | None,
     self_threshold: float,
+    self_margin: float,
+    spoken_user_id: str | None = None,
     addressed: SpeakerDecision | None = None,
 ) -> str | None:
     """Whose existing print to blend, if any.
 
     Words never select the print. They do not enroll the person the sentence
-    named, and they do not cancel a voice update that already qualified. A
-    confident match enrolls only that person (`fuse_speaker` keeps reason
-    "match" in that case). Below the address gate, `account_self_enroll_id`
-    may still refresh the logged-in account's existing print, including when
-    the address reason is "words". The caller refuses a missing row — this id
-    is not permission to create one.
+    named. When those words name someone other than the logged-in account,
+    the lower gate stays shut — the clip is not written onto the account
+    either. Words that name the account, or no words at all, still allow
+    `account_self_enroll_id`. A confident match enrolls only that person
+    (`fuse_speaker` keeps reason "match" in that case). The caller refuses a
+    missing row — this id is not permission to create one.
     """
     decision = addressed or voice
     if decision.enroll_user_id:
         return decision.enroll_user_id
+    account = (account_user_id or "").strip()
+    named = (spoken_user_id or "").strip()
+    if named and named != account:
+        return None
     return account_self_enroll_id(
-        voice, account_user_id=account_user_id, threshold=self_threshold
+        voice,
+        account_user_id=account_user_id,
+        threshold=self_threshold,
+        margin=self_margin,
     )
 
 
@@ -291,15 +308,17 @@ def assign_seed_clips(
     threshold: float,
     margin: float,
     self_enroll_threshold: float = 0.45,
+    self_enroll_margin: float = 0.05,
 ) -> dict[str, list[list[float]]]:
     """Trusted self-samples open a print. A voice turn joins an existing one.
 
     A confident match follows the voice, including a turn recorded on someone
     else's account. Below that gate, a turn joins the account's bucket only
     when that account already has an anchor, the account is the nearest
-    anchor, and the cosine clears `self_enroll_threshold`. A turn whose
-    nearest anchor is someone else stays out unless the match is confident.
-    Nothing here invents a print for an account with no anchor.
+    anchor, the cosine clears `self_enroll_threshold`, and the gap clears
+    `self_enroll_margin`. A turn whose nearest anchor is someone else stays
+    out unless the match is confident. Nothing here invents a print for an
+    account with no anchor.
     """
     buckets: dict[str, list[list[float]]] = {}
     for clip in clips:
@@ -328,6 +347,7 @@ def assign_seed_clips(
             decision,
             account_user_id=clip.user_id,
             self_threshold=self_enroll_threshold,
+            self_margin=self_enroll_margin,
         )
         # `target in buckets` is the anchor check: no key is created here.
         if target and target in buckets:
@@ -686,9 +706,11 @@ def fuse_speaker(voice: SpeakerDecision, spoken_user_id: str | None) -> SpeakerD
     """Voice address wins. Words fill in only when the voice did not match.
 
     The words decision carries no enroll id, so the named person is not the
-    print that gets written. It does not veto a self-update of the account
-    print; `enroll_target` applies that from the voice. A confident voice
-    match still updates that print even if the sentence names someone else.
+    print that gets written. When the words name someone other than the
+    account, `enroll_target` also leaves the account print alone. Words that
+    name the account do not cancel a self-update the voice already earned. A
+    confident voice match still updates that print even if the sentence names
+    someone else.
     """
     if voice.confident and voice.user_id:
         return voice
@@ -778,10 +800,11 @@ def apply_speaker_turn(
 
     A confident voice match enrolls that person's existing print. Below the
     address gate, the logged-in account's existing print may still update when
-    they are the nearest voice. A spoken intro changes who is addressed when
-    the voice did not match. It does not choose the print, and it does not
-    cancel that self-update. Does not create a print. The seed script opens
-    the gallery from anchors. Does not write a VoiceSample.
+    they are the nearest voice by the self-enroll gap. A spoken intro changes
+    who is addressed when the voice did not match. It does not choose the
+    print. When it names someone else, that lower gate stays shut. Does not
+    create a print. The seed script opens the gallery from anchors. Does not
+    write a VoiceSample.
     """
     settings = settings or get_settings()
     meta = _message_meta(message)
@@ -814,6 +837,8 @@ def apply_speaker_turn(
         voice,
         account_user_id=getattr(message, "sender_user_id", None),
         self_threshold=settings.speaker_self_enroll_threshold,
+        self_margin=settings.speaker_self_enroll_margin,
+        spoken_user_id=spoken_user_id,
         addressed=decision,
     )
 

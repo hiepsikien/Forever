@@ -163,6 +163,7 @@ def main() -> int:
                 threshold=settings.speaker_match_threshold,
                 margin=settings.speaker_match_margin,
                 self_enroll_threshold=settings.speaker_self_enroll_threshold,
+                self_enroll_margin=settings.speaker_self_enroll_margin,
             )
             trusted = {c.user_id for c in clips if c.trusted}
             print(f"\n=== Space {sid} ===")

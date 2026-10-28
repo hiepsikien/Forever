@@ -157,24 +157,26 @@ song với STT. «X đây» đọc local ngay khi có chữ.
 (`speaker_match_threshold`) và cách người thứ hai 0,10
 (`speaker_match_margin`): thà giữ tài khoản còn hơn gọi nhầm người. Dưới cửa
 đó giọng không đặt `speaker_user_id`. Câu tự xưng (`reason` "words") vẫn đặt
-được người được xưng hô. Chữ không chọn dấu nào để ghi; cửa thấp hơn vẫn có
-thể trộn dấu đã có của chính tài khoản.
+được người được xưng hô. Chữ không chọn dấu nào để ghi. Khi `words_user_id`
+khác tài khoản, cửa thấp hơn đóng.
 
-Kéo dấu giọng là cửa khác: `speaker_self_enroll_threshold` 0,45. Số này tạm,
-cho đến khi dry-run in cosine thật của đoạn Gọi với từng mỏ neo. Một lượt chỉ
-trộn vào dấu **đã có** của tài khoản đang đăng nhập khi clip không ngắn, không
-lẫn tiếng, tài khoản đã có dấu, tài khoản là ứng viên gần nhất, và cosine ≥
-0,45. Không đòi thêm cách 0,10. Không ghi sang người khác ở ngưỡng này — đoạn
-của mẹ trên máy con không được kéo dấu của con. Không tạo dấu mới từ lượt Gọi.
-Không ghi `VoiceSample`. Khớp chắc (`reason` "match") vẫn xưng người đó và chỉ
-trộn dấu đã có của họ.
+Kéo dấu giọng là cửa khác: `speaker_self_enroll_threshold` 0,45 và
+`speaker_self_enroll_margin` 0,05. Ngưỡng tạm, cho đến khi dry-run in cosine
+thật của đoạn Gọi với từng mỏ neo. Một lượt chỉ trộn vào dấu **đã có** của
+tài khoản đang đăng nhập khi clip không ngắn, không lẫn tiếng, tài khoản đã
+có dấu, tài khoản là ứng viên gần nhất, cosine ≥ 0,45, và cách người thứ hai
+≥ 0,05. Cách này hẹp hơn cách 0,10 của xưng hô. Không ghi sang người khác ở
+ngưỡng này — mẹ trên máy con không được kéo dấu của con, kể cả khi câu tự
+xưng đã đổi xưng hô sang mẹ. Không tạo dấu mới từ lượt Gọi. Không ghi
+`VoiceSample`. Khớp chắc (`reason` "match") vẫn xưng người đó và chỉ trộn dấu
+đã có của họ.
 
 `rebuild-speaker-prints.py` không `--commit` in cosine của từng đoạn Gọi so
 với từng mỏ neo (user id và điểm). Gán đoạn hạt giống dùng cùng cửa tự ghi:
 đoạn chưa tin cậy vào thùng của tài khoản khi tài khoản đã có mỏ neo, mỏ neo
-gần nhất là đúng người đó, và cosine ≥ 0,45, dù dưới 0,60. Gần người khác hơn
-thì chỉ vào khi khớp chắc 0,60 và cách 0,10. Không bịa dấu cho tài khoản chưa
-có mỏ neo.
+gần nhất là đúng người đó, cosine ≥ 0,45, và cách ≥ 0,05, dù dưới 0,60. Gần
+người khác hơn thì chỉ vào khi khớp chắc 0,60 và cách 0,10. Không bịa dấu cho
+tài khoản chưa có mỏ neo.
 
 **Cửa hai giọng.** `speaker_half_min_cosine` là 0,50. Hai nửa dưới 0,50 là lẫn
 tiếng: không đổi xưng hô và không ghi dấu, kể cả tự ghi của tài khoản.

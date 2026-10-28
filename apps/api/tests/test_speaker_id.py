@@ -186,6 +186,7 @@ def _settings() -> Settings:
         speaker_min_duration_s=1.5,
         speaker_half_min_cosine=0.50,
         speaker_self_enroll_threshold=0.45,
+        speaker_self_enroll_margin=0.05,
         speaker_print_cap=32,
     )
 
@@ -690,7 +691,9 @@ def test_self_enroll_keeps_address_closed_without_the_margin():
     assert soft.enroll_user_id is None
     assert soft.nearest_user_id == "son"
     assert soft.score is not None and 0.45 <= soft.score < 0.60
-    assert account_self_enroll_id(soft, account_user_id="son", threshold=0.45) == "son"
+    assert account_self_enroll_id(
+        soft, account_user_id="son", threshold=0.45, margin=0.05
+    ) == "son"
     # Mother is nearer. Do not touch the son's print, and do not enroll her
     # at the lower threshold either.
     hers = decide_speaker(
@@ -700,21 +703,40 @@ def test_self_enroll_keeps_address_closed_without_the_margin():
     assert hers.user_id is None
     assert hers.enroll_user_id is None
     assert hers.nearest_user_id == "mom"
-    assert account_self_enroll_id(hers, account_user_id="son", threshold=0.45) is None
+    assert account_self_enroll_id(
+        hers, account_user_id="son", threshold=0.45, margin=0.05
+    ) is None
 
-    # Above 0.60 but inside the 0.10 margin: still not an address, still
-    # allowed to refresh the account print because that account is nearest.
-    close = _unit(0.72, 0.694)
+    # Above 0.60 but inside the 0.10 address margin, and inside the 0.05
+    # self-enroll margin: nearest, but too close to pull the print.
+    photo = _unit(0.72, 0.694)
     prints_2d = [SpeakerPrintView("son", SON), SpeakerPrintView("mom", MOM)]
-    narrow = decide_speaker(
-        close, halves=None, duration_s=3.0, prints=prints_2d, **THRESH
+    tight = decide_speaker(
+        photo, halves=None, duration_s=3.0, prints=prints_2d, **THRESH
     )
-    assert narrow.reason == "unsure"
-    assert narrow.user_id is None
-    assert narrow.nearest_user_id == "son"
-    assert narrow.score is not None and narrow.score >= 0.60
-    assert narrow.second is not None and (narrow.score - narrow.second) < 0.10
-    assert account_self_enroll_id(narrow, account_user_id="son", threshold=0.45) == "son"
+    assert tight.reason == "unsure"
+    assert tight.nearest_user_id == "son"
+    assert tight.score is not None and tight.second is not None
+    assert (tight.score - tight.second) < 0.05
+    assert account_self_enroll_id(
+        tight, account_user_id="son", threshold=0.45, margin=0.05
+    ) is None
+
+    # Same address miss, but the gap clears 0.05 and not 0.10: refresh the
+    # account print without naming them.
+    clear = _unit(0.70, 0.64)
+    spaced = decide_speaker(
+        clear, halves=None, duration_s=3.0, prints=prints_2d, **THRESH
+    )
+    assert spaced.reason == "unsure"
+    assert spaced.user_id is None
+    assert spaced.nearest_user_id == "son"
+    assert spaced.score is not None and spaced.second is not None
+    gap = spaced.score - spaced.second
+    assert 0.05 <= gap < 0.10
+    assert account_self_enroll_id(
+        spaced, account_user_id="son", threshold=0.45, margin=0.05
+    ) == "son"
 
 
 def test_seed_self_enroll_joins_the_account_below_the_address_gate():
@@ -956,8 +978,11 @@ def test_words_name_the_son_and_his_print_still_updates(client):
         db.close()
 
 
-def test_words_name_mom_while_the_sons_voice_still_updates_his_print(client):
-    """Son's phone, voice nearest son below 0.60, words «Anh ơi em đây»."""
+def test_words_naming_someone_else_close_the_self_enroll_gate(client):
+    """Son's phone, voice nearest son below 0.60, words «Anh ơi em đây».
+
+    Address is mom. The clip is not also written onto the son's print.
+    """
     db = SessionLocal()
     try:
         son, mom, space, thread, _, _ = _call_scene(db)
@@ -979,10 +1004,10 @@ def test_words_name_mom_while_the_sons_voice_still_updates_his_print(client):
         assert recognized_speaker_id(message) == mom.id
         meta = json.loads(message.meta_json)
         assert meta["speaker"]["reason"] == "words"
-        assert meta["speaker"]["enrolled"] is True
+        assert meta["speaker"]["enrolled"] is False
         assert meta["speaker"]["words_user_id"] == mom.id
         counts = _counts(db, space.id)
-        assert counts[son.id] == 5
+        assert counts[son.id] == 4
         assert counts[mom.id] == 4
     finally:
         db.close()

@@ -38,21 +38,26 @@ tài khoản còn hơn gọi nhầm người.
 - **Xưng hô** giữ `speaker_match_threshold` 0,60 và `speaker_match_margin` 0,10.
   Dưới cửa đó giọng không đặt `speaker_user_id` (tài khoản đứng). Câu tự xưng
   (`reason` "words") vẫn đặt được người được xưng hô. Chữ không chọn dấu nào
-  để ghi; cửa thấp hơn vẫn có thể trộn dấu đã có của chính tài khoản.
-- **Kéo dấu của chính tài khoản** dùng `speaker_self_enroll_threshold` 0,45.
-  Số này tạm, cho đến khi dry-run in cosine thật của đoạn Gọi với từng mỏ neo.
-  Một lượt chỉ trộn vào dấu **đã có** của `message.sender_user_id` khi clip
-  không ngắn, không lẫn tiếng, tài khoản đã có dấu, tài khoản là ứng viên gần
-  nhất, và cosine ≥ 0,45. Không đòi thêm cách 0,10. Không ghi sang người khác
-  ở ngưỡng này — mẹ trên máy con không được kéo dấu của con. Không tạo dấu mới
-  từ lượt Gọi. Không ghi `VoiceSample`. Khớp chắc (`reason` "match", ≥ 0,60 và
-  cách ≥ 0,10) vẫn xưng người đó và chỉ trộn dấu đã có của chính họ.
+  để ghi. Khi `words_user_id` khác tài khoản, cửa thấp hơn đóng — clip đó
+  không được trộn vào dấu của tài khoản.
+- **Kéo dấu của chính tài khoản** dùng `speaker_self_enroll_threshold` 0,45
+  và `speaker_self_enroll_margin` 0,05. Ngưỡng tạm, cho đến khi dry-run in
+  cosine thật của đoạn Gọi với từng mỏ neo. Một lượt chỉ trộn vào dấu **đã có**
+  của `message.sender_user_id` khi clip không ngắn, không lẫn tiếng, tài khoản
+  đã có dấu, tài khoản là ứng viên gần nhất, cosine ≥ 0,45, và cách người thứ
+  hai ≥ 0,05. Cách này hẹp hơn cách 0,10 của xưng hô; `best > second` không đủ.
+  Không ghi sang người khác ở ngưỡng này — mẹ trên máy con không được kéo dấu
+  của con, kể cả khi câu «Anh ơi em đây» đã đổi xưng hô sang mẹ mà vector vẫn
+  gần con. Không tạo dấu mới từ lượt Gọi. Không ghi `VoiceSample`. Khớp chắc
+  (`reason` "match", ≥ 0,60 và cách ≥ 0,10) vẫn xưng người đó và chỉ trộn dấu
+  đã có của chính họ.
 - Dry-run `scripts/rebuild-speaker-prints.py` (không `--commit`) in cosine của
   từng đoạn Gọi với từng mỏ neo (user id và điểm). Gán đoạn hạt giống dùng cùng
   cửa tự ghi: đoạn chưa tin cậy vào thùng của tài khoản khi tài khoản đã có mỏ
-  neo, mỏ neo gần nhất là đúng người đó, và cosine ≥ 0,45, dù dưới 0,60. Gần
-  người khác hơn thì chỉ vào khi khớp chắc. Không bịa dấu cho tài khoản chưa có
-  mỏ neo. Mẫu tự thu vẫn mở dấu. Clone của người đã mất không phải mỏ neo.
+  neo, mỏ neo gần nhất là đúng người đó, cosine ≥ 0,45, và cách ≥ 0,05, dù
+  dưới 0,60. Gần người khác hơn thì chỉ vào khi khớp chắc. Không bịa dấu cho
+  tài khoản chưa có mỏ neo. Mẫu tự thu vẫn mở dấu. Clone của người đã mất không
+  phải mỏ neo.
 
 Cửa hai giọng `speaker_half_min_cosine` là 0,50. Hai nửa dưới 0,50 là lẫn
 tiếng: không đổi xưng hô và không ghi dấu, kể cả tự ghi của tài khoản.
