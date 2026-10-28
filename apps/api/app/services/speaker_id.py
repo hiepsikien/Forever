@@ -9,6 +9,11 @@ A self-introduction in the transcript («Con Đình Anh đây», «Anh ơi em đ
 can name the speaker when the voice does not. It is a local parse of words
 already heard, so it adds no model call. Voice wins when the two disagree,
 and words alone never enroll a print.
+
+Addressing and updating a print are different gates. A doubtful cosine keeps
+the logged-in account. That same clip may still blend into the account's
+existing print when the account is the nearest voice and clears the lower
+self-enroll bar. It never opens a print and never writes anyone else.
 """
 
 from __future__ import annotations
@@ -53,7 +58,13 @@ class SpeakerPrintView:
 
 @dataclass(frozen=True)
 class SpeakerDecision:
-    """`user_id` is set only when the match is confident enough to address them."""
+    """`user_id` is set only when the match is confident enough to address them.
+
+    `nearest_user_id` is the closest voice in the gallery when that person is
+    strictly nearer than the runner-up. It is set on an unsure clip so the
+    self-enroll rule can see who the mic was closest to without addressing them.
+    A tie leaves it empty.
+    """
 
     user_id: str | None
     confident: bool
@@ -61,15 +72,22 @@ class SpeakerDecision:
     score: float | None
     second: float | None
     reason: str
+    nearest_user_id: str | None = None
 
 
 @dataclass(frozen=True)
 class SeedClip:
-    """One vector for the rebuild script. `trusted` is a self Voice DNA sample."""
+    """One vector for the rebuild script. `trusted` is a self Voice DNA sample.
+
+    `skip_reason` is set when the clip is too short or mixed. Those clips are
+    still scored against anchors in a dry-run, and they never join a print.
+    """
 
     user_id: str
     embedding: list[float]
     trusted: bool
+    skip_reason: str = ""
+    label: str = ""
 
 
 def anchor_user_id(
@@ -184,9 +202,62 @@ def decide_speaker(
     best, best_id = scored[0]
     second = scored[1][0] if len(scored) > 1 else None
     gap_ok = second is None or (best - second) >= margin
+    # A tie is not a person. Addressing and self-enroll both need one nearest.
+    nearest = best_id if second is None or best > second else None
     if best >= threshold and gap_ok:
-        return SpeakerDecision(best_id, True, best_id, best, second, "match")
-    return SpeakerDecision(None, False, None, best, second, "unsure")
+        return SpeakerDecision(
+            best_id, True, best_id, best, second, "match", nearest_user_id=best_id
+        )
+    return SpeakerDecision(
+        None, False, None, best, second, "unsure", nearest_user_id=nearest
+    )
+
+
+def account_self_enroll_id(
+    voice: SpeakerDecision,
+    *,
+    account_user_id: str | None,
+    threshold: float,
+) -> str | None:
+    """Whose existing print a doubtful clip may blend into: only the account.
+
+    The address gate can stay closed. The clip must already have survived the
+    short and mixed checks (those reasons carry no nearest id). The account
+    must be the unique nearest voice, and the cosine must clear `threshold`.
+    The address margin is not required. This never points at a different person.
+    """
+    if voice.reason != "unsure":
+        return None
+    account = (account_user_id or "").strip()
+    nearest = (voice.nearest_user_id or "").strip()
+    if not account or nearest != account:
+        return None
+    if voice.score is None or voice.score < threshold:
+        return None
+    return account
+
+
+def enroll_target(
+    voice: SpeakerDecision,
+    *,
+    account_user_id: str | None,
+    self_threshold: float,
+    addressed: SpeakerDecision | None = None,
+) -> str | None:
+    """Print to blend, if any. Words never enroll. A confident match enrolls only that person.
+
+    A doubtful voice enrolls the logged-in account when `account_self_enroll_id`
+    says so. The caller still has to refuse a missing print — this id is not
+    permission to create one.
+    """
+    decision = addressed or voice
+    if decision.reason == "words":
+        return None
+    if decision.enroll_user_id:
+        return decision.enroll_user_id
+    return account_self_enroll_id(
+        voice, account_user_id=account_user_id, threshold=self_threshold
+    )
 
 
 def blend(
@@ -216,20 +287,24 @@ def assign_seed_clips(
     *,
     threshold: float,
     margin: float,
+    self_enroll_threshold: float = 0.45,
 ) -> dict[str, list[list[float]]]:
-    """Trusted self-samples open a print. A voice turn joins only on a confident match.
+    """Trusted self-samples open a print. A voice turn joins an existing one.
 
-    A turn recorded on someone else's account follows the voice, not the
-    account. A turn that matches nobody is left out — it does not start a
-    print, so a household without an anchor stays on the account until one exists.
+    A confident match follows the voice, including a turn recorded on someone
+    else's account. Below that gate, a turn joins the account's bucket only
+    when that account already has an anchor, the account is the nearest
+    anchor, and the cosine clears `self_enroll_threshold`. A turn whose
+    nearest anchor is someone else stays out unless the match is confident.
+    Nothing here invents a print for an account with no anchor.
     """
     buckets: dict[str, list[list[float]]] = {}
     for clip in clips:
-        if not clip.trusted:
+        if not clip.trusted or clip.skip_reason:
             continue
         buckets.setdefault(clip.user_id, []).append(normalize(clip.embedding))
     for clip in clips:
-        if clip.trusted or not buckets:
+        if clip.trusted or clip.skip_reason or not buckets:
             continue
         prints = [
             SpeakerPrintView(user_id, centroid(vectors))
@@ -246,9 +321,65 @@ def assign_seed_clips(
             min_duration_s=0.0,
             half_min_cosine=0.0,
         )
-        if decision.reason == "match" and decision.user_id:
-            buckets[decision.user_id].append(normalize(clip.embedding))
+        target = enroll_target(
+            decision,
+            account_user_id=clip.user_id,
+            self_threshold=self_enroll_threshold,
+        )
+        # `target in buckets` is the anchor check: no key is created here.
+        if target and target in buckets:
+            buckets[target].append(normalize(clip.embedding))
     return {user_id: vectors for user_id, vectors in buckets.items() if vectors}
+
+
+def anchor_print_views(clips: list[SeedClip]) -> list[SpeakerPrintView]:
+    """Centroids of trusted samples only — the anchors a dry-run scores against."""
+    grouped: dict[str, list[list[float]]] = {}
+    for clip in clips:
+        if not clip.trusted or clip.skip_reason:
+            continue
+        grouped.setdefault(clip.user_id, []).append(normalize(clip.embedding))
+    return [
+        SpeakerPrintView(user_id, centroid(vectors))
+        for user_id, vectors in grouped.items()
+        if vectors
+    ]
+
+
+def cosines_against(
+    embedding: list[float], prints: list[SpeakerPrintView]
+) -> list[tuple[str, float]]:
+    """Cosine of one clip to each print, nearest first."""
+    unit = normalize(embedding)
+    scored: list[tuple[str, float]] = []
+    for row in prints:
+        score = cosine(unit, normalize(row.embedding))
+        if score is None:
+            continue
+        scored.append((row.user_id, score))
+    scored.sort(key=lambda item: (-item[1], item[0]))
+    return scored
+
+
+def format_call_clip_scores(clip: SeedClip, prints: list[SpeakerPrintView]) -> str:
+    """One dry-run line: the account, and cosine to every anchor in the space."""
+    scores = cosines_against(clip.embedding, prints)
+    rendered = " ".join(f"user={user_id} score={score:.3f}" for user_id, score in scores)
+    if not rendered:
+        rendered = "(no anchors)"
+    skip = f" skipped={clip.skip_reason}" if clip.skip_reason else ""
+    label = f" message={clip.label}" if clip.label else ""
+    return f"  call clip account={clip.user_id}{label}{skip} {rendered}"
+
+
+def describe_call_clips(clips: list[SeedClip]) -> list[str]:
+    """Dry-run lines for every past Gọi clip, including short and mixed ones."""
+    anchors = anchor_print_views(clips)
+    return [
+        format_call_clip_scores(clip, anchors)
+        for clip in clips
+        if not clip.trusted
+    ]
 
 
 def _message_meta(message: Message) -> dict:
@@ -640,9 +771,11 @@ def apply_speaker_turn(
 ) -> SpeakerDecision:
     """Write `meta.speaker_user_id` when voice or a spoken intro names someone.
 
-    Voice enrolls on a confident match. A spoken intro only changes who is
-    addressed, and only when the voice did not match. Does not create a print.
-    The seed script opens the gallery from anchors. Does not write a VoiceSample.
+    A confident voice match enrolls that person's existing print. Below the
+    address gate, the logged-in account's existing print may still update when
+    they are the nearest voice. A spoken intro only changes who is addressed,
+    and only when the voice did not match. Does not create a print. The seed
+    script opens the gallery from anchors. Does not write a VoiceSample.
     """
     settings = settings or get_settings()
     meta = _message_meta(message)
@@ -671,13 +804,21 @@ def apply_speaker_turn(
             half_min_cosine=settings.speaker_half_min_cosine,
         )
     decision = fuse_speaker(voice, spoken_user_id)
+    enroll_id = enroll_target(
+        voice,
+        account_user_id=getattr(message, "sender_user_id", None),
+        self_threshold=settings.speaker_self_enroll_threshold,
+        addressed=decision,
+    )
 
     enrolled = False
-    if decision.enroll_user_id and observation is not None:
+    if enroll_id and observation is not None:
+        # `_blend_existing` no-ops when the row is missing, so a live turn
+        # cannot open a print.
         enrolled = _blend_existing(
             db,
             space_id=space_id,
-            user_id=decision.enroll_user_id,
+            user_id=enroll_id,
             embedding=observation.embedding,
             cap=max(1, settings.speaker_print_cap),
         )
@@ -691,6 +832,7 @@ def apply_speaker_turn(
         "enrolled": enrolled,
         "voice_reason": voice.reason,
         "voice_user_id": voice.user_id,
+        "nearest_user_id": voice.nearest_user_id,
         "words_user_id": spoken_user_id,
     }
     meta["speaker"] = block

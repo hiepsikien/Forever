@@ -153,31 +153,43 @@ DNA, process embed riêng cạnh Extract, giọng thắng chữ, chữ không gh
 tắt `speaker-id` thì Gọi vẫn trả lời theo tài khoản. Embed chạy trước, song
 song với STT. «X đây» đọc local ngay khi có chữ.
 
-Ba chỗ chưa khép. Quyết định dưới đây là kế hoạch để giao, code chưa theo.
+**Hai cửa, không phải một.** Xưng hô giữ cosine 0,60
+(`speaker_match_threshold`) và cách người thứ hai 0,10
+(`speaker_match_margin`): thà giữ tài khoản còn hơn gọi nhầm người. Dưới cửa
+đó giọng không đặt `speaker_user_id`. Câu tự xưng (`reason` "words") vẫn đặt
+được người được xưng hô và không bao giờ ghi dấu.
 
-**Hai cửa, không phải một.** Xưng hô giữ cosine 0,60 và cách người thứ hai
-0,10: thà giữ tài khoản còn hơn gọi nhầm người. Kéo dấu giọng là cửa khác.
-Đoạn ghi trên chính máy của một người được trộn vào dấu của chính họ ở ngưỡng
-thấp hơn, với điều kiện họ vẫn là ứng viên gần nhất. Không ghi sang người khác
-ở ngưỡng thấp — đoạn của mẹ trên máy con không được kéo dấu của con. Số ngưỡng
-thấp chưa chốt. `rebuild-speaker-prints.py` hôm nay dùng cùng cửa 0,60 cho đoạn
-Gọi cũ, và dry-run chỉ in số clip. Dry-run phải in cosine của từng đoạn Gọi so
-với từng mỏ neo trước khi khóa 0,60.
+Kéo dấu giọng là cửa khác: `speaker_self_enroll_threshold` 0,45. Số này tạm,
+cho đến khi dry-run in cosine thật của đoạn Gọi với từng mỏ neo. Một lượt chỉ
+trộn vào dấu **đã có** của tài khoản đang đăng nhập khi clip không ngắn, không
+lẫn tiếng, tài khoản đã có dấu, tài khoản là ứng viên gần nhất, và cosine ≥
+0,45. Không đòi thêm cách 0,10. Không ghi sang người khác ở ngưỡng này — đoạn
+của mẹ trên máy con không được kéo dấu của con. Không tạo dấu mới từ lượt Gọi.
+Không ghi `VoiceSample`. Khớp chắc (`reason` "match") vẫn xưng người đó và chỉ
+trộn dấu đã có của họ.
 
-**Cửa hai giọng đang lỏng.** Hai nửa clip dưới 0,25 mới bị coi là lẫn tiếng,
-trong khi khớp người đòi 0,60. Cửa đó gần như không chặn một đoạn lẫn trước
-khi ghi dấu. Siết cho tới khi hai nửa khác người thì bị loại.
+`rebuild-speaker-prints.py` không `--commit` in cosine của từng đoạn Gọi so
+với từng mỏ neo (user id và điểm). Gán đoạn hạt giống dùng cùng cửa tự ghi:
+đoạn chưa tin cậy vào thùng của tài khoản khi tài khoản đã có mỏ neo, mỏ neo
+gần nhất là đúng người đó, và cosine ≥ 0,45, dù dưới 0,60. Gần người khác hơn
+thì chỉ vào khi khớp chắc 0,60 và cách 0,10. Không bịa dấu cho tài khoản chưa
+có mỏ neo.
 
-**Một đường chữ vẫn thắng giọng.** `_declares_grandchild` chạy trước
-`speaker_user_id`. Mẹ nói «cháu…» thì Bố sang vai cháu dù giọng đã khớp mẹ.
-Giọng khớp chắc phải thắng câu đó. «Cháu…» chỉ chọn vai cháu khi giọng không
-khớp.
+**Cửa hai giọng.** `speaker_half_min_cosine` là 0,50. Hai nửa dưới 0,50 là lẫn
+tiếng: không đổi xưng hô và không ghi dấu, kể cả tự ghi của tài khoản.
+
+**Giọng thắng câu tự xưng «cháu».** `_detect_audience` lấy vai từ
+`speaker_user_id` khi id đó khớp ra một vai, trước `_declares_grandchild`. Mẹ
+nói «cháu…» mà giọng đã khớp mẹ thì vai vẫn là mẹ. «Cháu…» chỉ chọn vai cháu
+khi giọng không khớp — lúc đó nó vẫn thắng chủ phòng và thắng nhãn.
 
 **Phòng riêng: xưng hô đi theo người nói, kho ký ức thì không.** Nhận ra mẹ
 trên máy con thì Bố xưng với mẹ, kể cả trong phòng riêng của con. Prompt của
-lượt đó, khi người nói không phải chủ phòng, chỉ được mang ký ức cả nhà đọc
-được. Hàng chờ duyệt giữ `reviewer_user_id` của chủ phòng cho đến khi có một
-quyết định riêng — đừng gán im lặng sang người vừa nhận giọng.
+lượt đó, khi `recognized_speaker_id` khác `member_user_id`, chỉ mang ký ức cả
+nhà (`prompt_reader` trả `None` cho thơ, kiến thức, mốc đời, fact đã học,
+`family_shared`). Hàng chờ duyệt giữ `reviewer_user_id` của chủ phòng — không
+gán sang người vừa nhận giọng. Trí nhớ cuộn của phòng đang mở (`load_state`)
+giữ nguyên.
 
 **Tên trên màn.** `POST /messages/voice` trả ngay với tên tài khoản, vì nhận
 diện chạy trong job nền. Màn Gọi lấy tên từ `listMessages` sau khi

@@ -14,7 +14,7 @@ from __future__ import annotations
 from sqlalchemy import or_
 from sqlalchemy.sql.elements import ColumnElement
 
-from ..models import MemoryItem, Thread
+from ..models import MemoryItem, Message, Thread
 
 FAMILY = "family"
 PRIVATE = "private"
@@ -50,3 +50,24 @@ def reader_for_thread(thread: Thread) -> str | None:
     if getattr(thread, "audience_scope", FAMILY) == "direct":
         return thread.member_user_id
     return None
+
+
+def prompt_reader(thread: Thread, message: Message) -> str | None:
+    """Reader for one heritage reply.
+
+    Addressing follows a recognized speaker. The private vault does not.
+    When this is a direct room and the person just recognized is not the
+    room owner, the prompt sees family-visible rows only. The review queue
+    is a different door and still uses `reviewer_for`.
+    """
+    owner = reader_for_thread(thread)
+    if not owner:
+        return None
+    # Local import: speaker_id pulls the heritage stack, and this module is
+    # the visibility wall those call sites already share.
+    from .speaker_id import recognized_speaker_id
+
+    heard = recognized_speaker_id(message)
+    if heard and heard != getattr(thread, "member_user_id", None):
+        return None
+    return owner

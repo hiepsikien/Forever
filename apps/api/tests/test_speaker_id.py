@@ -10,7 +10,16 @@ from nanoid import generate
 
 from app.config import Settings
 from app.db import SessionLocal
-from app.models import FamilySpace, IdentityProfile, Message, SpeakerPrint, Thread, User, VoiceSample
+from app.models import (
+    FamilySpace,
+    IdentityProfile,
+    MemoryItem,
+    Message,
+    SpeakerPrint,
+    Thread,
+    User,
+    VoiceSample,
+)
 from app.services.heritage_chat import _detect_audience
 from app.services.speaker_id import (
     EmbedObservation,
@@ -18,11 +27,14 @@ from app.services.speaker_id import (
     SeedClip,
     SpeakerDecision,
     SpeakerPrintView,
+    account_self_enroll_id,
     anchor_user_id,
     apply_speaker_turn,
     assign_seed_clips,
     blend,
+    cosine,
     decide_speaker,
+    describe_call_clips,
     fuse_speaker,
     match_spoken_intro,
     normalize,
@@ -38,7 +50,7 @@ def _unit(*values: float) -> list[float]:
 SON = _unit(1.0, 0.0)
 MOM = _unit(0.0, 1.0)
 BROTHER = _unit(-0.15, -1.0)
-THRESH = dict(threshold=0.6, margin=0.1, min_duration_s=1.5, half_min_cosine=0.25)
+THRESH = dict(threshold=0.6, margin=0.1, min_duration_s=1.5, half_min_cosine=0.50)
 
 
 def test_mother_on_sons_phone_matches_mother_not_the_account():
@@ -91,6 +103,8 @@ def test_unsure_short_and_mixed_do_not_switch():
     assert unsure.reason == "unsure"
     assert unsure.user_id is None
     assert unsure.enroll_user_id is None
+    # Equal cosines are a tie, so there is no nearest person to self-enroll.
+    assert unsure.nearest_user_id is None
 
     short = decide_speaker(
         MOM, halves=None, duration_s=0.8, prints=prints, **THRESH
@@ -170,7 +184,8 @@ def _settings() -> Settings:
         speaker_match_threshold=0.6,
         speaker_match_margin=0.1,
         speaker_min_duration_s=1.5,
-        speaker_half_min_cosine=0.25,
+        speaker_half_min_cosine=0.50,
+        speaker_self_enroll_threshold=0.45,
         speaker_print_cap=32,
     )
 
@@ -624,5 +639,544 @@ def test_words_name_the_speaker_when_the_voice_does_not(client):
             )
             == "spouse"
         )
+    finally:
+        db.close()
+
+
+SON3 = _unit(1.0, 0.0, 0.0)
+MOM3 = _unit(0.0, 1.0, 0.0)
+# Nearest the son, under the 0.60 address gate, over the 0.45 self-enroll gate.
+NEAR_SON = _unit(0.55, 0.12, 0.82)
+# Nearest the mother, still under 0.60 — must not move either print.
+NEAR_MOM = _unit(0.12, 0.55, 0.82)
+
+
+def test_half_cosine_rejects_a_mild_mix_and_keeps_one_voice():
+    prints = [SpeakerPrintView("son", SON), SpeakerPrintView("mom", MOM)]
+    orthogonal = decide_speaker(
+        MOM, halves=(SON, MOM), duration_s=4.0, prints=prints, **THRESH
+    )
+    assert orthogonal.reason == "mixed"
+    assert orthogonal.enroll_user_id is None
+
+    mild_right = _unit(0.30, 0.91**0.5)
+    mild_score = cosine(SON, mild_right)
+    assert mild_score is not None and abs(mild_score - 0.30) < 0.02
+    mild = decide_speaker(
+        SON, halves=(SON, mild_right), duration_s=4.0, prints=prints, **THRESH
+    )
+    assert mild.reason == "mixed"
+    assert mild.user_id is None
+    assert mild.enroll_user_id is None
+
+    same_right = _unit(0.80, 0.60)
+    same_score = cosine(SON, same_right)
+    assert same_score is not None and abs(same_score - 0.80) < 0.02
+    same = decide_speaker(
+        SON, halves=(SON, same_right), duration_s=4.0, prints=prints, **THRESH
+    )
+    assert same.reason == "match"
+    assert same.user_id == "son"
+    assert same.enroll_user_id == "son"
+
+
+def test_self_enroll_keeps_address_closed_without_the_margin():
+    prints = [SpeakerPrintView("son", SON3), SpeakerPrintView("mom", MOM3)]
+    soft = decide_speaker(
+        NEAR_SON, halves=None, duration_s=3.0, prints=prints, **THRESH
+    )
+    assert soft.reason == "unsure"
+    assert soft.user_id is None
+    assert soft.enroll_user_id is None
+    assert soft.nearest_user_id == "son"
+    assert soft.score is not None and 0.45 <= soft.score < 0.60
+    assert account_self_enroll_id(soft, account_user_id="son", threshold=0.45) == "son"
+    # Mother is nearer. Do not touch the son's print, and do not enroll her
+    # at the lower threshold either.
+    hers = decide_speaker(
+        NEAR_MOM, halves=None, duration_s=3.0, prints=prints, **THRESH
+    )
+    assert hers.reason == "unsure"
+    assert hers.user_id is None
+    assert hers.enroll_user_id is None
+    assert hers.nearest_user_id == "mom"
+    assert account_self_enroll_id(hers, account_user_id="son", threshold=0.45) is None
+
+    # Above 0.60 but inside the 0.10 margin: still not an address, still
+    # allowed to refresh the account print because that account is nearest.
+    close = _unit(0.72, 0.694)
+    prints_2d = [SpeakerPrintView("son", SON), SpeakerPrintView("mom", MOM)]
+    narrow = decide_speaker(
+        close, halves=None, duration_s=3.0, prints=prints_2d, **THRESH
+    )
+    assert narrow.reason == "unsure"
+    assert narrow.user_id is None
+    assert narrow.nearest_user_id == "son"
+    assert narrow.score is not None and narrow.score >= 0.60
+    assert narrow.second is not None and (narrow.score - narrow.second) < 0.10
+    assert account_self_enroll_id(narrow, account_user_id="son", threshold=0.45) == "son"
+
+
+def test_seed_self_enroll_joins_the_account_below_the_address_gate():
+    sure_mom = _unit(0.02, 1.0, 0.0)
+    clips = [
+        SeedClip("son", SON3, trusted=True),
+        SeedClip("mom", MOM3, trusted=True),
+        # No anchor for the guest, and not a confident match, so no print.
+        # Scored before any call clip moves a centroid.
+        SeedClip("guest", NEAR_SON, trusted=False),
+        SeedClip("son", NEAR_SON, trusted=False),
+        # Nearer mother, but under 0.60 — stays out of both prints.
+        SeedClip("son", NEAR_MOM, trusted=False),
+        # Confident mother on the son's account still follows the voice.
+        SeedClip("son", sure_mom, trusted=False),
+    ]
+    assigned = assign_seed_clips(
+        clips, threshold=0.6, margin=0.1, self_enroll_threshold=0.45
+    )
+    assert set(assigned) == {"son", "mom"}
+    assert len(assigned["son"]) == 2
+    assert len(assigned["mom"]) == 2
+    assert "guest" not in assigned
+
+
+def test_dry_run_lists_each_call_clip_against_every_anchor():
+    clips = [
+        SeedClip("son", SON, trusted=True),
+        SeedClip("mom", MOM, trusted=True),
+        SeedClip("son", _unit(0.2, 0.98), trusted=False, label="clip-a"),
+        SeedClip("mom", SON, trusted=False, skip_reason="mixed", label="clip-b"),
+    ]
+    lines = describe_call_clips(clips)
+    assert len(lines) == 2
+    assert "account=son" in lines[0]
+    assert "message=clip-a" in lines[0]
+    assert "user=son score=" in lines[0]
+    assert "user=mom score=" in lines[0]
+    assert "skipped=mixed" in lines[1]
+    assert "user=son score=" in lines[1]
+    assert "user=mom score=" in lines[1]
+
+
+def _call_scene(db):
+    now = datetime.now(timezone.utc)
+    son = User(
+        id=generate(),
+        firebase_uid=generate(),
+        email=f"{generate()}@example.com",
+        name="Đình Anh",
+        handle=generate(),
+        created_at=now,
+    )
+    mom = User(
+        id=generate(),
+        firebase_uid=generate(),
+        email=f"{generate()}@example.com",
+        name="Lê Thị Định",
+        handle=generate(),
+        created_at=now,
+    )
+    db.add_all([son, mom])
+    db.commit()
+    space = FamilySpace(
+        id=generate(),
+        name="Nhà",
+        created_by=son.id,
+        steward_user_id=son.id,
+        created_at=now,
+    )
+    db.add(space)
+    db.commit()
+    father = IdentityProfile(
+        id=generate(),
+        space_id=space.id,
+        display_name="Bố",
+        relation_label="Bố",
+        status="remembered",
+        created_by=son.id,
+        created_at=now,
+    )
+    other = IdentityProfile(
+        id=generate(),
+        space_id=space.id,
+        display_name="Hương",
+        relation_label="Con gái",
+        status="living",
+        created_by=son.id,
+        created_at=now,
+    )
+    db.add_all([father, other])
+    db.commit()
+    thread = Thread(
+        id=generate(),
+        space_id=space.id,
+        kind="heritage",
+        title="Bố",
+        heritage_identity_id=father.id,
+        audience_scope="direct",
+        member_user_id=son.id,
+        created_at=now,
+    )
+    db.add(thread)
+    db.add_all(
+        [
+            IdentityProfile(
+                id=generate(),
+                space_id=space.id,
+                display_name="Anh",
+                relation_label="Con",
+                status="living",
+                linked_user_id=son.id,
+                created_by=son.id,
+                created_at=now,
+            ),
+            IdentityProfile(
+                id=generate(),
+                space_id=space.id,
+                display_name="Mẹ",
+                relation_label="Vợ",
+                status="living",
+                linked_user_id=mom.id,
+                created_by=son.id,
+                created_at=now,
+            ),
+        ]
+    )
+    db.commit()
+    return son, mom, space, thread, father, other
+
+
+def _voice_message(db, thread, sender_id: str, *, meta: str = "") -> Message:
+    message = Message(
+        id=generate(),
+        thread_id=thread.id,
+        sender_user_id=sender_id,
+        sender_kind="user",
+        kind="voice",
+        body="alo",
+        meta_json=meta,
+        created_at=datetime.now(timezone.utc),
+    )
+    db.add(message)
+    db.commit()
+    return message
+
+
+def _counts(db, space_id: str) -> dict[str, int]:
+    rows = db.query(SpeakerPrint).filter(SpeakerPrint.space_id == space_id).all()
+    return {row.user_id: row.sample_count for row in rows}
+
+
+def test_live_self_enroll_updates_the_account_below_the_address_gate(client):
+    db = SessionLocal()
+    try:
+        son, mom, space, thread, _, _ = _call_scene(db)
+        _print(db, space.id, son.id, SON3, 4)
+        _print(db, space.id, mom.id, MOM3, 4)
+        db.commit()
+        before_samples = db.query(VoiceSample).count()
+        message = _voice_message(db, thread, son.id)
+        apply_speaker_turn(
+            db,
+            space_id=space.id,
+            message=message,
+            observation=EmbedObservation(NEAR_SON, 3.0),
+            settings=_settings(),
+        )
+        db.refresh(message)
+        assert recognized_speaker_id(message) is None
+        meta = json.loads(message.meta_json)
+        assert meta["speaker"]["reason"] == "unsure"
+        assert meta["speaker"]["enrolled"] is True
+        assert meta["speaker"]["nearest_user_id"] == son.id
+        counts = _counts(db, space.id)
+        assert counts[son.id] == 5
+        assert counts[mom.id] == 4
+        assert db.query(VoiceSample).count() == before_samples
+    finally:
+        db.close()
+
+
+def test_a_nearer_voice_does_not_pull_the_account_print(client):
+    db = SessionLocal()
+    try:
+        son, mom, space, thread, _, _ = _call_scene(db)
+        _print(db, space.id, son.id, SON3, 4)
+        _print(db, space.id, mom.id, MOM3, 4)
+        db.commit()
+        message = _voice_message(db, thread, son.id)
+        apply_speaker_turn(
+            db,
+            space_id=space.id,
+            message=message,
+            observation=EmbedObservation(NEAR_MOM, 3.0),
+            settings=_settings(),
+        )
+        db.refresh(message)
+        assert recognized_speaker_id(message) is None
+        meta = json.loads(message.meta_json)
+        assert meta["speaker"]["reason"] == "unsure"
+        assert meta["speaker"]["enrolled"] is False
+        assert meta["speaker"]["nearest_user_id"] == mom.id
+        counts = _counts(db, space.id)
+        assert counts[son.id] == 4
+        assert counts[mom.id] == 4
+    finally:
+        db.close()
+
+
+def test_words_do_not_enroll_even_when_the_account_is_nearest(client):
+    db = SessionLocal()
+    try:
+        son, mom, space, thread, _, _ = _call_scene(db)
+        _print(db, space.id, son.id, SON3, 4)
+        _print(db, space.id, mom.id, MOM3, 4)
+        db.commit()
+        message = _voice_message(db, thread, son.id)
+        apply_speaker_turn(
+            db,
+            space_id=space.id,
+            message=message,
+            observation=EmbedObservation(NEAR_SON, 3.0),
+            settings=_settings(),
+            spoken_user_id=mom.id,
+        )
+        db.refresh(message)
+        assert recognized_speaker_id(message) == mom.id
+        meta = json.loads(message.meta_json)
+        assert meta["speaker"]["reason"] == "words"
+        assert meta["speaker"]["enrolled"] is False
+        counts = _counts(db, space.id)
+        assert counts[son.id] == 4
+        assert counts[mom.id] == 4
+    finally:
+        db.close()
+
+
+def test_mixed_and_short_clips_do_not_self_enroll(client):
+    db = SessionLocal()
+    try:
+        son, _, space, thread, _, _ = _call_scene(db)
+        _print(db, space.id, son.id, SON3, 4)
+        db.commit()
+        mild_right = _unit(0.30, 0.95, 0.1)
+        assert cosine(SON3, mild_right) < 0.50
+        mixed = _voice_message(db, thread, son.id)
+        apply_speaker_turn(
+            db,
+            space_id=space.id,
+            message=mixed,
+            observation=EmbedObservation(NEAR_SON, 3.0, halves=(SON3, mild_right)),
+            settings=_settings(),
+        )
+        short = _voice_message(db, thread, son.id)
+        apply_speaker_turn(
+            db,
+            space_id=space.id,
+            message=short,
+            observation=EmbedObservation(NEAR_SON, 0.8),
+            settings=_settings(),
+        )
+        mixed_meta = json.loads(mixed.meta_json)
+        short_meta = json.loads(short.meta_json)
+        assert mixed_meta["speaker"]["reason"] == "mixed"
+        assert mixed_meta["speaker"]["enrolled"] is False
+        assert short_meta["speaker"]["reason"] == "short"
+        assert short_meta["speaker"]["enrolled"] is False
+        assert _counts(db, space.id)[son.id] == 4
+    finally:
+        db.close()
+
+
+def test_self_enroll_does_not_open_a_print(client):
+    db = SessionLocal()
+    try:
+        son, mom, space, thread, _, _ = _call_scene(db)
+        _print(db, space.id, mom.id, MOM3, 2)
+        db.commit()
+        message = _voice_message(db, thread, son.id)
+        apply_speaker_turn(
+            db,
+            space_id=space.id,
+            message=message,
+            observation=EmbedObservation(NEAR_MOM, 3.0),
+            settings=_settings(),
+        )
+        db.refresh(message)
+        assert recognized_speaker_id(message) is None
+        meta = json.loads(message.meta_json)
+        assert meta["speaker"]["enrolled"] is False
+        counts = _counts(db, space.id)
+        assert son.id not in counts
+        assert counts[mom.id] == 2
+
+        empty = FamilySpace(
+            id=generate(),
+            name="Trống",
+            created_by=son.id,
+            steward_user_id=son.id,
+            created_at=datetime.now(timezone.utc),
+        )
+        db.add(empty)
+        db.commit()
+        bare = Thread(
+            id=generate(),
+            space_id=empty.id,
+            kind="heritage",
+            title="Bố",
+            audience_scope="family",
+            created_at=datetime.now(timezone.utc),
+        )
+        db.add(bare)
+        db.commit()
+        lonely = _voice_message(db, bare, son.id)
+        apply_speaker_turn(
+            db,
+            space_id=empty.id,
+            message=lonely,
+            observation=EmbedObservation(NEAR_SON, 3.0),
+            settings=_settings(),
+        )
+        assert _counts(db, empty.id) == {}
+    finally:
+        db.close()
+
+
+def test_private_vault_does_not_follow_the_recognized_speaker(client):
+    import inspect
+
+    from app.services.heritage_candidates import enqueue_facts, reviewer_for
+    from app.services.heritage_chat import (
+        _knowledge_snippets,
+        _poems_for_identity,
+        generate_heritage_reply,
+        try_poem_recite_reply,
+    )
+    from app.services.heritage_retrieval import (
+        family_milestones,
+        family_shared_for_identities,
+        learned_facts_for_identity,
+    )
+    from app.services.memory_scope import prompt_reader
+
+    for fn in (generate_heritage_reply, try_poem_recite_reply):
+        source = inspect.getsource(fn)
+        assert "prompt_reader(" in source
+        assert "reader_for_thread(" not in source
+
+    db = SessionLocal()
+    try:
+        son, mom, space, thread, father, other = _call_scene(db)
+
+        def _memory(kind: str, body: str, visibility: str, identity_id: str) -> MemoryItem:
+            row = MemoryItem(
+                id=generate(),
+                space_id=space.id,
+                created_by=son.id,
+                kind=kind,
+                title=body[:60],
+                body=body,
+                tags=f"heritage:{identity_id}",
+                visibility=visibility,
+                created_at=datetime.now(timezone.utc),
+            )
+            db.add(row)
+            return row
+
+        private_poem = _memory("poem", "bài thơ con giữ riêng", "private", father.id)
+        private_note = _memory("note", "ghi chú riêng của con", "private", father.id)
+        private_mile = _memory("milestone", "mốc đời con giữ riêng", "private", father.id)
+        private_learned = _memory("knowledge", "điều riêng con đã kể", "private", father.id)
+        private_other = _memory("note", "ghi chú riêng gắn Hương", "private", other.id)
+        family_mile = _memory("milestone", "mốc cả nhà đọc được", "family", father.id)
+        db.commit()
+
+        heard = _voice_message(
+            db, thread, son.id, meta=json.dumps({"speaker_user_id": mom.id})
+        )
+        quiet = _voice_message(db, thread, son.id)
+        own = _voice_message(
+            db, thread, son.id, meta=json.dumps({"speaker_user_id": son.id})
+        )
+        assert prompt_reader(thread, heard) is None
+        assert prompt_reader(thread, quiet) == son.id
+        assert prompt_reader(thread, own) == son.id
+
+        blocked = prompt_reader(thread, heard)
+        opened = prompt_reader(thread, quiet)
+
+        def _ids(rows) -> set[str]:
+            return {row.id for row in rows}
+
+        assert private_poem.id not in _ids(
+            _poems_for_identity(
+                db, space_id=space.id, identity_id=father.id, reader=blocked
+            )
+        )
+        assert private_poem.id in _ids(
+            _poems_for_identity(
+                db, space_id=space.id, identity_id=father.id, reader=opened
+            )
+        )
+        assert private_note.id not in _ids(
+            _knowledge_snippets(
+                db, space_id=space.id, identity_id=father.id, reader=blocked
+            )
+        )
+        assert private_note.id in _ids(
+            _knowledge_snippets(
+                db, space_id=space.id, identity_id=father.id, reader=opened
+            )
+        )
+        blocked_miles = _ids(family_milestones(db, space_id=space.id, reader=blocked))
+        opened_miles = _ids(family_milestones(db, space_id=space.id, reader=opened))
+        assert private_mile.id not in blocked_miles
+        assert family_mile.id in blocked_miles
+        assert private_mile.id in opened_miles
+        assert private_learned.id not in _ids(
+            learned_facts_for_identity(
+                db, space_id=space.id, identity_id=father.id, reader=blocked
+            )
+        )
+        assert private_learned.id in _ids(
+            learned_facts_for_identity(
+                db, space_id=space.id, identity_id=father.id, reader=opened
+            )
+        )
+        assert private_other.id not in _ids(
+            family_shared_for_identities(
+                db,
+                space_id=space.id,
+                identity_ids=[other.id],
+                exclude_identity_id=father.id,
+                reader=blocked,
+            )
+        )
+        assert private_other.id in _ids(
+            family_shared_for_identities(
+                db,
+                space_id=space.id,
+                identity_ids=[other.id],
+                exclude_identity_id=father.id,
+                reader=opened,
+            )
+        )
+
+        queued = enqueue_facts(
+            db,
+            thread=thread,
+            identity=father,
+            user_message=heard,
+            facts=[
+                {
+                    "statement": f"Con giữ riêng chuyện {generate()} với bố ở nhà",
+                    "kind": "event",
+                }
+            ],
+        )
+        assert len(queued) == 1
+        assert queued[0].reviewer_user_id == son.id
+        assert queued[0].reviewer_user_id != mom.id
+        assert reviewer_for(thread, space) == son.id
     finally:
         db.close()

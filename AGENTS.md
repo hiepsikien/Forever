@@ -24,34 +24,37 @@ và chạy song song. Câu tự xưng trong bản chữ («Con Đình Anh đây 
 thêm một bước chờ. Gallery là tập đóng của người sống đã có mỏ neo; mẫu Voice
 DNA của người đã mất không vào. Khớp chắc thì xưng theo người đó và chỉ trộn
 vào dấu giọng đã có. Không chắc, quá ngắn, hai giọng, hoặc dịch vụ embed nằm
-thì giữ tài khoản và không ghi thêm. Câu tự xưng chỉ đổi người được xưng hô,
-không mở dấu giọng mới. Tắt `speaker-id` thì Gọi vẫn trả lời theo tài khoản.
+thì giữ tài khoản — trừ cửa tự ghi của chính tài khoản ở dưới. Câu tự xưng chỉ
+đổi người được xưng hô, không mở dấu giọng mới. Tắt `speaker-id` thì Gọi vẫn
+trả lời theo tài khoản.
 
-Giọng khớp chắc phải thắng mọi lớp chữ, kể cả `_declares_grandchild`. Code hiện
-vẫn cho câu tự xưng «cháu…» chạy trước `speaker_user_id`, nên mẹ nói «cháu…»
-trên máy con thì Bố vẫn sang vai cháu dù giọng đã khớp mẹ. Sửa thứ tự đó: giọng
-khớp thì vai lấy từ người khớp; «cháu…» chỉ chọn vai cháu khi giọng không khớp.
+Giọng khớp chắc thắng mọi lớp chữ, kể cả `_declares_grandchild`.
+`speaker_user_id` đã khớp ra một vai thì vai ấy thắng câu «cháu…». Câu tự xưng
+«cháu…» chỉ chọn vai cháu khi giọng không khớp.
 
-Hai quyết định phải tách, vì hôm nay một cửa 0,60 / cách 0,10 dùng cho cả hai.
-Cửa đó cố ý chặt cho **xưng hô** — thà gọi theo tài khoản còn hơn gọi nhầm
-người. Hệ quả: mẹ nói trên máy con mà không tự xưng chỉ được nhận khi giọng
-cuộc gọi đã đủ gần mẫu Voice DNA, và dấu giọng chỉ trộn khi đã qua đúng cửa ấy.
-Mic Gọi lệch khỏi mẫu thu thì gallery không bao giờ kéo về giọng thật trên Gọi;
-`rebuild-speaker-prints.py` cũng loại đoạn cũ bằng cùng một cửa, và dry-run
-chỉ in số clip chứ chưa in cosine.
+Hai cửa tách nhau. Cửa 0,60 / cách 0,10 chỉ dành cho **xưng hô** — thà gọi theo
+tài khoản còn hơn gọi nhầm người.
 
-- **Xưng hô** giữ 0,60 và cách người thứ hai 0,10. Dưới cửa đó thì giữ tài khoản.
-- **Kéo dấu giọng** chỉ với đoạn trên chính máy của người đó, ngưỡng thấp hơn
-  (số chưa chốt), và chỉ khi người đó vẫn là ứng viên gần nhất. Trộn vào dấu
-  của chính họ. Không ghi sang người khác ở ngưỡng thấp. Đoạn gần mẹ hơn con
-  thì không được kéo dấu của con.
-- Dry-run phải in cosine của từng đoạn Gọi so với từng mỏ neo trước khi chốt
-  0,60.
+- **Xưng hô** giữ `speaker_match_threshold` 0,60 và `speaker_match_margin` 0,10.
+  Dưới cửa đó giọng không đặt `speaker_user_id` (tài khoản đứng). Câu tự xưng
+  (`reason` "words") vẫn đặt được người được xưng hô và không bao giờ ghi dấu.
+- **Kéo dấu của chính tài khoản** dùng `speaker_self_enroll_threshold` 0,45.
+  Số này tạm, cho đến khi dry-run in cosine thật của đoạn Gọi với từng mỏ neo.
+  Một lượt chỉ trộn vào dấu **đã có** của `message.sender_user_id` khi clip
+  không ngắn, không lẫn tiếng, tài khoản đã có dấu, tài khoản là ứng viên gần
+  nhất, và cosine ≥ 0,45. Không đòi thêm cách 0,10. Không ghi sang người khác
+  ở ngưỡng này — mẹ trên máy con không được kéo dấu của con. Không tạo dấu mới
+  từ lượt Gọi. Không ghi `VoiceSample`. Khớp chắc (`reason` "match", ≥ 0,60 và
+  cách ≥ 0,10) vẫn xưng người đó và chỉ trộn dấu đã có của chính họ.
+- Dry-run `scripts/rebuild-speaker-prints.py` (không `--commit`) in cosine của
+  từng đoạn Gọi với từng mỏ neo (user id và điểm). Gán đoạn hạt giống dùng cùng
+  cửa tự ghi: đoạn chưa tin cậy vào thùng của tài khoản khi tài khoản đã có mỏ
+  neo, mỏ neo gần nhất là đúng người đó, và cosine ≥ 0,45, dù dưới 0,60. Gần
+  người khác hơn thì chỉ vào khi khớp chắc. Không bịa dấu cho tài khoản chưa có
+  mỏ neo. Mẫu tự thu vẫn mở dấu. Clone của người đã mất không phải mỏ neo.
 
-Cửa «hai giọng» (`speaker_half_min_cosine` 0,25) lỏng hơn nhiều so với cửa
-khớp 0,60, nên gần như không chặn một đoạn lẫn tiếng trước khi ghi vào dấu
-giọng. Siết cửa đó cho tới khi hai nửa khác người thì bị loại; đừng để 0,25
-đứng yên.
+Cửa hai giọng `speaker_half_min_cosine` là 0,50. Hai nửa dưới 0,50 là lẫn
+tiếng: không đổi xưng hô và không ghi dấu, kể cả tự ghi của tài khoản.
 
 Tên trên màn Gọi lấy từ `listMessages` sau khi job nền ghi `speaker_user_id`.
 `POST /messages/voice` trả ngay, `sender_name` vẫn là tài khoản. Mục «màn hiện
@@ -266,9 +269,11 @@ người khác có — đó là cách «nhớ bà quá» từng không kích ho�
   «phòng riêng lấy người của phòng, không đoán từ chữ». Chữ không khớp và giọng
   không khớp thì vẫn lấy chủ phòng.
 - Khi người nhận ra không phải chủ phòng, prompt chỉ được đưa ký ức cả nhà
-  (`visibility` family). `reader_for_thread` hôm nay vẫn trả `member_user_id`,
-  nên ký ức `private` của con có thể bị đọc cho mẹ đang cầm máy con. Kho ký
-  ức không đi theo người vừa nhận giọng.
+  (`visibility` family). `prompt_reader` trả `None` khi phòng là `direct`,
+  `recognized_speaker_id` có giá trị, và khác `member_user_id`. Mọi chỗ truy
+  hồi của lượt heritage (thơ, kiến thức, mốc đời, fact đã học, `family_shared`)
+  đi qua helper đó. Trí nhớ cuộn của phòng đang mở (`load_state`) giữ nguyên —
+  chỗ khép là kho riêng, không phải bản ghi của phòng họ đang đứng.
 - Chat may only ever *propose* a fact. `memory_candidates` → a human approves →
   `MemoryItem`. A private thread's candidates stay with the room owner
   (`reviewer_for` → `member_user_id`), not the steward and not a moderator.

@@ -105,7 +105,7 @@ from .heritage_retrieval import (
 from .heritage_values import select_value_lens, value_lens_block
 from .ai_usage import UsageContext
 from .heritage_gemini import GeminiCall, call_gemini
-from .memory_scope import readable_by, reader_for_thread
+from .memory_scope import prompt_reader, readable_by
 from .poem_recite import PoemReciteError, get_or_create_recite_audio
 from .storage import save_bytes
 from .storytelling import (
@@ -353,18 +353,14 @@ def _detect_audience(
     Persona chốt lần cuối: người không có vai vợ/chồng trong Bản sắc thì không
     thể có người nhắn là vợ/chồng, dù người gửi là ai.
 
-    `speaker_user_id` is the person the voiceprint matched. That wins over the
-    logged-in account and over the private room's member, so mẹ speaking on
-    con's phone is addressed as mẹ.
+    `speaker_user_id` is the person the voiceprint or a spoken intro named.
+    When that id resolves to an audience it wins over a grandchild self-claim,
+    the logged-in account, and the private room's member, so mẹ speaking on
+    con's phone is addressed as mẹ even if she says «cháu…». The self-claim
+    still beats the room and the relation label when nobody was recognized.
     """
     def _fit(value: str) -> str:
         return persona.audience(value) if persona else value
-
-    # Nhãn quan hệ trên hồ sơ neo vào một người trong nhà («Con trai» là con của
-    # Bố, nhưng là cháu của Bà). Khi người nhắn tự xưng «cháu», chính họ đã nói
-    # rõ thế hệ của mình với người đang nghe — tin họ trước nhãn.
-    if _declares_grandchild(user_text):
-        return _fit("grandchild")
 
     heard = (speaker_user_id or "").strip()
     if heard:
@@ -373,6 +369,13 @@ def _detect_audience(
         )
         if from_heard:
             return _fit(from_heard)
+
+    # Nhãn quan hệ trên hồ sơ neo vào một người trong nhà («Con trai» là con của
+    # Bố, nhưng là cháu của Bà). Khi người nhắn tự xưng «cháu» và giọng không
+    # khớp ai, chính họ đã nói rõ thế hệ của mình với người đang nghe — tin họ
+    # trước nhãn và trước chủ phòng.
+    if _declares_grandchild(user_text):
+        return _fit("grandchild")
 
     # Phòng riêng đã nêu đích danh thành viên, không cần suy từ chữ nghĩa —
     # chỗ ấy chính là nơi sinh ra câu «chào em» gửi nhầm cho con trai.
@@ -652,7 +655,7 @@ def try_poem_recite_reply(
     if not looks_like_poem_recite_request(user_text):
         return None
     persona = persona_for(identity)
-    reader = reader_for_thread(thread)
+    reader = prompt_reader(thread, user_message)
     poems = _poems_for_identity(
         db, space_id=thread.space_id, identity_id=identity.id, reader=reader
     )
@@ -1482,8 +1485,9 @@ def generate_heritage_reply(
     # ("kết hôn" for "cưới"), so retrieval searches both.
     search_text = " ".join([user_text, *frame.retrieval_queries])
 
-    # A private memory belongs to its owner's own room and nowhere else.
-    reader = reader_for_thread(thread)
+    # A private memory belongs to its owner's own room. A recognized speaker
+    # who is not that owner does not bring the vault into the prompt.
+    reader = prompt_reader(thread, user_message)
 
     signature_titles = signature_poem_titles(identity)
     poems = _poems_for_identity(

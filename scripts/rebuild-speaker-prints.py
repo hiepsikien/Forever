@@ -2,9 +2,11 @@
 """Build speaker prints from self Voice DNA samples and past voice turns.
 
 Self samples (the person recorded their own voice) open a print. A past Gọi
-clip is added only when it confidently matches one of those prints — including
-when mẹ spoke on con's account, or con and anh each spoke on mẹ's account.
-A clip that matches nobody is left out. Nothing is written into Voice DNA.
+clip joins the person it confidently matches — including when mẹ spoke on
+con's account. Below that gate, a clip joins the account's own anchor when
+that account is the nearest voice and the cosine clears the self-enroll bar.
+A clip nearer someone else stays out unless the match is confident. Nothing
+is written into Voice DNA. A dry-run prints each clip's cosine to every anchor.
 
 Needs the speaker-id process (./scripts/run-speaker-id.sh) and DATABASE_URL.
 
@@ -32,6 +34,7 @@ from app.services.speaker_id import (  # noqa: E402
     assign_seed_clips,
     centroid,
     decide_speaker,
+    describe_call_clips,
     request_embedding,
     upsert_print,
 )
@@ -51,9 +54,8 @@ def _observe(settings, relative: str, mime: str | None) -> EmbedObservation | No
         raise
 
 
-def _usable(settings, obs: EmbedObservation | None) -> bool:
-    if obs is None:
-        return False
+def _gate(settings, obs: EmbedObservation) -> str:
+    """`no_gallery` means the clip is long enough and one voice."""
     decision = decide_speaker(
         obs.embedding,
         halves=obs.halves,
@@ -64,7 +66,7 @@ def _usable(settings, obs: EmbedObservation | None) -> bool:
         min_duration_s=settings.speaker_min_duration_s,
         half_min_cosine=settings.speaker_half_min_cosine,
     )
-    return decision.reason == "no_gallery"
+    return decision.reason
 
 
 def collect(db, settings, *, space_id: str | None) -> dict[str, list[SeedClip]]:
@@ -87,12 +89,20 @@ def collect(db, settings, *, space_id: str | None) -> dict[str, list[SeedClip]]:
         if not user_id or not sample.media_path:
             continue
         obs = _observe(settings, sample.media_path, sample.media_mime)
-        if not _usable(settings, obs):
-            print(f"  skip anchor {sample.id} (short, mixed, or unreadable)")
+        if obs is None:
+            print(f"  skip anchor {sample.id} (unreadable)")
             continue
-        assert obs is not None
+        reason = _gate(settings, obs)
+        if reason != "no_gallery":
+            print(f"  skip anchor {sample.id} ({reason})")
+            continue
         buckets.setdefault(profile.space_id, []).append(
-            SeedClip(user_id=user_id, embedding=obs.embedding, trusted=True)
+            SeedClip(
+                user_id=user_id,
+                embedding=obs.embedding,
+                trusted=True,
+                label=sample.id,
+            )
         )
         print(f"  anchor {profile.space_id} user={user_id} sample={sample.id}")
 
@@ -107,14 +117,20 @@ def collect(db, settings, *, space_id: str | None) -> dict[str, list[SeedClip]]:
         if not message.sender_user_id or not message.media_path:
             continue
         obs = _observe(settings, message.media_path, message.media_mime)
-        if not _usable(settings, obs):
+        if obs is None:
+            print(
+                f"  call clip account={message.sender_user_id} "
+                f"message={message.id} unreadable"
+            )
             continue
-        assert obs is not None
+        reason = _gate(settings, obs)
         buckets.setdefault(thread.space_id, []).append(
             SeedClip(
                 user_id=message.sender_user_id,
                 embedding=obs.embedding,
                 trusted=False,
+                skip_reason="" if reason == "no_gallery" else reason,
+                label=message.id,
             )
         )
     return buckets
@@ -146,10 +162,18 @@ def main() -> int:
                 clips,
                 threshold=settings.speaker_match_threshold,
                 margin=settings.speaker_match_margin,
+                self_enroll_threshold=settings.speaker_self_enroll_threshold,
             )
             trusted = {c.user_id for c in clips if c.trusted}
             print(f"\n=== Space {sid} ===")
             print(f"  anchors: {len(trusted)} people, clips: {len(clips)}")
+            print("  call vs anchor (trusted centroids, before blending call clips):")
+            lines = describe_call_clips(clips)
+            if lines:
+                for line in lines:
+                    print(line)
+            else:
+                print("  (no call clips)")
             for user_id, vectors in sorted(planned[sid].items()):
                 print(f"  print user={user_id} clips={len(vectors)}")
             dropped = trusted - set(planned[sid])

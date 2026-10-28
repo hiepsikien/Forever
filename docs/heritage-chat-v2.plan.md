@@ -401,9 +401,9 @@ không phát sinh loại phơi nhiễm mới. Riêng `new_facts` gated qua stewa
 
 Phòng riêng kín theo `require_thread_access`, không có cửa sau cho owner hay
 steward. Trí nhớ nằm theo thread nên điều mẹ kể riêng không rò sang phòng của
-con. Chiều ngược lại chưa khép: mẹ nói trên máy con, trong phòng riêng của con,
-thì `reader_for_thread` vẫn là con — câu trả lời có thể đọc ký ức `private`
-của con cho mẹ đang cầm máy. Khi người nhận ra không phải chủ phòng, prompt
-chỉ được ký ức cả nhà. Hàng đợi duyệt giữ đúng bức tường của chủ phòng: fact
-của phòng riêng chỉ chủ phòng thấy, và chia sẻ ra cả nhà là một hành động có
-chủ ý, có xác nhận. Đừng chuyển `reviewer_user_id` sang người vừa nhận giọng.
+con. Mẹ nói trên máy con, trong phòng riêng của con: xưng hô theo mẹ, nhưng
+`prompt_reader` trả `None` khi `recognized_speaker_id` khác chủ phòng — câu
+trả lời chỉ đọc ký ức cả nhà, không đọc ký ức `private` của con. Hàng đợi
+duyệt giữ đúng bức tường của chủ phòng: fact của phòng riêng chỉ chủ phòng
+thấy, và chia sẻ ra cả nhà là một hành động có chủ ý, có xác nhận. Đừng
+chuyển `reviewer_user_id` sang người vừa nhận giọng.
