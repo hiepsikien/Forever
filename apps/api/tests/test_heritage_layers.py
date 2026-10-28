@@ -101,6 +101,8 @@ def test_app_rules_block_speaks_as_each_person():
     for persona in EVERYONE:
         block = app_rules_block(persona, quote_rule="Q", length_rule="L")
         assert f"«Chào {persona.younger}»" in block
+        assert "đừng lượt nào cũng hỏi" in block
+        assert "Câu cuối để cửa mở" not in block
         _assert_no_foreign_pronoun(block, persona, "app_rules_block")
 
 

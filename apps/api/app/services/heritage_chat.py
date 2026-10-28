@@ -85,12 +85,14 @@ from .heritage_memory import (
     is_repetitive,
     load_state,
     memory_block,
+    question_sentences,
     recent_heritage_bodies,
     heritage_bodies_today,
     record_turn,
     repetition_score,
     stated_facts,
 )
+from .speaker_id import recognized_speaker_id
 from .heritage_retrieval import (
     MILESTONE_KIND,
     build_evidence_pack,
@@ -103,7 +105,7 @@ from .heritage_retrieval import (
 from .heritage_values import select_value_lens, value_lens_block
 from .ai_usage import UsageContext
 from .heritage_gemini import GeminiCall, call_gemini
-from .memory_scope import readable_by, reader_for_thread
+from .memory_scope import prompt_reader, readable_by
 from .poem_recite import PoemReciteError, get_or_create_recite_audio
 from .storage import save_bytes
 from .storytelling import (
@@ -331,6 +333,11 @@ def _audience_for_user(
     return None
 
 
+def _turn_user_id(message: Message) -> str | None:
+    """Voiceprint when this clip matched; otherwise the account that sent it."""
+    return recognized_speaker_id(message) or message.sender_user_id
+
+
 def _detect_audience(
     db: Session,
     *,
@@ -339,18 +346,34 @@ def _detect_audience(
     user_text: str = "",
     thread: Thread | None = None,
     persona: Persona | None = None,
+    speaker_user_id: str | None = None,
 ) -> str:
     """spouse | child | grandchild — mặc định child khi không rõ.
 
     Persona chốt lần cuối: người không có vai vợ/chồng trong Bản sắc thì không
     thể có người nhắn là vợ/chồng, dù người gửi là ai.
+
+    `speaker_user_id` is the person the voiceprint or a spoken intro named.
+    When that id resolves to an audience it wins over a grandchild self-claim,
+    the logged-in account, and the private room's member, so mẹ speaking on
+    con's phone is addressed as mẹ even if she says «cháu…». The self-claim
+    still beats the room and the relation label when nobody was recognized.
     """
     def _fit(value: str) -> str:
         return persona.audience(value) if persona else value
 
+    heard = (speaker_user_id or "").strip()
+    if heard:
+        from_heard = _audience_for_user(
+            db, space_id=space_id, user_id=heard, persona=persona
+        )
+        if from_heard:
+            return _fit(from_heard)
+
     # Nhãn quan hệ trên hồ sơ neo vào một người trong nhà («Con trai» là con của
-    # Bố, nhưng là cháu của Bà). Khi người nhắn tự xưng «cháu», chính họ đã nói
-    # rõ thế hệ của mình với người đang nghe — tin họ trước nhãn.
+    # Bố, nhưng là cháu của Bà). Khi người nhắn tự xưng «cháu» và giọng không
+    # khớp ai, chính họ đã nói rõ thế hệ của mình với người đang nghe — tin họ
+    # trước nhãn và trước chủ phòng.
     if _declares_grandchild(user_text):
         return _fit("grandchild")
 
@@ -632,7 +655,7 @@ def try_poem_recite_reply(
     if not looks_like_poem_recite_request(user_text):
         return None
     persona = persona_for(identity)
-    reader = reader_for_thread(thread)
+    reader = prompt_reader(thread, user_message)
     poems = _poems_for_identity(
         db, space_id=thread.space_id, identity_id=identity.id, reader=reader
     )
@@ -662,6 +685,7 @@ def try_poem_recite_reply(
         user_text=user_text,
         thread=thread,
         persona=persona,
+        speaker_user_id=recognized_speaker_id(user_message),
     )
     title = (poem.title or "thơ").strip()
     lead = f"Bài «{title}» của {persona.me(audience)} đây {persona.you(audience)}."
@@ -700,6 +724,7 @@ def try_story_recite_reply(
         user_text=user_text,
         thread=thread,
         persona=persona,
+        speaker_user_id=recognized_speaker_id(user_message),
     )
     me = persona.me(audience)
     you = persona.you(audience)
@@ -887,6 +912,7 @@ def build_system_prompt(
     keepsake_photo: MemoryItem | None = None,
     persona: Persona | None = None,
     charter: FamilyCharter | None = None,
+    asked_last_turn: bool = False,
 ) -> str:
     display = heritage_display_name(identity)
     quote_mode = (quote_mode or "paraphrase").strip().lower()
@@ -950,8 +976,10 @@ def build_system_prompt(
     length_rule = (
         frame.depth_rule
         if frame
-        else "Kiểu chat nhắn tin (Zalo): 2–4 câu, tối đa 2 đoạn ngắn."
+        else "Kiểu chat nhắn tin (Zalo): 1–4 câu, tối đa 2 đoạn ngắn. Hỏi khi chuyện còn dang dở, không hỏi mỗi lượt."
     )
+    if asked_last_turn:
+        length_rule += " Lượt vừa rồi đã hỏi — lượt này đáp hoặc kể, không hỏi."
     mood_rule = (
         f"Người gửi đang có tâm trạng «{frame.emotion}» — đáp cho hợp, đừng lệch nhịp."
         if frame and frame.emotion != "neutral"
@@ -1071,7 +1099,7 @@ def _label_user_turn(text: str, speaker: str | None) -> str:
 
 
 def _speaker_names_for_messages(db: Session, messages: list[Message]) -> dict[str, str]:
-    ids = {m.sender_user_id for m in messages if m.sender_user_id}
+    ids = {uid for m in messages if (uid := _turn_user_id(m))}
     if not ids:
         return {}
     rows = db.query(User.id, User.name).filter(User.id.in_(ids)).all()
@@ -1094,7 +1122,7 @@ def _gemini_heritage_reply(
     contents: list[dict] = []
     for msg in history[-12:]:
         if msg.sender_kind == "user":
-            speaker = names.get(msg.sender_user_id or "")
+            speaker = names.get(_turn_user_id(msg) or "")
             contents.append(
                 {
                     "role": "user",
@@ -1377,6 +1405,7 @@ def generate_heritage_reply(
         user_text=user_text,
         thread=thread,
         persona=persona,
+        speaker_user_id=recognized_speaker_id(user_message),
     )
 
     def _refusal_meta(kind: str, **extra: object) -> dict:
@@ -1456,8 +1485,9 @@ def generate_heritage_reply(
     # ("kết hôn" for "cưới"), so retrieval searches both.
     search_text = " ".join([user_text, *frame.retrieval_queries])
 
-    # A private memory belongs to its owner's own room and nowhere else.
-    reader = reader_for_thread(thread)
+    # A private memory belongs to its owner's own room. A recognized speaker
+    # who is not that owner does not bring the vault into the prompt.
+    reader = prompt_reader(thread, user_message)
 
     signature_titles = signature_poem_titles(identity)
     poems = _poems_for_identity(
@@ -1528,6 +1558,9 @@ def generate_heritage_reply(
                 .one_or_none()
             )
 
+    last_reply = recent_heritage_bodies(history, limit=1)
+    asked_last_turn = bool(last_reply and question_sentences(last_reply[-1]))
+
     system_prompt = build_system_prompt(
         identity,
         signature_poems=signature,
@@ -1544,10 +1577,11 @@ def generate_heritage_reply(
         keepsake_photo=keepsake_photo,
         persona=persona,
         charter=charter,
+        asked_last_turn=asked_last_turn,
     )
 
     speaker_names = _speaker_names_for_messages(db, [*history, user_message])
-    current_speaker = speaker_names.get(user_message.sender_user_id or "")
+    current_speaker = speaker_names.get(_turn_user_id(user_message) or "")
 
     llm, finish_reason = _gemini_heritage_reply(
         settings,

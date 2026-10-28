@@ -3,7 +3,7 @@
 #
 # Usage (from repo root, on the Mac):
 #   ./scripts/deploy-api.sh
-#   ./scripts/deploy-api.sh --with-worker   # also rebuild extract-worker
+#   ./scripts/deploy-api.sh --with-worker   # also rebuild extract-worker and speaker-id
 #
 # Host defaults to SSH alias angi-vm (see deploy/README.md).
 set -euo pipefail
@@ -51,7 +51,7 @@ rsync -avz \
 
 SERVICES=(forever-api)
 if [[ "$WITH_WORKER" -eq 1 ]]; then
-  SERVICES+=(forever-extract-worker)
+  SERVICES+=(forever-extract-worker forever-speaker-id)
 fi
 
 echo "→ rebuild on VM: ${SERVICES[*]}"
@@ -78,7 +78,7 @@ if [[ "$ok" -ne 1 ]]; then
   exit 1
 fi
 if [[ "$WITH_WORKER" -eq 1 ]]; then
-  echo "Done (API + extract-worker rebuilt)."
+  echo "Done (API + extract-worker + speaker-id rebuilt)."
 else
   echo "Done (API rebuilt; extract-worker left running)."
 fi

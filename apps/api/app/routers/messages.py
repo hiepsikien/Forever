@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import logging
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
 from typing import Annotated
 
@@ -27,6 +28,13 @@ from ..db import SessionLocal, get_db
 from ..models import Message, Thread, User
 from ..services.agent import maybe_reply, sender_display_name, sender_handle
 from ..services.heritage_chat import heritage_display_name, identity_for_heritage_thread, maybe_heritage_reply
+from ..services.speaker_id import (
+    SpeakerIdUnavailable,
+    apply_speaker_turn,
+    recognized_speaker_id,
+    request_embedding,
+    spoken_speaker_id,
+)
 from ..services.storage import absolute_media_path, save_upload
 from ..services.stt import transcribe
 
@@ -47,6 +55,16 @@ def _heritage_sender_name(db: Session, thread: Thread, sender_kind: str) -> str 
     if not identity:
         return "Ký ức"
     return heritage_display_name(identity)
+
+
+def _living_profile(message: Message, profiles: dict[str, User]) -> User | None:
+    """The person who spoke, when a voiceprint matched; otherwise the account."""
+    heard = recognized_speaker_id(message)
+    if heard and heard in profiles:
+        return profiles[heard]
+    if message.sender_user_id and message.sender_user_id in profiles:
+        return profiles[message.sender_user_id]
+    return None
 
 
 def _heritage_sender_handle(db: Session, thread: Thread) -> str | None:
@@ -129,6 +147,71 @@ def _apply_stt(db: Session, message: Message) -> None:
     )
 
 
+def _prepare_voice_turn(db: Session, thread: Thread, message: Message) -> None:
+    """STT the clip and, on a heritage thread, match the voice in parallel.
+
+    The embed starts before STT and does not touch the database. The moment
+    the transcript lands, a local read of «X đây» runs while that embed is
+    still in flight, so the turn waits on the slower of the two and not on a
+    third step. Speaker meta is written after STT commits so the two updates
+    don't overwrite each other. A down embed process leaves the voice on the
+    logged-in account; a clear introduction can still name the speaker.
+    """
+    settings = get_settings()
+    path = None
+    if message.media_path:
+        try:
+            path = absolute_media_path(message.media_path)
+        except HTTPException:
+            path = None
+    want_speaker = (
+        settings.speaker_id_enabled
+        and thread.kind == "heritage"
+        and path is not None
+        and path.exists()
+    )
+    if not want_speaker:
+        _apply_stt(db, message)
+        return
+
+    observation = None
+    spoken = None
+    with ThreadPoolExecutor(max_workers=1) as pool:
+        pending = pool.submit(
+            request_embedding,
+            settings,
+            path=path,
+            mime=getattr(message, "media_mime", None),
+        )
+        _apply_stt(db, message)
+        # Needs the transcript, so it cannot start before STT. It is a string
+        # match on this thread, overlapped with the embed that is already running.
+        try:
+            spoken = spoken_speaker_id(db, thread, message.body or "")
+        except Exception:
+            logger.exception("speaker words failed message=%s", message.id)
+            spoken = None
+        try:
+            observation = pending.result()
+        except SpeakerIdUnavailable as exc:
+            logger.info("speaker-id unavailable message=%s error=%s", message.id, exc)
+            observation = None
+        except Exception:
+            logger.exception("speaker-id failed message=%s", message.id)
+            observation = None
+    try:
+        apply_speaker_turn(
+            db,
+            space_id=thread.space_id,
+            message=message,
+            observation=observation,
+            settings=settings,
+            spoken_user_id=spoken,
+        )
+    except Exception:
+        logger.exception("speaker-id persist failed message=%s", message.id)
+
+
 def _voice_has_utterance(message: Message) -> bool:
     """Skip the heritage pipeline when STT heard no real speech.
 
@@ -170,7 +253,7 @@ def _heritage_reply_job(thread_id: str, message_id: str) -> None:
         message = db.query(Message).filter(Message.id == message_id).one_or_none()
         if thread and message:
             if (message.kind or "") == "voice":
-                _apply_stt(db, message)
+                _prepare_voice_turn(db, thread, message)
             if _voice_has_utterance(message):
                 maybe_heritage_reply(db, thread=thread, user_message=message)
             else:
@@ -196,7 +279,7 @@ def _voice_message_job(thread_id: str, message_id: str) -> None:
         message = db.query(Message).filter(Message.id == message_id).one_or_none()
         if not thread or not message:
             return
-        _apply_stt(db, message)
+        _prepare_voice_turn(db, thread, message)
         if not _voice_has_utterance(message):
             logger.info(
                 "review-queue heritage-job skip thread=%s message=%s "
@@ -231,7 +314,7 @@ def _dispatch_auto_reply(
         background.add_task(_heritage_reply_job, thread.id, user_message.id)
         return
     if (user_message.kind or "") == "voice":
-        _apply_stt(db, user_message)
+        _prepare_voice_turn(db, thread, user_message)
     if _voice_has_utterance(user_message):
         maybe_heritage_reply(db, thread=thread, user_message=user_message)
 
@@ -251,7 +334,7 @@ def _dispatch_voice_message(
     if async_ok:
         background.add_task(_voice_message_job, thread.id, user_message.id)
         return
-    _apply_stt(db, user_message)
+    _prepare_voice_turn(db, thread, user_message)
     if not _voice_has_utterance(user_message):
         return
     if thread.kind == "heritage":
@@ -320,6 +403,10 @@ def list_messages(
     messages.reverse()
 
     user_ids = {m.sender_user_id for m in messages if m.sender_user_id}
+    for message in messages:
+        heard = recognized_speaker_id(message)
+        if heard:
+            user_ids.add(heard)
     profiles: dict[str, User] = {}
     if user_ids:
         for row in db.query(User).filter(User.id.in_(user_ids)).all():
@@ -328,29 +415,27 @@ def list_messages(
     heritage_label = _heritage_sender_name(db, thread, "heritage")
     heritage_handle = _heritage_sender_handle(db, thread)
 
-    return {
-        "messages": [
-            _message_payload(
-                m,
-                sender_name=(
-                    heritage_label
-                    if m.sender_kind == "heritage" and heritage_label
-                    else sender_display_name(
-                        m.sender_kind,
-                        profiles[m.sender_user_id].name
-                        if m.sender_user_id in profiles
-                        else None,
-                    )
-                ),
-                handle=sender_handle(
-                    m.sender_kind,
-                    profiles[m.sender_user_id].handle if m.sender_user_id in profiles else None,
-                    heritage_handle=heritage_handle,
-                ),
+    def _row(message: Message) -> dict:
+        if message.sender_kind == "heritage" and heritage_label:
+            return _message_payload(
+                message,
+                sender_name=heritage_label,
+                handle=heritage_handle,
             )
-            for m in messages
-        ]
-    }
+        person = _living_profile(message, profiles)
+        return _message_payload(
+            message,
+            sender_name=sender_display_name(
+                message.sender_kind, person.name if person else None
+            ),
+            handle=sender_handle(
+                message.sender_kind,
+                person.handle if person else None,
+                heritage_handle=heritage_handle,
+            ),
+        )
+
+    return {"messages": [_row(m) for m in messages]}
 
 
 @router.post("/{thread_id}/messages")

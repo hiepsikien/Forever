@@ -105,6 +105,52 @@ class Settings(BaseSettings):
     # Provider used when a Voice DNA row does not name one.
     voice_default_provider: str = "elevenlabs"
 
+    # Closed-set speaker id for voice turns. The embed process lives next to
+    # the Extract worker (torch stays off the API). A miss or a down service
+    # leaves the turn on the logged-in account.
+    speaker_id_enabled: bool = True
+    speaker_id_url: str = "http://127.0.0.1:8091"
+    # Empty → extract_worker_token. The embed process checks the same secret.
+    speaker_id_token: str = ""
+    speaker_id_timeout_s: float = 8.0
+    # Cosine on unit vectors. High threshold and a gap over the runner-up:
+    # a doubtful clip stays with the account rather than addressing the wrong person.
+    speaker_match_threshold: float = 0.60
+    speaker_match_margin: float = 0.10
+    speaker_min_duration_s: float = 1.5
+    # Halves at or above this are one voice. Below it, the clip is still one
+    # person when the whole clip confidently matches someone and each half is
+    # at least `speaker_half_agree_min` from that same print. Two halves that
+    # point at different people stay mixed: no address change, no enroll.
+    speaker_half_min_cosine: float = 0.50
+    speaker_half_agree_min: float = 0.40
+    # Self-print update on a live turn, separate from addressing. A live turn
+    # may blend into the logged-in account's EXISTING print when that account
+    # is the nearest voice and the cosine clears this bar. Never creates a
+    # print and never writes another person. The rebuild script does not use
+    # this bar. Closes when the transcript names someone other than the account.
+    speaker_self_enroll_threshold: float = 0.45
+    # Gap over the runner-up required to move the account print. Narrower than
+    # speaker_match_margin so a near-tie cannot walk the print toward the
+    # other person one clip at a time.
+    speaker_self_enroll_margin: float = 0.05
+    # Rebuild opens a print from the account's own past calls, not Voice DNA.
+    # Clips within `speaker_seed_link` of the medoid are one pattern. The
+    # pattern must contain at least `speaker_seed_min_count` clips, cover at
+    # least `speaker_seed_majority` of that account's usable calls, and be
+    # strictly larger than the next pattern. Link matches the address gate so
+    # two voices do not glue together.
+    speaker_seed_link: float = 0.60
+    speaker_seed_min_count: int = 4
+    speaker_seed_majority: float = 0.60
+    # How many calls per account the rebuild embeds. Past this, clips are
+    # taken evenly across that account's history. The slow part is the
+    # embedding, not the cluster, so a person with thousands of calls stays
+    # on this budget.
+    speaker_seed_max_clips: int = 48
+    # Running mean stops letting new clips shrink below this weight.
+    speaker_print_cap: int = 32
+
     # Shared secret for local Extract worker → Forever API claim/complete.
     extract_worker_token: str = "forever-extract-worker"
     # Shared secret for library document ingest worker (falls back to extract token).

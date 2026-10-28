@@ -46,6 +46,9 @@ services:
       VOICE_DEFAULT_PROVIDER: ${VOICE_DEFAULT_PROVIDER:-elevenlabs}
       EXTRACT_WORKER_TOKEN: ${EXTRACT_WORKER_TOKEN:-}
       EXTRACT_JOB_STALE_MINUTES: ${EXTRACT_JOB_STALE_MINUTES:-60}
+      SPEAKER_ID_ENABLED: ${SPEAKER_ID_ENABLED:-true}
+      SPEAKER_ID_URL: http://forever-speaker-id:8091
+      SPEAKER_ID_TOKEN: ${SPEAKER_ID_TOKEN:-${EXTRACT_WORKER_TOKEN:-}}
     volumes:
       - forever_uploads:/data/uploads
       - ./firebase-service-account.json:/run/secrets/firebase.json:ro
@@ -88,6 +91,43 @@ services:
       resources:
         limits:
           memory: 5G
+
+  # Voiceprint embed for «Gọi». Same image as the extract worker, separate
+  # process so a long diarization job does not sit on a call. API sends the
+  # clip and does the match itself.
+  forever-speaker-id:
+    build:
+      context: ../Extract
+    image: ${EXTRACT_WORKER_IMAGE:-forever-extract-worker:latest}
+    container_name: forever-speaker-id
+    restart: unless-stopped
+    command: ["speaker-id"]
+    environment:
+      SPEAKER_ID_TOKEN: ${SPEAKER_ID_TOKEN:-${EXTRACT_WORKER_TOKEN:-}}
+      SPEAKER_ID_BIND: 0.0.0.0
+      SPEAKER_ID_PORT: "8091"
+      HF_TOKEN: ${HF_TOKEN:-}
+      HUGGINGFACE_TOKEN: ${HF_TOKEN:-}
+    volumes:
+      - forever_hf_cache:/root/.cache/huggingface
+    networks:
+      - angi
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8091/health', timeout=3)",
+        ]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 180s
+    deploy:
+      resources:
+        limits:
+          memory: 3G
 
 volumes:
   forever_uploads:

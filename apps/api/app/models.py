@@ -847,3 +847,25 @@ class StoryRecording(Base):
     status: Mapped[str] = mapped_column(String(16), default="ready", index=True)
     created_by: Mapped[str] = mapped_column(ForeignKey("users.id"))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
+
+
+class SpeakerPrint(Base):
+    """Closed-set voiceprint for one living member. Not a Voice DNA clone.
+
+    The centroid is a unit vector (JSON list of floats). Live turns may move it
+    only when the clip confidently matches this person. Heritage clone samples
+    never land here.
+    """
+
+    __tablename__ = "speaker_prints"
+    __table_args__ = (
+        UniqueConstraint("space_id", "user_id", name="uq_speaker_print"),
+    )
+
+    id: Mapped[str] = mapped_column(String(32), primary_key=True)
+    space_id: Mapped[str] = mapped_column(ForeignKey("family_spaces.id"), index=True)
+    user_id: Mapped[str] = mapped_column(ForeignKey("users.id"), index=True)
+    embedding_json: Mapped[str] = mapped_column(Text, default="")
+    sample_count: Mapped[int] = mapped_column(Integer, default=0)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))

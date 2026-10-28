@@ -18,6 +18,62 @@ Plan: `docs/voice-to-voice.plan.md`. Flags: `STT_ENABLED`, `HERITAGE_TTS_ENABLED
 (default on). Mobile entry: `/call/[threadId]` — auto-play only for the reply to
 the turn she just spoke.
 
+Nhận người nói trên lượt gọi: embedding giọng (`speaker-id`) gửi **trước** STT
+và chạy song song. Câu tự xưng trong bản chữ («Con Đình Anh đây ạ», «Anh ơi em
+đây») là parse local ngay khi STT trả về — không gọi model thứ hai, nên không
+thêm một bước chờ. Gallery là tập đóng của người sống đã có dấu giọng. Dấu
+đó mở từ cụm đa số trong lịch sử Gọi, không từ mẫu Voice DNA; mẫu của người
+đã mất không vào. Khớp chắc thì xưng theo người đó và chỉ trộn vào dấu giọng
+đã có. Không chắc, quá ngắn, hai giọng, hoặc dịch vụ embed nằm thì giữ tài
+khoản — trừ cửa tự ghi của chính tài khoản ở dưới. Câu tự xưng chỉ đổi người
+được xưng hô, không mở dấu giọng mới. Tắt `speaker-id` thì Gọi vẫn trả lời
+theo tài khoản.
+
+Giọng khớp chắc thắng mọi lớp chữ, kể cả `_declares_grandchild`.
+`speaker_user_id` đã khớp ra một vai thì vai ấy thắng câu «cháu…». Câu tự xưng
+«cháu…» chỉ chọn vai cháu khi giọng không khớp.
+
+Hai cửa tách nhau. Cửa 0,60 / cách 0,10 chỉ dành cho **xưng hô** — thà gọi theo
+tài khoản còn hơn gọi nhầm người.
+
+- **Xưng hô** giữ `speaker_match_threshold` 0,60 và `speaker_match_margin` 0,10.
+  Dưới cửa đó giọng không đặt `speaker_user_id` (tài khoản đứng). Câu tự xưng
+  (`reason` "words") vẫn đặt được người được xưng hô. Chữ không chọn dấu nào
+  để ghi. Khi `words_user_id` khác tài khoản, cửa thấp hơn đóng — clip đó
+  không được trộn vào dấu của tài khoản.
+- **Kéo dấu của chính tài khoản** dùng `speaker_self_enroll_threshold` 0,45
+  và `speaker_self_enroll_margin` 0,05. Một lượt chỉ trộn vào dấu **đã có**
+  của `message.sender_user_id` khi clip không ngắn, không lẫn tiếng, tài khoản
+  đã có dấu, tài khoản là ứng viên gần nhất, cosine ≥ 0,45, và cách người thứ
+  hai ≥ 0,05. Cách này hẹp hơn cách 0,10 của xưng hô; `best > second` không đủ.
+  Không ghi sang người khác ở ngưỡng này — mẹ trên máy con không được kéo dấu
+  của con, kể cả khi câu «Anh ơi em đây» đã đổi xưng hô sang mẹ mà vector vẫn
+  gần con. Không tạo dấu mới từ lượt Gọi. Không ghi `VoiceSample`. Khớp chắc
+  (`reason` "match", ≥ 0,60 và cách ≥ 0,10) vẫn xưng người đó và chỉ trộn dấu
+  đã có của chính họ.
+- `scripts/rebuild-speaker-prints.py` mở dấu từ lịch sử Gọi, không từ mẫu
+  Voice DNA. Người chưa thu Voice DNA vẫn có dấu nếu cuộc gọi của chính tài
+  khoản đủ một cụm đa số. Cụm là các đoạn cách medoid ≤ `speaker_seed_link`
+  0,60. Mở dấu khi cụm có ít nhất `speaker_seed_min_count` 4 đoạn, chiếm ít
+  nhất `speaker_seed_majority` 0,60 số đoạn dùng được, và lớn hơn hẳn cụm thứ
+  hai. Mỗi tài khoản chỉ nhúng tối đa `speaker_seed_max_clips` 48 đoạn, lấy
+  đều suốt lịch sử — không nhúng hết hàng nghìn cuộc của người nói nhiều, và
+  không chỉ lấy các cuộc mới nhất. Đoạn ngắn, lẫn tiếng, hoặc câu tự xưng chỉ người khác không vào cụm
+  của tài khoản — chữ không tự mở dấu. Sau khi cụm đã chốt, đoạn lệch và đoạn
+  trên máy người khác chỉ nhập dấu đã có khi khớp chắc 0,60 và cách 0,10.
+  Script không dùng cửa 0,45. Hai lần `--commit` nhận cùng một tập vì centroid
+  chấm điểm không trôi. Dry-run in một dòng mỗi tài khoản. Không bịa dấu khi
+  chưa đủ cụm. Clone của người đã mất không phải giọng trên Gọi.
+
+Cửa hai giọng `speaker_half_min_cosine` là 0,50. Hai nửa từ mức đó trở lên là
+một giọng. Thấp hơn vẫn là một người khi cả đoạn khớp chắc một dấu và mỗi nửa
+cách đúng dấu đó ít nhất `speaker_half_agree_min` 0,40. Hai nửa chỉ hai người
+khác nhau thì không đổi xưng hô và không ghi dấu.
+
+Tên trên màn Gọi lấy từ `listMessages` sau khi job nền ghi `speaker_user_id`.
+`POST /messages/voice` trả ngay, `sender_name` vẫn là tài khoản. Mục «màn hiện
+tên mẹ» chỉ đúng sau lần tải lại danh sách.
+
 Phòng chat chữ (`/chat/[threadId]`) **không có nút Mic** — giọng chỉ đi qua
 `/call`. Bàn phím Android ở đó không dùng `KeyboardAvoidingView`: SDK 54 vẽ tràn
 viền nên cửa sổ không co lại; màn tự đội `paddingBottom` đúng chiều cao bàn phím
@@ -179,8 +235,9 @@ Vai người nhắn **đếm ra từ bậc**, không đọc từ nhãn. Nhãn ne
 «Tôi», nên `_audience_by_generation` lấy `Persona.generation_rank` của người
 được nhớ trừ đi bậc của người nghe: chênh 1 là con, chênh ≥2 là cháu. Chỗ neo
 cho nhãn người sống là hồ sơ được nhớ cũ nhất, đúng như câu hỏi trên màn tạo hồ
-sơ. Không đếm được bậc thì mới rơi về đọc nhãn. Người nhắn tự xưng «cháu» thì
-lời họ thắng tất — `_declares_grandchild`.
+sơ. Không đếm được bậc thì mới rơi về đọc nhãn. Người nhắn tự xưng «cháu»
+(`_declares_grandchild`) thắng nhãn và thắng phòng khi giọng không khớp. Giọng
+đã khớp chắc thì vai lấy từ người khớp — câu «cháu…» không được lật vai đó.
 
 `meta.persona_register` trên mỗi lượt ghi cặp xưng hô đã dùng («bà — cháu»);
 đó là chỗ soi đầu tiên khi giọng nghe lệch.
@@ -192,8 +249,12 @@ tính chung vào `maxOutputTokens` và Gemini 3 không cho đặt trần cho ri�
 cụt nữa. Chừa rộng không tốn thêm: hoá đơn tính trên token thực sinh ra.
 
 `DEPTH_TOKENS` là lưới an toàn, không phải cách giữ câu ngắn — độ dài do
-`DEPTH_RULES` trong prompt giữ. Bị chặn thì `_gemini_heritage_reply` hỏi lại một
-lần với chỗ rộng gấp ba; `_finalize_reply_text` chỉ là nước cuối.
+`DEPTH_RULES` trong prompt giữ. `short` là một hoặc hai câu đúng chuyện; hỏi
+khi chuyện còn dang dở, không hỏi nếu lượt trước vừa hỏi. Câu «lượt vừa rồi đã
+hỏi — lượt này không hỏi» nằm trong prompt. Đừng thêm một bước xóa câu hỏi ở
+cuối câu trả lời: dễ cắt mất câu trả lời thật. Model vẫn có thể hỏi; xem vài
+lượt là quan sát, không phải một đảm bảo. Bị chặn thì `_gemini_heritage_reply`
+hỏi lại một lần với chỗ rộng gấp ba; `_finalize_reply_text` chỉ là nước cuối.
 `meta.thoughts_tokens` trong telemetry cho biết model tiêu bao nhiêu cho suy nghĩ.
 
 Câu kết phải thưa. `maybe_winddown` nhắc nghỉ mỗi `threshold` lượt chứ không
@@ -217,10 +278,21 @@ người khác có — đó là cách «nhớ bà quá» từng không kích ho�
 
 - Each remembered person has one family thread and one private thread per member
   (`threads.audience_scope`). Never widen `require_thread_access`.
-- Audience in a private thread comes from the thread, not from guessing wording.
+- Xưng hô trong phòng riêng theo người đang nói khi giọng hoặc câu tự xưng đã
+  nhận ra họ — kể cả khi đó không phải chủ phòng. Đó là cố ý đảo luật cũ
+  «phòng riêng lấy người của phòng, không đoán từ chữ». Chữ không khớp và giọng
+  không khớp thì vẫn lấy chủ phòng.
+- Khi người nhận ra không phải chủ phòng, prompt chỉ được đưa ký ức cả nhà
+  (`visibility` family). `prompt_reader` trả `None` khi phòng là `direct`,
+  `recognized_speaker_id` có giá trị, và khác `member_user_id`. Mọi chỗ truy
+  hồi của lượt heritage (thơ, kiến thức, mốc đời, fact đã học, `family_shared`)
+  đi qua helper đó. Trí nhớ cuộn của phòng đang mở (`load_state`) giữ nguyên —
+  chỗ khép là kho riêng, không phải bản ghi của phòng họ đang đứng.
 - Chat may only ever *propose* a fact. `memory_candidates` → a human approves →
-  `MemoryItem`. A private thread's candidates are reviewed by that member, not
-  the steward and not a moderator.
+  `MemoryItem`. A private thread's candidates stay with the room owner
+  (`reviewer_for` → `member_user_id`), not the steward and not a moderator.
+  Đừng gắn im lặng `reviewer_user_id` vào người vừa được nhận giọng — hàng chờ
+  đổi chủ phải là một quyết định riêng.
 - Only `stated` facts become memory; `implied` ones stay in message meta.
 - The compactor may retire a fact, never reword one.
 

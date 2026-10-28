@@ -27,6 +27,7 @@ worker = [
 [project.scripts]
 extract = "extract.cli:main"
 extract-worker = "extract.worker:main"
+speaker-id = "extract.embed_server:main"
 
 [tool.setuptools.packages.find]
 include = ["extract*"]

@@ -145,3 +145,64 @@ chữ thay vì đọc.
 TTS streaming, chen ngang khi Bố đang nói, tự dừng thu khi im lặng (VAD), STT
 chạy trên máy, wake word. Và chạy golden live — đã hoãn có chủ ý để hoàn thiện
 vòng lặp giọng trên local trước.
+
+## 7. Nhận người nói trên Gọi
+
+Hướng đã khớp sản phẩm (PR nhận giọng): gallery đóng, tách khỏi clone Voice
+DNA, process embed riêng cạnh Extract, giọng thắng chữ, chữ không ghi vector,
+tắt `speaker-id` thì Gọi vẫn trả lời theo tài khoản. Embed chạy trước, song
+song với STT. «X đây» đọc local ngay khi có chữ.
+
+**Hai cửa, không phải một.** Xưng hô giữ cosine 0,60
+(`speaker_match_threshold`) và cách người thứ hai 0,10
+(`speaker_match_margin`): thà giữ tài khoản còn hơn gọi nhầm người. Dưới cửa
+đó giọng không đặt `speaker_user_id`. Câu tự xưng (`reason` "words") vẫn đặt
+được người được xưng hô. Chữ không chọn dấu nào để ghi. Khi `words_user_id`
+khác tài khoản, cửa thấp hơn đóng.
+
+Kéo dấu giọng là cửa khác: `speaker_self_enroll_threshold` 0,45 và
+`speaker_self_enroll_margin` 0,05. Một lượt chỉ trộn vào dấu **đã có** của
+tài khoản đang đăng nhập khi clip không ngắn, không lẫn tiếng, tài khoản đã
+có dấu, tài khoản là ứng viên gần nhất, cosine ≥ 0,45, và cách người thứ hai
+≥ 0,05. Cách này hẹp hơn cách 0,10 của xưng hô. Không ghi sang người khác ở
+ngưỡng này — mẹ trên máy con không được kéo dấu của con, kể cả khi câu tự
+xưng đã đổi xưng hô sang mẹ. Không tạo dấu mới từ lượt Gọi. Không ghi
+`VoiceSample`. Khớp chắc (`reason` "match") vẫn xưng người đó và chỉ trộn dấu
+đã có của họ.
+
+`rebuild-speaker-prints.py` mở dấu từ lịch sử Gọi, không từ mẫu Voice DNA.
+Cụm đa số của chính tài khoản (cách medoid ≤ 0,60, ít nhất 4 đoạn, chiếm ít
+nhất 0,60 số đoạn dùng được, và lớn hơn hẳn cụm kia) mới thành dấu. Mỗi tài
+khoản chỉ nhúng tối đa 48 đoạn, lấy đều suốt lịch sử, để người nói nhiều không
+kéo cả lần chạy. Người
+chưa có Voice DNA vẫn được phủ nếu cuộc gọi của họ đủ cụm đó. Câu tự xưng chỉ
+người khác không vào cụm, và chữ không tự mở dấu. Đoạn lệch, kể cả mẹ nói trên
+máy con, chỉ nhập dấu đã chốt khi khớp chắc 0,60 và cách 0,10. Script không
+dùng cửa 0,45. Centroid chấm điểm không trôi, nên hai lần `--commit` nhận
+cùng một tập. Dry-run in một dòng mỗi tài khoản. Không bịa dấu khi chưa đủ cụm.
+
+**Cửa hai giọng.** `speaker_half_min_cosine` là 0,50. Hai nửa từ mức đó trở lên
+là một giọng. Thấp hơn vẫn là một người khi cả đoạn khớp chắc một dấu và mỗi
+nửa cách đúng dấu đó ít nhất `speaker_half_agree_min` 0,40. Hai nửa chỉ hai
+người khác nhau thì không đổi xưng hô và không ghi dấu.
+
+**Giọng thắng câu tự xưng «cháu».** `_detect_audience` lấy vai từ
+`speaker_user_id` khi id đó khớp ra một vai, trước `_declares_grandchild`. Mẹ
+nói «cháu…» mà giọng đã khớp mẹ thì vai vẫn là mẹ. «Cháu…» chỉ chọn vai cháu
+khi giọng không khớp — lúc đó nó vẫn thắng chủ phòng và thắng nhãn.
+
+**Phòng riêng: xưng hô đi theo người nói, kho ký ức thì không.** Nhận ra mẹ
+trên máy con thì Bố xưng với mẹ, kể cả trong phòng riêng của con. Prompt của
+lượt đó, khi `recognized_speaker_id` khác `member_user_id`, chỉ mang ký ức cả
+nhà (`prompt_reader` trả `None` cho thơ, kiến thức, mốc đời, fact đã học,
+`family_shared`). Hàng chờ duyệt giữ `reviewer_user_id` của chủ phòng — không
+gán sang người vừa nhận giọng. Trí nhớ cuộn của phòng đang mở (`load_state`)
+giữ nguyên.
+
+**Tên trên màn.** `POST /messages/voice` trả ngay với tên tài khoản, vì nhận
+diện chạy trong job nền. Màn Gọi lấy tên từ `listMessages` sau khi
+`speaker_user_id` đã ghi. Kiểm «hiện tên mẹ» chỉ đúng sau lần tải lại danh sách.
+
+**Câu hỏi cuối lượt** nằm trong `DEPTH_RULES` và câu «lượt vừa rồi đã hỏi».
+Đừng thêm bước xóa câu hỏi ở cuối. Model vẫn có thể hỏi; vài lượt quan sát
+không phải một đảm bảo.

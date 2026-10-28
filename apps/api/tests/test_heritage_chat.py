@@ -813,6 +813,117 @@ def test_self_declared_grandchild_beats_a_relation_label():
     assert not _declares_grandchild("Con chào mẹ")
 
 
+def test_recognized_speaker_beats_a_grandchild_self_claim(client):
+    """Mẹ trên máy con nói «cháu…»: giọng đã khớp thì vai vẫn là mẹ."""
+    from datetime import datetime, timezone
+
+    from nanoid import generate
+
+    from app.db import SessionLocal
+    from app.models import FamilySpace, IdentityProfile, Thread, User
+
+    db = SessionLocal()
+    try:
+        now = datetime.now(timezone.utc)
+        son = User(
+            id=generate(),
+            firebase_uid=generate(),
+            email=f"{generate()}@example.com",
+            name="Đình Anh",
+            created_at=now,
+        )
+        mom = User(
+            id=generate(),
+            firebase_uid=generate(),
+            email=f"{generate()}@example.com",
+            name="Lê Thị Định",
+            created_at=now,
+        )
+        db.add_all([son, mom])
+        db.commit()
+        space = FamilySpace(
+            id=generate(),
+            name="Nhà",
+            created_by=son.id,
+            steward_user_id=son.id,
+            created_at=now,
+        )
+        db.add(space)
+        db.commit()
+        db.add_all(
+            [
+                IdentityProfile(
+                    id=generate(),
+                    space_id=space.id,
+                    display_name="Anh",
+                    relation_label="Con",
+                    status="living",
+                    linked_user_id=son.id,
+                    created_by=son.id,
+                    created_at=now,
+                ),
+                IdentityProfile(
+                    id=generate(),
+                    space_id=space.id,
+                    display_name="Mẹ",
+                    relation_label="Vợ",
+                    status="living",
+                    linked_user_id=mom.id,
+                    created_by=son.id,
+                    created_at=now,
+                ),
+            ]
+        )
+        direct = Thread(
+            id=generate(),
+            space_id=space.id,
+            kind="heritage",
+            title="Bố",
+            audience_scope="direct",
+            member_user_id=son.id,
+            created_at=now,
+        )
+        db.add(direct)
+        db.commit()
+        claim = "Bà ơi cháu nhớ bà quá"
+        assert (
+            _detect_audience(
+                db,
+                space_id=space.id,
+                sender_user_id=son.id,
+                speaker_user_id=mom.id,
+                user_text=claim,
+                thread=direct,
+            )
+            == "spouse"
+        )
+        # No recognized speaker: the self-claim still beats the room owner.
+        assert (
+            _detect_audience(
+                db,
+                space_id=space.id,
+                sender_user_id=son.id,
+                user_text=claim,
+                thread=direct,
+            )
+            == "grandchild"
+        )
+        # A speaker id that does not resolve to an audience falls through.
+        assert (
+            _detect_audience(
+                db,
+                space_id=space.id,
+                sender_user_id=son.id,
+                speaker_user_id="not-a-member",
+                user_text=claim,
+                thread=direct,
+            )
+            == "grandchild"
+        )
+    finally:
+        db.close()
+
+
 def test_living_offset_covers_siblings_and_nieces():
     assert _living_offset("Em gái") == 0
     assert _living_offset("Em trai") == 0
