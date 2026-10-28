@@ -334,10 +334,14 @@ Phòng riêng tạo lười, lần đầu thành viên bấm vào —
 chặn mọi người khác đọc hay gửi, kể cả owner và steward, và `list_threads` không
 liệt kê phòng riêng của người khác.
 
-Lợi ích không nằm ở UI: **trong phòng riêng, audience là tất định**. Thread đã
-biết ai đang nói nên không phải đoán theo câu chữ nữa — lỗi gốc «con nhắc lời mẹ
-thì bị trả lời như vợ» biến mất về mặt cấu trúc. Phòng cả nhà vẫn phải đoán, vì
-ở đó thật sự có nhiều người.
+Lợi ích không nằm ở UI: **trong phòng riêng, audience mặc định là chủ phòng**.
+Thread đã biết ai sở hữu phòng nên không phải đoán theo câu chữ — lỗi gốc «con
+nhắc lời mẹ thì bị trả lời như vợ» biến mất khi không có tín hiệu người nói.
+Nhận giọng (và câu tự xưng «X đây») cố ý đảo riêng phần xưng hô: mẹ nói trên
+máy con thì Bố xưng với mẹ, kể cả trong phòng riêng của con. Kho ký ức không
+đi theo. Khi người nói không phải chủ phòng, prompt chỉ mang ký ức cả nhà;
+hàng chờ duyệt vẫn là `member_user_id` cho đến khi có một quyết định riêng.
+Phòng cả nhà vẫn phải đoán khi giọng không khớp, vì ở đó thật sự có nhiều người.
 
 ## Cấu trúc code
 
@@ -397,5 +401,9 @@ không phát sinh loại phơi nhiễm mới. Riêng `new_facts` gated qua stewa
 
 Phòng riêng kín theo `require_thread_access`, không có cửa sau cho owner hay
 steward. Trí nhớ nằm theo thread nên điều mẹ kể riêng không rò sang phòng của
-con. Hàng đợi duyệt giữ đúng bức tường đó: fact của phòng riêng chỉ chủ phòng
-thấy, và chia sẻ ra cả nhà là một hành động có chủ ý, có xác nhận.
+con. Chiều ngược lại chưa khép: mẹ nói trên máy con, trong phòng riêng của con,
+thì `reader_for_thread` vẫn là con — câu trả lời có thể đọc ký ức `private`
+của con cho mẹ đang cầm máy. Khi người nhận ra không phải chủ phòng, prompt
+chỉ được ký ức cả nhà. Hàng đợi duyệt giữ đúng bức tường của chủ phòng: fact
+của phòng riêng chỉ chủ phòng thấy, và chia sẻ ra cả nhà là một hành động có
+chủ ý, có xác nhận. Đừng chuyển `reviewer_user_id` sang người vừa nhận giọng.

@@ -145,3 +145,44 @@ chữ thay vì đọc.
 TTS streaming, chen ngang khi Bố đang nói, tự dừng thu khi im lặng (VAD), STT
 chạy trên máy, wake word. Và chạy golden live — đã hoãn có chủ ý để hoàn thiện
 vòng lặp giọng trên local trước.
+
+## 7. Nhận người nói trên Gọi
+
+Hướng đã khớp sản phẩm (PR nhận giọng): gallery đóng, tách khỏi clone Voice
+DNA, process embed riêng cạnh Extract, giọng thắng chữ, chữ không ghi vector,
+tắt `speaker-id` thì Gọi vẫn trả lời theo tài khoản. Embed chạy trước, song
+song với STT. «X đây» đọc local ngay khi có chữ.
+
+Ba chỗ chưa khép. Quyết định dưới đây là kế hoạch để giao, code chưa theo.
+
+**Hai cửa, không phải một.** Xưng hô giữ cosine 0,60 và cách người thứ hai
+0,10: thà giữ tài khoản còn hơn gọi nhầm người. Kéo dấu giọng là cửa khác.
+Đoạn ghi trên chính máy của một người được trộn vào dấu của chính họ ở ngưỡng
+thấp hơn, với điều kiện họ vẫn là ứng viên gần nhất. Không ghi sang người khác
+ở ngưỡng thấp — đoạn của mẹ trên máy con không được kéo dấu của con. Số ngưỡng
+thấp chưa chốt. `rebuild-speaker-prints.py` hôm nay dùng cùng cửa 0,60 cho đoạn
+Gọi cũ, và dry-run chỉ in số clip. Dry-run phải in cosine của từng đoạn Gọi so
+với từng mỏ neo trước khi khóa 0,60.
+
+**Cửa hai giọng đang lỏng.** Hai nửa clip dưới 0,25 mới bị coi là lẫn tiếng,
+trong khi khớp người đòi 0,60. Cửa đó gần như không chặn một đoạn lẫn trước
+khi ghi dấu. Siết cho tới khi hai nửa khác người thì bị loại.
+
+**Một đường chữ vẫn thắng giọng.** `_declares_grandchild` chạy trước
+`speaker_user_id`. Mẹ nói «cháu…» thì Bố sang vai cháu dù giọng đã khớp mẹ.
+Giọng khớp chắc phải thắng câu đó. «Cháu…» chỉ chọn vai cháu khi giọng không
+khớp.
+
+**Phòng riêng: xưng hô đi theo người nói, kho ký ức thì không.** Nhận ra mẹ
+trên máy con thì Bố xưng với mẹ, kể cả trong phòng riêng của con. Prompt của
+lượt đó, khi người nói không phải chủ phòng, chỉ được mang ký ức cả nhà đọc
+được. Hàng chờ duyệt giữ `reviewer_user_id` của chủ phòng cho đến khi có một
+quyết định riêng — đừng gán im lặng sang người vừa nhận giọng.
+
+**Tên trên màn.** `POST /messages/voice` trả ngay với tên tài khoản, vì nhận
+diện chạy trong job nền. Màn Gọi lấy tên từ `listMessages` sau khi
+`speaker_user_id` đã ghi. Kiểm «hiện tên mẹ» chỉ đúng sau lần tải lại danh sách.
+
+**Câu hỏi cuối lượt** nằm trong `DEPTH_RULES` và câu «lượt vừa rồi đã hỏi».
+Đừng thêm bước xóa câu hỏi ở cuối. Model vẫn có thể hỏi; vài lượt quan sát
+không phải một đảm bảo.
