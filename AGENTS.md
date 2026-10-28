@@ -56,7 +56,9 @@ tài khoản còn hơn gọi nhầm người.
   khoản đủ một cụm đa số. Cụm là các đoạn cách medoid ≤ `speaker_seed_link`
   0,60. Mở dấu khi cụm có ít nhất `speaker_seed_min_count` 4 đoạn, chiếm ít
   nhất `speaker_seed_majority` 0,60 số đoạn dùng được, và lớn hơn hẳn cụm thứ
-  hai. Đoạn ngắn, lẫn tiếng, hoặc câu tự xưng chỉ người khác không vào cụm
+  hai. Mỗi tài khoản chỉ nhúng tối đa `speaker_seed_max_clips` 48 đoạn, lấy
+  đều suốt lịch sử — không nhúng hết hàng nghìn cuộc của người nói nhiều, và
+  không chỉ lấy các cuộc mới nhất. Đoạn ngắn, lẫn tiếng, hoặc câu tự xưng chỉ người khác không vào cụm
   của tài khoản — chữ không tự mở dấu. Sau khi cụm đã chốt, đoạn lệch và đoạn
   trên máy người khác chỉ nhập dấu đã có khi khớp chắc 0,60 và cách 0,10.
   Script không dùng cửa 0,45. Hai lần `--commit` nhận cùng một tập vì centroid

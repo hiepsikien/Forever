@@ -172,7 +172,9 @@ xưng đã đổi xưng hô sang mẹ. Không tạo dấu mới từ lượt G�
 
 `rebuild-speaker-prints.py` mở dấu từ lịch sử Gọi, không từ mẫu Voice DNA.
 Cụm đa số của chính tài khoản (cách medoid ≤ 0,60, ít nhất 4 đoạn, chiếm ít
-nhất 0,60 số đoạn dùng được, và lớn hơn hẳn cụm kia) mới thành dấu. Người
+nhất 0,60 số đoạn dùng được, và lớn hơn hẳn cụm kia) mới thành dấu. Mỗi tài
+khoản chỉ nhúng tối đa 48 đoạn, lấy đều suốt lịch sử, để người nói nhiều không
+kéo cả lần chạy. Người
 chưa có Voice DNA vẫn được phủ nếu cuộc gọi của họ đủ cụm đó. Câu tự xưng chỉ
 người khác không vào cụm, và chữ không tự mở dấu. Đoạn lệch, kể cả mẹ nói trên
 máy con, chỉ nhập dấu đã chốt khi khớp chắc 0,60 và cách 0,10. Script không

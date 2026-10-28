@@ -36,6 +36,7 @@ from app.services.speaker_id import (
     cosine,
     decide_speaker,
     describe_seed_plan,
+    evenly_spaced,
     fuse_speaker,
     match_spoken_intro,
     normalize,
@@ -129,6 +130,17 @@ def test_no_gallery_stays_on_the_account():
     )
     assert decision.reason == "no_gallery"
     assert decision.user_id is None
+
+
+def test_evenly_spaced_covers_a_long_history_without_taking_all_of_it():
+    calls = list(range(2000))
+    picked = evenly_spaced(calls, 48)
+    assert len(picked) == 48
+    assert picked[0] < 50
+    assert picked[-1] > 1950
+    assert picked == evenly_spaced(calls, 48)
+    assert len(set(picked)) == 48
+    assert evenly_spaced(calls[:10], 48) == calls[:10]
 
 
 def _calls(user: str, vector: list[float], count: int, prefix: str) -> list[SeedClip]:

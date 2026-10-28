@@ -328,6 +328,21 @@ def _in_own_majority_pool(clip: SeedClip) -> bool:
     return not named or named == clip.user_id
 
 
+def evenly_spaced(items: list, limit: int) -> list:
+    """Spread `limit` picks across `items`, which the caller has already ordered.
+
+    A long call history stays a few dozen embeddings instead of every clip.
+    The picks sit in the middle of equal time buckets, so the sample is the
+    whole span and not only the latest calls. The same ordered list always
+    yields the same picks.
+    """
+    count = len(items)
+    if limit <= 0 or count <= limit:
+        return list(items)
+    step = count / limit
+    return [items[min(count - 1, int((index + 0.5) * step))] for index in range(limit)]
+
+
 def _neighborhood(units: list[list[float]], index: int, link: float) -> list[int]:
     origin = units[index]
     members: list[int] = []

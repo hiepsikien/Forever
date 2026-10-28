@@ -15,6 +15,7 @@ import json
 import os
 import tempfile
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from pathlib import Path
 from threading import Lock
 from typing import Any
 from urllib.parse import urlparse
@@ -97,12 +98,30 @@ def embed_waveform(inference, waveform, sample_rate: int) -> list[float]:
 
 
 def embed_file(inference, path: str) -> dict[str, Any]:
-    import torchaudio
+    """Embed one clip.
 
-    waveform, sample_rate = torchaudio.load(path)
-    waveform = _mono(waveform)
+    Decode with ffmpeg, then soundfile. `torchaudio.load` pulls torchcodec,
+    and that wheel looks for `libnvrtc` even on the CPU image — every Gọi
+    clip then comes back as unreadable.
+    """
+    from extract.diarize import load_waveform
+    from extract.normalize import DIARIZE_SAMPLE_RATE, normalize_audio
+
+    wav_path = ""
+    try:
+        with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as tmp:
+            wav_path = tmp.name
+        normalize_audio(Path(path), Path(wav_path), sample_rate=DIARIZE_SAMPLE_RATE)
+        audio = load_waveform(Path(wav_path))
+    finally:
+        if wav_path:
+            try:
+                os.unlink(wav_path)
+            except OSError:
+                pass
+    waveform = _mono(audio["waveform"])
+    rate = int(audio["sample_rate"]) or 1
     frames = int(waveform.shape[-1])
-    rate = int(sample_rate) or 1
     duration_s = frames / rate
     embedding = embed_waveform(inference, waveform, rate)
     halves = None

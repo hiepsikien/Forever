@@ -141,6 +141,11 @@ class Settings(BaseSettings):
     speaker_seed_link: float = 0.60
     speaker_seed_min_count: int = 4
     speaker_seed_majority: float = 0.60
+    # How many calls per account the rebuild embeds. Past this, clips are
+    # taken evenly across that account's history. The slow part is the
+    # embedding, not the cluster, so a person with thousands of calls stays
+    # on this budget.
+    speaker_seed_max_clips: int = 48
     # Running mean stops letting new clips shrink below this weight.
     speaker_print_cap: int = 32
 
