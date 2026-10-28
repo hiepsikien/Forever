@@ -122,17 +122,25 @@ class Settings(BaseSettings):
     # don't enroll, including the account's own print. 0.50 sits next to the
     # address gate so a mixed clip is rejected before it can move a print.
     speaker_half_min_cosine: float = 0.50
-    # Self-print update, separate from addressing. A live turn may blend into
-    # the logged-in account's EXISTING print when that account is the nearest
-    # voice and the cosine clears this bar. Provisional until real
-    # call-vs-anchor cosines are printed by `scripts/rebuild-speaker-prints.py`
-    # (dry-run). Never creates a print and never writes another person.
-    # Closes when the transcript names someone other than the account.
+    # Self-print update on a live turn, separate from addressing. A live turn
+    # may blend into the logged-in account's EXISTING print when that account
+    # is the nearest voice and the cosine clears this bar. Never creates a
+    # print and never writes another person. The rebuild script does not use
+    # this bar. Closes when the transcript names someone other than the account.
     speaker_self_enroll_threshold: float = 0.45
     # Gap over the runner-up required to move the account print. Narrower than
     # speaker_match_margin so a near-tie cannot walk the print toward the
     # other person one clip at a time.
     speaker_self_enroll_margin: float = 0.05
+    # Rebuild opens a print from the account's own past calls, not Voice DNA.
+    # Clips within `speaker_seed_link` of the medoid are one pattern. The
+    # pattern must contain at least `speaker_seed_min_count` clips, cover at
+    # least `speaker_seed_majority` of that account's usable calls, and be
+    # strictly larger than the next pattern. Link matches the address gate so
+    # two voices do not glue together.
+    speaker_seed_link: float = 0.60
+    speaker_seed_min_count: int = 4
+    speaker_seed_majority: float = 0.60
     # Running mean stops letting new clips shrink below this weight.
     speaker_print_cap: int = 32
 

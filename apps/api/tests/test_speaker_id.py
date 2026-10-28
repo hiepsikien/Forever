@@ -35,7 +35,7 @@ from app.services.speaker_id import (
     centroid,
     cosine,
     decide_speaker,
-    describe_call_clips,
+    describe_seed_plan,
     fuse_speaker,
     match_spoken_intro,
     normalize,
@@ -131,33 +131,57 @@ def test_no_gallery_stays_on_the_account():
     assert decision.user_id is None
 
 
-def test_seed_reassigns_cross_account_clips_and_does_not_invent_people():
+def _calls(user: str, vector: list[float], count: int, prefix: str) -> list[SeedClip]:
+    return [
+        SeedClip(user, vector, trusted=False, label=f"{prefix}{index:02d}")
+        for index in range(count)
+    ]
+
+
+def test_call_history_majority_covers_someone_with_no_voice_dna():
+    """Four consistent calls open a print. Voice DNA samples do not."""
+    calls = _calls("mom", MOM, 4, "mom")
+    samples = [
+        SeedClip("mom", MOM, trusted=True, label=f"dna{index}") for index in range(4)
+    ]
+    assigned = assign_seed_clips(calls, threshold=0.6, margin=0.1)
+    assert set(assigned) == {"mom"}
+    assert len(assigned["mom"]) == 4
+    assert assign_seed_clips(samples, threshold=0.6, margin=0.1) == {}
+    assert assign_seed_clips(calls[:3], threshold=0.6, margin=0.1) == {}
+
+
+def test_a_split_or_a_thin_run_does_not_open_a_print():
+    split = [*_calls("son", SON, 4, "s"), *_calls("son", MOM, 4, "m")]
+    assert assign_seed_clips(split, threshold=0.6, margin=0.1) == {}
+    # 4 of 7 is a real cluster, and it is still not a majority of the calls.
+    thin = [*_calls("son", SON, 4, "s"), *_calls("son", MOM, 3, "m")]
+    assert assign_seed_clips(thin, threshold=0.6, margin=0.1) == {}
+    clear = [*_calls("son", SON, 6, "s"), *_calls("son", MOM, 4, "m")]
+    assigned = assign_seed_clips(clear, threshold=0.6, margin=0.1)
+    assert set(assigned) == {"son"}
+    assert len(assigned["son"]) == 6
+
+
+def test_majority_reassigns_another_persons_voice_without_inventing_them():
     clips = [
-        SeedClip("son", SON, trusted=True),
-        SeedClip("mom", MOM, trusted=True),
-        SeedClip("brother", BROTHER, trusted=True),
-        # Mẹ on con's account.
-        SeedClip("son", _unit(0.02, 1.0), trusted=False),
-        # Con and anh on mẹ's account.
-        SeedClip("mom", _unit(0.98, 0.02), trusted=False),
-        SeedClip("mom", _unit(-0.05, -1.0), trusted=False),
-        # Nobody we know — tied between son and mother, so it stays out.
-        SeedClip("mom", _unit(1.0, 1.0), trusted=False),
-        # No anchor for the guest. The vector still matches the son's anchor,
-        # so it follows that voice and does not open a guest print.
-        SeedClip("guest", _unit(1.0, -1.0), trusted=False),
+        *_calls("son", SON, 4, "son"),
+        *_calls("mom", MOM, 4, "mom"),
+        # Mẹ on con's phone, and con on a guest phone. One stray clip does
+        # not open the guest. Brother has a Voice DNA sample and no calls.
+        SeedClip("son", _unit(0.02, 1.0), trusted=False, label="mom-on-son"),
+        SeedClip("guest", _unit(1.0, -0.02), trusted=False, label="son-on-guest"),
+        SeedClip("brother", BROTHER, trusted=True, label="brother-dna"),
+        # Equal cosine to both prints. One clip, and a tie, so the guest
+        # gets no print and this vector joins neither person.
+        SeedClip("guest", _unit(1.0, 1.0), trusted=False, label="tie"),
     ]
     assigned = assign_seed_clips(clips, threshold=0.6, margin=0.1)
-    assert set(assigned) == {"son", "mom", "brother"}
-    assert len(assigned["mom"]) == 2  # anchor + the clip from son's account
-    assert len(assigned["son"]) == 3  # anchor + son's clip on mẹ's phone + guest
-    assert len(assigned["brother"]) == 2
+    assert set(assigned) == {"son", "mom"}
+    assert len(assigned["son"]) == 5  # own majority + the guest clip
+    assert len(assigned["mom"]) == 5  # own majority + the clip on son's phone
     assert "guest" not in assigned
-
-
-def test_turns_alone_do_not_open_a_print():
-    clips = [SeedClip("son", SON, trusted=False), SeedClip("son", SON, trusted=False)]
-    assert assign_seed_clips(clips, threshold=0.6, margin=0.1) == {}
+    assert "brother" not in assigned
 
 
 def test_heritage_clone_is_not_an_anchor():
@@ -741,53 +765,44 @@ def test_self_enroll_keeps_address_closed_without_the_margin():
     ) == "son"
 
 
-def test_seed_self_enroll_joins_the_account_below_the_address_gate():
-    sure_mom = _unit(0.02, 1.0, 0.0)
+def test_seed_does_not_use_the_live_self_enroll_bar():
+    """A clip under 0.60 stays out, even when it would refresh a live print."""
     clips = [
-        SeedClip("son", SON3, trusted=True),
-        SeedClip("mom", MOM3, trusted=True),
-        # No anchor for the guest, and not a confident match, so no print.
-        # Scored before any call clip moves a centroid.
-        SeedClip("guest", NEAR_SON, trusted=False),
-        SeedClip("son", NEAR_SON, trusted=False),
-        # Nearer mother, but under 0.60 — stays out of both prints.
-        SeedClip("son", NEAR_MOM, trusted=False),
-        # Confident mother on the son's account still follows the voice.
-        SeedClip("son", sure_mom, trusted=False),
+        *_calls("son", SON3, 4, "son"),
+        *_calls("mom", MOM3, 4, "mom"),
+        SeedClip("son", NEAR_SON, trusted=False, label="near-son"),
+        SeedClip("son", NEAR_MOM, trusted=False, label="near-mom"),
+        SeedClip("guest", NEAR_SON, trusted=False, label="guest"),
     ]
-    assigned = assign_seed_clips(
-        clips, threshold=0.6, margin=0.1, self_enroll_threshold=0.45
-    )
+    assigned = assign_seed_clips(clips, threshold=0.6, margin=0.1)
     assert set(assigned) == {"son", "mom"}
-    assert len(assigned["son"]) == 2
-    assert len(assigned["mom"]) == 2
+    assert len(assigned["son"]) == 4
+    assert len(assigned["mom"]) == 4
     assert "guest" not in assigned
 
 
-def test_seed_words_for_someone_else_stay_out_of_the_account_print():
-    """«Anh ơi em đây» on the son's phone must not pull his print."""
+def test_seed_words_for_someone_else_do_not_open_or_pull_a_print():
+    """«Anh ơi em đây» is left out of the son's pattern and does not open mẹ."""
     clips = [
-        SeedClip("son", SON3, trusted=True),
-        SeedClip("mom", MOM3, trusted=True),
+        *_calls("son", SON3, 4, "son"),
         SeedClip(
             "son", NEAR_SON, trusted=False, spoken_user_id="mom", label="intro"
         ),
+        SeedClip(
+            "son", MOM3, trusted=False, spoken_user_id="mom", label="mom-voice"
+        ),
     ]
-    assigned = assign_seed_clips(
-        clips,
-        threshold=0.6,
-        margin=0.1,
-        self_enroll_threshold=0.45,
-        self_enroll_margin=0.05,
-    )
-    assert len(assigned["son"]) == 1
-    assert len(assigned["mom"]) == 1
+    assigned = assign_seed_clips(clips, threshold=0.6, margin=0.1)
+    assert set(assigned) == {"son"}
+    assert len(assigned["son"]) == 4
 
 
 def test_seed_confident_match_still_follows_the_voice_when_words_disagree():
     clips = [
-        SeedClip("son", SON3, trusted=True),
-        SeedClip("mom", MOM3, trusted=True),
+        *_calls("son", SON3, 4, "son"),
+        *_calls("mom", MOM3, 4, "mom"),
+        # Says «con đây» but the voice is mẹ. The words stay in his pool and
+        # the voice still joins her frozen majority.
         SeedClip(
             "son",
             _unit(0.02, 1.0, 0.0),
@@ -795,63 +810,65 @@ def test_seed_confident_match_still_follows_the_voice_when_words_disagree():
             spoken_user_id="son",
             label="says-son",
         ),
+        # Says «em đây» but the voice is con. Words do not block a match.
+        SeedClip(
+            "son",
+            SON3,
+            trusted=False,
+            spoken_user_id="mom",
+            label="says-mom",
+        ),
     ]
-    assigned = assign_seed_clips(
-        clips,
-        threshold=0.6,
-        margin=0.1,
-        self_enroll_threshold=0.45,
-        self_enroll_margin=0.05,
-    )
-    assert len(assigned["mom"]) == 2
-    assert len(assigned["son"]) == 1
+    assigned = assign_seed_clips(clips, threshold=0.6, margin=0.1)
+    assert len(assigned["son"]) == 5
+    assert len(assigned["mom"]) == 5
 
 
-def test_seed_scores_every_clip_against_the_original_anchors():
-    """A clip that only resembles a print after other clips moved it stays out.
+def test_seed_scores_leftovers_against_the_frozen_majority():
+    """Reversing the list accepts the same vectors.
 
-    Reversing the list accepts the same vectors. The decision never sees a
-    centroid that already absorbed a call clip.
+    A clip under the link stays out even if absorbing the other voice would
+    have walked the centroid toward it. The two mẹ clips on con's phone join
+    mẹ's own majority, not his.
     """
-    pull = _unit(0.48, 0.0, 0.90)
-    late = _unit(0.15, 0.0, 0.99)
-    anchors = [
-        SeedClip("son", SON3, trusted=True, label="a-son"),
-        SeedClip("mom", MOM3, trusted=True, label="a-mom"),
-    ]
-    pulls = [
-        SeedClip("son", pull, trusted=False, label=f"p{i:02d}") for i in range(8)
-    ]
-    tail = SeedClip("son", late, trusted=False, label="late")
-    kwargs = dict(
-        threshold=0.6,
-        margin=0.1,
-        self_enroll_threshold=0.45,
-        self_enroll_margin=0.05,
+    odd = _unit(0.55, -0.84)
+    assert cosine(odd, SON) is not None and cosine(odd, SON) < 0.60
+    assert cosine(odd, MOM) is not None and cosine(odd, MOM) < 0.60
+    son = _calls("son", SON, 6, "s")
+    other = _calls("son", MOM, 2, "m")
+    tail = SeedClip("son", odd, trusted=False, label="odd")
+    mom = _calls("mom", MOM, 4, "mom")
+    kwargs = dict(threshold=0.6, margin=0.1, link=0.6, min_count=4, majority=0.6)
+    forward = assign_seed_clips([*son, *other, tail, *mom], **kwargs)
+    backward = assign_seed_clips(
+        [*reversed(mom), tail, *reversed(other), *reversed(son)], **kwargs
     )
-    forward = assign_seed_clips([*anchors, *pulls, tail], **kwargs)
-    backward = assign_seed_clips([tail, *reversed(pulls), *reversed(anchors)], **kwargs)
-    assert len(forward["son"]) == 9
-    assert len(backward["son"]) == 9
+    assert len(forward["son"]) == 6
+    assert len(forward["mom"]) == 6
+    assert cosine(centroid(forward["son"]), SON) > 0.999
     assert cosine(centroid(forward["son"]), centroid(backward["son"])) > 0.999
+    assert cosine(centroid(forward["mom"]), centroid(backward["mom"])) > 0.999
 
 
-def test_dry_run_lists_each_call_clip_against_every_anchor():
+def test_dry_run_reports_each_account_once():
     clips = [
-        SeedClip("son", SON, trusted=True),
-        SeedClip("mom", MOM, trusted=True),
-        SeedClip("son", _unit(0.2, 0.98), trusted=False, label="clip-a"),
-        SeedClip("mom", SON, trusted=False, skip_reason="mixed", label="clip-b"),
+        *_calls("son", SON, 4, "son"),
+        *_calls("son", MOM, 2, "other"),
+        SeedClip("son", SON, trusted=False, skip_reason="mixed", label="mix"),
+        *_calls("mom", MOM, 2, "mom"),
+        SeedClip("mom", MOM, trusted=True, label="dna"),
+        # One introduction does not open the person it names.
+        SeedClip("guest", MOM, trusted=False, spoken_user_id="mom", label="intro"),
     ]
-    lines = describe_call_clips(clips)
-    assert len(lines) == 2
-    assert "account=son" in lines[0]
-    assert "message=clip-a" in lines[0]
-    assert "user=son score=" in lines[0]
-    assert "user=mom score=" in lines[0]
-    assert "skipped=mixed" in lines[1]
-    assert "user=son score=" in lines[1]
-    assert "user=mom score=" in lines[1]
+    lines = describe_seed_plan(clips, threshold=0.6, margin=0.1)
+    text = "\n".join(lines)
+    assert "user=son usable=6 skipped=1 words=0 cluster=4 ratio=0.67 -> print" in text
+    assert "user=mom usable=2 skipped=0 words=0 cluster=2 ratio=1.00 -> no print" in text
+    assert "user=guest usable=0 skipped=0 words=1 cluster=0 ratio=0.00 -> no print (1 câu tự xưng chỉ người khác)" in text
+    assert "score=" not in text
+    assert "message=" not in text
+    assert "joined" not in text
+    assert len(lines) == 3
 
 
 def _call_scene(db):

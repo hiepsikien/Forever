@@ -18,6 +18,9 @@ Addressing and updating a print are different gates. A doubtful cosine keeps
 the logged-in account. That same clip may still blend into the account's
 existing print when the account is the nearest voice and clears the lower
 self-enroll bar. It never opens a print and never writes anyone else.
+
+The rebuild script is what opens a print, from a majority of that account's
+own past calls. Voice DNA samples are not required and do not open one.
 """
 
 from __future__ import annotations
@@ -81,10 +84,13 @@ class SpeakerDecision:
 
 @dataclass(frozen=True)
 class SeedClip:
-    """One vector for the rebuild script. `trusted` is a self Voice DNA sample.
+    """One vector for the rebuild script.
 
-    `skip_reason` is set when the clip is too short or mixed. Those clips are
-    still scored against anchors in a dry-run, and they never join a print.
+    `trusted` marks a Voice DNA sample. Those samples are ignored: a print
+    opens from call history, so someone with no Voice DNA can still have one.
+    `skip_reason` is set when the clip is too short or mixed. Those clips
+    never join a print. `spoken_user_id` is who the transcript introduced.
+    A name other than the account stays out of that account's majority.
     """
 
     user_id: str
@@ -92,8 +98,6 @@ class SeedClip:
     trusted: bool
     skip_reason: str = ""
     label: str = ""
-    # Who the transcript introduced, if anyone. Same gate as a live turn:
-    # a name other than the account closes the lower enroll bar.
     spoken_user_id: str | None = None
 
 
@@ -305,112 +309,246 @@ def centroid(vectors: list[list[float]]) -> list[float]:
     return normalize(mean)
 
 
+def _seed_order_key(clip: SeedClip) -> tuple:
+    """Stable across input order. Identical labels still sort by the vector."""
+    raw = tuple(round(value, 6) for value in clip.embedding)
+    return (clip.label, clip.user_id, raw)
+
+
+def _in_own_majority_pool(clip: SeedClip) -> bool:
+    """A call clip that may count as this account's own voice.
+
+    Voice DNA samples, short clips, and mixed clips do not. A transcript that
+    names someone else does not either — one «em đây» must not drag the
+    account's pattern. Words still do not open a print by themselves.
+    """
+    if clip.trusted or clip.skip_reason or not clip.embedding:
+        return False
+    named = (clip.spoken_user_id or "").strip()
+    return not named or named == clip.user_id
+
+
+def _neighborhood(units: list[list[float]], index: int, link: float) -> list[int]:
+    origin = units[index]
+    members: list[int] = []
+    for other_index, other in enumerate(units):
+        score = cosine(origin, other)
+        if score is not None and score >= link:
+            members.append(other_index)
+    return members
+
+
+def _pick_medoid(units: list[list[float]], link: float) -> int:
+    """Largest neighborhood, then the tighter one, then the earlier clip."""
+    best_index = 0
+    best_key: tuple[int, float, int] | None = None
+    for index in range(len(units)):
+        members = _neighborhood(units, index, link)
+        sims = [
+            score
+            for other_index in members
+            if (score := cosine(units[index], units[other_index])) is not None
+        ]
+        mean = sum(sims) / len(sims) if sims else 0.0
+        key = (len(members), mean, -index)
+        if best_key is None or key > best_key:
+            best_key = key
+            best_index = index
+    return best_index
+
+
+def _select_majority(
+    units: list[list[float]],
+    *,
+    link: float,
+    min_count: int,
+    majority: float,
+) -> tuple[list[int], str, int]:
+    """Indices of the dominant pattern, or why the account gets no print.
+
+    The third value is the size of the largest pattern, even when it is
+    rejected. `few` means there are not enough usable calls. `thin` means
+    the tightest group is still smaller than `min_count`. `split` means two
+    voices share the account and neither is a clear majority.
+    """
+    count = len(units)
+    if count == 0:
+        return [], "few", 0
+    medoid = _pick_medoid(units, link)
+    kept = _neighborhood(units, medoid, link)
+    if count < min_count:
+        return [], "few", len(kept)
+    if len(kept) < min_count:
+        return [], "thin", len(kept)
+    if len(kept) + 1e-9 < majority * count:
+        return [], "split", len(kept)
+    outside = [units[index] for index in range(count) if index not in set(kept)]
+    if outside:
+        second_medoid = _pick_medoid(outside, link)
+        second = _neighborhood(outside, second_medoid, link)
+        if len(kept) <= len(second):
+            return [], "split", len(kept)
+    return kept, "print", len(kept)
+
+
+def _seed_reason(reason: str, cluster: int, min_count: int) -> str:
+    if reason == "few":
+        if cluster == 0:
+            return "không có đoạn dùng được"
+        return f"cần {min_count} đoạn cùng giọng"
+    if reason == "thin":
+        return f"cụm lớn nhất mới có {cluster} đoạn"
+    return "chưa phải đa số"
+
+
+@dataclass(frozen=True)
+class SeedPlan:
+    """Prints to write, and the dry-run lines that explain each account."""
+
+    prints: dict[str, list[list[float]]]
+    lines: tuple[str, ...]
+
+
+def plan_seed_clips(
+    clips: list[SeedClip],
+    *,
+    threshold: float,
+    margin: float,
+    link: float | None = None,
+    min_count: int = 4,
+    majority: float = 0.60,
+) -> SeedPlan:
+    """Open a print from the majority pattern in each account's own calls.
+
+    Voice DNA samples are ignored. Usable calls are the ones that are long
+    enough, one voice, and not a self-introduction of someone else. The
+    pattern is every clip within `link` of the medoid. It opens a print when
+    it has at least `min_count` clips, covers at least `majority` of that
+    account's usable calls, and is strictly larger than the next pattern
+    outside it. A 50/50 phone does not pick a voice.
+
+    Those centroids stay frozen. A clip left out of every pattern — another
+    person on this phone, or this person on someone else's phone — joins an
+    existing print only when `decide_speaker` is a confident match
+    (`threshold` and `margin`). The live self-enroll bar is not used, and
+    words do not open a print. Order does not change who is accepted.
+    """
+    link_cosine = threshold if link is None else link
+    ordered = sorted(
+        (clip for clip in clips if not clip.trusted),
+        key=_seed_order_key,
+    )
+    by_user: dict[str, list[SeedClip]] = {}
+    for clip in ordered:
+        by_user.setdefault(clip.user_id, []).append(clip)
+
+    kept_ids: set[int] = set()
+    buckets: dict[str, list[list[float]]] = {}
+    lines: list[str] = []
+    for user_id in sorted(by_user):
+        rows = by_user[user_id]
+        pool = [clip for clip in rows if _in_own_majority_pool(clip)]
+        skipped = sum(1 for clip in rows if clip.skip_reason)
+        named_other = sum(
+            1
+            for clip in rows
+            if not clip.skip_reason
+            and clip.embedding
+            and (clip.spoken_user_id or "").strip() not in ("", user_id)
+        )
+        units = [normalize(clip.embedding) for clip in pool]
+        chosen, reason, cluster = _select_majority(
+            units, link=link_cosine, min_count=min_count, majority=majority
+        )
+        ratio = (cluster / len(pool)) if pool else 0.0
+        if reason == "print":
+            buckets[user_id] = [units[index] for index in chosen]
+            for index in chosen:
+                kept_ids.add(id(pool[index]))
+            decision = "print"
+        elif not pool and named_other:
+            decision = f"no print ({named_other} câu tự xưng chỉ người khác)"
+        else:
+            decision = (
+                f"no print ({_seed_reason(reason, cluster, min_count)})"
+            )
+        lines.append(
+            f"  user={user_id} usable={len(pool)} skipped={skipped} "
+            f"words={named_other} cluster={cluster} ratio={ratio:.2f} -> {decision}"
+        )
+
+    prints = [
+        SpeakerPrintView(user_id, centroid(vectors))
+        for user_id, vectors in buckets.items()
+        if vectors
+    ]
+    joined: dict[str, int] = {}
+    if prints:
+        for clip in ordered:
+            if clip.skip_reason or not clip.embedding or id(clip) in kept_ids:
+                continue
+            decision = decide_speaker(
+                normalize(clip.embedding),
+                halves=None,
+                duration_s=None,
+                prints=prints,
+                threshold=threshold,
+                margin=margin,
+                min_duration_s=0.0,
+                half_min_cosine=0.0,
+            )
+            target = decision.enroll_user_id if decision.reason == "match" else None
+            if target and target in buckets:
+                buckets[target].append(normalize(clip.embedding))
+                joined[target] = joined.get(target, 0) + 1
+    for user_id, count in sorted(joined.items()):
+        lines.append(f"  joined user={user_id} clips={count}")
+    return SeedPlan(
+        prints={user_id: vectors for user_id, vectors in buckets.items() if vectors},
+        lines=tuple(lines),
+    )
+
+
 def assign_seed_clips(
     clips: list[SeedClip],
     *,
     threshold: float,
     margin: float,
-    self_enroll_threshold: float = 0.45,
-    self_enroll_margin: float = 0.05,
+    link: float | None = None,
+    min_count: int = 4,
+    majority: float = 0.60,
 ) -> dict[str, list[list[float]]]:
-    """Trusted self-samples open a print. A voice turn joins an existing one.
+    """Whose vectors to store. See `plan_seed_clips`."""
+    return plan_seed_clips(
+        clips,
+        threshold=threshold,
+        margin=margin,
+        link=link,
+        min_count=min_count,
+        majority=majority,
+    ).prints
 
-    Every call clip is scored against those anchors, never against a centroid
-    that already absorbed another call clip. Order does not change who is
-    accepted. A confident match follows the voice, including a turn recorded
-    on someone else's account. Below that gate, a turn joins the account's
-    bucket only when that account already has an anchor, the account is the
-    nearest anchor, the cosine clears `self_enroll_threshold`, the gap clears
-    `self_enroll_margin`, and the transcript did not name someone else. A
-    turn whose nearest anchor is someone else stays out unless the match is
-    confident. Nothing here invents a print for an account with no anchor.
-    """
-    ordered = sorted(clips, key=lambda clip: (clip.label, clip.user_id))
-    buckets: dict[str, list[list[float]]] = {}
-    for clip in ordered:
-        if not clip.trusted or clip.skip_reason:
-            continue
-        buckets.setdefault(clip.user_id, []).append(normalize(clip.embedding))
-    anchors = [
-        SpeakerPrintView(user_id, centroid(vectors))
-        for user_id, vectors in buckets.items()
-        if vectors
-    ]
-    for clip in ordered:
-        if clip.trusted or clip.skip_reason or not anchors:
-            continue
-        decision = decide_speaker(
-            normalize(clip.embedding),
-            halves=None,
-            duration_s=None,
-            prints=anchors,
+
+def describe_seed_plan(
+    clips: list[SeedClip],
+    *,
+    threshold: float,
+    margin: float,
+    link: float | None = None,
+    min_count: int = 4,
+    majority: float = 0.60,
+) -> list[str]:
+    """Dry-run lines: one decision per account, not one line per clip."""
+    return list(
+        plan_seed_clips(
+            clips,
             threshold=threshold,
             margin=margin,
-            min_duration_s=0.0,
-            half_min_cosine=0.0,
-        )
-        target = enroll_target(
-            decision,
-            account_user_id=clip.user_id,
-            self_threshold=self_enroll_threshold,
-            self_margin=self_enroll_margin,
-            spoken_user_id=clip.spoken_user_id,
-        )
-        # `target in buckets` is the anchor check: no key is created here.
-        if target and target in buckets:
-            buckets[target].append(normalize(clip.embedding))
-    return {user_id: vectors for user_id, vectors in buckets.items() if vectors}
-
-
-def anchor_print_views(clips: list[SeedClip]) -> list[SpeakerPrintView]:
-    """Centroids of trusted samples only — the anchors a dry-run scores against."""
-    grouped: dict[str, list[list[float]]] = {}
-    for clip in clips:
-        if not clip.trusted or clip.skip_reason:
-            continue
-        grouped.setdefault(clip.user_id, []).append(normalize(clip.embedding))
-    return [
-        SpeakerPrintView(user_id, centroid(vectors))
-        for user_id, vectors in grouped.items()
-        if vectors
-    ]
-
-
-def cosines_against(
-    embedding: list[float], prints: list[SpeakerPrintView]
-) -> list[tuple[str, float]]:
-    """Cosine of one clip to each print, nearest first."""
-    unit = normalize(embedding)
-    scored: list[tuple[str, float]] = []
-    for row in prints:
-        score = cosine(unit, normalize(row.embedding))
-        if score is None:
-            continue
-        scored.append((row.user_id, score))
-    scored.sort(key=lambda item: (-item[1], item[0]))
-    return scored
-
-
-def format_call_clip_scores(clip: SeedClip, prints: list[SpeakerPrintView]) -> str:
-    """One dry-run line: the account, and cosine to every anchor in the space."""
-    scores = cosines_against(clip.embedding, prints)
-    rendered = " ".join(f"user={user_id} score={score:.3f}" for user_id, score in scores)
-    if not rendered:
-        rendered = "(no anchors)"
-    skip = f" skipped={clip.skip_reason}" if clip.skip_reason else ""
-    label = f" message={clip.label}" if clip.label else ""
-    words = f" words={clip.spoken_user_id}" if clip.spoken_user_id else ""
-    return f"  call clip account={clip.user_id}{label}{words}{skip} {rendered}"
-
-
-def describe_call_clips(clips: list[SeedClip]) -> list[str]:
-    """Dry-run lines for every past Gọi clip, including short and mixed ones."""
-    anchors = anchor_print_views(clips)
-    return [
-        format_call_clip_scores(clip, anchors)
-        for clip in clips
-        if not clip.trusted
-    ]
+            link=link,
+            min_count=min_count,
+            majority=majority,
+        ).lines
+    )
 
 
 def _message_meta(message: Message) -> dict:
@@ -811,8 +949,8 @@ def apply_speaker_turn(
     they are the nearest voice by the self-enroll gap. A spoken intro changes
     who is addressed when the voice did not match. It does not choose the
     print. When it names someone else, that lower gate stays shut. Does not
-    create a print. The seed script opens the gallery from anchors. Does not
-    write a VoiceSample.
+    create a print. The seed script opens the gallery from a majority of past
+    calls. Does not write a VoiceSample.
     """
     settings = settings or get_settings()
     meta = _message_meta(message)

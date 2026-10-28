@@ -1,15 +1,19 @@
 #!/usr/bin/env python3
-"""Build speaker prints from self Voice DNA samples and past voice turns.
+"""Build speaker prints from past Gọi clips.
 
-Self samples (the person recorded their own voice) open a print. Every past
-Gọi clip is scored against those anchors, not against a centroid that has
-already absorbed other call clips, so two runs accept the same set. A clip
-joins the person it confidently matches — including when mẹ spoke on con's
-account. Below that gate, a clip joins the account's own anchor when that
-account is the nearest voice, the cosine and the gap clear the self-enroll
-bar, and the transcript did not name someone else. «Anh ơi em đây» on con's
-phone does not pull con's print. A dry-run prints each clip's cosine to
-every anchor — those are the scores used to accept the clip.
+Each account's own calls are clustered. The largest group of clips within
+`speaker_seed_link` of their medoid opens a print when it has at least
+`speaker_seed_min_count` clips, covers at least `speaker_seed_majority` of
+that account's usable calls, and is strictly larger than the next group.
+Voice DNA is not read. Someone with no Voice DNA still gets a print from a
+trustworthy run of their own calls. Someone whose calls split between two
+voices does not.
+
+Short clips, mixed clips, and a clip whose transcript names someone else stay
+out of the account's group. After every majority is frozen, a leftover joins
+an existing print only on a confident match (0.60 and a gap of 0.10). The
+live self-enroll bar is not used. Words do not open a print. Two `--commit`
+runs accept the same set. A dry-run prints one decision per account.
 
 Needs the speaker-id process (./scripts/run-speaker-id.sh) and DATABASE_URL.
 
@@ -28,16 +32,14 @@ sys.path.insert(0, str(ROOT / "apps" / "api"))
 
 from app.config import get_settings  # noqa: E402
 from app.db import SessionLocal  # noqa: E402
-from app.models import IdentityProfile, Message, SpeakerPrint, Thread, VoiceProfile, VoiceSample  # noqa: E402
+from app.models import Message, SpeakerPrint, Thread  # noqa: E402
 from app.services.speaker_id import (  # noqa: E402
     EmbedObservation,
     SeedClip,
     SpeakerIdUnavailable,
-    anchor_user_id,
-    assign_seed_clips,
     centroid,
     decide_speaker,
-    describe_call_clips,
+    plan_seed_clips,
     request_embedding,
     spoken_speaker_id,
     upsert_print,
@@ -75,41 +77,6 @@ def _gate(settings, obs: EmbedObservation) -> str:
 
 def collect(db, settings, *, space_id: str | None) -> dict[str, list[SeedClip]]:
     buckets: dict[str, list[SeedClip]] = {}
-
-    sample_query = (
-        db.query(VoiceSample, VoiceProfile)
-        .join(VoiceProfile, VoiceSample.voice_profile_id == VoiceProfile.id)
-        .filter(VoiceProfile.archived_at.is_(None))
-        .order_by(VoiceSample.id)
-    )
-    if space_id:
-        sample_query = sample_query.filter(VoiceProfile.space_id == space_id)
-    identities = {
-        row.id: row
-        for row in db.query(IdentityProfile).all()
-    }
-    for sample, profile in sample_query.all():
-        identity = identities.get(profile.identity_profile_id or "")
-        user_id = anchor_user_id(profile, identity)
-        if not user_id or not sample.media_path:
-            continue
-        obs = _observe(settings, sample.media_path, sample.media_mime)
-        if obs is None:
-            print(f"  skip anchor {sample.id} (unreadable)")
-            continue
-        reason = _gate(settings, obs)
-        if reason != "no_gallery":
-            print(f"  skip anchor {sample.id} ({reason})")
-            continue
-        buckets.setdefault(profile.space_id, []).append(
-            SeedClip(
-                user_id=user_id,
-                embedding=obs.embedding,
-                trusted=True,
-                label=sample.id,
-            )
-        )
-        print(f"  anchor {profile.space_id} user={user_id} sample={sample.id}")
 
     turn_query = (
         db.query(Message, Thread)
@@ -165,28 +132,24 @@ def main() -> int:
         cap = max(1, settings.speaker_print_cap)
         planned: dict[str, dict[str, list]] = {}
         for sid, clips in grouped.items():
-            planned[sid] = assign_seed_clips(
+            plan = plan_seed_clips(
                 clips,
                 threshold=settings.speaker_match_threshold,
                 margin=settings.speaker_match_margin,
-                self_enroll_threshold=settings.speaker_self_enroll_threshold,
-                self_enroll_margin=settings.speaker_self_enroll_margin,
+                link=settings.speaker_seed_link,
+                min_count=settings.speaker_seed_min_count,
+                majority=settings.speaker_seed_majority,
             )
-            trusted = {c.user_id for c in clips if c.trusted}
+            planned[sid] = plan.prints
             print(f"\n=== Space {sid} ===")
-            print(f"  anchors: {len(trusted)} people, clips: {len(clips)}")
-            print("  call vs anchor (trusted centroids, before blending call clips):")
-            lines = describe_call_clips(clips)
-            if lines:
-                for line in lines:
+            print(f"  call clips: {len(clips)}")
+            if plan.lines:
+                for line in plan.lines:
                     print(line)
             else:
                 print("  (no call clips)")
-            for user_id, vectors in sorted(planned[sid].items()):
+            for user_id, vectors in sorted(plan.prints.items()):
                 print(f"  print user={user_id} clips={len(vectors)}")
-            dropped = trusted - set(planned[sid])
-            if dropped:
-                print(f"  no print (empty anchor): {', '.join(sorted(dropped))}")
 
         if not args.commit:
             print("\nDry run. Pass --commit to write speaker_prints.")

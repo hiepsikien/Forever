@@ -161,8 +161,7 @@ song với STT. «X đây» đọc local ngay khi có chữ.
 khác tài khoản, cửa thấp hơn đóng.
 
 Kéo dấu giọng là cửa khác: `speaker_self_enroll_threshold` 0,45 và
-`speaker_self_enroll_margin` 0,05. Ngưỡng tạm, cho đến khi dry-run in cosine
-thật của đoạn Gọi với từng mỏ neo. Một lượt chỉ trộn vào dấu **đã có** của
+`speaker_self_enroll_margin` 0,05. Một lượt chỉ trộn vào dấu **đã có** của
 tài khoản đang đăng nhập khi clip không ngắn, không lẫn tiếng, tài khoản đã
 có dấu, tài khoản là ứng viên gần nhất, cosine ≥ 0,45, và cách người thứ hai
 ≥ 0,05. Cách này hẹp hơn cách 0,10 của xưng hô. Không ghi sang người khác ở
@@ -171,13 +170,14 @@ xưng đã đổi xưng hô sang mẹ. Không tạo dấu mới từ lượt G�
 `VoiceSample`. Khớp chắc (`reason` "match") vẫn xưng người đó và chỉ trộn dấu
 đã có của họ.
 
-`rebuild-speaker-prints.py` chấm mọi đoạn Gọi cũ trên mỏ neo ban đầu, không
-trên centroid đã nuốt đoạn khác, nên hai lần `--commit` nhận cùng một tập.
-Dry-run in đúng cosine đã dùng để nhận. Cửa chữ giống lượt sống: câu tự xưng
-chỉ người khác thì cửa 0,45 đóng. Đoạn chưa tin cậy vào thùng của tài khoản
-khi tài khoản đã có mỏ neo, mỏ neo gần nhất là đúng người đó, cosine ≥ 0,45,
-và cách ≥ 0,05. Gần người khác hơn thì chỉ vào khi khớp chắc 0,60 và cách
-0,10. Không bịa dấu cho tài khoản chưa có mỏ neo.
+`rebuild-speaker-prints.py` mở dấu từ lịch sử Gọi, không từ mẫu Voice DNA.
+Cụm đa số của chính tài khoản (cách medoid ≤ 0,60, ít nhất 4 đoạn, chiếm ít
+nhất 0,60 số đoạn dùng được, và lớn hơn hẳn cụm kia) mới thành dấu. Người
+chưa có Voice DNA vẫn được phủ nếu cuộc gọi của họ đủ cụm đó. Câu tự xưng chỉ
+người khác không vào cụm, và chữ không tự mở dấu. Đoạn lệch, kể cả mẹ nói trên
+máy con, chỉ nhập dấu đã chốt khi khớp chắc 0,60 và cách 0,10. Script không
+dùng cửa 0,45. Centroid chấm điểm không trôi, nên hai lần `--commit` nhận
+cùng một tập. Dry-run in một dòng mỗi tài khoản. Không bịa dấu khi chưa đủ cụm.
 
 **Cửa hai giọng.** `speaker_half_min_cosine` là 0,50. Hai nửa dưới 0,50 là lẫn
 tiếng: không đổi xưng hô và không ghi dấu, kể cả tự ghi của tài khoản.

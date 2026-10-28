@@ -21,12 +21,13 @@ the turn she just spoke.
 Nhận người nói trên lượt gọi: embedding giọng (`speaker-id`) gửi **trước** STT
 và chạy song song. Câu tự xưng trong bản chữ («Con Đình Anh đây ạ», «Anh ơi em
 đây») là parse local ngay khi STT trả về — không gọi model thứ hai, nên không
-thêm một bước chờ. Gallery là tập đóng của người sống đã có mỏ neo; mẫu Voice
-DNA của người đã mất không vào. Khớp chắc thì xưng theo người đó và chỉ trộn
-vào dấu giọng đã có. Không chắc, quá ngắn, hai giọng, hoặc dịch vụ embed nằm
-thì giữ tài khoản — trừ cửa tự ghi của chính tài khoản ở dưới. Câu tự xưng chỉ
-đổi người được xưng hô, không mở dấu giọng mới. Tắt `speaker-id` thì Gọi vẫn
-trả lời theo tài khoản.
+thêm một bước chờ. Gallery là tập đóng của người sống đã có dấu giọng. Dấu
+đó mở từ cụm đa số trong lịch sử Gọi, không từ mẫu Voice DNA; mẫu của người
+đã mất không vào. Khớp chắc thì xưng theo người đó và chỉ trộn vào dấu giọng
+đã có. Không chắc, quá ngắn, hai giọng, hoặc dịch vụ embed nằm thì giữ tài
+khoản — trừ cửa tự ghi của chính tài khoản ở dưới. Câu tự xưng chỉ đổi người
+được xưng hô, không mở dấu giọng mới. Tắt `speaker-id` thì Gọi vẫn trả lời
+theo tài khoản.
 
 Giọng khớp chắc thắng mọi lớp chữ, kể cả `_declares_grandchild`.
 `speaker_user_id` đã khớp ra một vai thì vai ấy thắng câu «cháu…». Câu tự xưng
@@ -41,8 +42,7 @@ tài khoản còn hơn gọi nhầm người.
   để ghi. Khi `words_user_id` khác tài khoản, cửa thấp hơn đóng — clip đó
   không được trộn vào dấu của tài khoản.
 - **Kéo dấu của chính tài khoản** dùng `speaker_self_enroll_threshold` 0,45
-  và `speaker_self_enroll_margin` 0,05. Ngưỡng tạm, cho đến khi dry-run in
-  cosine thật của đoạn Gọi với từng mỏ neo. Một lượt chỉ trộn vào dấu **đã có**
+  và `speaker_self_enroll_margin` 0,05. Một lượt chỉ trộn vào dấu **đã có**
   của `message.sender_user_id` khi clip không ngắn, không lẫn tiếng, tài khoản
   đã có dấu, tài khoản là ứng viên gần nhất, cosine ≥ 0,45, và cách người thứ
   hai ≥ 0,05. Cách này hẹp hơn cách 0,10 của xưng hô; `best > second` không đủ.
@@ -51,15 +51,17 @@ tài khoản còn hơn gọi nhầm người.
   gần con. Không tạo dấu mới từ lượt Gọi. Không ghi `VoiceSample`. Khớp chắc
   (`reason` "match", ≥ 0,60 và cách ≥ 0,10) vẫn xưng người đó và chỉ trộn dấu
   đã có của chính họ.
-- `scripts/rebuild-speaker-prints.py` chấm **mọi** đoạn Gọi cũ trên centroid
-  của mỏ neo ban đầu, không trên dấu đang trôi sau mỗi đoạn được nhận. Vì thế
-  hai lần `--commit` nhận cùng một tập. Dry-run in đúng cosine đã dùng để
-  nhận. Cửa chữ giống lượt sống: `spoken_user_id` khác tài khoản thì cửa 0,45
-  đóng, kể cả đoạn cũ «Anh ơi em đây» trên máy con. Đoạn chưa tin cậy vào thùng
-  của tài khoản khi tài khoản đã có mỏ neo, mỏ neo gần nhất là đúng người đó,
-  cosine ≥ 0,45, và cách ≥ 0,05. Gần người khác hơn thì chỉ vào khi khớp chắc.
-  Không bịa dấu cho tài khoản chưa có mỏ neo. Mẫu tự thu vẫn mở dấu. Clone của
-  người đã mất không phải mỏ neo.
+- `scripts/rebuild-speaker-prints.py` mở dấu từ lịch sử Gọi, không từ mẫu
+  Voice DNA. Người chưa thu Voice DNA vẫn có dấu nếu cuộc gọi của chính tài
+  khoản đủ một cụm đa số. Cụm là các đoạn cách medoid ≤ `speaker_seed_link`
+  0,60. Mở dấu khi cụm có ít nhất `speaker_seed_min_count` 4 đoạn, chiếm ít
+  nhất `speaker_seed_majority` 0,60 số đoạn dùng được, và lớn hơn hẳn cụm thứ
+  hai. Đoạn ngắn, lẫn tiếng, hoặc câu tự xưng chỉ người khác không vào cụm
+  của tài khoản — chữ không tự mở dấu. Sau khi cụm đã chốt, đoạn lệch và đoạn
+  trên máy người khác chỉ nhập dấu đã có khi khớp chắc 0,60 và cách 0,10.
+  Script không dùng cửa 0,45. Hai lần `--commit` nhận cùng một tập vì centroid
+  chấm điểm không trôi. Dry-run in một dòng mỗi tài khoản. Không bịa dấu khi
+  chưa đủ cụm. Clone của người đã mất không phải giọng trên Gọi.
 
 Cửa hai giọng `speaker_half_min_cosine` là 0,50. Hai nửa dưới 0,50 là lẫn
 tiếng: không đổi xưng hô và không ghi dấu, kể cả tự ghi của tài khoản.
