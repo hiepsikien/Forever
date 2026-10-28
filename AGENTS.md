@@ -192,8 +192,10 @@ tính chung vào `maxOutputTokens` và Gemini 3 không cho đặt trần cho ri�
 cụt nữa. Chừa rộng không tốn thêm: hoá đơn tính trên token thực sinh ra.
 
 `DEPTH_TOKENS` là lưới an toàn, không phải cách giữ câu ngắn — độ dài do
-`DEPTH_RULES` trong prompt giữ. Bị chặn thì `_gemini_heritage_reply` hỏi lại một
-lần với chỗ rộng gấp ba; `_finalize_reply_text` chỉ là nước cuối.
+`DEPTH_RULES` trong prompt giữ. `short` là một hoặc hai câu đúng chuyện; hỏi
+khi chuyện còn dang dở, không hỏi nếu lượt trước vừa hỏi. Bị chặn thì
+`_gemini_heritage_reply` hỏi lại một lần với chỗ rộng gấp ba;
+`_finalize_reply_text` chỉ là nước cuối.
 `meta.thoughts_tokens` trong telemetry cho biết model tiêu bao nhiêu cho suy nghĩ.
 
 Câu kết phải thưa. `maybe_winddown` nhắc nghỉ mỗi `threshold` lượt chứ không

@@ -156,6 +156,11 @@ def test_depth_controls_output_budget():
     assert ContextFrame(depth="ack").max_output_tokens == DEPTH_TOKENS["ack"]
     assert ContextFrame(depth="story").max_output_tokens > DEPTH_TOKENS["short"]
     assert "1 câu" in ContextFrame(depth="ack").depth_rule
+    short = ContextFrame(depth="short").depth_rule
+    assert "không hỏi" in short
+    assert "câu sau để cửa mở" not in short
+    story = ContextFrame(depth="story").depth_rule
+    assert "không bắt câu cuối phải là câu hỏi" in story
 
 
 # --- analyzer call ---

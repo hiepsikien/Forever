@@ -207,7 +207,8 @@ def memory_block(state: MemoryState) -> str:
     if state.emotional_tone:
         lines.append(f"- Không khí chung: {state.emotional_tone}")
     lines.append(
-        "Dùng trí nhớ này để nối tiếp câu chuyện, đừng mở lại từ đầu như người lạ."
+        "Dùng trí nhớ này để nối tiếp câu chuyện, đừng mở lại từ đầu như người lạ. "
+        "Hỏi khi còn chuyện dang dở và lượt trước chưa hỏi; không thì đáp hoặc kể."
     )
     return "\n".join(lines) + "\n"
 

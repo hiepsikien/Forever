@@ -105,6 +105,24 @@ class Settings(BaseSettings):
     # Provider used when a Voice DNA row does not name one.
     voice_default_provider: str = "elevenlabs"
 
+    # Closed-set speaker id for voice turns. The embed process lives next to
+    # the Extract worker (torch stays off the API). A miss or a down service
+    # leaves the turn on the logged-in account.
+    speaker_id_enabled: bool = True
+    speaker_id_url: str = "http://127.0.0.1:8091"
+    # Empty → extract_worker_token. The embed process checks the same secret.
+    speaker_id_token: str = ""
+    speaker_id_timeout_s: float = 8.0
+    # Cosine on unit vectors. High threshold and a gap over the runner-up:
+    # a doubtful clip stays with the account rather than addressing the wrong person.
+    speaker_match_threshold: float = 0.60
+    speaker_match_margin: float = 0.10
+    speaker_min_duration_s: float = 1.5
+    # Halves of one clip below this are two voices — don't switch and don't enroll.
+    speaker_half_min_cosine: float = 0.25
+    # Running mean stops letting new clips shrink below this weight.
+    speaker_print_cap: int = 32
+
     # Shared secret for local Extract worker → Forever API claim/complete.
     extract_worker_token: str = "forever-extract-worker"
     # Shared secret for library document ingest worker (falls back to extract token).

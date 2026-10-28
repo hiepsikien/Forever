@@ -1,0 +1,475 @@
+"""Who is speaking on a voice turn, from a voiceprint — not from the account.
+
+The API never loads a model. It asks the embed process for a vector, then
+compares that vector to `speaker_prints` for the space. A confident match
+addresses that person and may update their print. Anything doubtful stays on
+the logged-in account and is not enrolled. Prints are not Voice DNA clones.
+"""
+
+from __future__ import annotations
+
+import json
+import logging
+import math
+from dataclasses import dataclass
+from datetime import datetime, timezone
+
+import httpx
+from nanoid import generate
+from sqlalchemy.orm import Session
+
+from ..config import Settings, get_settings
+from ..models import IdentityProfile, Message, SpeakerPrint, VoiceProfile
+
+logger = logging.getLogger(__name__)
+
+_MIN_VECTOR = 8
+
+
+class SpeakerIdUnavailable(Exception):
+    """The embed process did not answer. The call still proceeds."""
+
+
+@dataclass(frozen=True)
+class EmbedObservation:
+    embedding: list[float]
+    duration_s: float
+    halves: tuple[list[float], list[float]] | None = None
+
+
+@dataclass(frozen=True)
+class SpeakerPrintView:
+    user_id: str
+    embedding: list[float]
+
+
+@dataclass(frozen=True)
+class SpeakerDecision:
+    """`user_id` is set only when the match is confident enough to address them."""
+
+    user_id: str | None
+    confident: bool
+    enroll_user_id: str | None
+    score: float | None
+    second: float | None
+    reason: str
+
+
+@dataclass(frozen=True)
+class SeedClip:
+    """One vector for the rebuild script. `trusted` is a self Voice DNA sample."""
+
+    user_id: str
+    embedding: list[float]
+    trusted: bool
+
+
+def anchor_user_id(
+    profile: VoiceProfile, identity: IdentityProfile | None
+) -> str | None:
+    """Living member a Voice DNA sample may anchor. Heritage clones are not voices we hear on Gọi."""
+    if profile.archived_at is not None or profile.subject_kind == "heritage":
+        return None
+    if identity is not None and identity.status == "remembered":
+        return None
+    if profile.subject_kind == "self" and profile.subject_user_id:
+        return profile.subject_user_id
+    if (
+        identity is not None
+        and identity.status == "living"
+        and identity.linked_user_id
+    ):
+        return identity.linked_user_id
+    return None
+
+
+def normalize(vec: list[float]) -> list[float]:
+    norm = math.sqrt(sum(x * x for x in vec))
+    if norm <= 1e-12:
+        return list(vec)
+    return [x / norm for x in vec]
+
+
+def cosine(left: list[float], right: list[float]) -> float | None:
+    if not left or len(left) != len(right):
+        return None
+    return sum(a * b for a, b in zip(left, right))
+
+
+def _finite_vector(raw: object, *, min_len: int = _MIN_VECTOR) -> list[float] | None:
+    if not isinstance(raw, list) or len(raw) < min_len:
+        return None
+    out: list[float] = []
+    for item in raw:
+        if isinstance(item, bool) or not isinstance(item, (int, float)):
+            return None
+        value = float(item)
+        if not math.isfinite(value):
+            return None
+        out.append(value)
+    return normalize(out)
+
+
+def parse_observation(payload: object) -> EmbedObservation | None:
+    if not isinstance(payload, dict):
+        return None
+    embedding = _finite_vector(payload.get("embedding"))
+    if embedding is None:
+        return None
+    duration = payload.get("duration_s")
+    if isinstance(duration, bool) or not isinstance(duration, (int, float)):
+        return None
+    duration_s = float(duration)
+    if not math.isfinite(duration_s) or duration_s < 0:
+        return None
+    halves: tuple[list[float], list[float]] | None = None
+    raw_halves = payload.get("halves")
+    if isinstance(raw_halves, list) and len(raw_halves) == 2:
+        left = _finite_vector(raw_halves[0], min_len=len(embedding))
+        right = _finite_vector(raw_halves[1], min_len=len(embedding))
+        if (
+            left is not None
+            and right is not None
+            and len(left) == len(embedding)
+            and len(right) == len(embedding)
+        ):
+            halves = (left, right)
+    return EmbedObservation(
+        embedding=embedding, duration_s=duration_s, halves=halves
+    )
+
+
+def decide_speaker(
+    embedding: list[float] | None,
+    *,
+    halves: tuple[list[float], list[float]] | None,
+    duration_s: float | None,
+    prints: list[SpeakerPrintView],
+    threshold: float,
+    margin: float,
+    min_duration_s: float,
+    half_min_cosine: float,
+) -> SpeakerDecision:
+    """Pick a person, or leave the turn on the account.
+
+    `duration_s is None` skips the length check (the seed script already
+    dropped short clips). Missing halves skip the two-voice check.
+    """
+    if not embedding:
+        return SpeakerDecision(None, False, None, None, None, "unavailable")
+    if duration_s is not None and duration_s < min_duration_s:
+        return SpeakerDecision(None, False, None, None, None, "short")
+    if halves is not None:
+        half_score = cosine(halves[0], halves[1])
+        if half_score is None or half_score < half_min_cosine:
+            return SpeakerDecision(None, False, None, None, None, "mixed")
+    scored: list[tuple[float, str]] = []
+    unit = normalize(embedding)
+    for row in prints:
+        score = cosine(unit, normalize(row.embedding))
+        if score is None:
+            continue
+        scored.append((score, row.user_id))
+    if not scored:
+        return SpeakerDecision(None, False, None, None, None, "no_gallery")
+    scored.sort(key=lambda item: item[0], reverse=True)
+    best, best_id = scored[0]
+    second = scored[1][0] if len(scored) > 1 else None
+    gap_ok = second is None or (best - second) >= margin
+    if best >= threshold and gap_ok:
+        return SpeakerDecision(best_id, True, best_id, best, second, "match")
+    return SpeakerDecision(None, False, None, best, second, "unsure")
+
+
+def blend(
+    old: list[float], count: int, new: list[float], *, cap: int
+) -> tuple[list[float], int] | None:
+    """Running mean. Once `count` hits `cap`, each new clip keeps weight 1/cap."""
+    if len(old) != len(new) or not new:
+        return None
+    fresh = normalize(new)
+    limit = max(1, cap)
+    if count <= 0:
+        return fresh, 1
+    weight = min(count, limit - 1)
+    total = weight + 1
+    mixed = [(old[i] * weight + fresh[i]) / total for i in range(len(fresh))]
+    return normalize(mixed), min(count + 1, limit)
+
+
+def centroid(vectors: list[list[float]]) -> list[float]:
+    dim = len(vectors[0])
+    mean = [sum(vec[i] for vec in vectors) / len(vectors) for i in range(dim)]
+    return normalize(mean)
+
+
+def assign_seed_clips(
+    clips: list[SeedClip],
+    *,
+    threshold: float,
+    margin: float,
+) -> dict[str, list[list[float]]]:
+    """Trusted self-samples open a print. A voice turn joins only on a confident match.
+
+    A turn recorded on someone else's account follows the voice, not the
+    account. A turn that matches nobody is left out — it does not start a
+    print, so a household without an anchor stays on the account until one exists.
+    """
+    buckets: dict[str, list[list[float]]] = {}
+    for clip in clips:
+        if not clip.trusted:
+            continue
+        buckets.setdefault(clip.user_id, []).append(normalize(clip.embedding))
+    for clip in clips:
+        if clip.trusted or not buckets:
+            continue
+        prints = [
+            SpeakerPrintView(user_id, centroid(vectors))
+            for user_id, vectors in buckets.items()
+            if vectors
+        ]
+        decision = decide_speaker(
+            normalize(clip.embedding),
+            halves=None,
+            duration_s=None,
+            prints=prints,
+            threshold=threshold,
+            margin=margin,
+            min_duration_s=0.0,
+            half_min_cosine=0.0,
+        )
+        if decision.reason == "match" and decision.user_id:
+            buckets[decision.user_id].append(normalize(clip.embedding))
+    return {user_id: vectors for user_id, vectors in buckets.items() if vectors}
+
+
+def _message_meta(message: Message) -> dict:
+    raw = getattr(message, "meta_json", None) or ""
+    # Callers sometimes pass a stand-in message (tests) with no real meta.
+    if not isinstance(raw, str) or not raw.strip():
+        return {}
+    try:
+        loaded = json.loads(raw)
+    except json.JSONDecodeError:
+        return {}
+    return loaded if isinstance(loaded, dict) else {}
+
+
+def recognized_speaker_id(message: Message) -> str | None:
+    """Confident speaker, if this voice turn was matched. Else the account stands."""
+    meta = _message_meta(message)
+    speaker_id = meta.get("speaker_user_id")
+    if isinstance(speaker_id, str) and speaker_id.strip():
+        return speaker_id.strip()
+    return None
+
+
+def _stored_vector(raw: str) -> list[float] | None:
+    try:
+        loaded = json.loads(raw or "")
+    except json.JSONDecodeError:
+        return None
+    return _finite_vector(loaded, min_len=2)
+
+
+def load_print_views(db: Session, space_id: str) -> list[SpeakerPrintView]:
+    rows = (
+        db.query(SpeakerPrint).filter(SpeakerPrint.space_id == space_id).all()
+    )
+    views: list[SpeakerPrintView] = []
+    for row in rows:
+        vec = _stored_vector(row.embedding_json)
+        if vec:
+            views.append(SpeakerPrintView(row.user_id, vec))
+    return views
+
+
+def _blend_existing(
+    db: Session,
+    *,
+    space_id: str,
+    user_id: str,
+    embedding: list[float],
+    cap: int,
+) -> bool:
+    row = (
+        db.query(SpeakerPrint)
+        .filter(
+            SpeakerPrint.space_id == space_id,
+            SpeakerPrint.user_id == user_id,
+        )
+        .one_or_none()
+    )
+    if row is None:
+        return False
+    old = _stored_vector(row.embedding_json)
+    if old is None:
+        return False
+    blended = blend(old, row.sample_count or 0, embedding, cap=cap)
+    if blended is None:
+        return False
+    vector, count = blended
+    now = datetime.now(timezone.utc)
+    row.embedding_json = json.dumps(vector)
+    row.sample_count = count
+    row.updated_at = now
+    return True
+
+
+def apply_speaker_turn(
+    db: Session,
+    *,
+    space_id: str,
+    message: Message,
+    observation: EmbedObservation | None,
+    settings: Settings | None = None,
+) -> SpeakerDecision:
+    """Write `meta.speaker_user_id` when the voice matches, and enroll that person.
+
+    Does not create a print. The seed script opens the gallery from anchors.
+    Does not write a VoiceSample.
+    """
+    settings = settings or get_settings()
+    meta = _message_meta(message)
+    prior = meta.get("speaker")
+    if isinstance(prior, dict) and prior.get("reason"):
+        return SpeakerDecision(
+            recognized_speaker_id(message),
+            bool(prior.get("confident")),
+            None,
+            prior.get("score") if isinstance(prior.get("score"), (int, float)) else None,
+            prior.get("second") if isinstance(prior.get("second"), (int, float)) else None,
+            str(prior.get("reason")),
+        )
+
+    if not settings.speaker_id_enabled:
+        decision = SpeakerDecision(None, False, None, None, None, "disabled")
+    else:
+        decision = decide_speaker(
+            observation.embedding if observation else None,
+            halves=observation.halves if observation else None,
+            duration_s=observation.duration_s if observation else None,
+            prints=load_print_views(db, space_id),
+            threshold=settings.speaker_match_threshold,
+            margin=settings.speaker_match_margin,
+            min_duration_s=settings.speaker_min_duration_s,
+            half_min_cosine=settings.speaker_half_min_cosine,
+        )
+
+    enrolled = False
+    if decision.enroll_user_id and observation is not None:
+        enrolled = _blend_existing(
+            db,
+            space_id=space_id,
+            user_id=decision.enroll_user_id,
+            embedding=observation.embedding,
+            cap=max(1, settings.speaker_print_cap),
+        )
+
+    block: dict = {
+        "user_id": decision.user_id,
+        "confident": decision.confident,
+        "score": decision.score,
+        "second": decision.second,
+        "reason": decision.reason,
+        "enrolled": enrolled,
+    }
+    meta["speaker"] = block
+    if decision.confident and decision.user_id:
+        meta["speaker_user_id"] = decision.user_id
+    else:
+        meta.pop("speaker_user_id", None)
+    message.meta_json = json.dumps(meta, ensure_ascii=False)
+    db.add(message)
+    db.commit()
+    db.refresh(message)
+    logger.info(
+        "speaker-id message=%s reason=%s user=%s score=%s enrolled=%s",
+        message.id,
+        decision.reason,
+        decision.user_id or "-",
+        f"{decision.score:.3f}" if decision.score is not None else "-",
+        enrolled,
+    )
+    return decision
+
+
+def request_embedding(
+    settings: Settings, *, path, mime: str | None
+) -> EmbedObservation | None:
+    """POST the clip to the embed process.
+
+    Returns None when this file cannot be embedded. Raises
+    SpeakerIdUnavailable when the process itself is unreachable, so a voice
+    turn can fall back without failing the call.
+    """
+    url = (settings.speaker_id_url or "").strip().rstrip("/")
+    if not url:
+        raise SpeakerIdUnavailable("speaker_id_url empty")
+    token = (settings.speaker_id_token or "").strip() or settings.extract_worker_token
+    try:
+        data = path.read_bytes()
+    except OSError as exc:
+        logger.info("speaker embed unreadable path=%s error=%s", path, exc)
+        return None
+    headers = {
+        "X-Speaker-Token": token,
+        "Content-Type": (mime or "application/octet-stream").split(";")[0].strip()
+        or "application/octet-stream",
+    }
+    timeout = httpx.Timeout(settings.speaker_id_timeout_s, connect=1.0)
+    try:
+        with httpx.Client(timeout=timeout) as client:
+            response = client.post(f"{url}/embed", content=data, headers=headers)
+    except httpx.HTTPError as exc:
+        raise SpeakerIdUnavailable(str(exc)) from exc
+    if response.status_code == 401:
+        raise SpeakerIdUnavailable("speaker-id rejected the token")
+    if response.status_code != 200:
+        logger.info(
+            "speaker embed rejected status=%s", response.status_code
+        )
+        return None
+    try:
+        payload = response.json()
+    except json.JSONDecodeError:
+        return None
+    return parse_observation(payload)
+
+
+def upsert_print(
+    db: Session,
+    *,
+    space_id: str,
+    user_id: str,
+    embedding: list[float],
+    sample_count: int,
+) -> SpeakerPrint:
+    """Replace one print. Used by the seed script, not by a live turn."""
+    now = datetime.now(timezone.utc)
+    row = (
+        db.query(SpeakerPrint)
+        .filter(
+            SpeakerPrint.space_id == space_id,
+            SpeakerPrint.user_id == user_id,
+        )
+        .one_or_none()
+    )
+    vector = normalize(embedding)
+    count = max(1, sample_count)
+    if row is None:
+        row = SpeakerPrint(
+            id=generate(),
+            space_id=space_id,
+            user_id=user_id,
+            embedding_json=json.dumps(vector),
+            sample_count=count,
+            created_at=now,
+            updated_at=now,
+        )
+        db.add(row)
+    else:
+        row.embedding_json = json.dumps(vector)
+        row.sample_count = count
+        row.updated_at = now
+    return row
