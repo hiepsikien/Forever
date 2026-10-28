@@ -1,12 +1,15 @@
 #!/usr/bin/env python3
 """Build speaker prints from self Voice DNA samples and past voice turns.
 
-Self samples (the person recorded their own voice) open a print. A past Gọi
-clip joins the person it confidently matches — including when mẹ spoke on
-con's account. Below that gate, a clip joins the account's own anchor when
-that account is the nearest voice and the cosine clears the self-enroll bar.
-A clip nearer someone else stays out unless the match is confident. Nothing
-is written into Voice DNA. A dry-run prints each clip's cosine to every anchor.
+Self samples (the person recorded their own voice) open a print. Every past
+Gọi clip is scored against those anchors, not against a centroid that has
+already absorbed other call clips, so two runs accept the same set. A clip
+joins the person it confidently matches — including when mẹ spoke on con's
+account. Below that gate, a clip joins the account's own anchor when that
+account is the nearest voice, the cosine and the gap clear the self-enroll
+bar, and the transcript did not name someone else. «Anh ơi em đây» on con's
+phone does not pull con's print. A dry-run prints each clip's cosine to
+every anchor — those are the scores used to accept the clip.
 
 Needs the speaker-id process (./scripts/run-speaker-id.sh) and DATABASE_URL.
 
@@ -36,6 +39,7 @@ from app.services.speaker_id import (  # noqa: E402
     decide_speaker,
     describe_call_clips,
     request_embedding,
+    spoken_speaker_id,
     upsert_print,
 )
 from app.services.storage import absolute_media_path  # noqa: E402
@@ -76,6 +80,7 @@ def collect(db, settings, *, space_id: str | None) -> dict[str, list[SeedClip]]:
         db.query(VoiceSample, VoiceProfile)
         .join(VoiceProfile, VoiceSample.voice_profile_id == VoiceProfile.id)
         .filter(VoiceProfile.archived_at.is_(None))
+        .order_by(VoiceSample.id)
     )
     if space_id:
         sample_query = sample_query.filter(VoiceProfile.space_id == space_id)
@@ -110,6 +115,7 @@ def collect(db, settings, *, space_id: str | None) -> dict[str, list[SeedClip]]:
         db.query(Message, Thread)
         .join(Thread, Message.thread_id == Thread.id)
         .filter(Message.kind == "voice", Message.media_path.isnot(None))
+        .order_by(Message.id)
     )
     if space_id:
         turn_query = turn_query.filter(Thread.space_id == space_id)
@@ -131,6 +137,7 @@ def collect(db, settings, *, space_id: str | None) -> dict[str, list[SeedClip]]:
                 trusted=False,
                 skip_reason="" if reason == "no_gallery" else reason,
                 label=message.id,
+                spoken_user_id=spoken_speaker_id(db, thread, message.body or ""),
             )
         )
     return buckets

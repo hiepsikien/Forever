@@ -32,6 +32,7 @@ from app.services.speaker_id import (
     apply_speaker_turn,
     assign_seed_clips,
     blend,
+    centroid,
     cosine,
     decide_speaker,
     describe_call_clips,
@@ -140,15 +141,16 @@ def test_seed_reassigns_cross_account_clips_and_does_not_invent_people():
         # Con and anh on mẹ's account.
         SeedClip("mom", _unit(0.98, 0.02), trusted=False),
         SeedClip("mom", _unit(-0.05, -1.0), trusted=False),
-        # Nobody we know.
+        # Nobody we know — tied between son and mother, so it stays out.
         SeedClip("mom", _unit(1.0, 1.0), trusted=False),
-        # A guest with only a turn and no anchor.
+        # No anchor for the guest. The vector still matches the son's anchor,
+        # so it follows that voice and does not open a guest print.
         SeedClip("guest", _unit(1.0, -1.0), trusted=False),
     ]
     assigned = assign_seed_clips(clips, threshold=0.6, margin=0.1)
     assert set(assigned) == {"son", "mom", "brother"}
     assert len(assigned["mom"]) == 2  # anchor + the clip from son's account
-    assert len(assigned["son"]) == 2
+    assert len(assigned["son"]) == 3  # anchor + son's clip on mẹ's phone + guest
     assert len(assigned["brother"]) == 2
     assert "guest" not in assigned
 
@@ -760,6 +762,78 @@ def test_seed_self_enroll_joins_the_account_below_the_address_gate():
     assert len(assigned["son"]) == 2
     assert len(assigned["mom"]) == 2
     assert "guest" not in assigned
+
+
+def test_seed_words_for_someone_else_stay_out_of_the_account_print():
+    """«Anh ơi em đây» on the son's phone must not pull his print."""
+    clips = [
+        SeedClip("son", SON3, trusted=True),
+        SeedClip("mom", MOM3, trusted=True),
+        SeedClip(
+            "son", NEAR_SON, trusted=False, spoken_user_id="mom", label="intro"
+        ),
+    ]
+    assigned = assign_seed_clips(
+        clips,
+        threshold=0.6,
+        margin=0.1,
+        self_enroll_threshold=0.45,
+        self_enroll_margin=0.05,
+    )
+    assert len(assigned["son"]) == 1
+    assert len(assigned["mom"]) == 1
+
+
+def test_seed_confident_match_still_follows_the_voice_when_words_disagree():
+    clips = [
+        SeedClip("son", SON3, trusted=True),
+        SeedClip("mom", MOM3, trusted=True),
+        SeedClip(
+            "son",
+            _unit(0.02, 1.0, 0.0),
+            trusted=False,
+            spoken_user_id="son",
+            label="says-son",
+        ),
+    ]
+    assigned = assign_seed_clips(
+        clips,
+        threshold=0.6,
+        margin=0.1,
+        self_enroll_threshold=0.45,
+        self_enroll_margin=0.05,
+    )
+    assert len(assigned["mom"]) == 2
+    assert len(assigned["son"]) == 1
+
+
+def test_seed_scores_every_clip_against_the_original_anchors():
+    """A clip that only resembles a print after other clips moved it stays out.
+
+    Reversing the list accepts the same vectors. The decision never sees a
+    centroid that already absorbed a call clip.
+    """
+    pull = _unit(0.48, 0.0, 0.90)
+    late = _unit(0.15, 0.0, 0.99)
+    anchors = [
+        SeedClip("son", SON3, trusted=True, label="a-son"),
+        SeedClip("mom", MOM3, trusted=True, label="a-mom"),
+    ]
+    pulls = [
+        SeedClip("son", pull, trusted=False, label=f"p{i:02d}") for i in range(8)
+    ]
+    tail = SeedClip("son", late, trusted=False, label="late")
+    kwargs = dict(
+        threshold=0.6,
+        margin=0.1,
+        self_enroll_threshold=0.45,
+        self_enroll_margin=0.05,
+    )
+    forward = assign_seed_clips([*anchors, *pulls, tail], **kwargs)
+    backward = assign_seed_clips([tail, *reversed(pulls), *reversed(anchors)], **kwargs)
+    assert len(forward["son"]) == 9
+    assert len(backward["son"]) == 9
+    assert cosine(centroid(forward["son"]), centroid(backward["son"])) > 0.999
 
 
 def test_dry_run_lists_each_call_clip_against_every_anchor():

@@ -51,13 +51,15 @@ tài khoản còn hơn gọi nhầm người.
   gần con. Không tạo dấu mới từ lượt Gọi. Không ghi `VoiceSample`. Khớp chắc
   (`reason` "match", ≥ 0,60 và cách ≥ 0,10) vẫn xưng người đó và chỉ trộn dấu
   đã có của chính họ.
-- Dry-run `scripts/rebuild-speaker-prints.py` (không `--commit`) in cosine của
-  từng đoạn Gọi với từng mỏ neo (user id và điểm). Gán đoạn hạt giống dùng cùng
-  cửa tự ghi: đoạn chưa tin cậy vào thùng của tài khoản khi tài khoản đã có mỏ
-  neo, mỏ neo gần nhất là đúng người đó, cosine ≥ 0,45, và cách ≥ 0,05, dù
-  dưới 0,60. Gần người khác hơn thì chỉ vào khi khớp chắc. Không bịa dấu cho
-  tài khoản chưa có mỏ neo. Mẫu tự thu vẫn mở dấu. Clone của người đã mất không
-  phải mỏ neo.
+- `scripts/rebuild-speaker-prints.py` chấm **mọi** đoạn Gọi cũ trên centroid
+  của mỏ neo ban đầu, không trên dấu đang trôi sau mỗi đoạn được nhận. Vì thế
+  hai lần `--commit` nhận cùng một tập. Dry-run in đúng cosine đã dùng để
+  nhận. Cửa chữ giống lượt sống: `spoken_user_id` khác tài khoản thì cửa 0,45
+  đóng, kể cả đoạn cũ «Anh ơi em đây» trên máy con. Đoạn chưa tin cậy vào thùng
+  của tài khoản khi tài khoản đã có mỏ neo, mỏ neo gần nhất là đúng người đó,
+  cosine ≥ 0,45, và cách ≥ 0,05. Gần người khác hơn thì chỉ vào khi khớp chắc.
+  Không bịa dấu cho tài khoản chưa có mỏ neo. Mẫu tự thu vẫn mở dấu. Clone của
+  người đã mất không phải mỏ neo.
 
 Cửa hai giọng `speaker_half_min_cosine` là 0,50. Hai nửa dưới 0,50 là lẫn
 tiếng: không đổi xưng hô và không ghi dấu, kể cả tự ghi của tài khoản.

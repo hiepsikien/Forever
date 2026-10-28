@@ -92,6 +92,9 @@ class SeedClip:
     trusted: bool
     skip_reason: str = ""
     label: str = ""
+    # Who the transcript introduced, if anyone. Same gate as a live turn:
+    # a name other than the account closes the lower enroll bar.
+    spoken_user_id: str | None = None
 
 
 def anchor_user_id(
@@ -312,32 +315,35 @@ def assign_seed_clips(
 ) -> dict[str, list[list[float]]]:
     """Trusted self-samples open a print. A voice turn joins an existing one.
 
-    A confident match follows the voice, including a turn recorded on someone
-    else's account. Below that gate, a turn joins the account's bucket only
-    when that account already has an anchor, the account is the nearest
-    anchor, the cosine clears `self_enroll_threshold`, and the gap clears
-    `self_enroll_margin`. A turn whose nearest anchor is someone else stays
-    out unless the match is confident. Nothing here invents a print for an
-    account with no anchor.
+    Every call clip is scored against those anchors, never against a centroid
+    that already absorbed another call clip. Order does not change who is
+    accepted. A confident match follows the voice, including a turn recorded
+    on someone else's account. Below that gate, a turn joins the account's
+    bucket only when that account already has an anchor, the account is the
+    nearest anchor, the cosine clears `self_enroll_threshold`, the gap clears
+    `self_enroll_margin`, and the transcript did not name someone else. A
+    turn whose nearest anchor is someone else stays out unless the match is
+    confident. Nothing here invents a print for an account with no anchor.
     """
+    ordered = sorted(clips, key=lambda clip: (clip.label, clip.user_id))
     buckets: dict[str, list[list[float]]] = {}
-    for clip in clips:
+    for clip in ordered:
         if not clip.trusted or clip.skip_reason:
             continue
         buckets.setdefault(clip.user_id, []).append(normalize(clip.embedding))
-    for clip in clips:
-        if clip.trusted or clip.skip_reason or not buckets:
+    anchors = [
+        SpeakerPrintView(user_id, centroid(vectors))
+        for user_id, vectors in buckets.items()
+        if vectors
+    ]
+    for clip in ordered:
+        if clip.trusted or clip.skip_reason or not anchors:
             continue
-        prints = [
-            SpeakerPrintView(user_id, centroid(vectors))
-            for user_id, vectors in buckets.items()
-            if vectors
-        ]
         decision = decide_speaker(
             normalize(clip.embedding),
             halves=None,
             duration_s=None,
-            prints=prints,
+            prints=anchors,
             threshold=threshold,
             margin=margin,
             min_duration_s=0.0,
@@ -348,6 +354,7 @@ def assign_seed_clips(
             account_user_id=clip.user_id,
             self_threshold=self_enroll_threshold,
             self_margin=self_enroll_margin,
+            spoken_user_id=clip.spoken_user_id,
         )
         # `target in buckets` is the anchor check: no key is created here.
         if target and target in buckets:
@@ -392,7 +399,8 @@ def format_call_clip_scores(clip: SeedClip, prints: list[SpeakerPrintView]) -> s
         rendered = "(no anchors)"
     skip = f" skipped={clip.skip_reason}" if clip.skip_reason else ""
     label = f" message={clip.label}" if clip.label else ""
-    return f"  call clip account={clip.user_id}{label}{skip} {rendered}"
+    words = f" words={clip.spoken_user_id}" if clip.spoken_user_id else ""
+    return f"  call clip account={clip.user_id}{label}{words}{skip} {rendered}"
 
 
 def describe_call_clips(clips: list[SeedClip]) -> list[str]:

@@ -171,12 +171,13 @@ xưng đã đổi xưng hô sang mẹ. Không tạo dấu mới từ lượt G�
 `VoiceSample`. Khớp chắc (`reason` "match") vẫn xưng người đó và chỉ trộn dấu
 đã có của họ.
 
-`rebuild-speaker-prints.py` không `--commit` in cosine của từng đoạn Gọi so
-với từng mỏ neo (user id và điểm). Gán đoạn hạt giống dùng cùng cửa tự ghi:
-đoạn chưa tin cậy vào thùng của tài khoản khi tài khoản đã có mỏ neo, mỏ neo
-gần nhất là đúng người đó, cosine ≥ 0,45, và cách ≥ 0,05, dù dưới 0,60. Gần
-người khác hơn thì chỉ vào khi khớp chắc 0,60 và cách 0,10. Không bịa dấu cho
-tài khoản chưa có mỏ neo.
+`rebuild-speaker-prints.py` chấm mọi đoạn Gọi cũ trên mỏ neo ban đầu, không
+trên centroid đã nuốt đoạn khác, nên hai lần `--commit` nhận cùng một tập.
+Dry-run in đúng cosine đã dùng để nhận. Cửa chữ giống lượt sống: câu tự xưng
+chỉ người khác thì cửa 0,45 đóng. Đoạn chưa tin cậy vào thùng của tài khoản
+khi tài khoản đã có mỏ neo, mỏ neo gần nhất là đúng người đó, cosine ≥ 0,45,
+và cách ≥ 0,05. Gần người khác hơn thì chỉ vào khi khớp chắc 0,60 và cách
+0,10. Không bịa dấu cho tài khoản chưa có mỏ neo.
 
 **Cửa hai giọng.** `speaker_half_min_cosine` là 0,50. Hai nửa dưới 0,50 là lẫn
 tiếng: không đổi xưng hô và không ghi dấu, kể cả tự ghi của tài khoản.
