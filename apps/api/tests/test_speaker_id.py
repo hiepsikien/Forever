@@ -925,7 +925,39 @@ def test_a_nearer_voice_does_not_pull_the_account_print(client):
         db.close()
 
 
-def test_words_do_not_enroll_even_when_the_account_is_nearest(client):
+def test_words_name_the_son_and_his_print_still_updates(client):
+    """Son's phone, voice nearest son below 0.60, words «Con Đình Anh đây»."""
+    db = SessionLocal()
+    try:
+        son, mom, space, thread, _, _ = _call_scene(db)
+        _print(db, space.id, son.id, SON3, 4)
+        _print(db, space.id, mom.id, MOM3, 4)
+        db.commit()
+        message = _voice_message(db, thread, son.id, meta="")
+        message.body = "Con Đình Anh đây"
+        db.commit()
+        apply_speaker_turn(
+            db,
+            space_id=space.id,
+            message=message,
+            observation=EmbedObservation(NEAR_SON, 3.0),
+            settings=_settings(),
+            spoken_user_id=son.id,
+        )
+        db.refresh(message)
+        assert recognized_speaker_id(message) == son.id
+        meta = json.loads(message.meta_json)
+        assert meta["speaker"]["reason"] == "words"
+        assert meta["speaker"]["enrolled"] is True
+        counts = _counts(db, space.id)
+        assert counts[son.id] == 5
+        assert counts[mom.id] == 4
+    finally:
+        db.close()
+
+
+def test_words_name_mom_while_the_sons_voice_still_updates_his_print(client):
+    """Son's phone, voice nearest son below 0.60, words «Anh ơi em đây»."""
     db = SessionLocal()
     try:
         son, mom, space, thread, _, _ = _call_scene(db)
@@ -933,6 +965,8 @@ def test_words_do_not_enroll_even_when_the_account_is_nearest(client):
         _print(db, space.id, mom.id, MOM3, 4)
         db.commit()
         message = _voice_message(db, thread, son.id)
+        message.body = "Anh ơi em đây"
+        db.commit()
         apply_speaker_turn(
             db,
             space_id=space.id,
@@ -945,7 +979,40 @@ def test_words_do_not_enroll_even_when_the_account_is_nearest(client):
         assert recognized_speaker_id(message) == mom.id
         meta = json.loads(message.meta_json)
         assert meta["speaker"]["reason"] == "words"
+        assert meta["speaker"]["enrolled"] is True
+        assert meta["speaker"]["words_user_id"] == mom.id
+        counts = _counts(db, space.id)
+        assert counts[son.id] == 5
+        assert counts[mom.id] == 4
+    finally:
+        db.close()
+
+
+def test_words_naming_mom_do_not_write_her_print_when_she_is_nearer(client):
+    """Son's phone, voice nearest mom below 0.60, words name mom."""
+    db = SessionLocal()
+    try:
+        son, mom, space, thread, _, _ = _call_scene(db)
+        _print(db, space.id, son.id, SON3, 4)
+        _print(db, space.id, mom.id, MOM3, 4)
+        db.commit()
+        message = _voice_message(db, thread, son.id)
+        message.body = "Anh ơi em đây"
+        db.commit()
+        apply_speaker_turn(
+            db,
+            space_id=space.id,
+            message=message,
+            observation=EmbedObservation(NEAR_MOM, 3.0),
+            settings=_settings(),
+            spoken_user_id=mom.id,
+        )
+        db.refresh(message)
+        assert recognized_speaker_id(message) == mom.id
+        meta = json.loads(message.meta_json)
+        assert meta["speaker"]["reason"] == "words"
         assert meta["speaker"]["enrolled"] is False
+        assert meta["speaker"]["nearest_user_id"] == mom.id
         counts = _counts(db, space.id)
         assert counts[son.id] == 4
         assert counts[mom.id] == 4

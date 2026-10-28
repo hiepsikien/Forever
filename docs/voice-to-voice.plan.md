@@ -157,7 +157,8 @@ song với STT. «X đây» đọc local ngay khi có chữ.
 (`speaker_match_threshold`) và cách người thứ hai 0,10
 (`speaker_match_margin`): thà giữ tài khoản còn hơn gọi nhầm người. Dưới cửa
 đó giọng không đặt `speaker_user_id`. Câu tự xưng (`reason` "words") vẫn đặt
-được người được xưng hô và không bao giờ ghi dấu.
+được người được xưng hô. Chữ không chọn dấu nào để ghi; cửa thấp hơn vẫn có
+thể trộn dấu đã có của chính tài khoản.
 
 Kéo dấu giọng là cửa khác: `speaker_self_enroll_threshold` 0,45. Số này tạm,
 cho đến khi dry-run in cosine thật của đoạn Gọi với từng mỏ neo. Một lượt chỉ

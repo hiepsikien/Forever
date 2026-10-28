@@ -37,7 +37,8 @@ tài khoản còn hơn gọi nhầm người.
 
 - **Xưng hô** giữ `speaker_match_threshold` 0,60 và `speaker_match_margin` 0,10.
   Dưới cửa đó giọng không đặt `speaker_user_id` (tài khoản đứng). Câu tự xưng
-  (`reason` "words") vẫn đặt được người được xưng hô và không bao giờ ghi dấu.
+  (`reason` "words") vẫn đặt được người được xưng hô. Chữ không chọn dấu nào
+  để ghi; cửa thấp hơn vẫn có thể trộn dấu đã có của chính tài khoản.
 - **Kéo dấu của chính tài khoản** dùng `speaker_self_enroll_threshold` 0,45.
   Số này tạm, cho đến khi dry-run in cosine thật của đoạn Gọi với từng mỏ neo.
   Một lượt chỉ trộn vào dấu **đã có** của `message.sender_user_id` khi clip

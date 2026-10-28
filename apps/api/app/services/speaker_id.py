@@ -8,7 +8,8 @@ the logged-in account and is not enrolled. Prints are not Voice DNA clones.
 A self-introduction in the transcript («Con Đình Anh đây», «Anh ơi em đây»)
 can name the speaker when the voice does not. It is a local parse of words
 already heard, so it adds no model call. Voice wins when the two disagree,
-and words alone never enroll a print.
+and words never select whose print is written. A voice self-update that
+already qualified may still refresh the account's own print.
 
 Addressing and updating a print are different gates. A doubtful cosine keeps
 the logged-in account. That same clip may still blend into the account's
@@ -244,15 +245,17 @@ def enroll_target(
     self_threshold: float,
     addressed: SpeakerDecision | None = None,
 ) -> str | None:
-    """Print to blend, if any. Words never enroll. A confident match enrolls only that person.
+    """Whose existing print to blend, if any.
 
-    A doubtful voice enrolls the logged-in account when `account_self_enroll_id`
-    says so. The caller still has to refuse a missing print — this id is not
-    permission to create one.
+    Words never select the print. They do not enroll the person the sentence
+    named, and they do not cancel a voice update that already qualified. A
+    confident match enrolls only that person (`fuse_speaker` keeps reason
+    "match" in that case). Below the address gate, `account_self_enroll_id`
+    may still refresh the logged-in account's existing print, including when
+    the address reason is "words". The caller refuses a missing row — this id
+    is not permission to create one.
     """
     decision = addressed or voice
-    if decision.reason == "words":
-        return None
     if decision.enroll_user_id:
         return decision.enroll_user_id
     return account_self_enroll_id(
@@ -682,8 +685,10 @@ def spoken_speaker_id(db: Session, thread: Thread, text: str) -> str | None:
 def fuse_speaker(voice: SpeakerDecision, spoken_user_id: str | None) -> SpeakerDecision:
     """Voice address wins. Words fill in only when the voice did not match.
 
-    Words never enroll. A confident voice match still updates that print
-    even if the sentence names someone else.
+    The words decision carries no enroll id, so the named person is not the
+    print that gets written. It does not veto a self-update of the account
+    print; `enroll_target` applies that from the voice. A confident voice
+    match still updates that print even if the sentence names someone else.
     """
     if voice.confident and voice.user_id:
         return voice
@@ -773,9 +778,10 @@ def apply_speaker_turn(
 
     A confident voice match enrolls that person's existing print. Below the
     address gate, the logged-in account's existing print may still update when
-    they are the nearest voice. A spoken intro only changes who is addressed,
-    and only when the voice did not match. Does not create a print. The seed
-    script opens the gallery from anchors. Does not write a VoiceSample.
+    they are the nearest voice. A spoken intro changes who is addressed when
+    the voice did not match. It does not choose the print, and it does not
+    cancel that self-update. Does not create a print. The seed script opens
+    the gallery from anchors. Does not write a VoiceSample.
     """
     settings = settings or get_settings()
     meta = _message_meta(message)
