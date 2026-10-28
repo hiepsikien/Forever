@@ -176,6 +176,36 @@ def parse_observation(payload: object) -> EmbedObservation | None:
     )
 
 
+def _nearest_print(
+    embedding: list[float], prints: list[SpeakerPrintView]
+) -> tuple[str | None, float | None]:
+    best_id: str | None = None
+    best: float | None = None
+    unit = normalize(embedding)
+    for row in prints:
+        score = cosine(unit, normalize(row.embedding))
+        if score is None:
+            continue
+        if best is None or score > best:
+            best = score
+            best_id = row.user_id
+    return best_id, best
+
+
+def _halves_agree_on(
+    halves: tuple[list[float], list[float]],
+    prints: list[SpeakerPrintView],
+    person_id: str,
+    agree_min: float,
+) -> bool:
+    """Both halves are closer to `person_id` than to anyone else, by `agree_min`."""
+    for half in halves:
+        nearest, score = _nearest_print(half, prints)
+        if nearest != person_id or score is None or score < agree_min:
+            return False
+    return True
+
+
 def decide_speaker(
     embedding: list[float] | None,
     *,
@@ -186,20 +216,20 @@ def decide_speaker(
     margin: float,
     min_duration_s: float,
     half_min_cosine: float,
+    half_agree_min: float = 0.40,
 ) -> SpeakerDecision:
     """Pick a person, or leave the turn on the account.
 
     `duration_s is None` skips the length check (the seed script already
-    dropped short clips). Missing halves skip the two-voice check.
+    dropped short clips). Missing halves skip the two-voice check. Halves
+    below `half_min_cosine` are still one person when the whole clip
+    confidently matches someone and each half clears `half_agree_min` for
+    that same person. Halves that point at two people stay mixed.
     """
     if not embedding:
         return SpeakerDecision(None, False, None, None, None, "unavailable")
     if duration_s is not None and duration_s < min_duration_s:
         return SpeakerDecision(None, False, None, None, None, "short")
-    if halves is not None:
-        half_score = cosine(halves[0], halves[1])
-        if half_score is None or half_score < half_min_cosine:
-            return SpeakerDecision(None, False, None, None, None, "mixed")
     scored: list[tuple[float, str]] = []
     unit = normalize(embedding)
     for row in prints:
@@ -207,7 +237,11 @@ def decide_speaker(
         if score is None:
             continue
         scored.append((score, row.user_id))
+    half_score = cosine(halves[0], halves[1]) if halves is not None else None
+    low_halves = halves is not None and (half_score is None or half_score < half_min_cosine)
     if not scored:
+        if low_halves:
+            return SpeakerDecision(None, False, None, None, None, "mixed")
         return SpeakerDecision(None, False, None, None, None, "no_gallery")
     scored.sort(key=lambda item: item[0], reverse=True)
     best, best_id = scored[0]
@@ -215,7 +249,14 @@ def decide_speaker(
     gap_ok = second is None or (best - second) >= margin
     # A tie is not a person. Addressing and self-enroll both need one nearest.
     nearest = best_id if second is None or best > second else None
-    if best >= threshold and gap_ok:
+    confident = best >= threshold and gap_ok
+    if low_halves and not (
+        confident
+        and halves is not None
+        and _halves_agree_on(halves, prints, best_id, half_agree_min)
+    ):
+        return SpeakerDecision(None, False, None, None, None, "mixed")
+    if confident:
         return SpeakerDecision(
             best_id, True, best_id, best, second, "match", nearest_user_id=best_id
         )
@@ -992,6 +1033,7 @@ def apply_speaker_turn(
             margin=settings.speaker_match_margin,
             min_duration_s=settings.speaker_min_duration_s,
             half_min_cosine=settings.speaker_half_min_cosine,
+            half_agree_min=settings.speaker_half_agree_min,
         )
     decision = fuse_speaker(voice, spoken_user_id)
     enroll_id = enroll_target(

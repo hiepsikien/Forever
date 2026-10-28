@@ -118,10 +118,12 @@ class Settings(BaseSettings):
     speaker_match_threshold: float = 0.60
     speaker_match_margin: float = 0.10
     speaker_min_duration_s: float = 1.5
-    # Halves of one clip below this are two voices — don't switch address and
-    # don't enroll, including the account's own print. 0.50 sits next to the
-    # address gate so a mixed clip is rejected before it can move a print.
+    # Halves at or above this are one voice. Below it, the clip is still one
+    # person when the whole clip confidently matches someone and each half is
+    # at least `speaker_half_agree_min` from that same print. Two halves that
+    # point at different people stay mixed: no address change, no enroll.
     speaker_half_min_cosine: float = 0.50
+    speaker_half_agree_min: float = 0.40
     # Self-print update on a live turn, separate from addressing. A live turn
     # may blend into the logged-in account's EXISTING print when that account
     # is the nearest voice and the cosine clears this bar. Never creates a

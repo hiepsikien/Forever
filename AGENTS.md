@@ -65,8 +65,10 @@ tài khoản còn hơn gọi nhầm người.
   chấm điểm không trôi. Dry-run in một dòng mỗi tài khoản. Không bịa dấu khi
   chưa đủ cụm. Clone của người đã mất không phải giọng trên Gọi.
 
-Cửa hai giọng `speaker_half_min_cosine` là 0,50. Hai nửa dưới 0,50 là lẫn
-tiếng: không đổi xưng hô và không ghi dấu, kể cả tự ghi của tài khoản.
+Cửa hai giọng `speaker_half_min_cosine` là 0,50. Hai nửa từ mức đó trở lên là
+một giọng. Thấp hơn vẫn là một người khi cả đoạn khớp chắc một dấu và mỗi nửa
+cách đúng dấu đó ít nhất `speaker_half_agree_min` 0,40. Hai nửa chỉ hai người
+khác nhau thì không đổi xưng hô và không ghi dấu.
 
 Tên trên màn Gọi lấy từ `listMessages` sau khi job nền ghi `speaker_user_id`.
 `POST /messages/voice` trả ngay, `sender_name` vẫn là tài khoản. Mục «màn hiện

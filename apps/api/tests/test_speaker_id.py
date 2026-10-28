@@ -719,6 +719,34 @@ def test_half_cosine_rejects_a_mild_mix_and_keeps_one_voice():
     assert same.enroll_user_id == "son"
 
 
+def test_uneven_halves_of_one_person_still_match():
+    """One voice can split below 0.50 on a phone clip and still be that person.
+
+    Both halves stay nearest them, and the whole clip clears the address gate.
+    The same halves on someone else's voice stay mixed.
+    """
+    prints = [SpeakerPrintView("son", SON), SpeakerPrintView("mom", MOM)]
+    left = _unit(0.45, 0.80)
+    right = _unit(-0.85, 0.55)
+    between = cosine(left, right)
+    assert between is not None and between < 0.50
+    assert cosine(left, MOM) >= 0.40
+    assert cosine(right, MOM) >= 0.40
+    assert (cosine(left, MOM) or 0) > (cosine(left, SON) or 0)
+    assert (cosine(right, MOM) or 0) > (cosine(right, SON) or 0)
+    heard = decide_speaker(
+        MOM, halves=(left, right), duration_s=3.2, prints=prints, **THRESH
+    )
+    assert heard.reason == "match"
+    assert heard.user_id == "mom"
+    assert heard.enroll_user_id == "mom"
+    handoff = decide_speaker(
+        SON, halves=(left, right), duration_s=3.2, prints=prints, **THRESH
+    )
+    assert handoff.reason == "mixed"
+    assert handoff.enroll_user_id is None
+
+
 def test_self_enroll_keeps_address_closed_without_the_margin():
     prints = [SpeakerPrintView("son", SON3), SpeakerPrintView("mom", MOM3)]
     soft = decide_speaker(
