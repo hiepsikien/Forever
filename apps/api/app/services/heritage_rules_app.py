@@ -251,19 +251,35 @@ def _closing_affection_re(me: str, you: str) -> re.Pattern[str]:
 
 _SENT_SPLIT = re.compile(r"(?<=[.!?…])\s+")
 
-# Chỉ phần đuôi sáo sau «đang chờ {you}» — «về ăn cơm» không phải đuôi.
+# Đuôi sáo sau «đang chờ». «về» là chuyện («chờ em về»), không phải hạt từ.
 _WAITING_TAIL = re.compile(
-    r"^(?:\s*(?:đấy|nhé|nha|nhá|ạ|về|rồi|đó))*\s*[.!?…]*\s*$",
+    r"^(?:\s*(?:đấy|nhé|nha|nhá|ạ|rồi|đó))*\s*[.!?…]*\s*$",
     re.IGNORECASE,
 )
 
 
-def _household_waiting_re(you: str) -> re.Pattern[str]:
-    return re.compile(
-        rf"(?:cả\s+nhà|nhà\s+mình|\bnhà)\s+(?:(?:còn|vẫn)\s+)?"
+def _waiting_match(part: str, you: str) -> re.Match[str] | None:
+    """Cụm «cả nhà / nhà mình / nhà đang chờ».
+
+    «nhà» trần chỉ tính khi đứng đầu câu hoặc ngay sau dấu phẩy — nếu không,
+    «người nhà» và «ở nhà» cũng bị nhận nhầm.
+    """
+    pattern = re.compile(
+        rf"(?:cả\s+nhà|nhà\s+mình|nhà)\s+(?:(?:còn|vẫn)\s+)?"
         rf"đang\s+chờ\s+{re.escape(you)}\b",
         re.IGNORECASE,
     )
+    for match in pattern.finditer(part):
+        phrase = part[match.start() :]
+        bare = re.match(r"nhà\b", phrase, re.IGNORECASE) and not re.match(
+            r"nhà\s+mình\b", phrase, re.IGNORECASE
+        )
+        if not bare:
+            return match
+        prefix = part[: match.start()]
+        if not prefix.strip() or prefix.rstrip().endswith(","):
+            return match
+    return None
 
 
 def strip_household_waiting(
@@ -271,34 +287,40 @@ def strip_household_waiting(
     persona: Persona,
     audience: str | None,
 ) -> str:
-    """Bỏ câu kết «nhà đang chờ {you}».
+    """Bỏ câu kết «nhà đang chờ».
 
-    Luật tầng 1 đã cấm, nhưng lượt cũ trong phòng vẫn kéo model nói lại.
-    Câu kể có việc phía sau («…chờ em ở sân ga») thì giữ. Cả bài chỉ mỗi
-    câu ấy thì giữ nguyên — xóa trắng sẽ rơi vào câu từ chối sai vai.
+    Chỉ bỏ khi cụm chờ là cả câu, hoặc đứng sau dấu phẩy mà phần trước đã
+    thành câu («Giờ em nghỉ một chút, nhà mình còn đang chờ em.»). Câu kể
+    dính liền («Bố vừa về thì cả nhà đang chờ em.») và câu có việc phía sau
+    thì giữ. Cả bài chỉ mỗi câu ấy thì giữ nguyên — xóa trắng sẽ rơi vào
+    câu từ chối sai vai.
     """
     body = (text or "").strip()
     you = (persona.you(audience) or "").strip()
     if not body or not you:
         return body
-    pattern = _household_waiting_re(you)
     parts = [p.strip() for p in _SENT_SPLIT.split(body) if p.strip()]
     if not parts:
         return body
     kept: list[str] = []
     for part in parts:
-        match = pattern.search(part)
-        if not match or not _WAITING_TAIL.match(part[match.end() :]):
+        match = _waiting_match(part, you)
+        if match is None or not _WAITING_TAIL.match(part[match.end() :]):
             kept.append(part)
             continue
-        before = part[: match.start()].rstrip(" ,;—–-")
-        if not before:
+        before = part[: match.start()].rstrip()
+        if not before.strip(" ,;—–-"):
             continue
-        if len(before.split()) < 3:
+        if not before.endswith(","):
+            kept.append(part)
             continue
-        if before[-1] not in ".!?…":
-            before += "."
-        kept.append(before)
+        clause = before[:-1].rstrip(" ,;—–-")
+        if len(clause.split()) < 3:
+            kept.append(part)
+            continue
+        if clause[-1] not in ".!?…":
+            clause += "."
+        kept.append(clause)
     if not kept:
         return body
     return " ".join(kept)

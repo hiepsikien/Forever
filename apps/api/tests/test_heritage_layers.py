@@ -335,6 +335,31 @@ def test_household_waiting_closing_is_dropped_but_a_memory_stays():
     assert strip_household_waiting(only, FATHER, "spouse") == only
 
 
+def test_household_waiting_leaves_a_story_that_merely_ends_that_way():
+    """Cụm chờ dính trong câu kể thì giữ. Chỉ câu sáo, hoặc sau dấu phẩy, mới cắt."""
+    kept = (
+        "Hôm ấy người nhà đang chờ em.",
+        "Ở nhà đang chờ em. Mai mình đi.",
+        "Bố vừa về thì cả nhà đang chờ em.",
+        "Bố nhớ hôm cả nhà đang chờ em.",
+        "Hôm đó mưa. Hồi ấy cả nhà đang chờ em.",
+        "Năm ấy tàu trễ, cả nhà đang chờ em về.",
+        "Hồi ấy cả nhà đang chờ em về ăn cơm.",
+        # Hai khe nhỏ hơn chỗ cắt cụt: lịch sử đang copy «đang chờ», không phải hai dạng này.
+        "Nhà mình vẫn còn đang chờ em.",
+        "Nhà đang đợi em.",
+    )
+    for text in kept:
+        assert strip_household_waiting(text, FATHER, "spouse") == text
+
+    assert strip_household_waiting(
+        "Hôm nay trời mát. Nhà đang chờ em.", FATHER, "spouse"
+    ) == "Hôm nay trời mát."
+    assert strip_household_waiting(
+        "Giờ em nghỉ một chút, nhà đang chờ em.", FATHER, "spouse"
+    ) == "Giờ em nghỉ một chút."
+
+
 def test_winddown_nudges_once_per_window_not_every_turn():
     """Ngồi lâu từng làm «Bà nhớ cháu» dính vào cuối mọi câu trả lời."""
     fired = [
