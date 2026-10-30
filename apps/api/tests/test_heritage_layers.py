@@ -24,6 +24,7 @@ from app.services.heritage_rules_app import (
     clarify_line,
     fix_address_register,
     fix_foreign_self_reference,
+    strip_household_waiting,
     strip_repeated_closing,
 )
 from app.services.heritage_rules_family import (
@@ -300,6 +301,38 @@ def test_the_child_pair_never_reaches_a_grandchild():
 
 
 # --- Câu kết: một lần thì ấm, lượt nào cũng thế thì thành tật ---
+
+
+def test_spouse_winddown_does_not_say_the_house_is_waiting():
+    """Mẹ nghe bố lặp «cả nhà đang chờ em» — nhắc nghỉ không được nói câu ấy."""
+    body, kind = maybe_winddown(
+        "Nhà mình vẫn thế.",
+        sitting_turns=8,
+        threshold=8,
+        persona=FATHER,
+        audience="spouse",
+    )
+    assert kind == "sitting"
+    assert "đang chờ" not in body.lower()
+    assert "nghỉ" in body.lower()
+    assert "em" in body.lower()
+
+
+def test_household_waiting_closing_is_dropped_but_a_memory_stays():
+    echoed = "Hôm nay trời mát. Cả nhà đang chờ em."
+    assert strip_household_waiting(echoed, FATHER, "spouse") == "Hôm nay trời mát."
+
+    winddown = "Nhà mình vẫn vậy. Giờ em nghỉ một chút, nhà mình còn đang chờ em."
+    assert strip_household_waiting(winddown, FATHER, "spouse") == (
+        "Nhà mình vẫn vậy. Giờ em nghỉ một chút."
+    )
+
+    memory = "Hồi ấy cả nhà đang chờ em ở sân ga lúc tàu đến."
+    assert strip_household_waiting(memory, FATHER, "spouse") == memory
+
+    # Cả bài chỉ mỗi câu ấy thì không xóa trắng.
+    only = "Cả nhà đang chờ em."
+    assert strip_household_waiting(only, FATHER, "spouse") == only
 
 
 def test_winddown_nudges_once_per_window_not_every_turn():

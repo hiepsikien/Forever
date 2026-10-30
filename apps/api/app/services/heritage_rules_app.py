@@ -249,6 +249,61 @@ def _closing_affection_re(me: str, you: str) -> re.Pattern[str]:
     )
 
 
+_SENT_SPLIT = re.compile(r"(?<=[.!?…])\s+")
+
+# Chỉ phần đuôi sáo sau «đang chờ {you}» — «về ăn cơm» không phải đuôi.
+_WAITING_TAIL = re.compile(
+    r"^(?:\s*(?:đấy|nhé|nha|nhá|ạ|về|rồi|đó))*\s*[.!?…]*\s*$",
+    re.IGNORECASE,
+)
+
+
+def _household_waiting_re(you: str) -> re.Pattern[str]:
+    return re.compile(
+        rf"(?:cả\s+nhà|nhà\s+mình|\bnhà)\s+(?:(?:còn|vẫn)\s+)?"
+        rf"đang\s+chờ\s+{re.escape(you)}\b",
+        re.IGNORECASE,
+    )
+
+
+def strip_household_waiting(
+    text: str,
+    persona: Persona,
+    audience: str | None,
+) -> str:
+    """Bỏ câu kết «nhà đang chờ {you}».
+
+    Luật tầng 1 đã cấm, nhưng lượt cũ trong phòng vẫn kéo model nói lại.
+    Câu kể có việc phía sau («…chờ em ở sân ga») thì giữ. Cả bài chỉ mỗi
+    câu ấy thì giữ nguyên — xóa trắng sẽ rơi vào câu từ chối sai vai.
+    """
+    body = (text or "").strip()
+    you = (persona.you(audience) or "").strip()
+    if not body or not you:
+        return body
+    pattern = _household_waiting_re(you)
+    parts = [p.strip() for p in _SENT_SPLIT.split(body) if p.strip()]
+    if not parts:
+        return body
+    kept: list[str] = []
+    for part in parts:
+        match = pattern.search(part)
+        if not match or not _WAITING_TAIL.match(part[match.end() :]):
+            kept.append(part)
+            continue
+        before = part[: match.start()].rstrip(" ,;—–-")
+        if not before:
+            continue
+        if len(before.split()) < 3:
+            continue
+        if before[-1] not in ".!?…":
+            before += "."
+        kept.append(before)
+    if not kept:
+        return body
+    return " ".join(kept)
+
+
 def strip_repeated_closing(
     text: str,
     persona: Persona,

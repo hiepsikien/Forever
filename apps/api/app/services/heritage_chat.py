@@ -57,6 +57,7 @@ from .heritage_rules_app import (
     looks_like_taboo,
     soften_affection,
     strip_deference,
+    strip_household_waiting,
     strip_repeated_closing,
 )
 from .heritage_rules_family import (
@@ -1224,6 +1225,7 @@ def post_process_reply(
         if used_today >= per_day:
             cleaned = soften_affection(cleaned, persona)
     cleaned = strip_deference(cleaned)
+    cleaned = strip_household_waiting(cleaned, persona, audience)
     cleaned = strip_repeated_closing(cleaned, persona, audience, previous)
     cleaned = strip_living_joy_boilerplate(cleaned)
     cleaned = drop_trailing_family_redirect(cleaned, charter)

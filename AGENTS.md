@@ -259,8 +259,10 @@ hỏi lại một lần với chỗ rộng gấp ba; `_finalize_reply_text` ch�
 
 Câu kết phải thưa. `maybe_winddown` nhắc nghỉ mỗi `threshold` lượt chứ không
 phải mọi lượt sau ngưỡng — bỏ mốt-đun ấy là «Bà nhớ cháu» dính vào cuối từng
-câu trả lời. `strip_repeated_closing` cắt câu thương nhớ và cái đuôi «…, con.»
-khi lượt ngay trước đã dùng, nên nói một lần vẫn được, nói mãi thì không.
+câu trả lời. Nhắc nghỉ không được nói nhà đang chờ người nghe — mẹ nghe bố
+lặp «cả nhà đang chờ em». `strip_household_waiting` bỏ câu kết đó; câu kể có
+việc phía sau thì giữ. `strip_repeated_closing` cắt câu thương nhớ và cái đuôi
+«…, con.» khi lượt ngay trước đã dùng, nên nói một lần vẫn được, nói mãi thì không.
 
 Steward sửa hiến chương ở Cài đặt → AI → **Hiến chương gia đình**
 (`PATCH /settings` với `family_charter`). Đổi `living_kin` là đổi được câu nói

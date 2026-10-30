@@ -469,10 +469,10 @@ def winddown_line(
 ) -> str:
     me = persona.me(audience)
     you = persona.you(audience)
+    # Không nói «nhà đang chờ» — mẹ nghe bố lặp câu ấy. Luật tầng 1 đã cấm;
+    # nhắc nghỉ chỉ là nghỉ, không bảo nhà đang đợi.
     if persona.audience(audience) == "spouse":
-        return (
-            f"Nhà mình vẫn vậy. Giờ {you} nghỉ một chút, nhà mình còn đang chờ {you}."
-        )
+        return f"Nhà mình vẫn vậy. Giờ {you} nghỉ một chút nhé."
     return f"{cap(me)} nhớ {you}. Giờ {you} nghỉ một chút nhé."
 
 
